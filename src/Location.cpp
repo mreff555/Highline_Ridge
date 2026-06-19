@@ -785,7 +785,7 @@ namespace
 
         if (encounterId == "drunk_patron")
         {
-            if (tenacity > 70.0f)
+            if (tenacity > 65.0f)
             {
                 responseText =
                     "You do not think. You move.\n\n"
