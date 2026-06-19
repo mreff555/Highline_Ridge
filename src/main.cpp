@@ -1,3 +1,5 @@
+#include <AudioManager.h>
+#include <GameConfig.h>
 #include <Location.h>
 #include <RoomLoader.h>
 #include <raylib.h>
@@ -15,8 +17,6 @@ int main(void)
 {
     // Initialization
     //--------------------------------------------------------------------------------------
-    const Vector2 screenSize = {1500, 1117};
-    InitWindow(screenSize.x, screenSize.y, "Highline Ridge");
     std::srand((unsigned int)std::time(nullptr));
 
     auto locateResources = []() -> bool
@@ -54,6 +54,24 @@ int main(void)
     if (!locateResources())
         TraceLog(LOG_WARNING, "Could not locate resources/rooms.json from current working directory");
 
+    GameConfig gameConfig;
+    if (!loadGameConfig("resources/game_config.json", gameConfig) &&
+        !loadGameConfig("../resources/game_config.json", gameConfig))
+    {
+        TraceLog(LOG_WARNING, "Failed to load resources/game_config.json; using defaults");
+    }
+
+    const Vector2 screenSize = {
+        (float)gameConfig.display.width,
+        (float)gameConfig.display.height
+    };
+
+    InitWindow(screenSize.x, screenSize.y, "Highline Ridge");
+
+    AudioManager audioManager;
+    if (!audioManager.initialize(".", gameConfig.audio))
+        TraceLog(LOG_WARNING, "Audio manager failed to initialize");
+
     RoomDatabase roomDatabase;
     const bool roomsLoaded =
         roomDatabase.load("resources/rooms.json", ".") ||
@@ -61,6 +79,7 @@ int main(void)
     if (!roomsLoaded)
     {
         TraceLog(LOG_ERROR, "Failed to load rooms from resources/rooms.json");
+        audioManager.shutdown();
         CloseWindow();
         return 1;
     }
@@ -70,11 +89,12 @@ int main(void)
     if (!roomDatabase.loadStartRoom(locationStruct, startRoomId))
     {
         TraceLog(LOG_ERROR, "Failed to load starting room from resources/rooms.json");
+        audioManager.shutdown();
         CloseWindow();
         return 1;
     }
 
-    Location location(locationStruct, screenSize, roomDatabase, startRoomId);
+    Location location(locationStruct, screenSize, roomDatabase, audioManager, startRoomId);
 
     SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
@@ -99,6 +119,7 @@ int main(void)
 
     // De-Initialization
     //--------------------------------------------------------------------------------------
+    audioManager.shutdown();
     CloseWindow();        // Close window and OpenGL context
     //--------------------------------------------------------------------------------------
 

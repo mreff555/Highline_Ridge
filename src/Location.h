@@ -1,6 +1,7 @@
 #ifndef LOCATION_H
 #define LOCATION_H
 
+#include <AudioManager.h>
 #include <ConversationManager.h>
 #include <ConversationStruct.h>
 #include <InventoryMgr.h>
@@ -29,7 +30,12 @@ struct NarrativeChoiceHitArea
 class Location
 {
     public:
-    Location(const LocationStruct& locationStruct, Vector2 screenSize, RoomDatabase& roomDatabase, const std::string& roomId);
+    Location(
+        const LocationStruct& locationStruct,
+        Vector2 screenSize,
+        RoomDatabase& roomDatabase,
+        AudioManager& audioManager,
+        const std::string& roomId);
 
     virtual ~Location();
 
@@ -104,6 +110,7 @@ class Location
     const int screenHeight;
 
     RoomDatabase& roomDatabase;
+    AudioManager& audioManager;
     std::string currentRoomId;
     
     Texture2D locationImage;

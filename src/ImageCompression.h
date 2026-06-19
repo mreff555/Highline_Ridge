@@ -18,6 +18,8 @@ std::string compressedAssetPath(const std::string& path);
 
 bool decompressXzFile(const std::string& path, std::vector<unsigned char>& outBytes);
 
+bool loadAssetBytesFromFile(const std::string& path, std::vector<unsigned char>& outBytes);
+
 bool loadImageFromAssetFile(const std::string& path, Image& outImage);
 
 bool loadTextureFromAssetFile(const std::string& path, Texture2D& outTexture);

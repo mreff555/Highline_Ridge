@@ -42,6 +42,9 @@
 
 build
 
+# Audio assets are stored xz-compressed in git; keep local uncompressed copies untracked.
+resources/audio/**/*.mp3
+
 # Image assets are stored xz-compressed in git; keep local uncompressed copies untracked.
 resources/*.png
 resources/*.jpg

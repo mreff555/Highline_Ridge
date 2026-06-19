@@ -1,6 +1,7 @@
 #ifndef ROOM_LOADER_H
 #define ROOM_LOADER_H
 
+#include <AudioTypes.h>
 #include <ConversationStruct.h>
 #include <LocationStruct.h>
 #include <raylib.h>
@@ -29,6 +30,7 @@ struct RoomData
     bool isStart;
     std::map<std::string, std::string> exits;
     RoomSpeakConfig speakConfig;
+    RoomAudioConfig audio;
 };
 
 class RoomDatabase
@@ -42,6 +44,7 @@ class RoomDatabase
     bool loadRoom(const std::string& roomId, LocationStruct& outLocation) const;
     std::string getExitRoomId(const std::string& roomId, const std::string& direction) const;
     const RoomSpeakConfig& getSpeakConfig(const std::string& roomId) const;
+    const RoomAudioConfig& getRoomAudio(const std::string& roomId) const;
     const std::string& getAssetRoot() const { return assetRoot; }
 
     private:

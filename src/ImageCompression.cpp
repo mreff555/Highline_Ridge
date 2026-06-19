@@ -243,6 +243,23 @@ bool decompressXzFile(const std::string& path, std::vector<unsigned char>& outBy
     return decompressXzBytes(compressedBytes.data(), compressedBytes.size(), outBytes);
 }
 
+bool loadAssetBytesFromFile(const std::string& path, std::vector<unsigned char>& outBytes)
+{
+    std::vector<unsigned char> bytes;
+    if (!readBinaryFile(path, bytes))
+        return false;
+
+    const bool isXzAsset =
+        path.size() >= 3 &&
+        path.compare(path.size() - 3, 3, ".xz") == 0;
+
+    if (isXzAsset)
+        return decompressXzBytes(bytes.data(), bytes.size(), outBytes);
+
+    outBytes.swap(bytes);
+    return true;
+}
+
 bool loadImageFromAssetFile(const std::string& path, Image& outImage)
 {
     std::vector<unsigned char> bytes;

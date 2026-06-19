@@ -30,10 +30,16 @@ namespace
         "How you got here from the saloon is a blank page. How you got here at all is no clearer than before.";
 }
 
-    Location::Location(const LocationStruct& locationStruct, Vector2 screenSize, RoomDatabase& roomDatabase, const std::string& roomId)
+    Location::Location(
+        const LocationStruct& locationStruct,
+        Vector2 screenSize,
+        RoomDatabase& roomDatabase,
+        AudioManager& audioManager,
+        const std::string& roomId)
     : screenWidth((int)screenSize.x),
       screenHeight((int)screenSize.y),
       roomDatabase(roomDatabase),
+      audioManager(audioManager),
       currentRoomId(roomId),
       locationImage(locationStruct.locationImage),
       ownsLocationImage(locationStruct.ownsLocationImage),
@@ -69,6 +75,7 @@ namespace
             TraceLog(LOG_WARNING, "Some inventory images failed to load at startup");
         trimNarrativeBuffer();
         conversationMgr.onEnterRoom(currentRoomId, roomDatabase.getSpeakConfig(currentRoomId));
+        audioManager.onRoomEnter(roomDatabase.getRoomAudio(currentRoomId));
         updateInventoryLayout();
         updateActionAvailability();
     }
@@ -1011,6 +1018,7 @@ namespace
         narrativeChoiceHitAreas.clear();
 
         conversationMgr.onEnterRoom(currentRoomId, roomDatabase.getSpeakConfig(currentRoomId));
+        audioManager.onRoomEnter(roomDatabase.getRoomAudio(currentRoomId));
 
         narrativeScrollY = 0.0f;
         narrativeLayoutDirty = true;
@@ -1109,6 +1117,7 @@ namespace
 
     void Location::update()
     {
+        audioManager.update(GetFrameTime());
         updateInventoryLayout();
         updateActionAvailability();
 

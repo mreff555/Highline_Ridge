@@ -266,6 +266,92 @@ std::string siblingConfigPath(const std::string& configPath, const std::string& 
     return configPath.substr(0, slash + 1) + filename;
 }
 
+bool parseAudioClipDef(
+    const nlohmann::json& clip,
+    AudioClipDef& out,
+    bool defaultLoop,
+    const std::string& defaultTrigger = "")
+{
+    if (!clip.is_object())
+        return false;
+
+    out.path = clip.value("path", clip.value("file", ""));
+    if (out.path.empty())
+        return false;
+
+    out.volume = clip.value("volume", 1.0f);
+    out.fadeIn = clip.value("fade_in", clip.value("fadeIn", 0.0f));
+    out.fadeOut = clip.value("fade_out", clip.value("fadeOut", 0.0f));
+    out.loop = clip.value("loop", defaultLoop);
+    out.trigger = clip.value("trigger", defaultTrigger);
+
+    out.numericAttributes.clear();
+    out.boolAttributes.clear();
+    out.stringAttributes.clear();
+
+    for (auto it = clip.begin(); it != clip.end(); ++it)
+    {
+        const std::string& key = it.key();
+        if (key == "path" || key == "file" || key == "volume" ||
+            key == "fade_in" || key == "fadeIn" || key == "fade_out" || key == "fadeOut" ||
+            key == "loop" || key == "trigger")
+        {
+            continue;
+        }
+
+        if (it.value().is_number_float() || it.value().is_number_integer())
+            out.numericAttributes[key] = it.value().get<float>();
+        else if (it.value().is_boolean())
+            out.boolAttributes[key] = it.value().get<bool>();
+        else if (it.value().is_string())
+            out.stringAttributes[key] = it.value().get<std::string>();
+    }
+
+    return true;
+}
+
+bool parseRoomAudio(const nlohmann::json& audio, RoomAudioConfig& out)
+{
+    out = RoomAudioConfig{};
+    if (!audio.is_object())
+        return true;
+
+    if (audio.contains("music"))
+    {
+        AudioClipDef musicClip;
+        if (!parseAudioClipDef(audio["music"], musicClip, true))
+            return false;
+        out.music = musicClip;
+        out.hasMusic = true;
+    }
+
+    const nlohmann::json& ambient = audio.value("ambient", nlohmann::json::array());
+    if (!ambient.is_array())
+        return false;
+
+    for (const nlohmann::json& ambientClip : ambient)
+    {
+        AudioClipDef parsed;
+        if (!parseAudioClipDef(ambientClip, parsed, true))
+            return false;
+        out.ambient.push_back(parsed);
+    }
+
+    const nlohmann::json& sfx = audio.value("sfx", nlohmann::json::array());
+    if (!sfx.is_array())
+        return false;
+
+    for (const nlohmann::json& sfxClip : sfx)
+    {
+        AudioClipDef parsed;
+        if (!parseAudioClipDef(sfxClip, parsed, false, "on_enter"))
+            return false;
+        out.sfx.push_back(parsed);
+    }
+
+    return true;
+}
+
 bool parseExits(const nlohmann::json& exits, std::map<std::string, std::string>& out)
 {
     out.clear();
@@ -311,6 +397,9 @@ bool parseRoom(const std::string& id, const nlohmann::json& room, RoomData& out)
         return false;
 
     if (!parseSpeakConfig(room, out.speakConfig))
+        return false;
+
+    if (!parseRoomAudio(room.value("audio", nlohmann::json::object()), out.audio))
         return false;
 
     return true;
@@ -633,6 +722,16 @@ const RoomSpeakConfig& RoomDatabase::getSpeakConfig(const std::string& roomId) c
         return kEmptyConfig;
 
     return it->second.speakConfig;
+}
+
+const RoomAudioConfig& RoomDatabase::getRoomAudio(const std::string& roomId) const
+{
+    static const RoomAudioConfig kEmptyConfig;
+    std::map<std::string, RoomData>::const_iterator it = rooms.find(roomId);
+    if (it == rooms.end())
+        return kEmptyConfig;
+
+    return it->second.audio;
 }
 
 std::string RoomDatabase::getExitRoomId(const std::string& roomId, const std::string& direction) const
