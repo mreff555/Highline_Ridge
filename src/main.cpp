@@ -15,7 +15,7 @@ int main(void)
     // Initialization
     //--------------------------------------------------------------------------------------
     const Vector2 screenSize = {1500, 1117};
-    InitWindow(screenSize.x, screenSize.y, "raylib test game");
+    InitWindow(screenSize.x, screenSize.y, "Highline Ridge");
     std::srand((unsigned int)std::time(nullptr));
 
     RoomDatabase roomDatabase;

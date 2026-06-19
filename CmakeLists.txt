@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(RaylibGame CXX)
+project(HighlineRidge CXX)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 11)
@@ -43,6 +43,7 @@ FetchContent_MakeAvailable(json)
 
 # 3. Create the executable (use ${PROJECT_NAME} so everything stays consistent)
 add_executable(${PROJECT_NAME} ${SOURCES})
+set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "Highline Ridge")
 
 # 4. Include your own headers (src/ folder)
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
