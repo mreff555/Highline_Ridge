@@ -101,6 +101,7 @@ class Location
     std::string currentRoomId;
     
     Texture2D locationImage;
+    bool ownsLocationImage = true;
     std::string baseDescription;
     std::string narrativeText;
     std::string examineDetails;

@@ -12,6 +12,7 @@ namespace testgame
 struct LocationStruct
 {
     Texture2D locationImage;
+    bool ownsLocationImage = true;
     std::string locationDescription;
     std::string examineDetails;
     std::string speakDetails;

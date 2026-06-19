@@ -46,12 +46,15 @@ class RoomDatabase
 
     private:
     bool buildLocationStruct(const RoomData& room, LocationStruct& outLocation) const;
+    bool tryLoadRoomImage(const std::string& imagePath, Texture2D& outTexture) const;
+    Texture2D getUnderConstructionTexture() const;
 
     std::map<std::string, RoomData> rooms;
     Font descriptionFont;
     Font boldFont;
     bool fontsLoaded;
     std::string assetRoot;
+    mutable Texture2D underConstructionTexture{};
 };
 
 bool loadStartLocation(

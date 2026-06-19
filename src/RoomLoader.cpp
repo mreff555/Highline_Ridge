@@ -254,7 +254,7 @@ bool parseRoom(const std::string& id, const nlohmann::json& room, RoomData& out)
     out.useEnergyDelta = room.value("useEnergyDelta", 0.0f);
     out.useRepeatStatus = room.value("useRepeatStatus", false);
 
-    if (out.imagePath.empty() || out.description.empty())
+    if (out.description.empty())
         return false;
 
     if (!parseMovement(room.value("movement", nlohmann::json::object()), out.movement))
@@ -362,6 +362,9 @@ RoomDatabase::RoomDatabase()
 
 RoomDatabase::~RoomDatabase()
 {
+    if (underConstructionTexture.id != 0)
+        UnloadTexture(underConstructionTexture);
+
     if (fontsLoaded)
     {
         UnloadFont(descriptionFont);
@@ -449,28 +452,79 @@ bool RoomDatabase::load(const std::string& configPath, const std::string& assetR
     return !rooms.empty();
 }
 
+bool RoomDatabase::tryLoadRoomImage(const std::string& imagePath, Texture2D& outTexture) const
+{
+    if (imagePath.empty())
+        return false;
+
+    Texture2D texture{};
+    if (loadResourceTexture(assetRoot, imagePath, texture))
+    {
+        outTexture = texture;
+        return true;
+    }
+
+    return false;
+}
+
+Texture2D RoomDatabase::getUnderConstructionTexture() const
+{
+    if (underConstructionTexture.id != 0)
+        return underConstructionTexture;
+
+    Texture2D assetTexture{};
+    if (loadResourceTexture(assetRoot, "resources/room_under_construction.png", assetTexture))
+    {
+        underConstructionTexture = assetTexture;
+        SetTextureFilter(underConstructionTexture, TEXTURE_FILTER_BILINEAR);
+        return underConstructionTexture;
+    }
+
+    const int width = 1024;
+    const int height = 768;
+    Image image = GenImageColor(width, height, (Color){34, 32, 40, 255});
+
+    const Color accent = {186, 150, 72, 255};
+    const Color stripe = {168, 132, 48, 255};
+    ImageDrawRectangle(&image, 0, 0, width, 10, accent);
+    ImageDrawRectangle(&image, 0, height - 10, width, 10, accent);
+
+    for (int x = -height; x < width; x += 48)
+        ImageDrawRectangle(&image, x, height / 2 - 36, 24, 72, stripe);
+
+    const char* title = "UNDER CONSTRUCTION";
+    const char* subtitle = "This location is not yet complete.";
+    const float titleSize = 52.0f;
+    const float subtitleSize = 24.0f;
+    const Vector2 titleMeasure = MeasureTextEx(descriptionFont, title, titleSize, 2.0f);
+    const Vector2 subtitleMeasure = MeasureTextEx(descriptionFont, subtitle, subtitleSize, 1.0f);
+
+    ImageDrawTextEx(
+        &image,
+        descriptionFont,
+        title,
+        (Vector2){ (width - titleMeasure.x) * 0.5f, height * 0.36f },
+        titleSize,
+        2.0f,
+        accent);
+
+    ImageDrawTextEx(
+        &image,
+        descriptionFont,
+        subtitle,
+        (Vector2){ (width - subtitleMeasure.x) * 0.5f, height * 0.36f + titleMeasure.y + 18.0f },
+        subtitleSize,
+        1.0f,
+        (Color){176, 168, 152, 255});
+
+    underConstructionTexture = LoadTextureFromImage(image);
+    UnloadImage(image);
+    SetTextureFilter(underConstructionTexture, TEXTURE_FILTER_BILINEAR);
+    return underConstructionTexture;
+}
+
 bool RoomDatabase::buildLocationStruct(const RoomData& room, LocationStruct& outLocation) const
 {
-    const std::string primaryPath = resolveAssetPath(assetRoot, room.imagePath);
-    std::string imagePath = primaryPath;
-
-    if (!FileExists(imagePath.c_str()) && FileExists(room.imagePath.c_str()))
-        imagePath = room.imagePath;
-
-    if (!FileExists(imagePath.c_str()))
-    {
-        TraceLog(LOG_ERROR, "Room image not found: %s", primaryPath.c_str());
-        return false;
-    }
-
-    const Texture2D texture = LoadTexture(imagePath.c_str());
-    if (texture.id == 0)
-    {
-        TraceLog(LOG_ERROR, "Failed to load room image: %s", imagePath.c_str());
-        return false;
-    }
-
-    outLocation.locationImage = texture;
     outLocation.locationDescription = room.description;
     outLocation.examineDetails = room.examineDetails;
     outLocation.speakDetails = room.speakDetails;
@@ -482,7 +536,22 @@ bool RoomDatabase::buildLocationStruct(const RoomData& room, LocationStruct& out
     outLocation.boldFont = boldFont;
     outLocation.movementFilter = room.movement;
     outLocation.actionFilter = room.actions;
+    outLocation.ownsLocationImage = true;
 
+    Texture2D roomTexture{};
+    if (tryLoadRoomImage(room.imagePath, roomTexture))
+    {
+        outLocation.locationImage = roomTexture;
+        return true;
+    }
+
+    if (!room.imagePath.empty())
+        TraceLog(LOG_WARNING, "Room '%s' image unavailable (%s); using under-construction placeholder", room.id.c_str(), room.imagePath.c_str());
+    else
+        TraceLog(LOG_INFO, "Room '%s' has no image; using under-construction placeholder", room.id.c_str());
+
+    outLocation.locationImage = getUnderConstructionTexture();
+    outLocation.ownsLocationImage = false;
     return true;
 }
 

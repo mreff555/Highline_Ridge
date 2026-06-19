@@ -30,6 +30,7 @@ namespace
       roomDatabase(roomDatabase),
       currentRoomId(roomId),
       locationImage(locationStruct.locationImage),
+      ownsLocationImage(locationStruct.ownsLocationImage),
       baseDescription(locationStruct.locationDescription),
       narrativeText(locationStruct.locationDescription),
       examineDetails(locationStruct.examineDetails),
@@ -66,7 +67,8 @@ namespace
 
     Location::~Location()
     {
-        UnloadTexture(locationImage);
+        if (ownsLocationImage && locationImage.id != 0)
+            UnloadTexture(locationImage);
     }
 
     Texture2D Location::getImage() const
@@ -378,7 +380,8 @@ namespace
             return;
         }
 
-        UnloadTexture(locationImage);
+        if (ownsLocationImage && locationImage.id != 0)
+            UnloadTexture(locationImage);
         currentRoomId = startRoomId;
         applyLocationStruct(cabinLocation);
 
@@ -577,7 +580,8 @@ namespace
             return;
         }
 
-        UnloadTexture(locationImage);
+        if (ownsLocationImage && locationImage.id != 0)
+            UnloadTexture(locationImage);
         currentRoomId = nextRoomId;
         applyLocationStruct(nextLocation);
     }
@@ -585,6 +589,7 @@ namespace
     void Location::applyLocationStruct(const LocationStruct& locationStruct)
     {
         locationImage = locationStruct.locationImage;
+        ownsLocationImage = locationStruct.ownsLocationImage;
         baseDescription = locationStruct.locationDescription;
         narrativeText = locationStruct.locationDescription;
         examineDetails = locationStruct.examineDetails;
