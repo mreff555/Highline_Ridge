@@ -6,8 +6,21 @@
 #include <RoomLoader.h>
 #include <raylib.h>
 #include <string>
+#include <vector>
 namespace testgame
 {
+
+struct DialogChoice
+{
+    std::string id;
+    std::string lineText;
+};
+
+struct NarrativeChoiceHitArea
+{
+    std::string id;
+    Rectangle bounds;
+};
 
 class Location
 {
@@ -31,6 +44,16 @@ class Location
     void appendUseDetails();
 
     private:
+    void handleSpeak();
+    void handleSaloonSpeak();
+    void beginBartenderConversation();
+    void resolveDialogChoice(const std::string& choiceId);
+    void handleNarrativeChoiceInput();
+    void appendDialogChoices(const std::vector<DialogChoice>& choices);
+    void applyLucidityCollapseRestart();
+    const char* pickRandomSaloonPatronLine();
+    bool isDialogChoiceLine(const std::string& line) const;
+    Color narrativeLineColor(const std::string& line) const;
     void applyLocationStruct(const LocationStruct& locationStruct);
     void tryMove(const std::string& direction);
     void trimNarrativeBuffer();
@@ -44,7 +67,7 @@ class Location
     float getNarrativeVisibleHeight() const;
     float getNarrativeLineHeight() const;
     float getNarrativeWrapWidth() const;
-    void layoutWrappedParagraph(const char* text, Font font, float paragraphFontSize, float& textOffsetY, bool draw, float scrollY) const;
+    void layoutWrappedParagraph(const char* text, Font font, float paragraphFontSize, float& textOffsetY, bool draw, float scrollY, Color lineColor) const;
     bool isBoldNarrativeHeader(const std::string& line) const;
 
     static const int kMaxNarrativeLines = 500;
@@ -75,6 +98,12 @@ class Location
     bool hasExaminedCurrentRoom = false;
     bool hasSpokenInCurrentRoom = false;
     bool hasUsedInCurrentRoom = false;
+    bool awaitingDialogChoice = false;
+    bool bartenderConversationComplete = false;
+    int saloonSpeakCount = 0;
+    int lastSaloonPatronIndex = -1;
+    std::vector<DialogChoice> pendingDialogChoices;
+    mutable std::vector<NarrativeChoiceHitArea> narrativeChoiceHitAreas;
 
     float health = 90.0f;
     float energy = 20.0f;

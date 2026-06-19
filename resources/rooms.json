@@ -137,7 +137,7 @@
       },
       "actions": {
         "examine": true,
-        "speak": false,
+        "speak": true,
         "hit": false,
         "use": false
       },

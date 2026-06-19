@@ -1,6 +1,8 @@
 #include <Location.h>
 #include <RoomLoader.h>
 #include <raylib.h>
+#include <cstdlib>
+#include <ctime>
 #include <stdio.h>
 
 using namespace testgame;
@@ -14,6 +16,7 @@ int main(void)
     //--------------------------------------------------------------------------------------
     const Vector2 screenSize = {1500, 1117};
     InitWindow(screenSize.x, screenSize.y, "raylib test game");
+    std::srand((unsigned int)std::time(nullptr));
 
     RoomDatabase roomDatabase;
     const bool roomsLoaded =

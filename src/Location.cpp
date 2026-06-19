@@ -2,6 +2,8 @@
 #include <raylib.h>
 #include <sstream>
 #include <algorithm>
+#include <cstdlib>
+#include <ctime>
 
 namespace testgame
 {
@@ -13,6 +15,22 @@ namespace
     const Color kScrollTrack = {48, 44, 56, 255};
     const Color kScrollThumb = {140, 118, 72, 255};
     const Color kScrollThumbHover = {168, 142, 88, 255};
+    const Color kChoiceText = {168, 138, 72, 255};
+    const Color kChoiceHover = {210, 178, 108, 255};
+
+    const char* kWakeOnFloorPrefix =
+        "You come back to yourself on the floor of the cabin, cheek pressed to the Persian rug, "
+        "the fireplace crackling somewhere near your shoulder. Your mouth tastes of ash and bourbon. "
+        "How you got here from the saloon is a blank page. How you got here at all is no clearer than before.";
+
+    const char* kSaloonPatronLines[] = {
+        "A faro player at the stove table looks up long enough to fan his cards. \"House always remembers,\" he says, and returns to his stack as though you are part of the furniture.",
+        "On the balcony, a woman in burgundy silk follows your movement with professional interest. \"Back early,\" she murmurs, and the words are not quite a question.",
+        "The piano player cuts a glance your way mid-phrase, fingers never stopping. \"Easy now,\" he says to the keys, but you suspect the advice is meant for you.",
+        "A miner at the poker table rubs a thumb over a chipped ace. \"Luck ain't a debt you can outrun,\" he mutters, and the table laughs without warmth.",
+        "A barmaid passes with an empty tray, eyes flicking over you once. \"Mind the stairs,\" she says, already gone into the crowd."
+    };
+    const int kSaloonPatronLineCount = sizeof(kSaloonPatronLines) / sizeof(kSaloonPatronLines[0]);
 }
 
     Location::Location(const LocationStruct& locationStruct, Vector2 screenSize, RoomDatabase& roomDatabase, const std::string& roomId)
@@ -124,6 +142,33 @@ namespace
         return line == "Examining:" || line == "Speaking:" || line == "Using:";
     }
 
+    bool Location::isDialogChoiceLine(const std::string& line) const
+    {
+        return line.size() > 2 && line.compare(0, 2, "> ") == 0;
+    }
+
+    Color Location::narrativeLineColor(const std::string& line) const
+    {
+        if (!awaitingDialogChoice || !isDialogChoiceLine(line))
+            return textColor;
+
+        for (const DialogChoice& choice : pendingDialogChoices)
+        {
+            if (line == choice.lineText)
+            {
+                const Vector2 mousePos = GetMousePosition();
+                for (const NarrativeChoiceHitArea& hitArea : narrativeChoiceHitAreas)
+                {
+                    if (hitArea.id == choice.id && CheckCollisionPointRec(mousePos, hitArea.bounds))
+                        return kChoiceHover;
+                }
+                return kChoiceText;
+            }
+        }
+
+        return textColor;
+    }
+
     void Location::appendNarrativeSection(const char* header, const std::string& details)
     {
         if (details.empty())
@@ -157,6 +202,183 @@ namespace
         updateActionAvailability();
     }
 
+    void Location::appendDialogChoices(const std::vector<DialogChoice>& choices)
+    {
+        pendingDialogChoices = choices;
+        awaitingDialogChoice = true;
+
+        for (const DialogChoice& choice : choices)
+        {
+            narrativeText += "\n";
+            narrativeText += choice.lineText;
+        }
+
+        trimNarrativeBuffer();
+        narrativeLayoutDirty = true;
+        updateActionAvailability();
+    }
+
+    void Location::beginBartenderConversation()
+    {
+        const std::string intro =
+            "You step to the bar. The noise closes around you, then parts. The bartender meets your eyes "
+            "with a neutral expression that gives away nothing. He knows you. That much is plain. He is not "
+            "inclined to tell a story about it.\n\n"
+            "\"You want the usual?\" he says, rag finally moving again across the wood.";
+
+        appendNarrativeSection("Speaking:", intro);
+        appendDialogChoices({
+            {"water", "> No, just a water"},
+            {"usual", "> Sure"}
+        });
+    }
+
+    void Location::resolveDialogChoice(const std::string& choiceId)
+    {
+        if (!awaitingDialogChoice)
+            return;
+
+        awaitingDialogChoice = false;
+        pendingDialogChoices.clear();
+        narrativeChoiceHitAreas.clear();
+        bartenderConversationComplete = true;
+
+        if (choiceId == "water")
+        {
+            appendNarrativeSection(
+                "Speaking:",
+                "The bartender holds your gaze a beat longer than necessary, then turns away for a glass. "
+                "He sets it on the bar without ceremony. Water, clear and cold. Under his breath, barely "
+                "audible above the piano, he mutters that he is perfectly all right with you not drinking "
+                "in his establishment. The words are flat. Not cruel. Not kind. Simply settled.");
+        }
+        else if (choiceId == "usual")
+        {
+            appendNarrativeSection(
+                "Speaking:",
+                "The bartender's jaw tightens almost imperceptibly. He reaches high above the backbar, "
+                "to a shelf you would need a ladder to trust, and brings down a bottle of bourbon with "
+                "an artistic label and a wax seal dark as blood. He pours a single shot without measuring, "
+                "slides it across the pine, and watches you with a look that could crush stone.\n\n"
+                "You down it anyway. Fire and oak. The room tilts half a degree and rights itself. Your "
+                "resolve hardens even as your thoughts go slippery at the edges.");
+
+            tenacity = std::min(100.0f, tenacity + 20.0f);
+            lucidity = std::max(0.0f, lucidity - 10.0f);
+            updateActionAvailability();
+
+            if (lucidity <= 0.0f)
+            {
+                applyLucidityCollapseRestart();
+                return;
+            }
+        }
+
+        updateActionAvailability();
+    }
+
+    const char* Location::pickRandomSaloonPatronLine()
+    {
+        if (kSaloonPatronLineCount <= 0)
+            return "";
+
+        int index = rand() % kSaloonPatronLineCount;
+        if (kSaloonPatronLineCount > 1)
+        {
+            int guard = 0;
+            while (index == lastSaloonPatronIndex && guard < 8)
+            {
+                index = rand() % kSaloonPatronLineCount;
+                ++guard;
+            }
+        }
+
+        lastSaloonPatronIndex = index;
+        return kSaloonPatronLines[index];
+    }
+
+    void Location::handleSaloonSpeak()
+    {
+        if (awaitingDialogChoice)
+            return;
+
+        if (!bartenderConversationComplete)
+        {
+            beginBartenderConversation();
+            ++saloonSpeakCount;
+            return;
+        }
+
+        const char* patronLine = pickRandomSaloonPatronLine();
+        if (patronLine[0] != '\0')
+            appendNarrativeSection("Speaking:", patronLine);
+
+        ++saloonSpeakCount;
+    }
+
+    void Location::handleSpeak()
+    {
+        if (currentRoomId == "saloon_interior")
+        {
+            handleSaloonSpeak();
+            return;
+        }
+
+        appendSpeakDetails();
+    }
+
+    void Location::applyLucidityCollapseRestart()
+    {
+        LocationStruct cabinLocation;
+        std::string startRoomId;
+        if (!roomDatabase.loadStartRoom(cabinLocation, startRoomId))
+        {
+            TraceLog(LOG_ERROR, "Failed to restart at cabin after lucidity collapse");
+            return;
+        }
+
+        UnloadTexture(locationImage);
+        currentRoomId = startRoomId;
+        applyLocationStruct(cabinLocation);
+
+        narrativeText = std::string(kWakeOnFloorPrefix) + "\n\n" + baseDescription;
+        health = 90.0f;
+        energy = 20.0f;
+        tenacity = 50.0f;
+        lucidity = 30.0f;
+        narrativeScrollY = 0.0f;
+        narrativeLayoutDirty = true;
+        trimNarrativeBuffer();
+        updateActionAvailability();
+    }
+
+    void Location::handleNarrativeChoiceInput()
+    {
+        if (!awaitingDialogChoice || narrativeChoiceHitAreas.empty())
+            return;
+
+        const Rectangle textArea = {
+            textBox.x,
+            textBox.y,
+            textBox.width - kScrollbarWidth,
+            textBox.height
+        };
+
+        const Vector2 mousePos = GetMousePosition();
+        if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || !CheckCollisionPointRec(mousePos, textArea))
+            return;
+
+        for (const NarrativeChoiceHitArea& hitArea : narrativeChoiceHitAreas)
+        {
+            if (CheckCollisionPointRec(mousePos, hitArea.bounds))
+            {
+                resolveDialogChoice(hitArea.id);
+                scrollNarrativeToBottom();
+                return;
+            }
+        }
+    }
+
     void Location::appendUseDetails()
     {
         if (useDetails.empty() || hasUsedInCurrentRoom)
@@ -178,7 +400,9 @@ namespace
         movement.right = right;
 
         ActionStruct actions = baseActionFilter;
-        if (!speakDetails.empty())
+        if (currentRoomId == "saloon_interior")
+            actions.speak = baseActionFilter.speak && !awaitingDialogChoice;
+        else if (!speakDetails.empty())
             actions.speak = !hasSpokenInCurrentRoom;
         else
             actions.speak = false;
@@ -242,6 +466,17 @@ namespace
         hasExaminedCurrentRoom = false;
         hasSpokenInCurrentRoom = false;
         hasUsedInCurrentRoom = false;
+        awaitingDialogChoice = false;
+        pendingDialogChoices.clear();
+        narrativeChoiceHitAreas.clear();
+
+        if (currentRoomId == "saloon_interior")
+        {
+            saloonSpeakCount = 0;
+            bartenderConversationComplete = false;
+            lastSaloonPatronIndex = -1;
+        }
+
         narrativeScrollY = 0.0f;
         narrativeLayoutDirty = true;
         trimNarrativeBuffer();
@@ -265,7 +500,7 @@ namespace
             }
 
             const Font lineFont = isBoldNarrativeHeader(line) ? boldFont : descriptionFont;
-            layoutWrappedParagraph(line.c_str(), lineFont, fontSize, textOffsetY, false, 0.0f);
+            layoutWrappedParagraph(line.c_str(), lineFont, fontSize, textOffsetY, false, 0.0f, textColor);
         }
 
         narrativeContentHeight = textOffsetY;
@@ -338,6 +573,7 @@ namespace
 
     void Location::update()
     {
+        handleNarrativeChoiceInput();
         buttonMgr.update();
 
         if (buttonMgr.consumeForwardButtonClick())
@@ -357,7 +593,7 @@ namespace
 
         if (buttonMgr.consumeSpeakButtonClick())
         {
-            appendSpeakDetails();
+            handleSpeak();
             scrollNarrativeToBottom();
         }
 
@@ -422,6 +658,8 @@ namespace
         if (narrativeLayoutDirty)
             rebuildNarrativeLayout();
 
+        narrativeChoiceHitAreas.clear();
+
         const Rectangle clipArea = {
             textBox.x,
             textBox.y,
@@ -448,13 +686,32 @@ namespace
             }
 
             const Font lineFont = isBoldNarrativeHeader(line) ? boldFont : descriptionFont;
-            layoutWrappedParagraph(line.c_str(), lineFont, fontSize, textOffsetY, true, narrativeScrollY);
+            const Color lineColor = narrativeLineColor(line);
+
+            if (awaitingDialogChoice && isDialogChoiceLine(line))
+            {
+                for (const DialogChoice& choice : pendingDialogChoices)
+                {
+                    if (line != choice.lineText)
+                        continue;
+
+                    const float drawY = textBox.y + yOffset + textOffsetY - narrativeScrollY;
+                    const Vector2 textSize = MeasureTextEx(lineFont, line.c_str(), fontSize, spacing);
+                    narrativeChoiceHitAreas.push_back({
+                        choice.id,
+                        { textBox.x + xOffset, drawY, textSize.x, getNarrativeLineHeight() }
+                    });
+                    break;
+                }
+            }
+
+            layoutWrappedParagraph(line.c_str(), lineFont, fontSize, textOffsetY, true, narrativeScrollY, lineColor);
         }
 
         EndScissorMode();
     }
 
-    void Location::layoutWrappedParagraph(const char* text, Font font, float paragraphFontSize, float& textOffsetY, bool draw, float scrollY) const
+    void Location::layoutWrappedParagraph(const char* text, Font font, float paragraphFontSize, float& textOffsetY, bool draw, float scrollY, Color lineColor) const
     {
         int length = TextLength(text);
 
@@ -549,7 +806,7 @@ namespace
                             codepoint,
                             (Vector2){ textBox.x + xOffset + textOffsetX, drawY },
                             paragraphFontSize,
-                            textColor);
+                            lineColor);
                     }
                 }
 
