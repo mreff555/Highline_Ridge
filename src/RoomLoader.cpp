@@ -397,6 +397,7 @@ bool loadResourceTexture(
 RoomDatabase::RoomDatabase()
     : descriptionFont{},
       boldFont{},
+      uiFont{},
       fontsLoaded(false)
 {
 }
@@ -408,6 +409,11 @@ RoomDatabase::~RoomDatabase()
         UnloadFont(descriptionFont);
         if (boldFont.texture.id != descriptionFont.texture.id)
             UnloadFont(boldFont);
+        if (uiFont.texture.id != descriptionFont.texture.id &&
+            uiFont.texture.id != boldFont.texture.id)
+        {
+            UnloadFont(uiFont);
+        }
     }
 }
 
@@ -435,6 +441,7 @@ bool RoomDatabase::load(const std::string& configPath, const std::string& assetR
 
     const std::string fontPath = config.value("font", "");
     const std::string boldFontPath = config.value("boldFont", fontPath);
+    const std::string uiFontPath = config.value("uiFont", "");
     if (fontPath.empty())
         return false;
 
@@ -447,6 +454,16 @@ bool RoomDatabase::load(const std::string& configPath, const std::string& assetR
         boldFont = loadGameFont(assetRoot, boldFontPath);
         if (boldFont.texture.id == 0)
             boldFont = descriptionFont;
+
+        if (!uiFontPath.empty())
+            uiFont = loadGameFont(assetRoot, uiFontPath);
+
+        if (uiFont.texture.id == 0)
+        {
+            uiFont = loadGameFont(assetRoot, "/System/Library/Fonts/Supplemental/Courier New.ttf");
+            if (uiFont.texture.id == 0)
+                uiFont = descriptionFont;
+        }
 
         fontsLoaded = true;
     }
@@ -521,6 +538,7 @@ bool RoomDatabase::buildLocationStruct(const RoomData& room, LocationStruct& out
     outLocation.useRepeatStatus = room.useRepeatStatus;
     outLocation.descriptionFont = descriptionFont;
     outLocation.boldFont = boldFont;
+    outLocation.uiFont = uiFont;
     outLocation.movementFilter = room.movement;
     outLocation.actionFilter = room.actions;
 

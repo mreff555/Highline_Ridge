@@ -53,7 +53,7 @@ ButtonMgr::ButtonMgr(Rectangle _buttonBox, Font _buttonFont)
           {62, 52, 34, 255},
           {108, 102, 92, 255},
           0.18f,
-          18.0f
+          17.0f
       }
 {
     const float pad = 18.0f;
@@ -156,7 +156,7 @@ void ButtonMgr::addButton(const char* label, Rectangle bounds)
 
 void ButtonMgr::drawSectionLabel(const char* label, float x, float y) const
 {
-    DrawTextEx(buttonFont, label, { x, y }, 14.0f, 1, kSectionLabel);
+    DrawTextEx(buttonFont, label, { x, y }, 15.0f, 1, kSectionLabel);
 }
 
 void ButtonMgr::drawStatusBar(const char* label, Rectangle bounds, float percent) const
@@ -173,7 +173,7 @@ void ButtonMgr::drawStatusBar(const char* label, Rectangle bounds, float percent
         barHeight - 4.0f
     };
 
-    DrawTextEx(buttonFont, label, { bounds.x, bounds.y }, 12.0f, 1, kSectionLabel);
+    DrawTextEx(buttonFont, label, { bounds.x, bounds.y }, 13.0f, 1, kSectionLabel);
     DrawRectangleRounded(track, 0.18f, 8, kStatusTrack);
     DrawRectangleRoundedLines(track, 0.18f, 8, 2.0f, kPanelBorder);
 
@@ -184,12 +184,12 @@ void ButtonMgr::drawStatusBar(const char* label, Rectangle bounds, float percent
 
     char percentText[8];
     snprintf(percentText, sizeof(percentText), "%d%%", (int)percent);
-    const Vector2 textSize = MeasureTextEx(buttonFont, percentText, 12.0f, 1);
+    const Vector2 textSize = MeasureTextEx(buttonFont, percentText, 13.0f, 1);
     DrawTextEx(
         buttonFont,
         percentText,
         { bounds.x + (bounds.width - textSize.x) / 2.0f, barTop + (barHeight - textSize.y) / 2.0f },
-        12.0f,
+        13.0f,
         1,
         {228, 220, 198, 220});
 }

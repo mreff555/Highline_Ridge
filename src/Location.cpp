@@ -58,9 +58,9 @@ namespace
       textBox{screenWidth / 2.0f, 0, screenWidth / 2.0f, screenHeight * 2.0f / 3.0f},
       buttonBox{screenWidth / 2.0f, screenHeight * 2.0f / 3.0f, screenWidth / 2.0f, screenHeight / 3.0f},
       fullDialogHeight(screenHeight * 2.0f / 3.0f),
-      buttonMgr(buttonBox, descriptionFont)
+      buttonMgr(buttonBox, locationStruct.uiFont)
     {
-        inventoryMgr.setFont(descriptionFont);
+        inventoryMgr.setFont(locationStruct.uiFont);
         const std::string& assetRoot = roomDatabase.getAssetRoot();
         const std::string fallbackRoot = (assetRoot == ".") ? ".." : ".";
         inventoryMgr.setAssetRoots(assetRoot, fallbackRoot);

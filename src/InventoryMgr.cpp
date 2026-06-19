@@ -516,7 +516,7 @@ void InventoryMgr::draw() const
     DrawRectangleRounded(accentBar, 1.0f, 4, kPanelAccent);
 
     const float pad = 14.0f;
-    DrawTextEx(panelFont, "INVENTORY", { panelBounds.x + pad, panelBounds.y + pad }, 14.0f, 1, kSectionLabel);
+    DrawTextEx(panelFont, "INVENTORY", { panelBounds.x + pad, panelBounds.y + pad }, 15.0f, 1, kSectionLabel);
 
     drawCloseButton();
     drawItemGrid();
