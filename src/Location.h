@@ -26,14 +26,23 @@ class Location
 
     void update();
     void draw() const;
-    void DrawTextBoxed(const char* text) const;
-    void drawNarrativeText() const;
-    void drawWrappedParagraph(const char* text, Font font, float paragraphFontSize, float& textOffsetY) const;
     void appendExamineDetails();
 
     private:
     void applyLocationStruct(const LocationStruct& locationStruct);
     void tryMove(const std::string& direction);
+    void trimNarrativeBuffer();
+    void rebuildNarrativeLayout() const;
+    void handleNarrativeScrollInput();
+    void drawNarrativeText() const;
+    void drawNarrativeScrollbar() const;
+    float getNarrativeVisibleHeight() const;
+    float getNarrativeLineHeight() const;
+    float getNarrativeWrapWidth() const;
+    void layoutWrappedParagraph(const char* text, Font font, float paragraphFontSize, float& textOffsetY, bool draw, float scrollY) const;
+
+    static const int kMaxNarrativeLines = 500;
+    static const float kScrollbarWidth;
 
     const int screenWidth;
     const int screenHeight;
@@ -63,6 +72,13 @@ class Location
     const Rectangle textBox;
     const Rectangle buttonBox;
     ButtonMgr buttonMgr;
+
+    float narrativeScrollY = 0.0f;
+    mutable bool narrativeLayoutDirty = true;
+    bool scrollbarDragging = false;
+    float scrollbarDragOffsetY = 0.0f;
+
+    mutable float narrativeContentHeight = 0.0f;
 };
 
 }
