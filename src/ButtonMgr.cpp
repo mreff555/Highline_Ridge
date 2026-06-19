@@ -32,6 +32,8 @@ namespace
             default: return kEnergyFill;
         }
     }
+
+    const float kButtonHoldDurationSeconds = 0.1f;
 }
 
 ButtonMgr::ButtonMgr(Rectangle _buttonBox, Font _buttonFont)
@@ -288,15 +290,39 @@ void ButtonMgr::update()
     inventoryButtonClicked = false;
 
     Vector2 mousePos = GetMousePosition();
-    const bool mouseDown = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
-    const bool mouseJustPressed = mouseDown && !mouseWasDownLastFrame;
-    mouseWasDownLastFrame = mouseDown;
 
-    if (mouseJustPressed)
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
-        const int buttonIndex = findEnabledButtonUnderMouse(mousePos);
-        if (buttonIndex >= 0)
-            registerButtonClick(buttonIndex);
+        activePressButtonIndex = findEnabledButtonUnderMouse(mousePos);
+        activePressStartTime = GetTime();
+        activePressClickFired = false;
+    }
+
+    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) &&
+        activePressButtonIndex >= 0 &&
+        !activePressClickFired)
+    {
+        if (findEnabledButtonUnderMouse(mousePos) == activePressButtonIndex)
+        {
+            if (GetTime() - activePressStartTime >= kButtonHoldDurationSeconds)
+            {
+                registerButtonClick(activePressButtonIndex);
+                activePressClickFired = true;
+            }
+        }
+        else
+        {
+            activePressButtonIndex = -1;
+        }
+    }
+
+    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+    {
+        if (activePressButtonIndex >= 0 && !activePressClickFired)
+            registerButtonClick(activePressButtonIndex);
+
+        activePressButtonIndex = -1;
+        activePressClickFired = false;
     }
 
     for (auto& button : buttons)
