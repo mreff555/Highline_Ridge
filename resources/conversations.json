@@ -92,6 +92,34 @@
           {
             "id": "barmaid",
             "text": "A barmaid passes with an empty tray, eyes flicking over you once. \"Mind the stairs,\" she says, already gone into the crowd."
+          },
+          {
+            "id": "drunk_patron",
+            "weight": 3,
+            "allowAttack": true,
+            "attackEncounterId": "drunk_patron",
+            "text": "You shoulder through the press near the bar, looking for a clear patch of pine to think. A miner in a stained duster is half-turned on his stool, elbow high, telling the room a story it has already heard. You brush his arm reaching for the rail. It is nothing. A half-second contact in a crowded room.\n\nHe comes off the stool like you struck him on purpose.\n\n\"The hell you think you're doing?\" he roars, breath hot with rye and spite. Spittle catches the lamplight. He shoves you hard in the chest with both hands. Your heel skids in sawdust. Glasses stop halfway to mouths. The piano player misses a note, then grins and keeps playing because this is better than music.\n\n\"I'll kill you,\" the drunk says, loud enough for the balcony to hear. \"I'll kill you right here and pay for the mess.\" He is not convincing as a killer. He is very convincing as entertainment. The room turns toward you the way a crowd turns toward a stage: not afraid, not helpful, only interested in what happens next.\n\nThe bartender does not intervene yet. He wipes the same glass and watches to see what kind of trouble you are.",
+            "choices": [
+              {
+                "id": "buy_drink",
+                "label": "Relax, it was an accident. Bartender, get this man another drink on me.",
+                "response": "You raise both hands, palms out, the way men do when they want a dog to sit. Your voice stays level.\n\n\"Relax. It was an accident. Bartender, get this man another drink on me.\"\n\nFor a moment the drunk man stares at you as though you spoke in a foreign tongue. Then the fight drains out of him in a sour wave. He blinks, looks at your hands, looks at the room that is still watching, and decides he has won enough.\n\n\"Damn right it was an accident,\" he mutters, but he takes the stool again. The bartender pours without comment and sets the glass in front of him. You slide five dollars across the scarred pine. The bartender sweeps the notes away with two fingers.\n\nThe crowd loses interest almost at once. Laughter loosens back into ordinary noise. The piano finds its broken phrase again. A woman on the balcony fans herself and says something you cannot hear. The moment passes, filed under free show averted by money.\n\nThe drunk man drinks. He does not thank you. He does not need to. The room has already decided you knew how to handle him.",
+                "status": {
+                  "key": "saloon_interior:drunk_patron_buy_drink",
+                  "money": -5,
+                  "charisma": 5
+                }
+              },
+              {
+                "id": "back_down",
+                "label": "Look, I don't want any trouble!",
+                "response": "Your voice comes out tighter than you meant.\n\n\"Look, I don't want any trouble!\"\n\nThe drunk man's face brightens as though you handed him a gift. He spreads his arms wide, inviting the room to witness.\n\n\"Don't want trouble,\" he repeats, pitching it for the balcony. \"Greenhorn don't want trouble. He bumped me and then he begged like a church mouse.\"\n\nLaughter rolls through the saloon, mean and delighted. Someone at the faro table claps once. The piano player leans into the keys with renewed appetite. Even the bartender's mouth twitches, not quite a smile, not quite sympathy.\n\nThe drunk man shoves you again, lighter this time, a punctuation mark. \"Next time you walk, you walk around me.\" He settles back onto his stool victorious. You stand in the sawdust with the room's amusement settling on your shoulders like ash.\n\nYou said the right words for peace and got the wrong kind of it.",
+                "status": {
+                  "key": "saloon_interior:drunk_patron_back_down",
+                  "charisma": -10
+                }
+              }
+            ]
           }
         ]
       }

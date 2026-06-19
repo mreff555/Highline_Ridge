@@ -18,6 +18,20 @@ void ConversationManager::onEnterScene(const std::string& sceneId, const SceneSp
     }
 
     awaitingChoice = false;
+    combatAttackAllowed = false;
+    combatEncounterId.clear();
+    activeScriptPhaseId.clear();
+    pendingChoices.clear();
+}
+
+void ConversationManager::clearPendingEncounter()
+{
+    if (!activeScriptPhaseId.empty())
+        markPhaseComplete(activeScriptPhaseId);
+
+    awaitingChoice = false;
+    combatAttackAllowed = false;
+    combatEncounterId.clear();
     activeScriptPhaseId.clear();
     pendingChoices.clear();
 }
@@ -176,6 +190,21 @@ SpeakResult ConversationManager::pickRandomLine(
     }
 
     const RandomConversationLine& line = phase.lines[(size_t)chosenIndex];
+
+    if (!line.choices.empty())
+    {
+        SpeakResult result;
+        result.action = SpeakResult::Action::ShowChoices;
+        result.narrative = line.text;
+        result.choices = line.choices;
+        awaitingChoice = true;
+        activeScriptPhaseId = phase.id;
+        pendingChoices = line.choices;
+        combatAttackAllowed = line.allowAttack;
+        combatEncounterId = line.attackEncounterId;
+        return result;
+    }
+
     return buildNarrativeResult(line.text, line.status);
 }
 
@@ -237,6 +266,8 @@ SpeakResult ConversationManager::resolveChoice(const std::string& choiceId)
 
     awaitingChoice = false;
     pendingChoices.clear();
+    combatAttackAllowed = false;
+    combatEncounterId.clear();
 
     if (!activeScriptPhaseId.empty())
         markPhaseComplete(activeScriptPhaseId);
@@ -265,6 +296,8 @@ SpeakResult ConversationManager::resolveChoiceFromConfig(
 
             awaitingChoice = false;
             pendingChoices.clear();
+            combatAttackAllowed = false;
+            combatEncounterId.clear();
             activeScriptPhaseId.clear();
             markPhaseComplete(phase.id);
             SpeakResult result = buildNarrativeResult(choice.response, choice.status);

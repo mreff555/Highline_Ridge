@@ -20,6 +20,7 @@ namespace
     const Color kEnergyFill = {168, 138, 72, 255};
     const Color kTenacityFill = {88, 118, 168, 255};
     const Color kLucidityFill = {118, 88, 168, 255};
+    const Color kCharismaFill = {168, 108, 88, 255};
 
     Color statusBarFillColor(const char* label)
     {
@@ -29,6 +30,7 @@ namespace
             case 'E': return kEnergyFill;
             case 'T': return kTenacityFill;
             case 'L': return kLucidityFill;
+            case 'C': return kCharismaFill;
             default: return kEnergyFill;
         }
     }
@@ -43,6 +45,8 @@ ButtonMgr::ButtonMgr(Rectangle _buttonBox, Font _buttonFont)
       energyBarBounds{},
       tenacityBarBounds{},
       lucidityBarBounds{},
+      charismaBarBounds{},
+      reservedBarBounds{},
       buttonStyle{
           {228, 220, 198, 255},
           {54, 50, 64, 255},
@@ -113,19 +117,22 @@ ButtonMgr::ButtonMgr(Rectangle _buttonBox, Font _buttonFont)
     addButton("Use",
         { actionX + actionBtnW + gap, contentY + (actionBtnH + gap) * 1.0f, actionBtnW, actionBtnH });
 
-    addButton("Reserved",
+    addButton("Attack",
         { actionX, contentY + (actionBtnH + gap) * 2.0f, actionBtnW, actionBtnH });
 
     addButton("Reserved",
         { actionX + actionBtnW + gap, contentY + (actionBtnH + gap) * 2.0f, actionBtnW, actionBtnH });
 
-    const float statusRowH = (contentH - gap) / 2.0f;
+    const float statusRowH = (contentH - gap * 2.0f) / 3.0f;
     const float statusBarW = (statusW - gap) / 2.0f;
     const float statusRow2Y = contentY + statusRowH + gap;
+    const float statusRow3Y = contentY + (statusRowH + gap) * 2.0f;
     healthBarBounds = { statusX, contentY, statusBarW, statusRowH };
     energyBarBounds = { statusX + statusBarW + gap, contentY, statusBarW, statusRowH };
     tenacityBarBounds = { statusX, statusRow2Y, statusBarW, statusRowH };
     lucidityBarBounds = { statusX + statusBarW + gap, statusRow2Y, statusBarW, statusRowH };
+    charismaBarBounds = { statusX, statusRow3Y, statusBarW, statusRowH };
+    reservedBarBounds = { statusX + statusBarW + gap, statusRow3Y, statusBarW, statusRowH };
 
     const float inventoryY = buttonBox.y + buttonBox.height - pad - inventoryHeight;
     addButton("Inventory",
@@ -136,12 +143,13 @@ ButtonMgr::~ButtonMgr()
 {
 }
 
-void ButtonMgr::setStatus(float health, float energy, float tenacity, float lucidity)
+void ButtonMgr::setStatus(float health, float energy, float tenacity, float lucidity, float charisma)
 {
     healthPercent = std::max(0.0f, std::min(health, 100.0f));
     energyPercent = std::max(0.0f, std::min(energy, 100.0f));
     tenacityPercent = std::max(0.0f, std::min(tenacity, 100.0f));
     lucidityPercent = std::max(0.0f, std::min(lucidity, 100.0f));
+    charismaPercent = std::max(0.0f, std::min(charisma, 100.0f));
 }
 
 void ButtonMgr::addButton(const char* label, Rectangle bounds)
@@ -206,7 +214,7 @@ void ButtonMgr::setAvailability(const MovementStruct& movement, const ActionStru
     buttons[7].setEnabled(actions.speak);
     buttons[8].setEnabled(actions.take);
     buttons[9].setEnabled(actions.use);
-    buttons[10].setEnabled(false);
+    buttons[10].setEnabled(actions.hit);
     buttons[11].setEnabled(false);
     buttons[12].setEnabled(true);
 }
@@ -257,6 +265,7 @@ void ButtonMgr::registerButtonClick(int buttonIndex)
         case 7: speakButtonClicked = true; break;
         case 8: takeButtonClicked = true; break;
         case 9: useButtonClicked = true; break;
+        case 10: hitButtonClicked = true; break;
         case 12: inventoryButtonClicked = true; break;
         default: break;
     }
@@ -272,7 +281,7 @@ void ButtonMgr::updatePressedFlags()
     backButtonPressed = buttons[5].isEnabled() && buttons[5].getState() == PRESSED;
     examineButtonPressed = buttons[6].isEnabled() && buttons[6].getState() == PRESSED;
     speakButtonPressed = buttons[7].isEnabled() && buttons[7].getState() == PRESSED;
-    hitButtonPressed = buttons[8].isEnabled() && buttons[8].getState() == PRESSED;
+    hitButtonPressed = buttons[10].isEnabled() && buttons[10].getState() == PRESSED;
     useButtonPressed = buttons[9].isEnabled() && buttons[9].getState() == PRESSED;
     inventoryButtonPressed = buttons[12].isEnabled() && buttons[12].getState() == PRESSED;
 }
@@ -289,6 +298,7 @@ void ButtonMgr::update()
     speakButtonClicked = false;
     useButtonClicked = false;
     takeButtonClicked = false;
+    hitButtonClicked = false;
     inventoryButtonClicked = false;
 
     Vector2 mousePos = GetMousePosition();
@@ -433,6 +443,13 @@ bool ButtonMgr::consumeInventoryButtonClick()
     return clicked;
 }
 
+bool ButtonMgr::consumeHitButtonClick()
+{
+    const bool clicked = hitButtonClicked;
+    hitButtonClicked = false;
+    return clicked;
+}
+
 void ButtonMgr::draw() const
 {
     const float pad = 18.0f;
@@ -461,6 +478,8 @@ void ButtonMgr::draw() const
     drawStatusBar("Energy", energyBarBounds, energyPercent);
     drawStatusBar("Tenacity", tenacityBarBounds, tenacityPercent);
     drawStatusBar("Lucidity", lucidityBarBounds, lucidityPercent);
+    drawStatusBar("Charisma", charismaBarBounds, charismaPercent);
+    drawStatusBar("Reserved", reservedBarBounds, 0.0f);
 
     for (const auto& button : buttons)
         button.draw();

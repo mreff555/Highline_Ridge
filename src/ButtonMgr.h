@@ -18,7 +18,12 @@ namespace testgame
         void update();
         void draw() const;
         void setAvailability(const MovementStruct& movement, const ActionStruct& actions);
-        void setStatus(float healthPercent, float energyPercent, float tenacityPercent, float lucidityPercent);
+        void setStatus(
+            float healthPercent,
+            float energyPercent,
+            float tenacityPercent,
+            float lucidityPercent,
+            float charismaPercent);
 
         bool isUpButtonPressed() const { return upButtonPressed; }
         bool isDownButtonPressed() const { return downButtonPressed; }
@@ -40,6 +45,7 @@ namespace testgame
         bool isSpeakButtonPressed() const { return speakButtonPressed; }
         bool isInventoryButtonPressed() const { return inventoryButtonPressed; }
         bool consumeInventoryButtonClick();
+        bool consumeHitButtonClick();
         bool isHitButtonPressed() const { return hitButtonPressed; }
         bool isUseButtonPressed() const { return useButtonPressed; }
 
@@ -62,6 +68,7 @@ namespace testgame
         bool speakButtonClicked = false;
         bool useButtonClicked = false;
         bool takeButtonClicked = false;
+        bool hitButtonClicked = false;
         bool inventoryButtonClicked = false;
         bool upButtonClicked = false;
         bool downButtonClicked = false;
@@ -78,6 +85,7 @@ namespace testgame
         float energyPercent = 20.0f;
         float tenacityPercent = 50.0f;
         float lucidityPercent = 30.0f;
+        float charismaPercent = 50.0f;
         int activePressButtonIndex = -1;
         double activePressStartTime = 0.0;
         bool activePressClickFired = false;
@@ -88,6 +96,8 @@ namespace testgame
         Rectangle energyBarBounds;
         Rectangle tenacityBarBounds;
         Rectangle lucidityBarBounds;
+        Rectangle charismaBarBounds;
+        Rectangle reservedBarBounds;
         Font buttonFont;
         ButtonStyle buttonStyle;
         std::vector<Button> buttons;

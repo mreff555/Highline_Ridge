@@ -501,13 +501,13 @@
     },
     "saloon_side_passage": {
       "start": false,
-      "image": "resources/images/saloon_interior.png",
-      "description": "You slip through the faded velvet curtain into a narrow side passage. The roar of the main room dulls to a muffled pulse. Plank walls, a single lamp, and a service door bolted shut. Sawdust clings to the floorboards. Someone has walked this way recently, boot scuffs still sharp in the dust.",
-      "examineDetails": "The curtain is sun-bleached burgundy, hem weighted with lead shot. A service hatch in the wall is snapped shut and pegged from the inside. Faro chips litter one corner as though a hurried hand spilled them. The lamp is low and steady. Whoever uses this passage does not want to be seen doing it.",
+      "image": "resources/images/saloon_side_passage.png",
+      "description": "You slip through the faded burgundy curtain and the saloon's roar collapses to a muffled pulse behind you. A narrow service antechamber, plank walls and sawdust underfoot, gives way almost at once to something else: a dim hallway beyond a second doorway, lit by a single wall lantern whose amber light does not belong to the frontier. Boot scuffs cut sharp through the dust. Whoever walks this way does not want to be seen doing it from the bar.",
+      "examineDetails": "The curtain is sun-bleached burgundy velvet, hem weighted with lead shot so it hangs straight and closes without a sound. You note the same weighting on silk upstairs and in the ice house on the ridge, as though one hand dressed every private threshold in this building. The antechamber is crude frontier carpentry: rough pine, iron pegs, a low oil lamp, faro chips spilled in one corner where a hurried hand lost patience. Through the open doorway ahead, the corridor is another species of room entirely. Walnut wainscoting. Cream plaster. A runner rug worn thin at the center. The lantern on the left wall is polished brass with a frosted chimney, throwing a controlled pool of light down the length of the hall rather than the smoky glare of the saloon. Muffled kitchen noise leaks from the first door on the left, pots and crockery softened by distance and heavy wood.",
       "speakDetails": "",
       "useDetails": "",
       "movement": {
-        "forward": false,
+        "forward": true,
         "backward": false,
         "left": true,
         "right": false,
@@ -521,7 +521,131 @@
         "use": false
       },
       "exits": {
-        "left": "saloon_interior"
+        "left": "saloon_interior",
+        "forward": "saloon_service_hall"
+      },
+      "audio": {
+        "ambient": [
+          {
+            "path": "resources/audio/ambient/saloon_pub_crowd.mp3",
+            "volume": 0.25,
+            "fade_in": 1.5,
+            "fade_out": 1.5,
+            "loop": true
+          }
+        ]
+      }
+    },
+    "saloon_service_hall": {
+      "start": false,
+      "image": "resources/images/saloon_service_hall.png",
+      "description": "You step into a service hallway that feels imported from another class of building entirely. A single brass wall lantern throws a narrow cone of amber down the corridor, leaving the far end in soft shadow. Dark walnut wainscoting rises to cream plaster. A worn runner rug leads your eye toward the back of the saloon. Immediately on your left is a doorway where warm light and the muffled clatter of a working kitchen push through the cracks. Farther down the left wall, a second door stands in carved mahogany and brass, elegant enough for a city hotel. On your right, halfway along the hall, a plain pine plank door hangs on strap hinges without apology. At the end of the passage, a heavy back door of iron-strapped timber waits in the gloom, built for function rather than impression, and built to last.",
+      "examineDetails": "You work the hallway the way you would a crime scene: perimeter first, then detail, then the things that do not match.\n\nThe lantern is the only fitting that makes immediate sense in a ridge saloon: utilitarian brass, chimney smoked at the top, wick trimmed with care. Its light falls short of the end door on purpose, or because someone wanted the back of the building to stay in half-dark. The floorboards under the runner are old growth pine, face-nailed, pitch sealed in the grain. The rug itself is a narrow Persian runner, not a saloon sawdust path. Someone laid city habits back here where patrons would never think to look.\n\nThe first door on your left is kitchen. You do not need to open it to know. Heat breathes through the jamb. You catch metal on metal, a drawer closing, water running somewhere behind thick panels. The frame is honest work but not fine: painted pine, frosted transom glass, enamel knob worn to brass at the edges from hands carrying trays.\n\nThe second door on the left is the one that stops you. It is out of place the way a silk dress is out of place in a mining camp. The jamb is mahogany, not pine. The panels are raised and hand-planed, the corners eased with a cabinetmaker's patience. The hardware is cast brass with rosette backplates and a lever latch in the Eastlake style, the sort of fittings ordered from a catalog and shipped up the mountain at real expense. The varnish is deep and even. No boot has scuffed the threshold. Whoever uses this room does not carry dishes. You run your knuckle along the casing and feel no saw tear-out, no hurried millwork. This door was built to be looked at and to keep secrets. It is the finest piece of joinery in the building, and it is hiding in the service hall.\n\nHalfway down on the right, the pine plank door is the opposite statement. Two-inch boards, face-mounted strap hinges, a wooden thumb latch, no transom, no pretense. A storage room, perhaps, or quarters for someone the saloon does not dress up for guests. The boards have cupped slightly with altitude dry air. It is unimpressive in every respect except that it is honest.\n\nThe end door is another matter. Visually plain: heavy planks, cross-braced, iron straps and a box lock with a blackened hasp. Unimpressive until you test it with your eye the way a carpenter would. The hinges are sunk into the frame, not surface-mounted. The sill is stone-backed against boot traffic. The gap at the bottom is tight enough to hold out mountain wind. This is a back exit built for deliveries, escapes, and nights when the front doors are too public. It probably opens onto the rear of the building, the service yard, the alley where garbage and truth both get carried away.\n\nThe saloon's piano and laughter are a dull pulse behind the curtain you came through. Up here the air smells of lard, soap, varnish, and cold plaster. A house with two faces. You are in the one it does not put on the poster.",
+      "speakDetails": "",
+      "useDetails": "",
+      "movement": {
+        "forward": true,
+        "backward": true,
+        "left": true,
+        "right": true,
+        "up": false,
+        "down": false
+      },
+      "actions": {
+        "examine": true,
+        "speak": false,
+        "hit": false,
+        "use": false
+      },
+      "exits": {
+        "backward": "saloon_side_passage",
+        "left": "saloon_kitchen",
+        "right": "saloon_pantry",
+        "forward": "saloon_back_exit"
+      },
+      "audio": {
+        "music": {
+          "path": "resources/audio/music/cabin_theme.mp3",
+          "volume": 0.12,
+          "fade_in": 4.0,
+          "fade_out": 3.0,
+          "loop": true
+        },
+        "ambient": [
+          {
+            "path": "resources/audio/ambient/kitchen_muffled.mp3",
+            "volume": 0.85,
+            "fade_in": 2.0,
+            "fade_out": 2.0,
+            "loop": true
+          }
+        ]
+      }
+    },
+    "saloon_kitchen": {
+      "start": false,
+      "image": "resources/images/scene_under_construction.png",
+      "description": "The kitchen lies beyond the first left-hand door. Heat, steam, and the honest chaos of a working line. This room has not been fully mapped yet.",
+      "examineDetails": "",
+      "useDetails": "",
+      "movement": {
+        "backward": true,
+        "forward": false,
+        "left": false,
+        "right": false
+      },
+      "actions": {
+        "examine": false,
+        "speak": false,
+        "hit": false,
+        "use": false
+      },
+      "exits": {
+        "backward": "saloon_service_hall"
+      }
+    },
+    "saloon_pantry": {
+      "start": false,
+      "image": "resources/images/scene_under_construction.png",
+      "description": "The plain pine door opens on darkness and stored goods. Shelving, sacks, and mountain dry air. This room has not been fully mapped yet.",
+      "examineDetails": "",
+      "useDetails": "",
+      "movement": {
+        "backward": true,
+        "forward": false,
+        "left": false,
+        "right": false
+      },
+      "actions": {
+        "examine": false,
+        "speak": false,
+        "hit": false,
+        "use": false
+      },
+      "exits": {
+        "backward": "saloon_service_hall"
+      }
+    },
+    "saloon_back_exit": {
+      "start": false,
+      "image": "resources/images/scene_under_construction.png",
+      "description": "The robust back door gives onto the rear of the building. Cold air threads through the jamb. The service yard beyond has not been fully mapped yet.",
+      "examineDetails": "",
+      "useDetails": "",
+      "movement": {
+        "backward": true,
+        "forward": false,
+        "left": false,
+        "right": false
+      },
+      "actions": {
+        "examine": false,
+        "speak": false,
+        "hit": false,
+        "use": false
+      },
+      "exits": {
+        "backward": "saloon_service_hall"
       }
     }
   }

@@ -674,13 +674,7 @@ namespace
             if (!effect.hasDelta())
                 continue;
 
-            if (tryApplyStatusDeltas(
-                    effect.key,
-                    effect.health,
-                    effect.energy,
-                    effect.tenacity,
-                    effect.lucidity,
-                    effect.repeat))
+            if (tryApplyStatusEffect(effect, effect.repeat))
             {
                 statsChanged = true;
 
@@ -774,6 +768,106 @@ namespace
         updateActionAvailability();
     }
 
+    void Location::resolveCombatEncounter(const std::string& encounterId)
+    {
+        if (!conversationMgr.isAwaitingChoice() || !conversationMgr.isCombatAttackAllowed())
+            return;
+
+        if (conversationMgr.getCombatEncounterId() != encounterId)
+            return;
+
+        const std::vector<ConversationChoiceDef> choicesToStrip = conversationMgr.getPendingChoices();
+        narrativeChoiceHitAreas.clear();
+        stripDialogChoiceLinesFromNarrative(choicesToStrip);
+
+        std::string responseText;
+        StatusEffect effect;
+
+        if (encounterId == "drunk_patron")
+        {
+            if (tenacity > 70.0f)
+            {
+                responseText =
+                    "You do not think. You move.\n\n"
+                    "The drunk man's shove becomes the opening he did not intend. You catch his wrist on the way past, "
+                    "step inside his reach, and drive your shoulder into his sternum hard enough to lift him off the "
+                    "foot rail. His breath leaves in a wet bark. The tumbler flies, spinning amber through the lamp "
+                    "smoke. He hits the sawdust on his back with a thud that stops the piano mid-phrase.\n\n"
+                    "For one heartbeat the saloon is silent. Then the room detonates into laughter, applause, and "
+                    "the hungry whistle of men who have paid good money to see violence that is not their own. "
+                    "Someone shouts for another round. A woman on the balcony leans over the rail and fans herself "
+                    "with deliberate slowness. The faro dealer does not look up, but his mouth curves.\n\n"
+                    "The drunk man wheezes and tries to rise. You put a boot lightly on his chest and hold him there "
+                    "long enough for the point to settle. Not cruel. Measured. Then you step back and let the bartender "
+                    "take over.\n\n"
+                    "\"All right,\" the bartender says, not angry, not impressed. Simply in charge. \"Show's over. "
+                    "Drinks still cost money.\"";
+                effect.key = "saloon_interior:drunk_patron_win";
+                effect.health = -5.0f;
+                effect.energy = -10.0f;
+                effect.lucidity = 10.0f;
+                effect.charisma = 10.0f;
+            }
+            else
+            {
+                responseText =
+                    "You swing before you think and that is the first mistake.\n\n"
+                    "The drunk man is faster than a man that soaked has any right to be. He slips your grab, "
+                    "catches you across the jaw with a ringed knuckle, and drives you sideways into the bar edge. "
+                    "Your ribs meet polished pine. The room blurs into lamp halos and laughing mouths. A second shove "
+                    "puts you on the floor, cheek in sawdust, the taste of whiskey and blood mixing under your tongue.\n\n"
+                    "The saloon does not stop. It watches. Delighted. A miner hoots. The piano player finds the same "
+                    "broken phrase and plays it louder, as though the music is part of the joke. Someone calls you "
+                    "green. Someone else calls for odds on whether you will stand up again.\n\n"
+                    "Boots cross the sawdust. The bartender hauls you up by the collar with practiced efficiency, "
+                    "props you against the bar long enough to see straight, and shoves a wet rag into your hand.\n\n"
+                    "\"Out of my floor,\" he tells the drunk man. \"Go sleep it off before I throw you off the ridge.\"\n\n"
+                    "The drunk man laughs, spits sawdust, and stumbles toward the door with the triumphant swagger of "
+                    "a man who won nothing but the room's attention. The bartender does not apologize for you. "
+                    "He does not need to. The bar has already filed the scene under entertainment and moved on.";
+                effect.key = "saloon_interior:drunk_patron_lose";
+                effect.health = -30.0f;
+                effect.energy = -20.0f;
+                effect.charisma = -5.0f;
+            }
+        }
+        else
+        {
+            return;
+        }
+
+        conversationMgr.clearPendingEncounter();
+
+        if (!responseText.empty())
+        {
+            narrativeText += "\n\n";
+            narrativeText += responseText;
+            trimNarrativeBuffer();
+            narrativeLayoutDirty = true;
+        }
+
+        applyStatusEffects({ effect });
+
+        if (!responseText.empty())
+        {
+            rebuildNarrativeLayout();
+            std::istringstream responseStream(responseText);
+            std::string firstLine;
+            if (std::getline(responseStream, firstLine) && !firstLine.empty())
+                scrollNarrativeToLine(firstLine, true);
+        }
+
+        updateActionAvailability();
+    }
+
+    void Location::handleAttack()
+    {
+        if (!conversationMgr.isCombatAttackAllowed())
+            return;
+
+        resolveCombatEncounter(conversationMgr.getCombatEncounterId());
+    }
+
     void Location::handleSpeak()
     {
         const SceneSpeakConfig& speakConfig = sceneDatabase.getSpeakConfig(currentSceneId);
@@ -819,6 +913,8 @@ namespace
         energy = 20.0f;
         tenacity = 50.0f;
         lucidity = 30.0f;
+        charisma = 50.0f;
+        walletCash = 20.0f;
         narrativeScrollY = 0.0f;
         narrativeLayoutDirty = true;
         trimNarrativeBuffer();
@@ -860,29 +956,23 @@ namespace
         }
     }
 
-    bool Location::tryApplyStatusDeltas(
-        const std::string& actionKey,
-        float healthDelta,
-        float energyDelta,
-        float tenacityDelta,
-        float lucidityDelta,
-        bool allowRepeat)
+    bool Location::tryApplyStatusEffect(const StatusEffect& effect, bool allowRepeat)
     {
-        const bool hasAnyDelta = healthDelta != 0.0f || energyDelta != 0.0f
-            || tenacityDelta != 0.0f || lucidityDelta != 0.0f;
-        if (!hasAnyDelta)
+        if (!effect.hasDelta())
             return false;
 
-        if (!allowRepeat && consumedStatusActions.count(actionKey) > 0)
+        if (!allowRepeat && !effect.key.empty() && consumedStatusActions.count(effect.key) > 0)
             return false;
 
-        health = std::min(100.0f, health + healthDelta);
-        energy = std::min(100.0f, energy + energyDelta);
-        tenacity = std::min(100.0f, tenacity + tenacityDelta);
-        lucidity = std::min(100.0f, std::max(0.0f, lucidity + lucidityDelta));
+        health = std::min(100.0f, std::max(0.0f, health + effect.health));
+        energy = std::min(100.0f, std::max(0.0f, energy + effect.energy));
+        tenacity = std::min(100.0f, std::max(0.0f, tenacity + effect.tenacity));
+        lucidity = std::min(100.0f, std::max(0.0f, lucidity + effect.lucidity));
+        charisma = std::min(100.0f, std::max(0.0f, charisma + effect.charisma));
+        walletCash = std::max(0.0f, walletCash + effect.money);
 
-        if (!allowRepeat)
-            consumedStatusActions.insert(actionKey);
+        if (!allowRepeat && !effect.key.empty())
+            consumedStatusActions.insert(effect.key);
 
         return true;
     }
@@ -893,13 +983,11 @@ namespace
             return;
 
         appendNarrativeSection("Using:", useDetails);
-        tryApplyStatusDeltas(
-            currentSceneId + ":use",
-            useHealthDelta,
-            useEnergyDelta,
-            0.0f,
-            0.0f,
-            useRepeatStatus);
+        StatusEffect useEffect;
+        useEffect.key = currentSceneId + ":use";
+        useEffect.health = useHealthDelta;
+        useEffect.energy = useEnergyDelta;
+        tryApplyStatusEffect(useEffect, useRepeatStatus);
         hasUsedInCurrentScene = true;
         if (!useRepeatStatus)
             usedSceneIds.insert(currentSceneId);
@@ -934,6 +1022,16 @@ namespace
                 movement.backward = true;
             else if (inventoryMgr.canExamineSelectedItem())
                 actions.examine = true;
+        }
+        else if (conversationMgr.isAwaitingChoice())
+        {
+            movement.up = false;
+            movement.down = false;
+            movement.forward = false;
+            movement.backward = false;
+            movement.left = false;
+            movement.right = false;
+            actions.hit = conversationMgr.isCombatAttackAllowed();
         }
         else if (isUnderConstruction)
         {
@@ -971,7 +1069,7 @@ namespace
         }
 
         buttonMgr.setAvailability(movement, actions);
-        buttonMgr.setStatus(health, energy, tenacity, lucidity);
+        buttonMgr.setStatus(health, energy, tenacity, lucidity, charisma);
     }
 
     float Location::getNarrativeLineOffsetY(const std::string& lineText, bool lastOccurrence) const
@@ -1335,32 +1433,38 @@ namespace
             return;
         }
 
-        if (buttonMgr.consumeUpButtonClick())
-            tryMove("up");
-        else if (buttonMgr.consumeDownButtonClick())
-            tryMove("down");
-        else if (buttonMgr.consumeForwardButtonClick())
-            tryMove("forward");
-        else if (buttonMgr.consumeBackwardButtonClick())
-            tryMove("backward");
-        else if (buttonMgr.consumeLeftButtonClick())
-            tryMove("left");
-        else if (buttonMgr.consumeRightButtonClick())
-            tryMove("right");
+        if (buttonMgr.consumeHitButtonClick())
+            handleAttack();
 
-        if (buttonMgr.consumeExamineButtonClick())
+        if (!conversationMgr.isAwaitingChoice())
+        {
+            if (buttonMgr.consumeUpButtonClick())
+                tryMove("up");
+            else if (buttonMgr.consumeDownButtonClick())
+                tryMove("down");
+            else if (buttonMgr.consumeForwardButtonClick())
+                tryMove("forward");
+            else if (buttonMgr.consumeBackwardButtonClick())
+                tryMove("backward");
+            else if (buttonMgr.consumeLeftButtonClick())
+                tryMove("left");
+            else if (buttonMgr.consumeRightButtonClick())
+                tryMove("right");
+        }
+
+        if (!conversationMgr.isAwaitingChoice() && buttonMgr.consumeExamineButtonClick())
         {
             appendExamineDetails();
             scrollNarrativeToHeader("Examining:");
         }
 
-        if (buttonMgr.consumeSpeakButtonClick())
+        if (!conversationMgr.isAwaitingChoice() && buttonMgr.consumeSpeakButtonClick())
         {
             handleSpeak();
             scrollNarrativeToHeader("Speaking:");
         }
 
-        if (buttonMgr.consumeUseButtonClick())
+        if (!conversationMgr.isAwaitingChoice() && buttonMgr.consumeUseButtonClick())
         {
             appendUseDetails();
             scrollNarrativeToHeader("Using:");

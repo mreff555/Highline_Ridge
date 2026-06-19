@@ -53,7 +53,9 @@ class Location
 
     private:
     void handleSpeak();
+    void handleAttack();
     void resolveDialogChoice(const std::string& choiceId);
+    void resolveCombatEncounter(const std::string& encounterId);
     void processSpeakResult(const SpeakResult& result);
     void applyStatusEffects(const std::vector<StatusEffect>& effects);
     void handleNarrativeChoiceInput();
@@ -90,13 +92,7 @@ class Location
     Rectangle getInventoryPanelBounds() const;
     void appendNarrativeSection(const char* header, const std::string& details);
     void updateActionAvailability();
-    bool tryApplyStatusDeltas(
-        const std::string& actionKey,
-        float healthDelta,
-        float energyDelta,
-        float tenacityDelta,
-        float lucidityDelta,
-        bool allowRepeat);
+    bool tryApplyStatusEffect(const StatusEffect& effect, bool allowRepeat);
     void scrollNarrativeToHeader(const char* header);
     void scrollNarrativeToLine(const std::string& lineText, bool lastOccurrence);
     void rebuildNarrativeChoiceHitAreas() const;
@@ -155,6 +151,8 @@ class Location
     float energy = 20.0f;
     float tenacity = 50.0f;
     float lucidity = 30.0f;
+    float charisma = 50.0f;
+    float walletCash = 20.0f;
     std::set<std::string> consumedStatusActions;
     std::set<std::string> storyFlags;
 

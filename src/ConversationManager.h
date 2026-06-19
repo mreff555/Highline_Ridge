@@ -18,7 +18,10 @@ class ConversationManager
         bool baseSpeakEnabled,
         const std::set<std::string>& storyFlags) const;
     bool isAwaitingChoice() const { return awaitingChoice; }
+    bool isCombatAttackAllowed() const { return combatAttackAllowed; }
+    const std::string& getCombatEncounterId() const { return combatEncounterId; }
     const std::vector<ConversationChoiceDef>& getPendingChoices() const { return pendingChoices; }
+    void clearPendingEncounter();
 
     SpeakResult handleSpeak(
         const std::string& sceneId,
@@ -46,6 +49,8 @@ class ConversationManager
     std::set<std::string> completedPhaseIds;
     std::map<std::string, int> lastRandomLineIndex;
     bool awaitingChoice = false;
+    bool combatAttackAllowed = false;
+    std::string combatEncounterId;
     std::string activeScriptPhaseId;
     std::vector<ConversationChoiceDef> pendingChoices;
 };

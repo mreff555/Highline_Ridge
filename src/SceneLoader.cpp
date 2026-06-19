@@ -90,6 +90,8 @@ bool parseStatusEffect(const nlohmann::json& status, StatusEffect& out)
     out.energy = status.value("energy", 0.0f);
     out.tenacity = status.value("tenacity", 0.0f);
     out.lucidity = status.value("lucidity", 0.0f);
+    out.charisma = status.value("charisma", 0.0f);
+    out.money = status.value("money", 0.0f);
     out.repeat = status.value("repeat", false);
     out.onZeroLucidity = status.value("onZeroLucidity", "");
     return true;
@@ -133,8 +135,23 @@ bool parseRandomLine(const nlohmann::json& line, RandomConversationLine& out)
     out.id = line.value("id", "");
     out.text = line.value("text", "");
     out.weight = line.value("weight", 1);
+    out.allowAttack = line.value("allowAttack", false);
+    out.attackEncounterId = line.value("attackEncounterId", "");
     if (!parseStatusEffect(line.value("status", nlohmann::json::object()), out.status))
         return false;
+
+    out.choices.clear();
+    const nlohmann::json& choices = line.value("choices", nlohmann::json::array());
+    if (!choices.is_array())
+        return false;
+
+    for (const nlohmann::json& choice : choices)
+    {
+        ConversationChoiceDef parsed;
+        if (!parseConversationChoice(choice, parsed))
+            return false;
+        out.choices.push_back(parsed);
+    }
 
     return !out.text.empty();
 }
