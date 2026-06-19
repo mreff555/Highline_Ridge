@@ -79,11 +79,9 @@ bool AudioManager::initialize(const std::string& root, const AudioVolumeConfig& 
     assetRoot = root;
     volumes = volumeConfig;
 
-    if (IsAudioDeviceReady())
-    {
-        deviceReady = true;
+    deviceReady = IsAudioDeviceReady();
+    if (deviceReady)
         SetMasterVolume(volumes.master);
-    }
 
     return true;
 }
@@ -238,7 +236,11 @@ bool AudioManager::loadMusicClip(const std::string& path, Music& outMusic, std::
         return false;
 
     outMusic = LoadMusicStream(playablePath.c_str());
-    return outMusic.stream.buffer != nullptr;
+    if (outMusic.stream.buffer == nullptr)
+        return false;
+
+    outMusic.looping = true;
+    return true;
 }
 
 bool AudioManager::loadSoundClip(
@@ -345,6 +347,7 @@ void AudioManager::startMusicTrack(FadingMusicTrack& track, const AudioClipDef& 
     track.fadingOut = false;
     track.currentVolume = track.fadingIn ? 0.0f : track.targetVolume;
     track.loop = clip.loop;
+    track.music.looping = clip.loop;
 
     SetMusicVolume(track.music, track.currentVolume);
     PlayMusicStream(track.music);
@@ -378,12 +381,13 @@ void AudioManager::startAmbientTrack(const AudioClipDef& clip)
     track.fadingOut = false;
     track.currentVolume = track.fadingIn ? 0.0f : track.targetVolume;
     track.loop = clip.loop;
+    track.music.looping = clip.loop;
 
     SetMusicVolume(track.music, track.currentVolume);
     PlayMusicStream(track.music);
     track.playing = true;
     ambientTracks.push_back(track);
-    TraceLog(LOG_INFO, "Started ambient: %s", clip.path.c_str());
+    TraceLog(LOG_INFO, "Started ambient: %s (vol %.2f)", clip.path.c_str(), track.currentVolume);
 }
 
 void AudioManager::updateMusicTrack(FadingMusicTrack& track, float deltaSeconds, AudioCategory category)
@@ -392,11 +396,7 @@ void AudioManager::updateMusicTrack(FadingMusicTrack& track, float deltaSeconds,
         return;
 
     if (track.playing)
-    {
         UpdateMusicStream(track.music);
-        if (track.loop && !IsMusicStreamPlaying(track.music))
-            PlayMusicStream(track.music);
-    }
 
     if (track.fadingIn)
     {
@@ -570,6 +570,7 @@ void AudioManager::retainMusicTrack(
     track.fadeInSeconds = std::max(0.0f, attributeOrDefault(clip, "fade_in", clip.fadeIn));
     track.fadeOutSeconds = std::max(0.0f, attributeOrDefault(clip, "fade_out", clip.fadeOut));
     track.loop = clip.loop;
+    track.music.looping = clip.loop;
 
     if (track.playing)
         track.currentVolume = track.targetVolume;
