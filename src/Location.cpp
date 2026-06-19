@@ -1,1 +1,1 @@
-/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/src/Location.cpp
+PLACEHOLDER_WILL_REPLACE
