@@ -100,13 +100,13 @@
     },
     "saloon_front": {
       "start": false,
-      "image": "resources/saloon_front. png",
+      "image": "resources/saloon_front.png",
       "description": "You turn off the mountain road and find yourself before a period saloon front. false-front facade rising two stories, batwing doors still swinging faintly from some recent passage. Warm lamplight spills through the windows into the alpine dark. Inside, silhouettes cluster at the bar and around a poker table; you catch the glint of a bottle raised, the slap of cards, laughter cut short by the deal. A plank walkway runs the length of the storefront, its boards cupped and silvery with age. Leaning against the wall beside the entrance, a cowboy occupies the shade as though he grew there. His hat is pulled low, shielding most of his face, but not the cigarette rolled between his lips nor the methodically trimmed beard beneath it. He does not look at you. He does not react to your presence at all.",
       "examineDetails": "The saloon is built in the territorial style. painted pine siding, carved cornice, double-hung windows with oil lamps behind rippled glass. Through the nearest pane you make out a faro layout on a round table, chips stacked in uneven columns, a dealer's hand frozen mid-turn. The plank walkway is held on rough-hewn joists; your boots ring hollow against it. The cowboy's duster is dust-faded at the hem, his spurs dull as if he has not ridden in days. The cigarette smoke rises in a thin unbroken thread, which means he is breathing slowly, evenly, without surprise. Whoever he is, he knew someone would come. He is simply waiting to see if you are worth noticing.",
       "speakDetails": "You square your shoulders and approach with the careful posture of a man who means to be taken seriously. Professional, unhurried, hard enough at the edges that no one mistakes you for lost. The cowboy still does not look at you until you are close enough to count the ash on his cigarette.\n\n\"Evening,\" you say.\n\nHe exhales through his nose. Not quite a laugh. \"Evening.\"\n\nYou try idle ground first. Weather, the road, the piano bleeding through the saloon walls. He lets you talk. When you mention the cold, he taps ash into the dust. When you mention the view, he says, \"Always there.\" It is the tone of a man answering a question he has already answered too many times. You realize, with a slow cold certainty, that he knows you. There is no warmth in it and no hostility either. Just recognition, flat and complete, as though your face is an old receipt he has been carrying in his pocket.\n\nYou stop circling and ask what you came to ask. \"Where am I?\"\n\nNow he looks at you. Hat brim lifting just enough to show eyes that are tired more than anything else.\n\n\"Highline,\" he says. \"You're on the Highline. Ridge settlement. cabins, shops, fools who think altitude makes them honest.\" He jerks his chin toward the drop where the clouds boil below. \"Graysmill's down there in the valley. Mill town, rail town, always was. They cut timber out of these slopes till the hills went bald, floated it downriver, built their factories, filled their streets. Highline stayed up here 'cause the air kept the timber from rotting and the men with money liked the view. Saloons came next. Then gamblers. Then people like you.\"\n\nHe studies you a moment longer, annoyed in the way of a man whose quiet has been interrupted by something he cannot simply walk away from.\n\n\"We had this same talk two days ago,\" he says. \"Same questions. Same look on your face when I said Graysmill. I'm not sure you heard me then either.\"\n\nThe cigarette glows again. He eyes you the way a man eyes a cracked axle. not angry, just certain something is going to give.\n\n\"You don't look quite right,\" he says. \"Pale. Jumping at nothing. You ought to take it easy on the drink, or whatever it is you've been taking. I'm not telling you twice.\"",
       "useDetails": "",
       "movement": {
-        "forward": false,
+        "forward": true,
         "backward": true,
         "left": false,
         "right": false
@@ -118,7 +118,31 @@
         "use": false
       },
       "exits": {
-        "backward": "mountain_road"
+        "backward": "mountain_road",
+        "forward": "saloon_interior"
+      }
+    },
+    "saloon_interior": {
+      "start": false,
+      "image": "resources/saloon_interior.png",
+      "description": "You push through the batwing doors and the air drops out of your lungs. Just for a moment. The room seems to hold its breath with you. Tobacco smoke, spilled whiskey, lamp soot, and something sweeter beneath it all. Then the saloon exhales and life resumes as though you are merely a draft through the doorway. Glasses rise. Cards slap wood. A piano finds the same broken phrase it was playing before you entered. The bartender does not resume. He stands planted behind the long bar, rag frozen on a tumbler, and glares at you with the flat disapproval of a man who has already decided you are trouble. Above the clatter and the low male laughter, you catch movement on the second floor. A balcony rail runs the length of the hall, and behind it women look down in provocative dress. Corsets cinched tight, throats and wrists bare, feathers and cheap jewels catching the lamplight. A few of their colleagues move among the patrons below, hands on shoulders, laughter manufactured and precise. You feel their attention settle on you the way a match settles on kindling. They recognize you. Or they recognize something about you. And you realize, with equal certainty, that you have caught their eye.",
+      "examineDetails": "The main floor is built for throughput and temptation. Sawdust covers the boards between tables. A faro table near the stove holds three players and a dealer whose eyes never quite meet yours. Poker in the corner runs quieter and meaner. The bar itself is a slab of polished pine scarred with initials and burns, brass foot rail bolted through, backbar stacked with bottles labeled in handwriting you cannot read from here. The bartender is broad through the shoulders, sleeves rolled, jaw set. His glare is not surprise. It is inventory.\n\nThe staircase to the balcony is carved with turned balusters and wear-polished treads. Upstairs, the women are not merely decorative. They watch the room the way lookouts watch a road. One in burgundy silk leans far enough over the rail that a patron below thinks the view is for him; her gaze, however, tracks you. Another in emerald green speaks softly to a miner whose stack of chips has grown too tall for comfort. Near the piano, a third woman passes close enough that you catch perfume, rouge, and the metallic edge of nerves held under control. They are working. All of them. And still you have interrupted something by entering. The recognition in their eyes is not warmth. It is calculation.\n\nYou note exits: the doors behind you, a side passage curtained with faded velvet near the stairs, the bar's service hatch snapped shut. Whatever this place is selling tonight, it is selling it on multiple floors. And you are already part of the ledger.",
+      "speakDetails": "",
+      "useDetails": "",
+      "movement": {
+        "forward": false,
+        "backward": true,
+        "left": false,
+        "right": false
+      },
+      "actions": {
+        "examine": true,
+        "speak": false,
+        "hit": false,
+        "use": false
+      },
+      "exits": {
+        "backward": "saloon_front"
       }
     }
   }
