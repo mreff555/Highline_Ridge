@@ -92,6 +92,7 @@ class Location
     float getNarrativeWrapWidth() const;
     void layoutWrappedParagraph(const char* text, Font font, float paragraphFontSize, float& textOffsetY, bool draw, float scrollY, Color lineColor) const;
     bool isBoldNarrativeHeader(const std::string& line) const;
+    bool isBoldNarrativeLine(const std::string& line) const;
 
     static const int kMaxNarrativeLines = 500;
     static const float kScrollbarWidth;

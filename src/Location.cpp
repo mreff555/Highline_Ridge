@@ -21,8 +21,8 @@ namespace
     const Color kScrollTrack = {206, 186, 148, 255};
     const Color kScrollThumb = {176, 148, 108, 255};
     const Color kScrollThumbHover = {148, 118, 78, 255};
-    const Color kChoiceText = {126, 82, 42, 255};
-    const Color kChoiceHover = {168, 108, 48, 255};
+    const Color kChoiceText = {92, 52, 22, 255};
+    const Color kChoiceHover = {148, 88, 28, 255};
 
     const char* kWakeOnFloorPrefix =
         "You come back to yourself on the floor of the cabin, cheek pressed to the Persian rug, "
@@ -424,6 +424,12 @@ namespace
         return line == "Examining:" || line == "Speaking:" || line == "Using:";
     }
 
+    bool Location::isBoldNarrativeLine(const std::string& line) const
+    {
+        return isBoldNarrativeHeader(line)
+            || (awaitingDialogChoice && isDialogChoiceLine(line));
+    }
+
     bool Location::isDialogChoiceLine(const std::string& line) const
     {
         return line.size() > 2 && line.compare(0, 2, "> ") == 0;
@@ -771,7 +777,7 @@ namespace
                 return foundOffset;
             }
 
-            const Font lineFont = isBoldNarrativeHeader(line) ? boldFont : descriptionFont;
+            const Font lineFont = isBoldNarrativeLine(line) ? boldFont : descriptionFont;
             layoutWrappedParagraph(line.c_str(), lineFont, fontSize, textOffsetY, false, 0.0f, textColor);
         }
 
@@ -892,7 +898,7 @@ namespace
                 continue;
             }
 
-            const Font lineFont = isBoldNarrativeHeader(line) ? boldFont : descriptionFont;
+            const Font lineFont = isBoldNarrativeLine(line) ? boldFont : descriptionFont;
             layoutWrappedParagraph(line.c_str(), lineFont, fontSize, textOffsetY, false, 0.0f, textColor);
         }
 
@@ -1290,7 +1296,7 @@ namespace
                 continue;
             }
 
-            const Font lineFont = isBoldNarrativeHeader(line) ? boldFont : descriptionFont;
+            const Font lineFont = isBoldNarrativeLine(line) ? boldFont : descriptionFont;
             const Color lineColor = narrativeLineColor(line);
 
             if (awaitingDialogChoice && isDialogChoiceLine(line))
