@@ -14,7 +14,10 @@ set(SOURCES
     src/RoomLoader.cpp
     src/ConversationManager.cpp
     src/InventoryMgr.cpp
+    src/ImageCompression.cpp
 )
+
+include(FetchContent)
 
 # 1. Look for raylib installed via brew/system
 find_package(raylib QUIET)
@@ -22,27 +25,60 @@ find_package(raylib QUIET)
 # 2. If not found, download it via FetchContent
 if (NOT raylib_FOUND)
     message(STATUS "raylib not found locally → downloading v5.5 with FetchContent...")
-    
-    include(FetchContent)
-    
+
     FetchContent_Declare(
         raylib
         URL https://github.com/raysan5/raylib/archive/refs/tags/5.5.tar.gz
         DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-        # GIT_REPOSITORY https://github.com/raysan5/raylib.git
-        # GIT_TAG        5.5
     )
 
     FetchContent_MakeAvailable(raylib)
 endif()
 
-include(FetchContent)
 FetchContent_Declare(
     json
     URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(json)
+
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+    pkg_check_modules(LIBLZMA IMPORTED_TARGET liblzma)
+    pkg_check_modules(LIBJPEG IMPORTED_TARGET libjpeg)
+endif()
+
+if(NOT LIBLZMA_FOUND)
+    find_library(LZMA_LIBRARY NAMES lzma)
+    find_path(LZMA_INCLUDE_DIR lzma.h)
+    if(LZMA_LIBRARY AND LZMA_INCLUDE_DIR)
+        add_library(LZMA::LZMA UNKNOWN IMPORTED)
+        set_target_properties(LZMA::LZMA PROPERTIES
+            IMPORTED_LOCATION "${LZMA_LIBRARY}"
+            INTERFACE_INCLUDE_DIRECTORIES "${LZMA_INCLUDE_DIR}"
+        )
+        set(LIBLZMA LZMA::LZMA)
+    endif()
+endif()
+
+if(NOT LIBLZMA_FOUND AND NOT TARGET LZMA::LZMA)
+    message(FATAL_ERROR "liblzma (xz) is required for compressed image assets")
+endif()
+
+if(NOT LIBJPEG_FOUND)
+    find_library(JPEG_LIBRARY NAMES jpeg)
+    find_path(JPEG_INCLUDE_DIR jpeglib.h)
+    if(JPEG_LIBRARY AND JPEG_INCLUDE_DIR)
+        add_library(JPEG::JPEG UNKNOWN IMPORTED)
+        set_target_properties(JPEG::JPEG PROPERTIES
+            IMPORTED_LOCATION "${JPEG_LIBRARY}"
+            INTERFACE_INCLUDE_DIRECTORIES "${JPEG_INCLUDE_DIR}"
+        )
+        set(LIBJPEG JPEG::JPEG)
+    else()
+        message(FATAL_ERROR "libjpeg is required for JPEG image assets")
+    endif()
+endif()
 
 # 3. Create the executable (use ${PROJECT_NAME} so everything stays consistent)
 add_executable(${PROJECT_NAME} ${SOURCES})
@@ -52,7 +88,19 @@ set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "Highline Ridge")
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # 5. Link raylib
-target_link_libraries(${PROJECT_NAME} PRIVATE raylib nlohmann_json::nlohmann_json)
+set(_image_deps nlohmann_json::nlohmann_json)
+if(TARGET PkgConfig::LIBLZMA)
+    list(APPEND _image_deps PkgConfig::LIBLZMA)
+else()
+    list(APPEND _image_deps ${LIBLZMA})
+endif()
+if(TARGET PkgConfig::LIBJPEG)
+    list(APPEND _image_deps PkgConfig::LIBJPEG)
+else()
+    list(APPEND _image_deps ${LIBJPEG})
+endif()
+
+target_link_libraries(${PROJECT_NAME} PRIVATE raylib ${_image_deps})
 
 # 6. macOS frameworks (required by raylib on Apple platforms)
 if (APPLE)

@@ -1,4 +1,5 @@
 #include "RoomLoader.h"
+#include "ImageCompression.h"
 #include <algorithm>
 #include <fstream>
 #include <nlohmann/json.hpp>
@@ -274,69 +275,25 @@ bool parseRoom(const std::string& id, const nlohmann::json& room, RoomData& out)
 
 }
 
-std::string resolveAssetPath(const std::string& assetRoot, const std::string& path)
-{
-    if (path.empty())
-        return path;
-
-    if (path[0] == '/')
-        return path;
-
-    if (assetRoot.empty())
-        return path;
-
-    if (assetRoot.back() == '/')
-        return assetRoot + path;
-
-    return assetRoot + "/" + path;
-}
-
 bool loadResourceTexture(
     const std::string& assetRoot,
     const std::string& relativePath,
     Texture2D& outTexture)
 {
-    std::vector<std::string> paths;
-    auto tryAdd = [&](const std::string& candidate)
-    {
-        if (candidate.empty())
-            return;
-
-        if (std::find(paths.begin(), paths.end(), candidate) == paths.end())
-            paths.push_back(candidate);
-    };
-
-    tryAdd(relativePath);
-    tryAdd(resolveAssetPath(assetRoot, relativePath));
-    tryAdd(resolveAssetPath(".", relativePath));
-    tryAdd(resolveAssetPath("..", relativePath));
-    tryAdd(resolveAssetPath("../..", relativePath));
-
-    const char* appDir = GetApplicationDirectory();
-    if (appDir != nullptr && appDir[0] != '\0')
-    {
-        const std::string appDirectory(appDir);
-        tryAdd(resolveAssetPath(appDirectory, relativePath));
-        tryAdd(resolveAssetPath(appDirectory + "/..", relativePath));
-        tryAdd(resolveAssetPath(appDirectory + "/../..", relativePath));
-    }
+    const std::vector<std::string> paths = buildAssetSearchPaths(assetRoot, relativePath);
 
     for (const std::string& path : paths)
     {
-        if (!FileExists(path.c_str()))
-            continue;
-
-        Image image = LoadImage(path.c_str());
-        if (image.data == nullptr)
-            continue;
-
-        const Texture2D texture = LoadTextureFromImage(image);
-        UnloadImage(image);
-
-        if (texture.id != 0)
+        if (loadTextureFromAssetFile(path, outTexture))
         {
-            outTexture = texture;
             TraceLog(LOG_INFO, "Loaded resource texture: %s", path.c_str());
+            return true;
+        }
+
+        const std::string compressedPath = compressedAssetPath(path);
+        if (loadTextureFromAssetFile(compressedPath, outTexture))
+        {
+            TraceLog(LOG_INFO, "Loaded compressed resource texture: %s", compressedPath.c_str());
             return true;
         }
     }
@@ -443,22 +400,10 @@ bool RoomDatabase::load(const std::string& configPath, const std::string& assetR
 
 bool RoomDatabase::buildLocationStruct(const RoomData& room, LocationStruct& outLocation) const
 {
-    const std::string primaryPath = resolveAssetPath(assetRoot, room.imagePath);
-    std::string imagePath = primaryPath;
-
-    if (!FileExists(imagePath.c_str()) && FileExists(room.imagePath.c_str()))
-        imagePath = room.imagePath;
-
-    if (!FileExists(imagePath.c_str()))
+    Texture2D texture{};
+    if (!loadResourceTexture(assetRoot, room.imagePath, texture))
     {
-        TraceLog(LOG_ERROR, "Room image not found: %s", primaryPath.c_str());
-        return false;
-    }
-
-    const Texture2D texture = LoadTexture(imagePath.c_str());
-    if (texture.id == 0)
-    {
-        TraceLog(LOG_ERROR, "Failed to load room image: %s", imagePath.c_str());
+        TraceLog(LOG_ERROR, "Room image not found: %s", room.imagePath.c_str());
         return false;
     }
 
