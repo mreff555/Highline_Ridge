@@ -86,6 +86,8 @@ class Location
         float lucidityDelta,
         bool allowRepeat);
     void scrollNarrativeToHeader(const char* header);
+    void scrollNarrativeToLine(const std::string& lineText, bool lastOccurrence);
+    void rebuildNarrativeChoiceHitAreas() const;
     float getNarrativeLineOffsetY(const std::string& lineText, bool lastOccurrence) const;
     float getNarrativeVisibleHeight() const;
     float getNarrativeLineHeight() const;

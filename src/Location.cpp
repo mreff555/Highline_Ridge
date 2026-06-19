@@ -507,6 +507,9 @@ namespace
         trimNarrativeBuffer();
         narrativeLayoutDirty = true;
         updateActionAvailability();
+
+        if (!choices.empty())
+            scrollNarrativeToLine(choices.front().lineText, false);
     }
 
     void Location::applyStatusEffects(const std::vector<StatusEffect>& effects)
@@ -544,7 +547,7 @@ namespace
 
     void Location::processSpeakResult(const SpeakResult& result)
     {
-        if (result.action == SpeakResult::Action::None)
+        if (result.action == SpeakResult::Action::None && result.narrative.empty())
             return;
 
         if (!result.narrative.empty())
@@ -570,11 +573,14 @@ namespace
             return;
 
         SpeakResult result = conversationMgr.resolveChoice(choiceId);
-        if (result.action == SpeakResult::Action::None)
+        if (result.action == SpeakResult::Action::None && result.narrative.empty())
         {
             const RoomSpeakConfig& speakConfig = roomDatabase.getSpeakConfig(currentRoomId);
             result = conversationMgr.resolveChoiceFromConfig(speakConfig, choiceId);
         }
+
+        if (result.action == SpeakResult::Action::None && result.narrative.empty())
+            return;
 
         awaitingDialogChoice = false;
         pendingDialogChoices.clear();
@@ -632,7 +638,15 @@ namespace
 
     void Location::handleNarrativeChoiceInput()
     {
-        if (!awaitingDialogChoice || narrativeChoiceHitAreas.empty())
+        if (!awaitingDialogChoice)
+            return;
+
+        if (narrativeLayoutDirty)
+            rebuildNarrativeLayout();
+
+        rebuildNarrativeChoiceHitAreas();
+
+        if (narrativeChoiceHitAreas.empty())
             return;
 
         const Rectangle dialog = getDialogBounds();
@@ -797,12 +811,64 @@ namespace
 
     void Location::scrollNarrativeToHeader(const char* header)
     {
-        const float headerOffset = getNarrativeLineOffsetY(header, true);
-        if (headerOffset < 0.0f)
+        scrollNarrativeToLine(header, true);
+    }
+
+    void Location::scrollNarrativeToLine(const std::string& lineText, bool lastOccurrence)
+    {
+        const float lineOffset = getNarrativeLineOffsetY(lineText, lastOccurrence);
+        if (lineOffset < 0.0f)
             return;
 
         const float maxScroll = std::max(0.0f, narrativeContentHeight - getNarrativeVisibleHeight());
-        narrativeScrollY = std::max(0.0f, std::min(headerOffset, maxScroll));
+        narrativeScrollY = std::max(0.0f, std::min(lineOffset, maxScroll));
+    }
+
+    void Location::rebuildNarrativeChoiceHitAreas() const
+    {
+        narrativeChoiceHitAreas.clear();
+
+        if (!awaitingDialogChoice || pendingDialogChoices.empty())
+            return;
+
+        const Rectangle dialog = getDialogBounds();
+
+        float textOffsetY = 0.0f;
+        std::istringstream stream(narrativeText);
+        std::string line;
+
+        while (std::getline(stream, line))
+        {
+            if (line.empty())
+            {
+                textOffsetY += getNarrativeLineHeight() * 0.5f;
+                continue;
+            }
+
+            if (isDialogChoiceLine(line))
+            {
+                for (const DialogChoice& choice : pendingDialogChoices)
+                {
+                    if (line != choice.lineText)
+                        continue;
+
+                    const Font lineFont = isBoldNarrativeLine(line) ? boldFont : descriptionFont;
+                    float measureY = textOffsetY;
+                    layoutWrappedParagraph(line.c_str(), lineFont, fontSize, measureY, false, 0.0f, textColor);
+                    const float choiceHeight = std::max(getNarrativeLineHeight(), measureY - textOffsetY);
+                    const float drawY = dialog.y + yOffset + textOffsetY - narrativeScrollY;
+
+                    narrativeChoiceHitAreas.push_back({
+                        choice.id,
+                        { dialog.x + xOffset, drawY, getNarrativeWrapWidth(), choiceHeight }
+                    });
+                    break;
+                }
+            }
+
+            const Font lineFont = isBoldNarrativeLine(line) ? boldFont : descriptionFont;
+            layoutWrappedParagraph(line.c_str(), lineFont, fontSize, textOffsetY, false, 0.0f, textColor);
+        }
     }
     
     void Location::tryMove(const std::string& direction)
@@ -1278,7 +1344,7 @@ namespace
         if (narrativeLayoutDirty)
             rebuildNarrativeLayout();
 
-        narrativeChoiceHitAreas.clear();
+        rebuildNarrativeChoiceHitAreas();
 
         const Rectangle dialog = getDialogBounds();
         const Rectangle clipArea = {
@@ -1308,27 +1374,6 @@ namespace
 
             const Font lineFont = isBoldNarrativeLine(line) ? boldFont : descriptionFont;
             const Color lineColor = narrativeLineColor(line);
-
-            if (awaitingDialogChoice && isDialogChoiceLine(line))
-            {
-                for (const DialogChoice& choice : pendingDialogChoices)
-                {
-                    if (line != choice.lineText)
-                        continue;
-
-                    float measureY = textOffsetY;
-                    layoutWrappedParagraph(line.c_str(), lineFont, fontSize, measureY, false, 0.0f, lineColor);
-                    const float choiceHeight = std::max(getNarrativeLineHeight(), measureY - textOffsetY);
-                    const float drawY = dialog.y + yOffset + textOffsetY - narrativeScrollY;
-
-                    narrativeChoiceHitAreas.push_back({
-                        choice.id,
-                        { dialog.x + xOffset, drawY, getNarrativeWrapWidth(), choiceHeight }
-                    });
-                    break;
-                }
-            }
-
             layoutWrappedParagraph(line.c_str(), lineFont, fontSize, textOffsetY, true, narrativeScrollY, lineColor);
         }
 

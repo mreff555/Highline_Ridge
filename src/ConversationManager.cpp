@@ -228,14 +228,11 @@ SpeakResult ConversationManager::resolveChoice(const std::string& choiceId)
         }
     }
 
+    if (!chosen)
+        return SpeakResult();
+
     awaitingChoice = false;
     pendingChoices.clear();
-
-    if (!chosen)
-    {
-        activeScriptPhaseId.clear();
-        return SpeakResult();
-    }
 
     if (!activeScriptPhaseId.empty())
         markPhaseComplete(activeScriptPhaseId);
@@ -266,7 +263,10 @@ SpeakResult ConversationManager::resolveChoiceFromConfig(
             pendingChoices.clear();
             activeScriptPhaseId.clear();
             markPhaseComplete(phase.id);
-            return buildNarrativeResult(choice.response, choice.status);
+            SpeakResult result = buildNarrativeResult(choice.response, choice.status);
+            if (!choice.status.onZeroLucidity.empty())
+                result.action = SpeakResult::Action::ShowNarrative;
+            return result;
         }
     }
 
