@@ -24,7 +24,8 @@ class InventoryMgr
 
     void setPanelBounds(Rectangle bounds);
     void setFont(Font font);
-    bool initializeAssets(const std::string& primaryAssetRoot, const std::string& fallbackAssetRoot);
+    void setAssetRoots(const std::string& primaryAssetRoot, const std::string& fallbackAssetRoot);
+    bool ensureAssetsLoaded();
 
     bool isOpen() const { return viewState != InventoryViewState::Closed; }
     bool isExaminingItem() const { return viewState == InventoryViewState::ExaminingItem; }
@@ -45,8 +46,9 @@ class InventoryMgr
 
     private:
     void createDefaultItems();
-    void loadItemTextures(const std::string& primaryAssetRoot, const std::string& fallbackAssetRoot);
-    Texture2D loadItemTexture(const char* filename, const std::string& primaryAssetRoot, const std::string& fallbackAssetRoot) const;
+    void loadItemTextures();
+    bool loadItemTexture(const char* filename, Texture2D& outTexture) const;
+    bool hasLoadedAssets() const;
     void drawCloseButton() const;
     void drawItemGrid() const;
     void handleItemGridInput();
@@ -70,6 +72,8 @@ class InventoryMgr
     std::string selectedItemId;
     std::vector<InventoryItem> items;
     mutable std::vector<Rectangle> itemSlotBounds;
+    std::string primaryAssetRoot;
+    std::string fallbackAssetRoot;
 
     float inventoryScrollY = 0.0f;
     float inventoryContentHeight = 0.0f;
