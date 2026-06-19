@@ -12,15 +12,13 @@ const float Location::kScrollbarWidth = 16.0f;
 
 namespace
 {
-    const Color kPaperBase = {251, 246, 232, 255};
-    const Color kPaperShadow = {214, 198, 168, 255};
-    const Color kPaperEdge = {196, 176, 142, 255};
-    const Color kRuleLine = {168, 198, 228, 110};
-    const Color kMarginLine = {214, 108, 98, 170};
-    const Color kBindingRing = {118, 104, 88, 255};
-    const Color kBindingHole = {72, 62, 52, 255};
-    const Color kCoffeeStain = {196, 164, 126, 28};
-    const Color kScrollTrack = {236, 224, 202, 255};
+    const Color kPaperShadow = {118, 98, 68, 255};
+    const Color kPaperEdge = {108, 88, 58, 255};
+    const Color kRuleLine = {132, 148, 168, 85};
+    const Color kMarginLine = {168, 78, 68, 150};
+    const Color kBindingRing = {98, 82, 62, 255};
+    const Color kBindingHole = {58, 48, 38, 255};
+    const Color kScrollTrack = {206, 186, 148, 255};
     const Color kScrollThumb = {176, 148, 108, 255};
     const Color kScrollThumbHover = {148, 118, 78, 255};
     const Color kChoiceText = {126, 82, 42, 255};
@@ -74,6 +72,9 @@ namespace
 
     Location::~Location()
     {
+        if (notebookPaperTextureReady)
+            UnloadTexture(notebookPaperTexture);
+
         UnloadTexture(locationImage);
     }
 
@@ -125,8 +126,109 @@ namespace
         return { 0.0f, 0.0f, (float)screenWidth * 0.5f, (float)screenHeight };
     }
 
+    void Location::ensureNotebookPaperTexture() const
+    {
+        if (notebookPaperTextureReady)
+            return;
+
+        const int width = std::max(1, (int)textBox.width);
+        const int height = std::max(1, (int)fullDialogHeight);
+        Image paper = GenImageColor(width, height, {214, 188, 136, 255});
+
+        for (int y = 0; y < height; ++y)
+        {
+            const float rowFade = (float)y / (float)height;
+            for (int x = 0; x < width; ++x)
+            {
+                const float colFade = (float)x / (float)width;
+                const unsigned int hash = (unsigned int)(x * 92837111u + y * 689287499u);
+
+                int red = 208 - (int)(rowFade * 28.0f) - (int)(colFade * 8.0f);
+                int green = 178 - (int)(rowFade * 24.0f) - (int)(colFade * 6.0f);
+                int blue = 118 - (int)(rowFade * 18.0f) - (int)(colFade * 4.0f);
+
+                if ((hash % 19u) == 0u)
+                {
+                    red -= 16;
+                    green -= 18;
+                    blue -= 12;
+                }
+                else if ((hash % 29u) == 0u)
+                {
+                    red += 10;
+                    green += 8;
+                    blue += 4;
+                }
+
+                if ((hash % 41u) == 0u)
+                {
+                    red -= 8;
+                    green -= 10;
+                    blue -= 6;
+                }
+
+                const int edgeX = std::min(x, width - 1 - x);
+                const int edgeY = std::min(y, height - 1 - y);
+                const int edge = std::min(edgeX, edgeY);
+                if (edge < 36)
+                {
+                    const int edgeWeight = 36 - edge;
+                    red -= edgeWeight / 3;
+                    green -= edgeWeight / 2;
+                    blue -= edgeWeight / 4;
+                }
+
+                red = std::max(0, std::min(255, red));
+                green = std::max(0, std::min(255, green));
+                blue = std::max(0, std::min(255, blue));
+                ImageDrawPixel(&paper, x, y, { (unsigned char)red, (unsigned char)green, (unsigned char)blue, 255 });
+            }
+        }
+
+        for (int y = 0; y < height; y += 3)
+        {
+            const unsigned int rowHash = (unsigned int)(y * 2654435761u);
+            const int shift = (int)(rowHash % 7u) - 3;
+            for (int x = 0; x < width; x += 2)
+            {
+                const unsigned int hash = rowHash ^ (unsigned int)(x * 1597334677u);
+                if ((hash % 11u) > 1u)
+                    continue;
+
+                const int tone = 18 + (int)(hash % 24u);
+                ImageDrawPixel(
+                    &paper,
+                    x,
+                    y,
+                    { (unsigned char)(118 + shift), (unsigned char)(98 + shift), (unsigned char)(62 + shift), (unsigned char)tone });
+            }
+        }
+
+        const Rectangle topLeftStain = { 0.0f, 0.0f, width * 0.22f, height * 0.16f };
+        const Rectangle bottomRightStain = {
+            width * 0.72f,
+            height * 0.78f,
+            width * 0.28f,
+            height * 0.22f
+        };
+        ImageDrawRectangle(&paper, (int)topLeftStain.x, (int)topLeftStain.y, (int)topLeftStain.width, (int)topLeftStain.height, {92, 72, 42, 18});
+        ImageDrawRectangle(
+            &paper,
+            (int)bottomRightStain.x,
+            (int)bottomRightStain.y,
+            (int)bottomRightStain.width,
+            (int)bottomRightStain.height,
+            {88, 68, 38, 22});
+
+        notebookPaperTexture = LoadTextureFromImage(paper);
+        UnloadImage(paper);
+        notebookPaperTextureReady = notebookPaperTexture.id != 0;
+    }
+
     void Location::drawNotebookBackdrop(const Rectangle& bounds) const
     {
+        ensureNotebookPaperTexture();
+
         const Rectangle shadow = {
             bounds.x + 6.0f,
             bounds.y + 8.0f,
@@ -135,14 +237,20 @@ namespace
         };
         DrawRectangleRec(shadow, kPaperShadow);
 
-        DrawRectangleRec(bounds, kPaperBase);
-        DrawRectangleGradientV(
-            (int)bounds.x,
-            (int)bounds.y,
-            (int)bounds.width,
-            (int)bounds.height,
-            kPaperBase,
-            {238, 228, 206, 255});
+        if (notebookPaperTextureReady)
+        {
+            DrawTexturePro(
+                notebookPaperTexture,
+                { 0.0f, 0.0f, (float)notebookPaperTexture.width, bounds.height },
+                bounds,
+                { 0.0f, 0.0f },
+                0.0f,
+                WHITE);
+        }
+        else
+        {
+            DrawRectangleRec(bounds, {208, 182, 132, 255});
+        }
 
         const float lineStep = getNarrativeLineHeight();
         const float firstLineY = bounds.y + yOffset + lineStep * 0.35f;
@@ -168,7 +276,7 @@ namespace
             18.0f,
             bounds.height
         };
-        DrawRectangleRec(bindingStrip, {226, 214, 188, 255});
+        DrawRectangleRec(bindingStrip, {176, 152, 108, 255});
 
         const float holeRadius = 5.5f;
         const float holeSpacing = 42.0f;
@@ -177,36 +285,23 @@ namespace
             const Vector2 holeCenter = { bounds.x + 9.0f, holeY };
             DrawCircleV(holeCenter, holeRadius + 1.5f, kBindingRing);
             DrawCircleV(holeCenter, holeRadius, kBindingHole);
-            DrawCircleV({ holeCenter.x - 1.0f, holeCenter.y - 1.0f }, holeRadius - 2.0f, {96, 84, 72, 255});
+            DrawCircleV({ holeCenter.x - 1.0f, holeCenter.y - 1.0f }, holeRadius - 2.0f, {78, 66, 52, 255});
         }
 
-        const Rectangle headerBand = {
-            bounds.x + 18.0f,
-            bounds.y + 10.0f,
-            bounds.width - 36.0f,
-            22.0f
-        };
         DrawTextEx(
             boldFont,
             "CASE NOTES",
-            { headerBand.x + 8.0f, headerBand.y + 2.0f },
+            { bounds.x + 26.0f, bounds.y + 12.0f },
             18.0f,
             1.0f,
-            Fade({120, 96, 72, 255}, 0.55f));
-
-        const Vector2 stainCenter = {
-            bounds.x + bounds.width * 0.78f,
-            bounds.y + bounds.height * 0.22f
-        };
-        DrawRing(stainCenter, 34.0f, 48.0f, 0.0f, 360.0f, 48, kCoffeeStain);
-        DrawRing(stainCenter, 24.0f, 30.0f, 0.0f, 360.0f, 32, Fade(kCoffeeStain, 0.65f));
+            Fade({98, 72, 48, 255}, 0.62f));
 
         const float foldSize = 28.0f;
         DrawTriangle(
             { bounds.x + bounds.width, bounds.y },
             { bounds.x + bounds.width - foldSize, bounds.y },
             { bounds.x + bounds.width, bounds.y + foldSize },
-            {228, 216, 194, 255});
+            {184, 158, 112, 255});
         DrawLineEx(
             { bounds.x + bounds.width - foldSize, bounds.y },
             { bounds.x + bounds.width, bounds.y + foldSize },
@@ -221,7 +316,7 @@ namespace
             kScrollbarWidth,
             bounds.height
         };
-        DrawRectangleRec(scrollbarGutter, {244, 232, 210, 255});
+        DrawRectangleRec(scrollbarGutter, {196, 174, 132, 255});
         DrawLineEx(
             { scrollbarGutter.x, scrollbarGutter.y + 8.0f },
             { scrollbarGutter.x, scrollbarGutter.y + scrollbarGutter.height - 8.0f },

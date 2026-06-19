@@ -72,6 +72,7 @@ class Location
     void drawInventoryExamineScrollbar() const;
     void drawMainImage() const;
     void drawNotebookBackdrop(const Rectangle& bounds) const;
+    void ensureNotebookPaperTexture() const;
     Rectangle getMainImageBounds() const;
     Rectangle getDialogBounds() const;
     Rectangle getInventoryPanelBounds() const;
@@ -157,6 +158,9 @@ class Location
     float scrollbarDragOffsetY = 0.0f;
 
     mutable float narrativeContentHeight = 0.0f;
+
+    mutable Texture2D notebookPaperTexture{};
+    mutable bool notebookPaperTextureReady = false;
 };
 
 }
