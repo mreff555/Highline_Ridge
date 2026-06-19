@@ -1,7 +1,9 @@
 #include "RoomLoader.h"
+#include <algorithm>
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <raylib.h>
+#include <vector>
 
 namespace testgame
 {
@@ -287,6 +289,60 @@ std::string resolveAssetPath(const std::string& assetRoot, const std::string& pa
         return assetRoot + path;
 
     return assetRoot + "/" + path;
+}
+
+bool loadResourceTexture(
+    const std::string& assetRoot,
+    const std::string& relativePath,
+    Texture2D& outTexture)
+{
+    std::vector<std::string> paths;
+    auto tryAdd = [&](const std::string& candidate)
+    {
+        if (candidate.empty())
+            return;
+
+        if (std::find(paths.begin(), paths.end(), candidate) == paths.end())
+            paths.push_back(candidate);
+    };
+
+    tryAdd(relativePath);
+    tryAdd(resolveAssetPath(assetRoot, relativePath));
+    tryAdd(resolveAssetPath(".", relativePath));
+    tryAdd(resolveAssetPath("..", relativePath));
+    tryAdd(resolveAssetPath("../..", relativePath));
+
+    const char* appDir = GetApplicationDirectory();
+    if (appDir != nullptr && appDir[0] != '\0')
+    {
+        const std::string appDirectory(appDir);
+        tryAdd(resolveAssetPath(appDirectory, relativePath));
+        tryAdd(resolveAssetPath(appDirectory + "/..", relativePath));
+        tryAdd(resolveAssetPath(appDirectory + "/../..", relativePath));
+    }
+
+    for (const std::string& path : paths)
+    {
+        if (!FileExists(path.c_str()))
+            continue;
+
+        Image image = LoadImage(path.c_str());
+        if (image.data == nullptr)
+            continue;
+
+        const Texture2D texture = LoadTextureFromImage(image);
+        UnloadImage(image);
+
+        if (texture.id != 0)
+        {
+            outTexture = texture;
+            TraceLog(LOG_INFO, "Loaded resource texture: %s", path.c_str());
+            return true;
+        }
+    }
+
+    TraceLog(LOG_ERROR, "Failed to load resource texture: %s", relativePath.c_str());
+    return false;
 }
 
 RoomDatabase::RoomDatabase()
