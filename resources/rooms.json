@@ -5,8 +5,8 @@
     "cabin": {
       "start": true,
       "image": "resources/cabin.png",
-      "description": "In a dimly lit cabin, an old man sits by the fire surrounded by surprisingly lavish furnishings, given the condition of the cabin.",
-      "examineDetails": "The old man's eyes flick toward you, then back to the fire. The furnishings look out of place here — too fine for a cabin this worn. Something was brought here recently.",
+      "description": "You come to in a dim cabin with no idea how you arrived. Your head is thick with fog. The room is empty — no one by the hearth, no voice from the shadows — yet the fire still holds a low, patient heat, as though someone tended it minutes ago. Or was it you? You cannot say. Lavish furnishings crowd a space built from rough timber and mountain silence. Where are you? And why does the air feel like the middle of a sentence someone walked away from?",
+      "examineDetails": "You force yourself to look past the disorientation and study the room properly. The craftsmanship is deliberate and expensive — not the work of a backwoods handyman improvising with what was at hand. The chair frames are turned walnut with carved acanthus leaves at the knees. The side table is rosewood with a satin finish worn only at the edges where habit has touched it. Brass andirons gleam before the hearth, their lion's-head finials polished as if for display. Against the crude log walls hangs a framed etching of a whaling fleet — Nantucket, by the look of it — incongruous as a sermon in a saloon.\n\nYour gaze drops to the floor. A Persian Heriz rug spreads beneath the furniture, its field a deep crimson ground woven with navy medallions and ivory vine-scroll borders in the late-nineteenth-century style of northwest Iran. The wool is dense and still faintly lustrous, but the pile is uneven: worn bare along a path from hearth to door, as though countless boots have crossed it in a city townhouse, not a cabin in the pines. It does not belong here. Someone brought it up the mountain recently — or dragged it here before your memory went dark.\n\nOn the armchair beside the fire rests a book, spine uncracked but corners softened with age. You lift it. A vintage copy of Moby-Dick, cloth-bound in faded navy, the gilt title still legible: The Whale. The pages are surprisingly well preserved — no mildew, no foxing — as if stored in a dry room until very recently. You leaf through from the beginning. The type is small and sure. The first line catches, as it always does: \"Call me Ishmael.\" You read on a little further, then let the pages slip faster beneath your thumb until you reach where the book was left open, a crease pressed deep into the paper. One line rises off the page as though inked in lamp smoke: \"There is a wisdom that is woe; but there is a woe that is madness.\" You read it again. And again. You cannot stop thinking about it. The fire pops. The cabin holds its breath. Somewhere behind the walls, the mountain waits for you to remember why you are here.",
       "useDetails": "",
       "movement": {
         "forward": false,
@@ -16,7 +16,7 @@
       },
       "actions": {
         "examine": true,
-        "speak": true,
+        "speak": false,
         "hit": false,
         "use": false
       },

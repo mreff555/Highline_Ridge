@@ -83,9 +83,10 @@ ButtonMgr::ButtonMgr(Rectangle _buttonBox, Font _buttonFont)
     addButton("Use",
         { actionX, contentY + (actionH + gap) * 3.0f, actionW, actionH });
 
-    const float statusBarH = (contentH - gap) / 2.0f;
-    healthBarBounds = { statusX, contentY, statusW, statusBarH };
-    energyBarBounds = { statusX, contentY + statusBarH + gap, statusW, statusBarH };
+    const float statusRowH = (contentH - gap) / 2.0f;
+    const float statusBarW = (statusW - gap) / 2.0f;
+    healthBarBounds = { statusX, contentY, statusBarW, statusRowH };
+    energyBarBounds = { statusX + statusBarW + gap, contentY, statusBarW, statusRowH };
 
     const float inventoryY = buttonBox.y + buttonBox.height - pad - inventoryHeight;
     addButton("Inventory",
@@ -124,19 +125,19 @@ void ButtonMgr::drawStatusBar(const char* label, Rectangle bounds, float percent
     const float barTop = bounds.y + labelHeight;
     const float barHeight = bounds.height - labelHeight - 4.0f;
     const Rectangle track = { bounds.x, barTop, bounds.width, barHeight };
-    const float fillHeight = barHeight * (percent / 100.0f);
+    const float fillWidth = (bounds.width - 4.0f) * (percent / 100.0f);
     const Rectangle fill = {
         bounds.x + 2.0f,
-        barTop + barHeight - fillHeight,
-        bounds.width - 4.0f,
-        fillHeight
+        barTop + 2.0f,
+        fillWidth,
+        barHeight - 4.0f
     };
 
     DrawTextEx(buttonFont, label, { bounds.x, bounds.y }, 13.0f, 1, kSectionLabel);
     DrawRectangleRounded(track, 0.18f, 8, kStatusTrack);
     DrawRectangleRoundedLines(track, 0.18f, 8, 2.0f, kPanelBorder);
 
-    if (fillHeight > 0.0f)
+    if (fillWidth > 0.0f)
     {
         const Color fillColor = isHealth ? kHealthFill : kEnergyFill;
         DrawRectangleRounded(fill, 0.18f, 8, fillColor);
