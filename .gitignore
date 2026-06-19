@@ -41,3 +41,13 @@
 *.dwo
 
 build
+
+# Image assets are stored xz-compressed in git; keep local uncompressed copies untracked.
+resources/*.png
+resources/*.jpg
+resources/*.jpeg
+resources/*.bmp
+resources/*.tga
+resources/*.gif
+resources/*.webp
+Unknown.png
