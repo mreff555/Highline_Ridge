@@ -74,20 +74,30 @@ ButtonMgr::ButtonMgr(Rectangle _buttonBox, Font _buttonFont)
     const float actionBtnW = (actionW - gap) / actionCols;
     const float actionBtnH = (contentH - gap * (actionRows - 1.0f)) / actionRows;
 
-    const float moveBtnW = (moveW - gap) / 2.0f;
-    const float moveBtnH = (contentH - gap * 2.0f) / 3.0f;
+    const float moveColLeftW = moveW * 0.32f;
+    const float moveColRightW = moveW - moveColLeftW - gap;
+    const float moveRightX = contentX + moveColLeftW + gap;
+    const float verticalBtnH = (contentH - gap) / 2.0f;
+    const float movePadBtnW = (moveColRightW - gap) / 2.0f;
+    const float movePadBtnH = (contentH - gap * 2.0f) / 3.0f;
+
+    addButton("Up",
+        { contentX, contentY, moveColLeftW, verticalBtnH });
+
+    addButton("Down",
+        { contentX, contentY + verticalBtnH + gap, moveColLeftW, verticalBtnH });
 
     addButton("Forward",
-        { contentX + moveBtnW / 2.0f + gap / 2.0f, contentY, moveBtnW, moveBtnH });
+        { moveRightX + movePadBtnW / 2.0f + gap / 2.0f, contentY, movePadBtnW, movePadBtnH });
 
     addButton("Left",
-        { contentX, contentY + moveBtnH + gap, moveBtnW, moveBtnH });
+        { moveRightX, contentY + movePadBtnH + gap, movePadBtnW, movePadBtnH });
 
     addButton("Right",
-        { contentX + moveBtnW + gap, contentY + moveBtnH + gap, moveBtnW, moveBtnH });
+        { moveRightX + movePadBtnW + gap, contentY + movePadBtnH + gap, movePadBtnW, movePadBtnH });
 
     addButton("Backward",
-        { contentX + moveBtnW / 2.0f + gap / 2.0f, contentY + (moveBtnH + gap) * 2.0f, moveBtnW, moveBtnH });
+        { moveRightX + movePadBtnW / 2.0f + gap / 2.0f, contentY + (movePadBtnH + gap) * 2.0f, movePadBtnW, movePadBtnH });
 
     addButton("Examine",
         { actionX, contentY, actionBtnW, actionBtnH });
@@ -184,17 +194,19 @@ void ButtonMgr::drawStatusBar(const char* label, Rectangle bounds, float percent
 
 void ButtonMgr::setAvailability(const MovementStruct& movement, const ActionStruct& actions)
 {
-    buttons[0].setEnabled(movement.forward);
-    buttons[1].setEnabled(movement.left);
-    buttons[2].setEnabled(movement.right);
-    buttons[3].setEnabled(movement.backward);
-    buttons[4].setEnabled(actions.examine);
-    buttons[5].setEnabled(actions.speak);
-    buttons[6].setEnabled(actions.take);
-    buttons[7].setEnabled(actions.use);
-    buttons[8].setEnabled(false);
-    buttons[9].setEnabled(false);
-    buttons[10].setEnabled(true);
+    buttons[0].setEnabled(movement.up);
+    buttons[1].setEnabled(movement.down);
+    buttons[2].setEnabled(movement.forward);
+    buttons[3].setEnabled(movement.left);
+    buttons[4].setEnabled(movement.right);
+    buttons[5].setEnabled(movement.backward);
+    buttons[6].setEnabled(actions.examine);
+    buttons[7].setEnabled(actions.speak);
+    buttons[8].setEnabled(actions.take);
+    buttons[9].setEnabled(actions.use);
+    buttons[10].setEnabled(false);
+    buttons[11].setEnabled(false);
+    buttons[12].setEnabled(true);
 }
 
 namespace
@@ -214,7 +226,7 @@ namespace
 int ButtonMgr::findEnabledButtonUnderMouse(Vector2 mousePos) const
 {
     const float clickPadding = 3.0f;
-    const int movementAndActionCount = 10;
+    const int movementAndActionCount = 12;
     for (int i = 0; i < movementAndActionCount; ++i)
     {
         if (buttons[i].isEnabled() &&
@@ -222,9 +234,9 @@ int ButtonMgr::findEnabledButtonUnderMouse(Vector2 mousePos) const
             return i;
     }
 
-    if (buttons[10].isEnabled() &&
-        isPointInClickableBounds(mousePos, buttons[10].getBounds(), clickPadding))
-        return 10;
+    if (buttons[12].isEnabled() &&
+        isPointInClickableBounds(mousePos, buttons[12].getBounds(), clickPadding))
+        return 12;
 
     return -1;
 }
@@ -233,32 +245,38 @@ void ButtonMgr::registerButtonClick(int buttonIndex)
 {
     switch (buttonIndex)
     {
-        case 0: forwardButtonClicked = true; break;
-        case 1: leftButtonClicked = true; break;
-        case 2: rightButtonClicked = true; break;
-        case 3: backwardButtonClicked = true; break;
-        case 4: examineButtonClicked = true; break;
-        case 5: speakButtonClicked = true; break;
-        case 7: useButtonClicked = true; break;
+        case 0: upButtonClicked = true; break;
+        case 1: downButtonClicked = true; break;
+        case 2: forwardButtonClicked = true; break;
+        case 3: leftButtonClicked = true; break;
+        case 4: rightButtonClicked = true; break;
+        case 5: backwardButtonClicked = true; break;
+        case 6: examineButtonClicked = true; break;
+        case 7: speakButtonClicked = true; break;
+        case 9: useButtonClicked = true; break;
         default: break;
     }
 }
 
 void ButtonMgr::updatePressedFlags()
 {
-    forwardButtonPressed = buttons[0].isEnabled() && buttons[0].getState() == PRESSED;
-    leftButtonPressed = buttons[1].isEnabled() && buttons[1].getState() == PRESSED;
-    rightButtonPressed = buttons[2].isEnabled() && buttons[2].getState() == PRESSED;
-    backButtonPressed = buttons[3].isEnabled() && buttons[3].getState() == PRESSED;
-    examineButtonPressed = buttons[4].isEnabled() && buttons[4].getState() == PRESSED;
-    speakButtonPressed = buttons[5].isEnabled() && buttons[5].getState() == PRESSED;
+    upButtonPressed = buttons[0].isEnabled() && buttons[0].getState() == PRESSED;
+    downButtonPressed = buttons[1].isEnabled() && buttons[1].getState() == PRESSED;
+    forwardButtonPressed = buttons[2].isEnabled() && buttons[2].getState() == PRESSED;
+    leftButtonPressed = buttons[3].isEnabled() && buttons[3].getState() == PRESSED;
+    rightButtonPressed = buttons[4].isEnabled() && buttons[4].getState() == PRESSED;
+    backButtonPressed = buttons[5].isEnabled() && buttons[5].getState() == PRESSED;
+    examineButtonPressed = buttons[6].isEnabled() && buttons[6].getState() == PRESSED;
+    speakButtonPressed = buttons[7].isEnabled() && buttons[7].getState() == PRESSED;
     hitButtonPressed = false;
-    useButtonPressed = buttons[7].isEnabled() && buttons[7].getState() == PRESSED;
-    inventoryButtonPressed = buttons[10].isEnabled() && buttons[10].getState() == PRESSED;
+    useButtonPressed = buttons[9].isEnabled() && buttons[9].getState() == PRESSED;
+    inventoryButtonPressed = buttons[12].isEnabled() && buttons[12].getState() == PRESSED;
 }
 
 void ButtonMgr::update()
 {
+    upButtonClicked = false;
+    downButtonClicked = false;
     forwardButtonClicked = false;
     backwardButtonClicked = false;
     leftButtonClicked = false;
@@ -321,6 +339,20 @@ bool ButtonMgr::consumeUseButtonClick()
 {
     const bool clicked = useButtonClicked;
     useButtonClicked = false;
+    return clicked;
+}
+
+bool ButtonMgr::consumeUpButtonClick()
+{
+    const bool clicked = upButtonClicked;
+    upButtonClicked = false;
+    return clicked;
+}
+
+bool ButtonMgr::consumeDownButtonClick()
+{
+    const bool clicked = downButtonClicked;
+    downButtonClicked = false;
     return clicked;
 }
 

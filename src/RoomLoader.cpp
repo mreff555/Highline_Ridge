@@ -14,6 +14,8 @@ bool parseMovement(const nlohmann::json& movement, MovementStruct& out)
     if (!movement.is_object())
         return false;
 
+    out.up = movement.value("up", false);
+    out.down = movement.value("down", false);
     out.forward = movement.value("forward", false);
     out.backward = movement.value("backward", false);
     out.left = movement.value("left", false);

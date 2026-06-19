@@ -33,6 +33,8 @@ class Location
     Texture2D getImage() const;
      char* getDescription() const;
     const Font getDescriptionFont() const;
+    bool isUp() const;
+    bool isDown() const;
     bool isForward() const;
     bool isBackward() const;
     bool isLeft() const;
@@ -101,6 +103,8 @@ class Location
     Font boldFont;
     ActionStruct baseActionFilter;
     
+    bool up;
+    bool down;
     bool forward;
     bool backward;
     bool left;

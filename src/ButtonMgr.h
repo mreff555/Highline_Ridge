@@ -20,6 +20,8 @@ namespace testgame
         void setAvailability(const MovementStruct& movement, const ActionStruct& actions);
         void setStatus(float healthPercent, float energyPercent, float tenacityPercent, float lucidityPercent);
 
+        bool isUpButtonPressed() const { return upButtonPressed; }
+        bool isDownButtonPressed() const { return downButtonPressed; }
         bool isForwardButtonPressed() const { return forwardButtonPressed; }
         bool isBackButtonPressed() const { return backButtonPressed; }
         bool isLeftButtonPressed() const { return leftButtonPressed; }
@@ -28,6 +30,8 @@ namespace testgame
         bool consumeExamineButtonClick();
         bool consumeSpeakButtonClick();
         bool consumeUseButtonClick();
+        bool consumeUpButtonClick();
+        bool consumeDownButtonClick();
         bool consumeForwardButtonClick();
         bool consumeBackwardButtonClick();
         bool consumeLeftButtonClick();
@@ -45,6 +49,8 @@ namespace testgame
         void registerButtonClick(int buttonIndex);
         int findEnabledButtonUnderMouse(Vector2 mousePos) const;
 
+        bool upButtonPressed = false;
+        bool downButtonPressed = false;
         bool forwardButtonPressed = false;
         bool backButtonPressed = false;
         bool leftButtonPressed = false;
@@ -53,6 +59,8 @@ namespace testgame
         bool examineButtonClicked = false;
         bool speakButtonClicked = false;
         bool useButtonClicked = false;
+        bool upButtonClicked = false;
+        bool downButtonClicked = false;
         bool forwardButtonClicked = false;
         bool backwardButtonClicked = false;
         bool leftButtonClicked = false;

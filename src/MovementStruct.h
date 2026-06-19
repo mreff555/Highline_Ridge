@@ -5,6 +5,8 @@ namespace testgame
 {
     struct MovementStruct
     {
+        bool up;
+        bool down;
         bool forward;
         bool backward;
         bool left;

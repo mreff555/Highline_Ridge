@@ -133,7 +133,9 @@
         "forward": false,
         "backward": true,
         "left": false,
-        "right": false
+        "right": true,
+        "up": true,
+        "down": false
       },
       "actions": {
         "examine": true,
@@ -142,7 +144,59 @@
         "use": false
       },
       "exits": {
-        "backward": "saloon_front"
+        "backward": "saloon_front",
+        "right": "saloon_side_passage",
+        "up": "saloon_balcony"
+      }
+    },
+    "saloon_balcony": {
+      "start": false,
+      "image": "resources/saloon_interior.png",
+      "description": "The staircase deposits you on the balcony rail overlooking the main floor. Lamp smoke hangs in layers here, thinner but sweeter. Corsets and bare throats catch the light from below. Feathers, cheap jewels, and eyes that track the room like lookouts on a road. The piano phrase rises from beneath your boots. Patrons glance up and away. The women do not. They have already decided what you are worth.",
+      "examineDetails": "The balusters are turned pine, wear-polished where hands have steadied climbers and leaners alike. A woman in burgundy silk holds the rail with professional ease, gaze fixed on the bar. Another in emerald green murmurs to a miner whose chip stack has grown uncomfortable. Near the stairhead, a third passes close enough that you catch perfume, rouge, and nerves held under control. They are working every angle of the room. And you have stepped into their sightline.",
+      "speakDetails": "",
+      "useDetails": "",
+      "movement": {
+        "forward": false,
+        "backward": false,
+        "left": false,
+        "right": false,
+        "up": false,
+        "down": true
+      },
+      "actions": {
+        "examine": true,
+        "speak": true,
+        "hit": false,
+        "use": false
+      },
+      "exits": {
+        "down": "saloon_interior"
+      }
+    },
+    "saloon_side_passage": {
+      "start": false,
+      "image": "resources/saloon_interior.png",
+      "description": "You slip through the faded velvet curtain into a narrow side passage. The roar of the main room dulls to a muffled pulse. Plank walls, a single lamp, and a service door bolted shut. Sawdust clings to the floorboards. Someone has walked this way recently. boot scuffs still sharp in the dust.",
+      "examineDetails": "The curtain is sun-bleached burgundy, hem weighted with lead shot. A service hatch in the wall is snapped shut and pegged from the inside. Faro chips litter one corner as though a hurried hand spilled them. The lamp is low and steady. Whoever uses this passage does not want to be seen doing it.",
+      "speakDetails": "",
+      "useDetails": "",
+      "movement": {
+        "forward": false,
+        "backward": false,
+        "left": true,
+        "right": false,
+        "up": false,
+        "down": false
+      },
+      "actions": {
+        "examine": true,
+        "speak": false,
+        "hit": false,
+        "use": false
+      },
+      "exits": {
+        "left": "saloon_interior"
       }
     }
   }

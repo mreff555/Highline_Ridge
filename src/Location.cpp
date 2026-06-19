@@ -50,6 +50,8 @@ namespace
       baseActionFilter(locationStruct.actionFilter),
       descriptionFont(locationStruct.descriptionFont),
       boldFont(locationStruct.boldFont),
+      up(locationStruct.movementFilter.up),
+      down(locationStruct.movementFilter.down),
       forward(locationStruct.movementFilter.forward),
       backward(locationStruct.movementFilter.backward),
       left(locationStruct.movementFilter.left),
@@ -78,6 +80,14 @@ namespace
     const Font Location::getDescriptionFont() const
     {
         return descriptionFont;
+    }
+    bool Location::isUp() const
+    {
+        return up;
+    }
+    bool Location::isDown() const
+    {
+        return down;
     }
     bool Location::isForward() const
     {
@@ -428,6 +438,8 @@ namespace
     void Location::updateActionAvailability()
     {
         MovementStruct movement;
+        movement.up = up;
+        movement.down = down;
         movement.forward = forward;
         movement.backward = backward;
         movement.left = left;
@@ -528,6 +540,8 @@ namespace
         baseActionFilter = locationStruct.actionFilter;
         descriptionFont = locationStruct.descriptionFont;
         boldFont = locationStruct.boldFont;
+        up = locationStruct.movementFilter.up;
+        down = locationStruct.movementFilter.down;
         forward = locationStruct.movementFilter.forward;
         backward = locationStruct.movementFilter.backward;
         left = locationStruct.movementFilter.left;
@@ -645,7 +659,11 @@ namespace
         handleNarrativeChoiceInput();
         buttonMgr.update();
 
-        if (buttonMgr.consumeForwardButtonClick())
+        if (buttonMgr.consumeUpButtonClick())
+            tryMove("up");
+        else if (buttonMgr.consumeDownButtonClick())
+            tryMove("down");
+        else if (buttonMgr.consumeForwardButtonClick())
             tryMove("forward");
         else if (buttonMgr.consumeBackwardButtonClick())
             tryMove("backward");
