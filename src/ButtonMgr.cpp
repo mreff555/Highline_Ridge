@@ -41,7 +41,8 @@ ButtonMgr::ButtonMgr(Rectangle _buttonBox, Font _buttonFont)
     const float moveW = contentW * 0.34f;
     const float actionW = contentW * 0.40f;
     const float actionX = contentX + moveW + gap;
-    const float actionH = (contentH - gap) / 2.0f;
+    const float actionCount = 4.0f;
+    const float actionH = (contentH - gap * (actionCount - 1.0f)) / actionCount;
 
     const float moveBtnW = (moveW - gap) / 2.0f;
     const float moveBtnH = (contentH - gap * 2.0f) / 3.0f;
@@ -62,17 +63,13 @@ ButtonMgr::ButtonMgr(Rectangle _buttonBox, Font _buttonFont)
         { actionX, contentY, actionW, actionH });
 
     addButton("Speak",
-        { actionX, contentY + actionH + gap, actionW, actionH });
-
-    const float combatW = (actionW - gap) / 2.0f;
-    const float combatY = contentY + (actionH + gap) * 2.0f;
-    const float combatH = contentH - (actionH + gap) * 2.0f;
+        { actionX, contentY + (actionH + gap) * 1.0f, actionW, actionH });
 
     addButton("Hit",
-        { actionX, combatY, combatW, combatH });
+        { actionX, contentY + (actionH + gap) * 2.0f, actionW, actionH });
 
     addButton("Use",
-        { actionX + combatW + gap, combatY, combatW, combatH });
+        { actionX, contentY + (actionH + gap) * 3.0f, actionW, actionH });
 
     const float inventoryY = buttonBox.y + buttonBox.height - pad - inventoryHeight;
     addButton("Inventory",
