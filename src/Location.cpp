@@ -30,11 +30,11 @@ namespace
         "How you got here from the saloon is a blank page. How you got here at all is no clearer than before.";
 }
 
-    Location::Location(const LocationStruct& locationStruct, Vector2 screenSize, RoomDatabase& roomDatabase, const std::string& roomId)
+    Location::Location(const LocationStruct& locationStruct, Vector2 screenSize, SceneDatabase& sceneDatabase, const std::string& sceneId)
     : screenWidth((int)screenSize.x),
       screenHeight((int)screenSize.y),
-      roomDatabase(roomDatabase),
-      currentRoomId(roomId),
+      sceneDatabase(sceneDatabase),
+      currentSceneId(sceneId),
       locationImage(locationStruct.locationImage),
       ownsLocationImage(locationStruct.ownsLocationImage),
       isUnderConstruction(locationStruct.isUnderConstruction),
@@ -62,13 +62,13 @@ namespace
       buttonMgr(buttonBox, locationStruct.uiFont)
     {
         inventoryMgr.setFont(locationStruct.uiFont);
-        const std::string& assetRoot = roomDatabase.getAssetRoot();
+        const std::string& assetRoot = sceneDatabase.getAssetRoot();
         const std::string fallbackRoot = (assetRoot == ".") ? ".." : ".";
         inventoryMgr.setAssetRoots(assetRoot, fallbackRoot);
         if (!inventoryMgr.ensureAssetsLoaded())
             TraceLog(LOG_WARNING, "Some inventory images failed to load at startup");
         trimNarrativeBuffer();
-        conversationMgr.onEnterRoom(currentRoomId, roomDatabase.getSpeakConfig(currentRoomId));
+        conversationMgr.onEnterScene(currentSceneId, sceneDatabase.getSpeakConfig(currentSceneId));
         updateInventoryLayout();
         updateActionAvailability();
     }
@@ -428,7 +428,24 @@ namespace
     bool Location::isBoldNarrativeLine(const std::string& line) const
     {
         return isBoldNarrativeHeader(line)
-            || (awaitingDialogChoice && isDialogChoiceLine(line));
+            || (conversationMgr.isAwaitingChoice() && isDialogChoiceLine(line))
+            || committedPlayerDialogLines.count(line) > 0;
+    }
+
+    bool Location::hasExaminedScene(const std::string& sceneId) const
+    {
+        return examinedSceneIds.count(sceneId) > 0;
+    }
+
+    bool Location::canUseInCurrentScene() const
+    {
+        if (useDetails.empty() || !hasExaminedScene(currentSceneId))
+            return false;
+
+        if (useRepeatStatus)
+            return !hasUsedInCurrentScene;
+
+        return usedSceneIds.count(currentSceneId) == 0;
     }
 
     bool Location::isDialogChoiceLine(const std::string& line) const
@@ -438,12 +455,12 @@ namespace
 
     Color Location::narrativeLineColor(const std::string& line) const
     {
-        if (!awaitingDialogChoice || !isDialogChoiceLine(line))
+        if (!conversationMgr.isAwaitingChoice() || !isDialogChoiceLine(line))
             return textColor;
 
-        for (const DialogChoice& choice : pendingDialogChoices)
+        for (const ConversationChoiceDef& choice : conversationMgr.getPendingChoices())
         {
-            if (line == choice.lineText)
+            if (line == choice.label)
             {
                 const Vector2 mousePos = GetMousePosition();
                 for (const NarrativeChoiceHitArea& hitArea : narrativeChoiceHitAreas)
@@ -479,29 +496,26 @@ namespace
         appendNarrativeSection("Examining:", examineDetails);
         if (!examineFlag.empty())
             storyFlags.insert(examineFlag);
-        hasExaminedCurrentRoom = true;
+        examinedSceneIds.insert(currentSceneId);
         updateActionAvailability();
     }
 
     void Location::appendSpeakDetails()
     {
-        if (speakDetails.empty() || hasSpokenInCurrentRoom)
+        if (speakDetails.empty() || hasSpokenInCurrentScene)
             return;
 
         appendNarrativeSection("Speaking:", speakDetails);
-        hasSpokenInCurrentRoom = true;
+        hasSpokenInCurrentScene = true;
         updateActionAvailability();
     }
 
-    void Location::appendDialogChoices(const std::vector<DialogChoice>& choices)
+    void Location::appendChoiceLinesToNarrative(const std::vector<ConversationChoiceDef>& choices)
     {
-        pendingDialogChoices = choices;
-        awaitingDialogChoice = true;
-
-        for (const DialogChoice& choice : choices)
+        for (const ConversationChoiceDef& choice : choices)
         {
             narrativeText += "\n";
-            narrativeText += choice.lineText;
+            narrativeText += choice.label;
         }
 
         trimNarrativeBuffer();
@@ -509,10 +523,12 @@ namespace
         updateActionAvailability();
 
         if (!choices.empty())
-            scrollNarrativeToLine(choices.front().lineText, false);
+            scrollNarrativeToLine(choices.front().label, false);
     }
 
-    void Location::stripDialogChoiceLinesFromNarrative(const std::vector<DialogChoice>& choices)
+    void Location::stripDialogChoiceLinesFromNarrative(
+        const std::vector<ConversationChoiceDef>& choices,
+        const std::string& keepLineText)
     {
         if (choices.empty())
             return;
@@ -524,13 +540,19 @@ namespace
         while (std::getline(stream, line))
         {
             bool isChoiceLine = false;
-            for (const DialogChoice& choice : choices)
+            for (const ConversationChoiceDef& choice : choices)
             {
-                if (line == choice.lineText)
+                if (line == choice.label)
                 {
                     isChoiceLine = true;
                     break;
                 }
+            }
+
+            if (isChoiceLine && line == keepLineText)
+            {
+                lines.push_back(line);
+                continue;
             }
 
             if (!isChoiceLine)
@@ -592,12 +614,7 @@ namespace
 
         if (result.action == SpeakResult::Action::ShowChoices)
         {
-            std::vector<DialogChoice> uiChoices;
-            uiChoices.reserve(result.choices.size());
-            for (const ConversationChoiceDef& choice : result.choices)
-                uiChoices.push_back({ choice.id, choice.label });
-
-            appendDialogChoices(uiChoices);
+            appendChoiceLinesToNarrative(conversationMgr.getPendingChoices());
             return;
         }
 
@@ -606,13 +623,25 @@ namespace
 
     void Location::resolveDialogChoice(const std::string& choiceId)
     {
-        if (!conversationMgr.isAwaitingChoice() && !awaitingDialogChoice)
+        if (!conversationMgr.isAwaitingChoice())
             return;
+
+        const std::vector<ConversationChoiceDef> choicesToStrip = conversationMgr.getPendingChoices();
+
+        std::string selectedLineText;
+        for (const ConversationChoiceDef& choice : choicesToStrip)
+        {
+            if (choice.id == choiceId)
+            {
+                selectedLineText = choice.label;
+                break;
+            }
+        }
 
         SpeakResult result = conversationMgr.resolveChoice(choiceId);
         if (result.action == SpeakResult::Action::None && result.narrative.empty())
         {
-            const RoomSpeakConfig& speakConfig = roomDatabase.getSpeakConfig(currentRoomId);
+            const SceneSpeakConfig& speakConfig = sceneDatabase.getSpeakConfig(currentSceneId);
             result = conversationMgr.resolveChoiceFromConfig(speakConfig, choiceId);
         }
 
@@ -621,13 +650,13 @@ namespace
 
         const std::string responseText = result.narrative;
         const std::vector<StatusEffect> effects = result.statusEffects;
-        const std::vector<DialogChoice> choicesToStrip = pendingDialogChoices;
 
-        awaitingDialogChoice = false;
-        pendingDialogChoices.clear();
         narrativeChoiceHitAreas.clear();
 
-        stripDialogChoiceLinesFromNarrative(choicesToStrip);
+        if (!selectedLineText.empty())
+            committedPlayerDialogLines.insert(selectedLineText);
+
+        stripDialogChoiceLinesFromNarrative(choicesToStrip, selectedLineText);
 
         if (!responseText.empty())
         {
@@ -653,11 +682,11 @@ namespace
 
     void Location::handleSpeak()
     {
-        const RoomSpeakConfig& speakConfig = roomDatabase.getSpeakConfig(currentRoomId);
+        const SceneSpeakConfig& speakConfig = sceneDatabase.getSpeakConfig(currentSceneId);
         if (speakConfig.hasPhases())
         {
             SpeakResult result = conversationMgr.handleSpeak(
-                currentRoomId,
+                currentSceneId,
                 speakConfig,
                 storyFlags);
             processSpeakResult(result);
@@ -670,8 +699,8 @@ namespace
     void Location::applyLucidityCollapseRestart()
     {
         LocationStruct cabinLocation;
-        std::string startRoomId;
-        if (!roomDatabase.loadStartRoom(cabinLocation, startRoomId))
+        std::string startSceneId;
+        if (!sceneDatabase.loadStartScene(cabinLocation, startSceneId))
         {
             TraceLog(LOG_ERROR, "Failed to restart at cabin after lucidity collapse");
             return;
@@ -679,8 +708,10 @@ namespace
 
         if (ownsLocationImage && locationImage.id != 0)
             UnloadTexture(locationImage);
-        previousRoomId.clear();
-        currentRoomId = startRoomId;
+        previousSceneId.clear();
+        currentSceneId = startSceneId;
+        examinedSceneIds.clear();
+        usedSceneIds.clear();
         applyLocationStruct(cabinLocation);
 
         narrativeText += "\n\n";
@@ -699,7 +730,7 @@ namespace
 
     void Location::handleNarrativeChoiceInput()
     {
-        if (!awaitingDialogChoice)
+        if (!conversationMgr.isAwaitingChoice())
             return;
 
         if (narrativeLayoutDirty)
@@ -761,18 +792,20 @@ namespace
 
     void Location::appendUseDetails()
     {
-        if (useDetails.empty() || hasUsedInCurrentRoom)
+        if (!canUseInCurrentScene())
             return;
 
         appendNarrativeSection("Using:", useDetails);
         tryApplyStatusDeltas(
-            currentRoomId + ":use",
+            currentSceneId + ":use",
             useHealthDelta,
             useEnergyDelta,
             0.0f,
             0.0f,
             useRepeatStatus);
-        hasUsedInCurrentRoom = true;
+        hasUsedInCurrentScene = true;
+        if (!useRepeatStatus)
+            usedSceneIds.insert(currentSceneId);
         updateActionAvailability();
     }
 
@@ -797,7 +830,7 @@ namespace
         }
         else if (isUnderConstruction)
         {
-            movement.backward = !previousRoomId.empty();
+            movement.backward = !previousSceneId.empty();
         }
         else
         {
@@ -808,28 +841,25 @@ namespace
             movement.left = left;
             movement.right = right;
 
-            if (currentRoomId == "saloon_interior" && !hasExaminedCurrentRoom)
+            if (currentSceneId == "saloon_interior" && !hasExaminedScene(currentSceneId))
             {
                 movement.up = false;
                 movement.right = false;
             }
 
             actions = baseActionFilter;
-            const RoomSpeakConfig& speakConfig = roomDatabase.getSpeakConfig(currentRoomId);
+            const SceneSpeakConfig& speakConfig = sceneDatabase.getSpeakConfig(currentSceneId);
             if (speakConfig.hasPhases())
                 actions.speak = conversationMgr.canSpeak(
                     speakConfig,
                     baseActionFilter.speak,
                     storyFlags);
             else if (!speakDetails.empty())
-                actions.speak = !hasSpokenInCurrentRoom;
+                actions.speak = !hasSpokenInCurrentScene;
             else
                 actions.speak = false;
 
-            if (!useDetails.empty())
-                actions.use = hasExaminedCurrentRoom && !hasUsedInCurrentRoom;
-            else
-                actions.use = false;
+            actions.use = canUseInCurrentScene();
         }
 
         buttonMgr.setAvailability(movement, actions);
@@ -888,7 +918,7 @@ namespace
     {
         narrativeChoiceHitAreas.clear();
 
-        if (!awaitingDialogChoice || pendingDialogChoices.empty())
+        if (!conversationMgr.isAwaitingChoice() || conversationMgr.getPendingChoices().empty())
             return;
 
         const Rectangle dialog = getDialogBounds();
@@ -907,9 +937,9 @@ namespace
 
             if (isDialogChoiceLine(line))
             {
-                for (const DialogChoice& choice : pendingDialogChoices)
+                for (const ConversationChoiceDef& choice : conversationMgr.getPendingChoices())
                 {
-                    if (line != choice.lineText)
+                    if (line != choice.label)
                         continue;
 
                     const Font lineFont = isBoldNarrativeLine(line) ? boldFont : descriptionFont;
@@ -935,49 +965,49 @@ namespace
     {
         if (isUnderConstruction)
         {
-            if (direction != "backward" || previousRoomId.empty())
+            if (direction != "backward" || previousSceneId.empty())
                 return;
 
             LocationStruct previousLocation;
-            if (!roomDatabase.loadRoom(previousRoomId, previousLocation))
+            if (!sceneDatabase.loadScene(previousSceneId, previousLocation))
             {
-                TraceLog(LOG_ERROR, "Failed to load previous room '%s'", previousRoomId.c_str());
+                TraceLog(LOG_ERROR, "Failed to load previous scene '%s'", previousSceneId.c_str());
                 return;
             }
 
             if (ownsLocationImage && locationImage.id != 0)
                 UnloadTexture(locationImage);
 
-            const std::string returnRoomId = previousRoomId;
-            previousRoomId.clear();
-            currentRoomId = returnRoomId;
+            const std::string returnSceneId = previousSceneId;
+            previousSceneId.clear();
+            currentSceneId = returnSceneId;
             applyLocationStruct(previousLocation);
             return;
         }
 
-        const std::string nextRoomId = roomDatabase.getExitRoomId(currentRoomId, direction);
-        if (nextRoomId.empty())
+        const std::string nextSceneId = sceneDatabase.getExitSceneId(currentSceneId, direction);
+        if (nextSceneId.empty())
         {
-            TraceLog(LOG_WARNING, "No exit '%s' from room '%s'", direction.c_str(), currentRoomId.c_str());
+            TraceLog(LOG_WARNING, "No exit '%s' from scene '%s'", direction.c_str(), currentSceneId.c_str());
             return;
         }
 
         LocationStruct nextLocation;
-        if (!roomDatabase.loadRoom(nextRoomId, nextLocation))
+        if (!sceneDatabase.loadScene(nextSceneId, nextLocation))
         {
-            TraceLog(LOG_ERROR, "Failed to load room '%s'", nextRoomId.c_str());
+            TraceLog(LOG_ERROR, "Failed to load scene '%s'", nextSceneId.c_str());
             return;
         }
 
         if (ownsLocationImage && locationImage.id != 0)
             UnloadTexture(locationImage);
 
-        previousRoomId = currentRoomId;
-        currentRoomId = nextRoomId;
+        previousSceneId = currentSceneId;
+        currentSceneId = nextSceneId;
         applyLocationStruct(nextLocation);
 
         if (!isUnderConstruction)
-            previousRoomId.clear();
+            previousSceneId.clear();
     }
 
     void Location::applyLocationStruct(const LocationStruct& locationStruct)
@@ -1003,14 +1033,12 @@ namespace
         backward = locationStruct.movementFilter.backward;
         left = locationStruct.movementFilter.left;
         right = locationStruct.movementFilter.right;
-        hasExaminedCurrentRoom = false;
-        hasSpokenInCurrentRoom = false;
-        hasUsedInCurrentRoom = false;
-        awaitingDialogChoice = false;
-        pendingDialogChoices.clear();
+        hasSpokenInCurrentScene = false;
+        hasUsedInCurrentScene = false;
+        committedPlayerDialogLines.clear();
         narrativeChoiceHitAreas.clear();
 
-        conversationMgr.onEnterRoom(currentRoomId, roomDatabase.getSpeakConfig(currentRoomId));
+        conversationMgr.onEnterScene(currentSceneId, sceneDatabase.getSpeakConfig(currentSceneId));
 
         narrativeScrollY = 0.0f;
         narrativeLayoutDirty = true;

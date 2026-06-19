@@ -1,5 +1,5 @@
 #include <Location.h>
-#include <RoomLoader.h>
+#include <SceneLoader.h>
 #include <raylib.h>
 #include <cstdlib>
 #include <ctime>
@@ -21,10 +21,10 @@ int main(void)
 
     auto locateResources = []() -> bool
     {
-        if (FileExists("resources/rooms.json"))
+        if (FileExists("resources/scenes.json"))
             return true;
 
-        if (FileExists("../resources/rooms.json"))
+        if (FileExists("../resources/scenes.json"))
         {
             ChangeDirectory("..");
             return true;
@@ -33,14 +33,14 @@ int main(void)
         const char* appDir = GetApplicationDirectory();
         if (appDir != nullptr && appDir[0] != '\0')
         {
-            const std::string resourcePath = std::string(appDir) + "/resources/rooms.json";
+            const std::string resourcePath = std::string(appDir) + "/resources/scenes.json";
             if (FileExists(resourcePath.c_str()))
             {
                 ChangeDirectory(appDir);
                 return true;
             }
 
-            const std::string parentResourcePath = std::string(appDir) + "/../resources/rooms.json";
+            const std::string parentResourcePath = std::string(appDir) + "/../resources/scenes.json";
             if (FileExists(parentResourcePath.c_str()))
             {
                 ChangeDirectory((std::string(appDir) + "/..").c_str());
@@ -52,29 +52,29 @@ int main(void)
     };
 
     if (!locateResources())
-        TraceLog(LOG_WARNING, "Could not locate resources/rooms.json from current working directory");
+        TraceLog(LOG_WARNING, "Could not locate resources/scenes.json from current working directory");
 
-    RoomDatabase roomDatabase;
-    const bool roomsLoaded =
-        roomDatabase.load("resources/rooms.json", ".") ||
-        roomDatabase.load("../resources/rooms.json", "..");
-    if (!roomsLoaded)
+    SceneDatabase sceneDatabase;
+    const bool scenesLoaded =
+        sceneDatabase.load("resources/scenes.json", ".") ||
+        sceneDatabase.load("../resources/scenes.json", "..");
+    if (!scenesLoaded)
     {
-        TraceLog(LOG_ERROR, "Failed to load rooms from resources/rooms.json");
+        TraceLog(LOG_ERROR, "Failed to load scenes from resources/scenes.json");
         CloseWindow();
         return 1;
     }
 
-    std::string startRoomId;
+    std::string startSceneId;
     LocationStruct locationStruct;
-    if (!roomDatabase.loadStartRoom(locationStruct, startRoomId))
+    if (!sceneDatabase.loadStartScene(locationStruct, startSceneId))
     {
-        TraceLog(LOG_ERROR, "Failed to load starting room from resources/rooms.json");
+        TraceLog(LOG_ERROR, "Failed to load starting scene from resources/scenes.json");
         CloseWindow();
         return 1;
     }
 
-    Location location(locationStruct, screenSize, roomDatabase, startRoomId);
+    Location location(locationStruct, screenSize, sceneDatabase, startSceneId);
 
     SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
