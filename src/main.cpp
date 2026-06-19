@@ -18,10 +18,15 @@ int main(void)
     InitWindow(screenSize.x, screenSize.y, "Highline Ridge");
     std::srand((unsigned int)std::time(nullptr));
 
+    if (FileExists("../resources/rooms.json"))
+        ChangeDirectory("..");
+    else if (!FileExists("resources/rooms.json"))
+        TraceLog(LOG_WARNING, "Could not locate resources/rooms.json from current working directory");
+
     RoomDatabase roomDatabase;
     const bool roomsLoaded =
-        roomDatabase.load("../resources/rooms.json", "..") ||
-        roomDatabase.load("resources/rooms.json", ".");
+        roomDatabase.load("resources/rooms.json", ".") ||
+        roomDatabase.load("../resources/rooms.json", "..");
     if (!roomsLoaded)
     {
         TraceLog(LOG_ERROR, "Failed to load rooms from resources/rooms.json");
@@ -48,6 +53,7 @@ int main(void)
     {
         // Update
         //----------------------------------------------------------------------------------
+        PollInputEvents();
         location.update();
         //----------------------------------------------------------------------------------
 
