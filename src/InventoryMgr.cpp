@@ -1,4 +1,5 @@
 #include <InventoryMgr.h>
+#include <RoomLoader.h>
 #include <algorithm>
 
 namespace testgame
@@ -27,26 +28,8 @@ namespace
         "No identification. The pockets are otherwise empty except for a small slip of paper, "
         "tucked deep into a corner seam as though someone meant to forget it and could not quite.";
 
-    Texture2D loadItemTexture(const char* filename)
-    {
-        const std::string paths[] = {
-            std::string("../resources/") + filename,
-            std::string("resources/") + filename
-        };
-
-        for (const std::string& path : paths)
-        {
-            if (!FileExists(path.c_str()))
-                continue;
-
-            const Texture2D texture = LoadTexture(path.c_str());
-            if (texture.id != 0)
-                return texture;
-        }
-
-        TraceLog(LOG_ERROR, "Failed to load inventory image: %s", filename);
-        return Texture2D{};
-    }
+    const char* kWalletIconFiles[] = { "wallet_icon.png", "wallet_icon.jpg" };
+    const char* kWalletExamineFiles[] = { "wallet_examine.png", "wallet_examine.jpg" };
 }
 
 const float InventoryMgr::kScrollbarWidth = 16.0f;
@@ -80,13 +63,95 @@ void InventoryMgr::setFont(Font font)
     panelFont = font;
 }
 
+Texture2D InventoryMgr::loadItemTexture(
+    const char* filename,
+    const std::string& primaryAssetRoot,
+    const std::string& fallbackAssetRoot) const
+{
+    const std::string relativePath = std::string("resources/") + filename;
+    const std::string paths[] = {
+        resolveAssetPath(primaryAssetRoot, relativePath),
+        resolveAssetPath(fallbackAssetRoot, relativePath),
+        relativePath
+    };
+
+    for (const std::string& path : paths)
+    {
+        if (!FileExists(path.c_str()))
+            continue;
+
+        const Texture2D texture = LoadTexture(path.c_str());
+        if (texture.id != 0)
+            return texture;
+    }
+
+    TraceLog(LOG_ERROR, "Failed to load inventory image: %s", filename);
+    return Texture2D{};
+}
+
+void InventoryMgr::loadItemTextures(
+    const std::string& primaryAssetRoot,
+    const std::string& fallbackAssetRoot)
+{
+    for (InventoryItem& item : items)
+    {
+        if (item.icon.id != 0)
+        {
+            UnloadTexture(item.icon);
+            item.icon = Texture2D{};
+        }
+        if (item.examineImage.id != 0)
+        {
+            UnloadTexture(item.examineImage);
+            item.examineImage = Texture2D{};
+        }
+    }
+
+    InventoryItem* wallet = nullptr;
+    for (InventoryItem& item : items)
+    {
+        if (item.id == "wallet")
+            wallet = &item;
+    }
+
+    if (wallet == nullptr)
+        return;
+
+    for (const char* filename : kWalletIconFiles)
+    {
+        wallet->icon = loadItemTexture(filename, primaryAssetRoot, fallbackAssetRoot);
+        if (wallet->icon.id != 0)
+            break;
+    }
+
+    for (const char* filename : kWalletExamineFiles)
+    {
+        wallet->examineImage = loadItemTexture(filename, primaryAssetRoot, fallbackAssetRoot);
+        if (wallet->examineImage.id != 0)
+            break;
+    }
+}
+
+bool InventoryMgr::initializeAssets(
+    const std::string& primaryAssetRoot,
+    const std::string& fallbackAssetRoot)
+{
+    loadItemTextures(primaryAssetRoot, fallbackAssetRoot);
+
+    for (const InventoryItem& item : items)
+    {
+        if (item.icon.id == 0 || item.examineImage.id == 0)
+            return false;
+    }
+
+    return true;
+}
+
 void InventoryMgr::createDefaultItems()
 {
     InventoryItem wallet;
     wallet.id = "wallet";
     wallet.name = "Wallet";
-    wallet.icon = loadItemTexture("wallet_icon.jpg");
-    wallet.examineImage = loadItemTexture("wallet_examine.jpg");
     wallet.examineText = kWalletExamineText;
     items.push_back(wallet);
 }
@@ -334,11 +399,12 @@ void InventoryMgr::drawItemGrid() const
     const float contentW = panelBounds.width - pad * 2.0f - kScrollbarWidth - 4.0f;
     const float visibleHeight = getInventoryVisibleHeight();
 
+    const float borderPad = 3.0f;
     BeginScissorMode(
-        (int)contentX,
-        (int)contentY,
-        (int)contentW,
-        (int)visibleHeight);
+        (int)(contentX - borderPad),
+        (int)(contentY - borderPad),
+        (int)(contentW + borderPad * 2.0f),
+        (int)(visibleHeight + borderPad * 2.0f));
 
     for (size_t i = 0; i < items.size() && i < itemSlotBounds.size(); ++i)
     {
@@ -353,7 +419,6 @@ void InventoryMgr::drawItemGrid() const
         const Color fill = selected ? kSlotSelected : (hovered ? kSlotHover : kSlotFill);
 
         DrawRectangleRounded(slot, 0.18f, 8, fill);
-        DrawRectangleRoundedLines(slot, 0.18f, 8, 2.0f, selected ? kPanelBorder : kPanelAccent);
 
         if (items[i].icon.id != 0)
         {
@@ -375,6 +440,18 @@ void InventoryMgr::drawItemGrid() const
     }
 
     EndScissorMode();
+
+    for (size_t i = 0; i < items.size() && i < itemSlotBounds.size(); ++i)
+    {
+        Rectangle slot = itemSlotBounds[i];
+        slot.y -= inventoryScrollY;
+
+        if (slot.y + kItemSlotSize < contentY || slot.y > contentY + visibleHeight)
+            continue;
+
+        const bool selected = items[i].id == selectedItemId;
+        DrawRectangleRoundedLines(slot, 0.18f, 8, 2.0f, selected ? kPanelBorder : kPanelAccent);
+    }
 }
 
 void InventoryMgr::drawInventoryScrollbar() const
