@@ -17,110 +17,6 @@ namespace
     const Color kSlotHover = {54, 50, 64, 255};
     const Color kSlotSelected = {62, 52, 34, 255};
     const Color kCloseHover = {210, 178, 108, 255};
-    const Color kLeatherDeep = {42, 26, 16, 255};
-    const Color kLeatherDark = {62, 38, 22, 255};
-    const Color kLeatherMid = {92, 58, 34, 255};
-    const Color kLeatherLight = {128, 84, 50, 255};
-    const Color kLeatherHighlight = {168, 118, 72, 180};
-    const Color kLeatherGrain = {74, 48, 30, 90};
-    const Color kStitch = {186, 158, 108, 255};
-    const Color kBrass = {156, 124, 62, 255};
-    const Color kBrassHighlight = {214, 186, 118, 255};
-    const Color kBillFace = {196, 188, 158, 255};
-    const Color kBillEdge = {148, 162, 118, 255};
-    const Color kBillShadow = {88, 78, 54, 255};
-    const Color kPaperSlip = {220, 210, 186, 255};
-    const Color kNoirShadow = {14, 12, 18, 220};
-    const Color kAmberGlow = {168, 118, 58, 40};
-
-    void drawLeatherGrain(Rectangle area, float roundness, Color base, Color highlight, Color shadow)
-    {
-        DrawRectangleRounded(area, roundness, 10, base);
-
-        const int startY = (int)area.y;
-        const int endY = (int)(area.y + area.height);
-        for (int y = startY + 2; y < endY - 2; y += 2)
-        {
-            const float t = (float)(y - startY) / area.height;
-            Color grain = kLeatherGrain;
-            grain.a = (unsigned char)(50 + (int)(t * 40.0f));
-            DrawLineEx(
-                { area.x + 4.0f, (float)y },
-                { area.x + area.width - 4.0f, (float)y },
-                1.0f,
-                grain);
-        }
-
-        DrawRectangleRoundedLines(area, roundness, 10, 1.5f, shadow);
-        DrawLineEx(
-            { area.x + 5.0f, area.y + 4.0f },
-            { area.x + area.width * 0.55f, area.y + area.height * 0.35f },
-            2.0f,
-            highlight);
-        DrawLineEx(
-            { area.x + area.width - 8.0f, area.y + area.height - 6.0f },
-            { area.x + area.width * 0.45f, area.y + area.height * 0.7f },
-            1.5f,
-            shadow);
-    }
-
-    void drawStitchLine(Vector2 start, Vector2 end, int stitches)
-    {
-        for (int i = 0; i <= stitches; ++i)
-        {
-            const float t = (float)i / (float)stitches;
-            const Vector2 point = {
-                start.x + (end.x - start.x) * t,
-                start.y + (end.y - start.y) * t
-            };
-            DrawCircleV(point, 1.2f, kStitch);
-        }
-    }
-
-    void drawProtrudingBills(float centerX, float topY, float width, int count, float spread)
-    {
-        for (int i = 0; i < count; ++i)
-        {
-            const float offset = ((float)i - (count - 1) * 0.5f) * spread;
-            const Rectangle bill = {
-                centerX - width * 0.5f + offset,
-                topY - 4.0f - i * 1.5f,
-                width - std::abs(offset) * 0.25f,
-                14.0f + i * 1.2f
-            };
-            DrawRectangleRounded(bill, 0.08f, 4, (i % 2 == 0) ? kBillFace : kBillEdge);
-            DrawRectangleRoundedLines(bill, 0.08f, 4, 1.0f, kBillShadow);
-            DrawLineEx(
-                { bill.x + 4.0f, bill.y + bill.height * 0.5f },
-                { bill.x + bill.width - 4.0f, bill.y + bill.height * 0.5f },
-                1.0f,
-                {118, 108, 82, 120});
-        }
-    }
-
-    void drawPaperSlipTip(Rectangle pocket, float protrudeX, float protrudeY)
-    {
-        const Rectangle slip = {
-            pocket.x + pocket.width - protrudeX,
-            pocket.y + pocket.height - protrudeY,
-            protrudeX + 4.0f,
-            protrudeY + 2.0f
-        };
-        DrawRectangleRounded(slip, 0.15f, 4, kPaperSlip);
-        DrawRectangleRoundedLines(slip, 0.15f, 4, 1.0f, {168, 138, 72, 180});
-        DrawLineEx(
-            { slip.x + 3.0f, slip.y + 3.0f },
-            { slip.x + slip.width - 2.0f, slip.y + slip.height - 3.0f },
-            1.0f,
-            {168, 158, 132, 140});
-    }
-
-    void drawBrassSnap(Vector2 center, float radius)
-    {
-        DrawCircleGradient((int)center.x, (int)center.y, radius, kBrassHighlight, kBrass);
-        DrawCircleLinesV(center, radius, kLeatherDeep);
-        DrawCircleV({ center.x - radius * 0.25f, center.y - radius * 0.25f }, radius * 0.18f, {236, 220, 170, 120});
-    }
 
     const char* kWalletExamineText =
         "The wallet is worked from thick full-grain leather, hand-stitched along the edges "
@@ -130,6 +26,27 @@ namespace
         "You count what it holds. Twenty dollars in worn notes, nothing more. No credit cards. "
         "No identification. The pockets are otherwise empty except for a small slip of paper, "
         "tucked deep into a corner seam as though someone meant to forget it and could not quite.";
+
+    Texture2D loadItemTexture(const char* filename)
+    {
+        const std::string paths[] = {
+            std::string("../resources/") + filename,
+            std::string("resources/") + filename
+        };
+
+        for (const std::string& path : paths)
+        {
+            if (!FileExists(path.c_str()))
+                continue;
+
+            const Texture2D texture = LoadTexture(path.c_str());
+            if (texture.id != 0)
+                return texture;
+        }
+
+        TraceLog(LOG_ERROR, "Failed to load inventory image: %s", filename);
+        return Texture2D{};
+    }
 }
 
 const float InventoryMgr::kScrollbarWidth = 16.0f;
@@ -163,150 +80,13 @@ void InventoryMgr::setFont(Font font)
     panelFont = font;
 }
 
-Texture2D InventoryMgr::createWalletIconTexture() const
-{
-    const int size = 128;
-    RenderTexture2D target = LoadRenderTexture(size, size);
-    BeginTextureMode(target);
-    ClearBackground({0, 0, 0, 0});
-
-    DrawCircleGradient(size / 2, size / 2, 52, {36, 30, 24, 60}, {0, 0, 0, 0});
-
-    const Rectangle body = {24.0f, 34.0f, 80.0f, 68.0f};
-    drawLeatherGrain(body, 0.18f, kLeatherMid, kLeatherHighlight, kLeatherDeep);
-
-    const Rectangle flap = {24.0f, 24.0f, 80.0f, 26.0f};
-    drawLeatherGrain(flap, 0.24f, kLeatherDark, kLeatherLight, kLeatherDeep);
-    DrawLineEx({flap.x + 6.0f, flap.y + flap.height - 2.0f}, {flap.x + flap.width - 6.0f, flap.y + flap.height - 2.0f}, 1.5f, kLeatherDeep);
-
-    const Rectangle cardSlot = {34.0f, 58.0f, 34.0f, 30.0f};
-    DrawRectangleRounded(cardSlot, 0.12f, 6, kLeatherDeep);
-    DrawRectangleRoundedLines(cardSlot, 0.12f, 6, 1.0f, {54, 34, 20, 255});
-    drawPaperSlipTip(cardSlot, 10.0f, 8.0f);
-
-    const Rectangle billPocket = {62.0f, 58.0f, 32.0f, 30.0f};
-    DrawRectangleRounded(billPocket, 0.12f, 6, kLeatherDeep);
-    DrawRectangleRoundedLines(billPocket, 0.12f, 6, 1.0f, {54, 34, 20, 255});
-
-    drawProtrudingBills(body.x + body.width * 0.5f, body.y + 2.0f, 34.0f, 4, 3.0f);
-
-    drawBrassSnap({body.x + body.width - 12.0f, body.y + 24.0f}, 6.0f);
-
-    drawStitchLine({body.x + 8.0f, body.y + body.height - 6.0f}, {body.x + body.width - 8.0f, body.y + body.height - 6.0f}, 14);
-    drawStitchLine({body.x + 6.0f, flap.y + 6.0f}, {body.x + 6.0f, body.y + body.height - 8.0f}, 10);
-    drawStitchLine({body.x + body.width - 6.0f, flap.y + 6.0f}, {body.x + body.width - 6.0f, body.y + body.height - 8.0f}, 10);
-
-    DrawRectangle(
-        (int)(body.x + 10.0f),
-        (int)(body.y + 12.0f),
-        18,
-        8,
-        {kLeatherLight.r, kLeatherLight.g, kLeatherLight.b, 55});
-
-    EndTextureMode();
-
-    Image image = LoadImageFromTexture(target.texture);
-    ImageFlipVertical(&image);
-    Texture2D texture = LoadTextureFromImage(image);
-    UnloadImage(image);
-    UnloadRenderTexture(target);
-    return texture;
-}
-
-Texture2D InventoryMgr::createWalletExamineTexture() const
-{
-    const int width = 420;
-    const int height = 260;
-    RenderTexture2D target = LoadRenderTexture(width, height);
-    BeginTextureMode(target);
-    ClearBackground({22, 20, 28, 255});
-
-    DrawRectangleGradientV(0, 0, width, height, {34, 28, 22, 255}, {18, 16, 24, 255});
-    DrawCircleGradient(width - 70, 48, 120, kAmberGlow, {0, 0, 0, 0});
-    DrawRectangleGradientH(0, 0, width / 3, height, kNoirShadow, {0, 0, 0, 0});
-
-    const Rectangle surface = {28.0f, 34.0f, 364.0f, 196.0f};
-    DrawRectangleRounded(surface, 0.05f, 8, {30, 26, 22, 255});
-    DrawRectangleRoundedLines(surface, 0.05f, 8, 2.0f, kPanelBorder);
-
-    for (int i = 0; i < 7; ++i)
-    {
-        const float y = surface.y + 18.0f + i * 22.0f;
-        DrawLineEx(
-            {surface.x + 12.0f, y},
-            {surface.x + surface.width - 12.0f, y + 3.0f},
-            1.0f,
-            {42, 36, 30, 80});
-    }
-
-    const Rectangle wallet = {72.0f, 72.0f, 276.0f, 132.0f};
-    drawLeatherGrain(wallet, 0.14f, kLeatherMid, kLeatherHighlight, kLeatherDeep);
-
-    const Rectangle flap = {72.0f, 48.0f, 276.0f, 48.0f};
-    drawLeatherGrain(flap, 0.18f, kLeatherDark, kLeatherLight, kLeatherDeep);
-    DrawLineEx(
-        {flap.x + 10.0f, flap.y + flap.height - 3.0f},
-        {flap.x + flap.width - 10.0f, flap.y + flap.height - 3.0f},
-        2.0f,
-        kLeatherDeep);
-
-    drawProtrudingBills(wallet.x + wallet.width * 0.48f, wallet.y + 4.0f, 92.0f, 5, 7.0f);
-
-    const Rectangle leftPocket = {88.0f, 112.0f, 96.0f, 72.0f};
-    DrawRectangleRounded(leftPocket, 0.1f, 8, kLeatherDeep);
-    DrawRectangleRoundedLines(leftPocket, 0.1f, 8, 1.5f, {48, 30, 18, 255});
-    drawPaperSlipTip(leftPocket, 22.0f, 16.0f);
-
-    const Rectangle rightPocket = {236.0f, 112.0f, 96.0f, 72.0f};
-    DrawRectangleRounded(rightPocket, 0.1f, 8, kLeatherDeep);
-    DrawRectangleRoundedLines(rightPocket, 0.1f, 8, 1.5f, {48, 30, 18, 255});
-
-    for (int i = 0; i < 3; ++i)
-    {
-        const Rectangle note = {
-            rightPocket.x + 14.0f,
-            rightPocket.y + 12.0f + i * 6.0f,
-            rightPocket.width - 28.0f,
-            18.0f
-        };
-        DrawRectangleRounded(note, 0.08f, 4, (i == 0) ? kBillFace : kBillEdge);
-        DrawRectangleRoundedLines(note, 0.08f, 4, 1.0f, kBillShadow);
-    }
-
-    drawBrassSnap({wallet.x + wallet.width - 28.0f, wallet.y + 42.0f}, 14.0f);
-
-    drawStitchLine({wallet.x + 14.0f, wallet.y + wallet.height - 10.0f}, {wallet.x + wallet.width - 14.0f, wallet.y + wallet.height - 10.0f}, 24);
-    drawStitchLine({wallet.x + 12.0f, flap.y + 10.0f}, {wallet.x + 12.0f, wallet.y + wallet.height - 12.0f}, 18);
-    drawStitchLine({wallet.x + wallet.width - 12.0f, flap.y + 10.0f}, {wallet.x + wallet.width - 12.0f, wallet.y + wallet.height - 12.0f}, 18);
-    drawStitchLine({flap.x + 20.0f, flap.y + 8.0f}, {flap.x + flap.width - 20.0f, flap.y + 8.0f}, 18);
-
-    DrawEllipse(
-        (int)(wallet.x + wallet.width * 0.35f),
-        (int)(wallet.y + 52.0f),
-        48.0f,
-        16.0f,
-        {kLeatherLight.r, kLeatherLight.g, kLeatherLight.b, 35});
-
-    const Font labelFont = (panelFont.glyphs != nullptr) ? panelFont : GetFontDefault();
-    DrawTextEx(labelFont, "TOP GRAIN LEATHER", {wallet.x + 18.0f, wallet.y + 18.0f}, 11.0f, 1, {kSectionLabel.r, kSectionLabel.g, kSectionLabel.b, 180});
-
-    EndTextureMode();
-
-    Image image = LoadImageFromTexture(target.texture);
-    ImageFlipVertical(&image);
-    Texture2D texture = LoadTextureFromImage(image);
-    UnloadImage(image);
-    UnloadRenderTexture(target);
-    return texture;
-}
-
 void InventoryMgr::createDefaultItems()
 {
     InventoryItem wallet;
     wallet.id = "wallet";
     wallet.name = "Wallet";
-    wallet.icon = createWalletIconTexture();
-    wallet.examineImage = createWalletExamineTexture();
+    wallet.icon = loadItemTexture("wallet_icon.jpg");
+    wallet.examineImage = loadItemTexture("wallet_examine.jpg");
     wallet.examineText = kWalletExamineText;
     items.push_back(wallet);
 }

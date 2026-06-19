@@ -5,11 +5,11 @@ namespace testgame
 {
     struct ActionStruct
     {
-        bool examine;
-        bool speak;
-        bool hit;
-        bool use;
-        bool take;
+        bool examine = false;
+        bool speak = false;
+        bool hit = false;
+        bool use = false;
+        bool take = false;
     };
 }
 

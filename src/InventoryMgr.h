@@ -44,8 +44,6 @@ class InventoryMgr
 
     private:
     void createDefaultItems();
-    Texture2D createWalletIconTexture() const;
-    Texture2D createWalletExamineTexture() const;
     void drawCloseButton() const;
     void drawItemGrid() const;
     void handleItemGridInput();

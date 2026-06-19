@@ -433,10 +433,15 @@ namespace
 
         if (inventoryMgr.isOpen())
         {
+            movement.up = false;
+            movement.down = false;
+            movement.forward = false;
+            movement.left = false;
+            movement.right = false;
+            movement.backward = false;
+
             if (inventoryMgr.isExaminingItem())
-            {
                 movement.backward = true;
-            }
             else if (inventoryMgr.canExamineSelectedItem())
                 actions.examine = true;
         }
@@ -665,6 +670,7 @@ namespace
     void Location::update()
     {
         updateInventoryLayout();
+        updateActionAvailability();
 
         if (!inventoryMgr.isExaminingItem())
             handleNarrativeChoiceInput();
