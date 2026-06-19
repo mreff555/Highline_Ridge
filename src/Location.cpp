@@ -31,6 +31,7 @@ namespace
       currentRoomId(roomId),
       locationImage(locationStruct.locationImage),
       ownsLocationImage(locationStruct.ownsLocationImage),
+      isUnderConstruction(locationStruct.isUnderConstruction),
       baseDescription(locationStruct.locationDescription),
       narrativeText(locationStruct.locationDescription),
       examineDetails(locationStruct.examineDetails),
@@ -139,13 +140,33 @@ namespace
             }
         }
 
-        DrawTexturePro(
-            locationImage,
-            { 0.0f, 0.0f, (float)locationImage.width, (float)locationImage.height },
-            mainBounds,
-            { 0.0f, 0.0f },
-            0.0f,
-            WHITE);
+        if (locationImage.id != 0)
+        {
+            DrawTexturePro(
+                locationImage,
+                { 0.0f, 0.0f, (float)locationImage.width, (float)locationImage.height },
+                mainBounds,
+                { 0.0f, 0.0f },
+                0.0f,
+                WHITE);
+        }
+        else
+        {
+            DrawRectangleRec(mainBounds, (Color){48, 44, 56, 255});
+            const char* fallback = "UNDER CONSTRUCTION";
+            const float fontSize = 36.0f;
+            const Vector2 size = MeasureTextEx(descriptionFont, fallback, fontSize, 2.0f);
+            DrawTextEx(
+                descriptionFont,
+                fallback,
+                {
+                    mainBounds.x + (mainBounds.width - size.x) * 0.5f,
+                    mainBounds.y + (mainBounds.height - size.y) * 0.5f
+                },
+                fontSize,
+                2.0f,
+                (Color){186, 150, 72, 255});
+        }
     }
 
     Rectangle Location::getDialogBounds() const
@@ -382,6 +403,7 @@ namespace
 
         if (ownsLocationImage && locationImage.id != 0)
             UnloadTexture(locationImage);
+        previousRoomId.clear();
         currentRoomId = startRoomId;
         applyLocationStruct(cabinLocation);
 
@@ -487,6 +509,10 @@ namespace
             else if (inventoryMgr.canExamineSelectedItem())
                 actions.examine = true;
         }
+        else if (isUnderConstruction)
+        {
+            movement.backward = !previousRoomId.empty();
+        }
         else
         {
             movement.up = up;
@@ -566,6 +592,28 @@ namespace
     
     void Location::tryMove(const std::string& direction)
     {
+        if (isUnderConstruction)
+        {
+            if (direction != "backward" || previousRoomId.empty())
+                return;
+
+            LocationStruct previousLocation;
+            if (!roomDatabase.loadRoom(previousRoomId, previousLocation))
+            {
+                TraceLog(LOG_ERROR, "Failed to load previous room '%s'", previousRoomId.c_str());
+                return;
+            }
+
+            if (ownsLocationImage && locationImage.id != 0)
+                UnloadTexture(locationImage);
+
+            const std::string returnRoomId = previousRoomId;
+            previousRoomId.clear();
+            currentRoomId = returnRoomId;
+            applyLocationStruct(previousLocation);
+            return;
+        }
+
         const std::string nextRoomId = roomDatabase.getExitRoomId(currentRoomId, direction);
         if (nextRoomId.empty())
         {
@@ -582,14 +630,20 @@ namespace
 
         if (ownsLocationImage && locationImage.id != 0)
             UnloadTexture(locationImage);
+
+        previousRoomId = currentRoomId;
         currentRoomId = nextRoomId;
         applyLocationStruct(nextLocation);
+
+        if (!isUnderConstruction)
+            previousRoomId.clear();
     }
 
     void Location::applyLocationStruct(const LocationStruct& locationStruct)
     {
         locationImage = locationStruct.locationImage;
         ownsLocationImage = locationStruct.ownsLocationImage;
+        isUnderConstruction = locationStruct.isUnderConstruction;
         baseDescription = locationStruct.locationDescription;
         narrativeText = locationStruct.locationDescription;
         examineDetails = locationStruct.examineDetails;

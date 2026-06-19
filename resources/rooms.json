@@ -86,17 +86,15 @@
         "forward": false,
         "backward": false,
         "left": false,
-        "right": true
+        "right": false
       },
       "actions": {
-        "examine": true,
+        "examine": false,
         "speak": false,
         "hit": false,
         "use": false
       },
-      "exits": {
-        "right": "mountain_road"
-      }
+      "exits": {}
     },
     "mountain_road_forward": {
       "start": false,

@@ -362,8 +362,8 @@ RoomDatabase::RoomDatabase()
 
 RoomDatabase::~RoomDatabase()
 {
-    if (underConstructionTexture.id != 0)
-        UnloadTexture(underConstructionTexture);
+    if (underConstructionImageReady && underConstructionImage.data != nullptr)
+        UnloadImage(underConstructionImage);
 
     if (fontsLoaded)
     {
@@ -467,30 +467,38 @@ bool RoomDatabase::tryLoadRoomImage(const std::string& imagePath, Texture2D& out
     return false;
 }
 
-Texture2D RoomDatabase::getUnderConstructionTexture() const
+void RoomDatabase::ensureUnderConstructionImage() const
 {
-    if (underConstructionTexture.id != 0)
-        return underConstructionTexture;
+    if (underConstructionImageReady && underConstructionImage.data != nullptr)
+        return;
 
     Texture2D assetTexture{};
     if (loadResourceTexture(assetRoot, "resources/room_under_construction.png", assetTexture))
     {
-        underConstructionTexture = assetTexture;
-        SetTextureFilter(underConstructionTexture, TEXTURE_FILTER_BILINEAR);
-        return underConstructionTexture;
+        underConstructionImage = LoadImageFromTexture(assetTexture);
+        UnloadTexture(assetTexture);
+        if (underConstructionImage.data != nullptr)
+        {
+            underConstructionImageReady = true;
+            TraceLog(LOG_INFO, "Loaded under-construction image from resources/room_under_construction.png");
+            return;
+        }
     }
 
     const int width = 1024;
     const int height = 768;
-    Image image = GenImageColor(width, height, (Color){34, 32, 40, 255});
+    RenderTexture2D renderTarget = LoadRenderTexture(width, height);
+
+    BeginTextureMode(renderTarget);
+    ClearBackground((Color){34, 32, 40, 255});
 
     const Color accent = {186, 150, 72, 255};
     const Color stripe = {168, 132, 48, 255};
-    ImageDrawRectangle(&image, 0, 0, width, 10, accent);
-    ImageDrawRectangle(&image, 0, height - 10, width, 10, accent);
+    DrawRectangle(0, 0, width, 10, accent);
+    DrawRectangle(0, height - 10, width, 10, accent);
 
     for (int x = -height; x < width; x += 48)
-        ImageDrawRectangle(&image, x, height / 2 - 36, 24, 72, stripe);
+        DrawRectangle(x, height / 2 - 36, 24, 72, stripe);
 
     const char* title = "UNDER CONSTRUCTION";
     const char* subtitle = "This location is not yet complete.";
@@ -499,28 +507,42 @@ Texture2D RoomDatabase::getUnderConstructionTexture() const
     const Vector2 titleMeasure = MeasureTextEx(descriptionFont, title, titleSize, 2.0f);
     const Vector2 subtitleMeasure = MeasureTextEx(descriptionFont, subtitle, subtitleSize, 1.0f);
 
-    ImageDrawTextEx(
-        &image,
+    DrawTextEx(
         descriptionFont,
         title,
-        (Vector2){ (width - titleMeasure.x) * 0.5f, height * 0.36f },
+        { (width - titleMeasure.x) * 0.5f, height * 0.36f },
         titleSize,
         2.0f,
         accent);
 
-    ImageDrawTextEx(
-        &image,
+    DrawTextEx(
         descriptionFont,
         subtitle,
-        (Vector2){ (width - subtitleMeasure.x) * 0.5f, height * 0.36f + titleMeasure.y + 18.0f },
+        { (width - subtitleMeasure.x) * 0.5f, height * 0.36f + titleMeasure.y + 18.0f },
         subtitleSize,
         1.0f,
         (Color){176, 168, 152, 255});
 
-    underConstructionTexture = LoadTextureFromImage(image);
-    UnloadImage(image);
-    SetTextureFilter(underConstructionTexture, TEXTURE_FILTER_BILINEAR);
-    return underConstructionTexture;
+    EndTextureMode();
+
+    Image generated = LoadImageFromTexture(renderTarget.texture);
+    ImageFlipVertical(&generated);
+    UnloadRenderTexture(renderTarget);
+
+    underConstructionImage = generated;
+    underConstructionImageReady = true;
+    TraceLog(LOG_INFO, "Generated under-construction placeholder image");
+}
+
+Texture2D RoomDatabase::createOwnedPlaceholderTexture() const
+{
+    ensureUnderConstructionImage();
+
+    Texture2D texture = LoadTextureFromImage(underConstructionImage);
+    if (texture.id != 0)
+        SetTextureFilter(texture, TEXTURE_FILTER_BILINEAR);
+
+    return texture;
 }
 
 bool RoomDatabase::buildLocationStruct(const RoomData& room, LocationStruct& outLocation) const
@@ -537,6 +559,7 @@ bool RoomDatabase::buildLocationStruct(const RoomData& room, LocationStruct& out
     outLocation.movementFilter = room.movement;
     outLocation.actionFilter = room.actions;
     outLocation.ownsLocationImage = true;
+    outLocation.isUnderConstruction = false;
 
     Texture2D roomTexture{};
     if (tryLoadRoomImage(room.imagePath, roomTexture))
@@ -550,8 +573,9 @@ bool RoomDatabase::buildLocationStruct(const RoomData& room, LocationStruct& out
     else
         TraceLog(LOG_INFO, "Room '%s' has no image; using under-construction placeholder", room.id.c_str());
 
-    outLocation.locationImage = getUnderConstructionTexture();
-    outLocation.ownsLocationImage = false;
+    outLocation.isUnderConstruction = true;
+    outLocation.locationImage = createOwnedPlaceholderTexture();
+    outLocation.ownsLocationImage = (outLocation.locationImage.id != 0);
     return true;
 }
 
