@@ -9,6 +9,8 @@
 namespace testgame
 {
 
+std::string resolveAssetPath(const std::string& assetRoot, const std::string& path);
+
 struct RoomData
 {
     std::string id;
@@ -38,6 +40,7 @@ class RoomDatabase
     bool loadRoom(const std::string& roomId, LocationStruct& outLocation) const;
     std::string getExitRoomId(const std::string& roomId, const std::string& direction) const;
     const RoomSpeakConfig& getSpeakConfig(const std::string& roomId) const;
+    const std::string& getAssetRoot() const { return assetRoot; }
 
     private:
     bool buildLocationStruct(const RoomData& room, LocationStruct& outLocation) const;
