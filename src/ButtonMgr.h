@@ -62,6 +62,7 @@ namespace testgame
 
         float healthPercent = 90.0f;
         float energyPercent = 20.0f;
+        bool mouseWasDownLastFrame = false;
 
         Rectangle buttonBox;
         Rectangle healthBarBounds;

@@ -237,8 +237,11 @@ void ButtonMgr::update()
     useButtonClicked = false;
 
     Vector2 mousePos = GetMousePosition();
+    const bool mouseDown = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
+    const bool mouseJustPressed = mouseDown && !mouseWasDownLastFrame;
+    mouseWasDownLastFrame = mouseDown;
 
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    if (mouseJustPressed)
     {
         const int buttonIndex = findEnabledButtonUnderMouse(mousePos);
         if (buttonIndex >= 0)
