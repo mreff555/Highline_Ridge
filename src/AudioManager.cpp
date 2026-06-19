@@ -288,10 +288,23 @@ void AudioManager::unloadMusicTrack(FadingMusicTrack& track)
     track = FadingMusicTrack{};
 }
 
+void AudioManager::unloadAmbientTrack(FadingAmbientTrack& track)
+{
+    if (!track.loaded)
+        return;
+
+    if (track.playing)
+        StopSound(track.sound);
+
+    UnloadSound(track.sound);
+    removeTempFile(track.tempFilePath);
+    track = FadingAmbientTrack{};
+}
+
 void AudioManager::unloadAmbientTracks()
 {
-    for (FadingMusicTrack& track : ambientTracks)
-        unloadMusicTrack(track);
+    for (FadingAmbientTrack& track : ambientTracks)
+        unloadAmbientTrack(track);
 
     ambientTracks.clear();
 }
@@ -314,10 +327,22 @@ void AudioManager::fadeOutMusicTrack(FadingMusicTrack& track, float fadeOutSecon
     }
 }
 
-void AudioManager::fadeOutAmbientTracks(float fadeOutSeconds)
+void AudioManager::fadeOutAmbientTrack(FadingAmbientTrack& track, float fadeOutSeconds)
 {
-    for (FadingMusicTrack& track : ambientTracks)
-        fadeOutMusicTrack(track, fadeOutSeconds);
+    if (!track.loaded || !track.playing)
+        return;
+
+    track.fadeOutSeconds = std::max(0.0f, fadeOutSeconds);
+    track.fadeElapsed = 0.0f;
+    track.fadingOut = track.fadeOutSeconds > 0.0f;
+    track.fadingIn = false;
+
+    if (!track.fadingOut)
+    {
+        StopSound(track.sound);
+        track.playing = false;
+        track.currentVolume = 0.0f;
+    }
 }
 
 void AudioManager::startMusicTrack(FadingMusicTrack& track, const AudioClipDef& clip)
@@ -357,19 +382,20 @@ void AudioManager::startMusicTrack(FadingMusicTrack& track, const AudioClipDef& 
 
 void AudioManager::startAmbientTrack(const AudioClipDef& clip)
 {
-    if (clip.path.empty())
+    if (clip.path.empty() || !ensureDeviceReady())
         return;
 
-    FadingMusicTrack track;
-    Music music{};
+    FadingAmbientTrack track;
+    Sound sound{};
+    float durationSeconds = 0.0f;
     std::string tempFile;
-    if (!loadMusicClip(clip.path, music, tempFile))
+    if (!loadSoundClip(clip.path, sound, durationSeconds, tempFile))
     {
         TraceLog(LOG_WARNING, "Failed to load ambient clip: %s", clip.path.c_str());
         return;
     }
 
-    track.music = music;
+    track.sound = sound;
     track.loaded = true;
     track.path = clip.path;
     track.tempFilePath = tempFile;
@@ -381,16 +407,15 @@ void AudioManager::startAmbientTrack(const AudioClipDef& clip)
     track.fadingOut = false;
     track.currentVolume = track.fadingIn ? 0.0f : track.targetVolume;
     track.loop = clip.loop;
-    track.music.looping = clip.loop;
 
-    SetMusicVolume(track.music, track.currentVolume);
-    PlayMusicStream(track.music);
+    SetSoundVolume(track.sound, track.currentVolume);
+    PlaySound(track.sound);
     track.playing = true;
     ambientTracks.push_back(track);
     TraceLog(LOG_INFO, "Started ambient: %s (vol %.2f)", clip.path.c_str(), track.currentVolume);
 }
 
-void AudioManager::updateMusicTrack(FadingMusicTrack& track, float deltaSeconds, AudioCategory category)
+void AudioManager::updateMusicTrack(FadingMusicTrack& track, float deltaSeconds)
 {
     if (!track.loaded)
         return;
@@ -444,8 +469,65 @@ void AudioManager::updateMusicTrack(FadingMusicTrack& track, float deltaSeconds,
 
     if (track.playing || track.fadingOut)
         SetMusicVolume(track.music, track.currentVolume);
+}
 
-    (void)category;
+void AudioManager::updateAmbientTrack(FadingAmbientTrack& track, float deltaSeconds)
+{
+    if (!track.loaded)
+        return;
+
+    if (track.loop && track.playing && !track.fadingOut && !IsSoundPlaying(track.sound))
+    {
+        SetSoundVolume(track.sound, track.currentVolume);
+        PlaySound(track.sound);
+    }
+
+    if (track.fadingIn)
+    {
+        track.fadeElapsed += deltaSeconds;
+        if (track.fadeInSeconds <= 0.0f)
+        {
+            track.currentVolume = track.targetVolume;
+            track.fadingIn = false;
+        }
+        else
+        {
+            const float progress = std::min(1.0f, track.fadeElapsed / track.fadeInSeconds);
+            track.currentVolume = track.targetVolume * progress;
+            if (progress >= 1.0f)
+                track.fadingIn = false;
+        }
+    }
+    else if (track.fadingOut)
+    {
+        track.fadeElapsed += deltaSeconds;
+        if (track.fadeOutSeconds <= 0.0f)
+        {
+            track.currentVolume = 0.0f;
+            track.fadingOut = false;
+            StopSound(track.sound);
+            track.playing = false;
+        }
+        else
+        {
+            const float progress = std::min(1.0f, track.fadeElapsed / track.fadeOutSeconds);
+            const float startVolume = track.targetVolume;
+            track.currentVolume = startVolume * (1.0f - progress);
+            if (progress >= 1.0f)
+            {
+                track.fadingOut = false;
+                StopSound(track.sound);
+                track.playing = false;
+            }
+        }
+    }
+    else if (track.playing)
+    {
+        track.currentVolume = track.targetVolume;
+    }
+
+    if (track.playing || track.fadingOut)
+        SetSoundVolume(track.sound, track.currentVolume);
 }
 
 void AudioManager::updateActiveSounds(float deltaSeconds)
@@ -478,18 +560,18 @@ void AudioManager::update(float deltaSeconds)
         return;
 
     updateActiveSounds(deltaSeconds);
-    updateMusicTrack(musicTrack, deltaSeconds, AudioCategory::Music);
+    updateMusicTrack(musicTrack, deltaSeconds);
 
-    std::vector<FadingMusicTrack> remainingAmbient;
+    std::vector<FadingAmbientTrack> remainingAmbient;
     remainingAmbient.reserve(ambientTracks.size());
 
-    for (FadingMusicTrack& track : ambientTracks)
+    for (FadingAmbientTrack& track : ambientTracks)
     {
-        updateMusicTrack(track, deltaSeconds, AudioCategory::Ambient);
+        updateAmbientTrack(track, deltaSeconds);
         if (track.loaded && (track.playing || track.fadingIn || track.fadingOut))
             remainingAmbient.push_back(track);
         else
-            unloadMusicTrack(track);
+            unloadAmbientTrack(track);
     }
 
     ambientTracks.swap(remainingAmbient);
@@ -553,20 +635,22 @@ void AudioManager::playRoomSfx(
     }
 }
 
-bool AudioManager::isStreamActive(const FadingMusicTrack& track) const
+bool AudioManager::isMusicStreamActive(const FadingMusicTrack& track) const
 {
     return track.loaded && (track.playing || track.fadingIn || track.fadingOut);
 }
 
-void AudioManager::retainMusicTrack(
-    FadingMusicTrack& track,
-    const AudioClipDef& clip,
-    AudioCategory category)
+bool AudioManager::isAmbientTrackActive(const FadingAmbientTrack& track) const
+{
+    return track.loaded && (track.playing || track.fadingIn || track.fadingOut);
+}
+
+void AudioManager::retainMusicTrack(FadingMusicTrack& track, const AudioClipDef& clip)
 {
     track.fadingOut = false;
     track.fadingIn = false;
     track.fadeElapsed = 0.0f;
-    track.targetVolume = effectiveVolume(category, clip.volume);
+    track.targetVolume = effectiveVolume(AudioCategory::Music, clip.volume);
     track.fadeInSeconds = std::max(0.0f, attributeOrDefault(clip, "fade_in", clip.fadeIn));
     track.fadeOutSeconds = std::max(0.0f, attributeOrDefault(clip, "fade_out", clip.fadeOut));
     track.loop = clip.loop;
@@ -578,9 +662,25 @@ void AudioManager::retainMusicTrack(
     SetMusicVolume(track.music, track.currentVolume);
 }
 
-AudioManager::FadingMusicTrack* AudioManager::findAmbientTrackByPath(const std::string& path)
+void AudioManager::retainAmbientTrack(FadingAmbientTrack& track, const AudioClipDef& clip)
 {
-    for (FadingMusicTrack& track : ambientTracks)
+    track.fadingOut = false;
+    track.fadingIn = false;
+    track.fadeElapsed = 0.0f;
+    track.targetVolume = effectiveVolume(AudioCategory::Ambient, clip.volume);
+    track.fadeInSeconds = std::max(0.0f, attributeOrDefault(clip, "fade_in", clip.fadeIn));
+    track.fadeOutSeconds = std::max(0.0f, attributeOrDefault(clip, "fade_out", clip.fadeOut));
+    track.loop = clip.loop;
+
+    if (track.playing)
+        track.currentVolume = track.targetVolume;
+
+    SetSoundVolume(track.sound, track.currentVolume);
+}
+
+AudioManager::FadingAmbientTrack* AudioManager::findAmbientTrackByPath(const std::string& path)
+{
+    for (FadingAmbientTrack& track : ambientTracks)
     {
         if (track.loaded && track.path == path)
             return &track;
@@ -596,12 +696,12 @@ void AudioManager::syncRoomStreams(const RoomAudioConfig& roomAudio)
 
     if (roomAudio.hasMusic)
     {
-        if (musicTrack.loaded && musicTrack.path == roomAudio.music.path && isStreamActive(musicTrack))
+        if (musicTrack.loaded && musicTrack.path == roomAudio.music.path && isMusicStreamActive(musicTrack))
         {
-            retainMusicTrack(musicTrack, roomAudio.music, AudioCategory::Music);
+            retainMusicTrack(musicTrack, roomAudio.music);
             pendingMusicStart = false;
         }
-        else if (isStreamActive(musicTrack))
+        else if (isMusicStreamActive(musicTrack))
         {
             fadeOutMusicTrack(musicTrack, musicTrack.fadeOutSeconds);
             pendingMusicClip = roomAudio.music;
@@ -613,7 +713,7 @@ void AudioManager::syncRoomStreams(const RoomAudioConfig& roomAudio)
             startMusicTrack(musicTrack, roomAudio.music);
         }
     }
-    else if (isStreamActive(musicTrack))
+    else if (isMusicStreamActive(musicTrack))
     {
         pendingMusicStart = false;
         fadeOutMusicTrack(musicTrack, musicTrack.fadeOutSeconds);
@@ -628,30 +728,30 @@ void AudioManager::syncRoomStreams(const RoomAudioConfig& roomAudio)
 
     for (const AudioClipDef& ambientClip : roomAudio.ambient)
     {
-        FadingMusicTrack* existingTrack = findAmbientTrackByPath(ambientClip.path);
-        if (existingTrack != nullptr && isStreamActive(*existingTrack))
+        FadingAmbientTrack* existingTrack = findAmbientTrackByPath(ambientClip.path);
+        if (existingTrack != nullptr && isAmbientTrackActive(*existingTrack))
         {
-            retainMusicTrack(*existingTrack, ambientClip, AudioCategory::Ambient);
+            retainAmbientTrack(*existingTrack, ambientClip);
             retainedAmbientPaths.insert(ambientClip.path);
             continue;
         }
 
         if (existingTrack != nullptr)
-            unloadMusicTrack(*existingTrack);
+            unloadAmbientTrack(*existingTrack);
 
         startAmbientTrack(ambientClip);
         retainedAmbientPaths.insert(ambientClip.path);
     }
 
-    for (FadingMusicTrack& track : ambientTracks)
+    for (FadingAmbientTrack& track : ambientTracks)
     {
         if (retainedAmbientPaths.count(track.path) > 0)
             continue;
 
-        if (isStreamActive(track))
-            fadeOutMusicTrack(track, track.fadeOutSeconds);
+        if (isAmbientTrackActive(track))
+            fadeOutAmbientTrack(track, track.fadeOutSeconds);
         else if (track.loaded)
-            unloadMusicTrack(track);
+            unloadAmbientTrack(track);
     }
 }
 

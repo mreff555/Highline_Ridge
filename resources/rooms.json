@@ -30,8 +30,8 @@
         "ambient": [
           {
             "path": "resources/audio/ambient/fireplace.mp3",
-            "volume": 0.75,
-            "fade_in": 1.5,
+            "volume": 0.9,
+            "fade_in": 0.8,
             "fade_out": 1.5,
             "loop": true
           }
@@ -66,7 +66,7 @@
         "ambient": [
           {
             "path": "resources/audio/ambient/fireplace.mp3",
-            "volume": 0.6,
+            "volume": 0.75,
             "fade_in": 0.5,
             "fade_out": 0.5,
             "loop": true
@@ -158,7 +158,7 @@
         "ambient": [
           {
             "path": "resources/audio/ambient/narrow_path_aspen_grove.mp3",
-            "volume": 0.8,
+            "volume": 0.85,
             "fade_in": 3.0,
             "fade_out": 2.5,
             "loop": true
@@ -303,6 +303,31 @@
       "exits": {
         "backward": "mountain_road",
         "forward": "saloon_interior"
+      },
+      "audio": {
+        "music": {
+          "path": "resources/audio/music/saloon_noir_jazz.mp3",
+          "volume": 0.2,
+          "fade_in": 2.5,
+          "fade_out": 2.0,
+          "loop": true
+        },
+        "ambient": [
+          {
+            "path": "resources/audio/ambient/saloon_pub_crowd.mp3",
+            "volume": 0.65,
+            "fade_in": 2.0,
+            "fade_out": 1.5,
+            "loop": true
+          },
+          {
+            "path": "resources/audio/ambient/saloon_restaurant_crowd.mp3",
+            "volume": 0.4,
+            "fade_in": 2.0,
+            "fade_out": 1.5,
+            "loop": true
+          }
+        ]
       }
     },
     "saloon_interior": {
@@ -330,6 +355,31 @@
         "backward": "saloon_front",
         "right": "saloon_side_passage",
         "up": "saloon_balcony"
+      },
+      "audio": {
+        "music": {
+          "path": "resources/audio/music/saloon_noir_jazz.mp3",
+          "volume": 0.28,
+          "fade_in": 2.0,
+          "fade_out": 1.5,
+          "loop": true
+        },
+        "ambient": [
+          {
+            "path": "resources/audio/ambient/saloon_pub_crowd.mp3",
+            "volume": 0.8,
+            "fade_in": 1.5,
+            "fade_out": 1.0,
+            "loop": true
+          },
+          {
+            "path": "resources/audio/ambient/saloon_restaurant_crowd.mp3",
+            "volume": 0.65,
+            "fade_in": 1.5,
+            "fade_out": 1.0,
+            "loop": true
+          }
+        ]
       }
     },
     "saloon_balcony": {
@@ -355,6 +405,31 @@
       },
       "exits": {
         "down": "saloon_interior"
+      },
+      "audio": {
+        "music": {
+          "path": "resources/audio/music/saloon_noir_jazz.mp3",
+          "volume": 0.24,
+          "fade_in": 1.5,
+          "fade_out": 1.5,
+          "loop": true
+        },
+        "ambient": [
+          {
+            "path": "resources/audio/ambient/saloon_pub_crowd.mp3",
+            "volume": 0.55,
+            "fade_in": 1.5,
+            "fade_out": 1.0,
+            "loop": true
+          },
+          {
+            "path": "resources/audio/ambient/saloon_restaurant_crowd.mp3",
+            "volume": 0.5,
+            "fade_in": 1.5,
+            "fade_out": 1.0,
+            "loop": true
+          }
+        ]
       }
     },
     "saloon_side_passage": {

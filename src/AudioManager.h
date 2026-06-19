@@ -44,6 +44,23 @@ class AudioManager
         bool loop = true;
     };
 
+    struct FadingAmbientTrack
+    {
+        Sound sound{};
+        bool loaded = false;
+        bool playing = false;
+        float targetVolume = 1.0f;
+        float currentVolume = 0.0f;
+        float fadeInSeconds = 0.0f;
+        float fadeOutSeconds = 0.0f;
+        float fadeElapsed = 0.0f;
+        bool fadingIn = false;
+        bool fadingOut = false;
+        std::string path;
+        std::string tempFilePath;
+        bool loop = true;
+    };
+
     struct ActiveSound
     {
         Sound sound{};
@@ -62,26 +79,31 @@ class AudioManager
     void startMusicTrack(FadingMusicTrack& track, const AudioClipDef& clip);
     void startAmbientTrack(const AudioClipDef& clip);
     void fadeOutMusicTrack(FadingMusicTrack& track, float fadeOutSeconds);
-    void fadeOutAmbientTracks(float fadeOutSeconds);
-    void updateMusicTrack(FadingMusicTrack& track, float deltaSeconds, AudioCategory category);
+    void fadeOutAmbientTrack(FadingAmbientTrack& track, float fadeOutSeconds);
+    void updateMusicTrack(FadingMusicTrack& track, float deltaSeconds);
+    void updateAmbientTrack(FadingAmbientTrack& track, float deltaSeconds);
     void unloadMusicTrack(FadingMusicTrack& track);
+    void unloadAmbientTrack(FadingAmbientTrack& track);
     void unloadAmbientTracks();
     void updateActiveSounds(float deltaSeconds);
     void syncRoomStreams(const RoomAudioConfig& roomAudio);
-    void retainMusicTrack(FadingMusicTrack& track, const AudioClipDef& clip, AudioCategory category);
-    FadingMusicTrack* findAmbientTrackByPath(const std::string& path);
-    bool isStreamActive(const FadingMusicTrack& track) const;
+    void retainMusicTrack(FadingMusicTrack& track, const AudioClipDef& clip);
+    void retainAmbientTrack(FadingAmbientTrack& track, const AudioClipDef& clip);
+    FadingAmbientTrack* findAmbientTrackByPath(const std::string& path);
+    bool isMusicStreamActive(const FadingMusicTrack& track) const;
+    bool isAmbientTrackActive(const FadingAmbientTrack& track) const;
     void playRoomSfx(
         const RoomAudioConfig& roomAudio,
         const std::string& trigger,
         const std::string& fromRoom,
         const std::string& toRoom);
+
     std::string assetRoot;
     AudioVolumeConfig volumes;
     bool deviceReady = false;
 
     FadingMusicTrack musicTrack;
-    std::vector<FadingMusicTrack> ambientTracks;
+    std::vector<FadingAmbientTrack> ambientTracks;
     std::vector<ActiveSound> activeSounds;
     bool pendingMusicStart = false;
     AudioClipDef pendingMusicClip;
