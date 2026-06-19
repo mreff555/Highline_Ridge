@@ -9,6 +9,13 @@
           "key": "saloon_front:cowboy",
           "tenacity": 5
         }
+      },
+      {
+        "id": "cowboy_path",
+        "type": "once",
+        "requiresPhase": "cowboy",
+        "requiresFlag": "path_c:overlook",
+        "text": "You tell him about the hanging tree marker, the charcoal ring, the survey stakes, the silk in the ice house. You do not tell him everything. You tell him enough.\n\nFor the first time since you arrived, he looks at you as though you are real.\n\n\"You found the tree,\" he says. The cigarette has gone out. He does not relight it. \"Then you already know why I don't ride anymore.\"\n\nHe turns his gaze back to the batwing doors, jaw working once.\n\n\"Company men,\" he says. \"They measured by the chain and called it justice. I was supposed to hold the rope. I didn't. That's not the same as innocent, but it's why I'm still here and they're still down in Graysmill pretending the fog is weather.\"\n\nHe finally meets your eyes.\n\n\"Don't go back up that path at night. Not until you remember whose name was scratched off that tin.\""
       }
     ]
   },
@@ -44,6 +51,17 @@
         ]
       },
       {
+        "id": "bartender_path",
+        "type": "once",
+        "requiresPhase": "bartender",
+        "requiresFlag": "path_c:overlook",
+        "text": "You lean on the bar and tell him what you found on the narrow path — the stakes, the ice house, the bench carved for a name you cannot finish. You keep your voice low. The piano does not stop, but the bartender does.\n\nHe reaches high above the backbar without asking what you want and sets a glass of bourbon on the pine in front of you. No measure. No ceremony.\n\n\"Some stories you drink to forget on purpose,\" he says. \"You always did.\"\n\nHe turns away before you can answer. The glass sits between you and the sawdust like a receipt already stamped paid.",
+        "status": {
+          "key": "saloon_interior:bartender_path",
+          "lucidity": -15
+        }
+      },
+      {
         "id": "patrons",
         "type": "random",
         "requiresPhase": "bartender",
@@ -72,6 +90,16 @@
             "text": "A barmaid passes with an empty tray, eyes flicking over you once. \"Mind the stairs,\" she says, already gone into the crowd."
           }
         ]
+      }
+    ]
+  },
+  "saloon_balcony": {
+    "speakPhases": [
+      {
+        "id": "burgundy_path",
+        "type": "once",
+        "requiresFlag": "path_c:hanging_tree",
+        "text": "The woman in burgundy silk finds you at the rail before you can decide whether to speak. She does not flirt. She inventories.\n\n\"You went up the path,\" she says. It is not a question. \"You always do, and you always come back with that look — like the mountain showed you a face you refused to wear.\"\n\nHer voice drops beneath the piano.\n\n\"They hung the wrong man. He was still breathing when they cut him down.\" She holds your gaze without blinking. \"He still is.\"\n\nThen the room reclaims her. She leans over the rail and laughs for a patron below as though nothing happened, leaving you with the words like a splinter under the nail."
       }
     ]
   }

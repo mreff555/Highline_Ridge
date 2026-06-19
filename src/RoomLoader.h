@@ -18,6 +18,7 @@ struct RoomData
     std::string imagePath;
     std::string description;
     std::string examineDetails;
+    std::string examineFlag;
     std::string speakDetails;
     std::string useDetails;
     float useHealthDelta = 0.0f;

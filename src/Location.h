@@ -110,6 +110,7 @@ class Location
     std::string baseDescription;
     std::string narrativeText;
     std::string examineDetails;
+    std::string examineFlag;
     std::string speakDetails;
     std::string useDetails;
     float useHealthDelta = 0.0f;
@@ -138,6 +139,7 @@ class Location
     float tenacity = 50.0f;
     float lucidity = 30.0f;
     std::set<std::string> consumedStatusActions;
+    std::set<std::string> storyFlags;
 
     float fontSize = 28.0f;
     const bool wordWrap = true;

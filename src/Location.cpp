@@ -41,6 +41,7 @@ namespace
       baseDescription(locationStruct.locationDescription),
       narrativeText(locationStruct.locationDescription),
       examineDetails(locationStruct.examineDetails),
+      examineFlag(locationStruct.examineFlag),
       speakDetails(locationStruct.speakDetails),
       useDetails(locationStruct.useDetails),
       useHealthDelta(locationStruct.useHealthDelta),
@@ -476,6 +477,8 @@ namespace
             return;
 
         appendNarrativeSection("Examining:", examineDetails);
+        if (!examineFlag.empty())
+            storyFlags.insert(examineFlag);
         hasExaminedCurrentRoom = true;
         updateActionAvailability();
     }
@@ -586,7 +589,10 @@ namespace
         const RoomSpeakConfig& speakConfig = roomDatabase.getSpeakConfig(currentRoomId);
         if (speakConfig.hasPhases())
         {
-            SpeakResult result = conversationMgr.handleSpeak(currentRoomId, speakConfig);
+            SpeakResult result = conversationMgr.handleSpeak(
+                currentRoomId,
+                speakConfig,
+                storyFlags);
             processSpeakResult(result);
             return;
         }
@@ -737,7 +743,10 @@ namespace
             actions = baseActionFilter;
             const RoomSpeakConfig& speakConfig = roomDatabase.getSpeakConfig(currentRoomId);
             if (speakConfig.hasPhases())
-                actions.speak = conversationMgr.canSpeak(speakConfig, baseActionFilter.speak);
+                actions.speak = conversationMgr.canSpeak(
+                    speakConfig,
+                    baseActionFilter.speak,
+                    storyFlags);
             else if (!speakDetails.empty())
                 actions.speak = !hasSpokenInCurrentRoom;
             else
@@ -853,6 +862,7 @@ namespace
         baseDescription = locationStruct.locationDescription;
         narrativeText = locationStruct.locationDescription;
         examineDetails = locationStruct.examineDetails;
+        examineFlag = locationStruct.examineFlag;
         speakDetails = locationStruct.speakDetails;
         useDetails = locationStruct.useDetails;
         useHealthDelta = locationStruct.useHealthDelta;

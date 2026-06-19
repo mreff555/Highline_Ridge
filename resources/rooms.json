@@ -81,13 +81,14 @@
       "start": false,
       "image": "resources/narrow_path.png",
       "description": "A narrow footpath branches off the mountain road between two weathered cabins, barely wide enough for one person. The ground is soft with pine needles and recent boot prints. The path bends quickly out of sight behind a stand of young firs, as though the mountain prefers to keep its secrets until you commit to following them.",
-      "examineDetails": "The path is not on any map you can remember. Someone has cleared fallen branches recently, but the work is rough. practical, not decorative. A rusted tin marker nailed to the nearest tree is too faded to read. Whatever lies ahead, it is meant to be found on foot and not from the main road.",
+      "examineDetails": "The path is not on any map you can remember. Someone has cleared fallen branches recently, but the work is rough — practical, not decorative. You kneel by the nearest fir and scrape pine resin from a rusted tin marker nailed to the bark. Faded letters emerge under your thumb:\n\nHANGING TREE — 1889 — 3 — COMPANY MEN — GOD MEASURES BY THE CHAIN\n\nThe third name has been scratched out so violently the tree bark shows through the metal. Boot prints lead deeper along the path, fresher than the ones on the main road. Whatever lies ahead, it is meant to be found on foot and not from the High Line.",
+      "examineFlag": "path_c:hanging_tree",
       "useDetails": "",
       "movement": {
-        "forward": false,
-        "backward": false,
+        "forward": true,
+        "backward": true,
         "left": false,
-        "right": true
+        "right": false
       },
       "actions": {
         "examine": true,
@@ -96,7 +97,100 @@
         "use": false
       },
       "exits": {
-        "right": "mountain_road"
+        "forward": "charcoal_burner_camp",
+        "backward": "mountain_road"
+      }
+    },
+    "charcoal_burner_camp": {
+      "start": false,
+      "image": "resources/charcoal_burner_camp.png",
+      "description": "The footpath opens into a small clearing where charcoal was once made. A stone-lined burn ring sits cold at the center, its earth blackened in a perfect circle. The camp has been abandoned for years by the look of the collapsed brush shelter — yet fresh white ash lies in the heart of the ring, as though someone burned papers here within the day. The wind carries no smoke. Only the creak of fir branches and the sense that you have stepped off the map the ridge pretends to keep.",
+      "examineDetails": "You circle the burn ring slowly. The old charcoal layer is packed hard, years of rain compressed into a crust. At the center, the ash is different — loose, pale, still faintly warm when you hold your palm above it. Document ash, not wood. Someone fed the fire carefully, page by page, until nothing legible could survive.\n\nNear the ring's edge you find a torn photograph, half burned along one side. What remains shows the saloon interior: the long bar, bottles on the backbar, a younger bartender with his sleeves rolled. The cowboy is absent. The piano is missing from the frame. As though the image was cut to show only what someone wanted remembered.\n\nNo bedroll, no tools, no name. Whoever burned the rest of the papers did not intend to be traced back to this clearing.",
+      "useDetails": "",
+      "movement": {
+        "forward": true,
+        "backward": true,
+        "left": false,
+        "right": false
+      },
+      "actions": {
+        "examine": true,
+        "speak": false,
+        "hit": false,
+        "use": false
+      },
+      "exits": {
+        "forward": "survey_stake_line",
+        "backward": "narrow_path"
+      }
+    },
+    "survey_stake_line": {
+      "start": false,
+      "image": "resources/survey_stake_line.png",
+      "description": "The path climbs through thinning timber to where survey stakes march in a straight line through the trees. Weathered pine posts, shoulder height, driven into the soft earth at regular intervals as though marking a property line for a building that never arrived. Carved initials fade on each face. The forest has begun to swallow them — moss at the bases, bark scarred where ropes once ran between the posts. Someone planned a hotel here. The mountain disagreed.",
+      "examineDetails": "You work along the line stake by stake, reading what the carvers left behind. Investor initials, most of them — eastern money by the flourishes, men who never walked this slope in their own boots. J.H.K. on the third post. M.R. on the seventh, the letters deep and deliberate. On the ninth stake the carving is different: not initials but a worn stamp impression pressed into the wood before it weathered, the same rectangular mark you felt inside your wallet when you counted the twenty dollars — a maker's stamp from a payroll office, not a survey crew.\n\nThe line runs fifty yards before it stops at a cliffward bend, as though the survey ended the day the investors learned what the ridge already knew. No hotel footprint. No cleared foundation. Only stakes and the suggestion of a door that was never built.",
+      "useDetails": "",
+      "movement": {
+        "forward": true,
+        "backward": true,
+        "left": false,
+        "right": false
+      },
+      "actions": {
+        "examine": true,
+        "speak": false,
+        "hit": false,
+        "use": false
+      },
+      "exits": {
+        "forward": "ice_house",
+        "backward": "charcoal_burner_camp"
+      }
+    },
+    "ice_house": {
+      "start": false,
+      "image": "resources/ice_house.png",
+      "description": "The stakes give way to a dug-out slope where someone cut a root cellar into the mountain itself. Timber frames a low doorway set into the earth, cold air breathing out even in daylight. An ice house, or what remains of one — the kind of structure that kept meat through summer before the railroad brought upcity ice. The door hangs open. The hooks inside are empty. The silence has weight.",
+      "examineDetails": "You duck beneath the timber lintel. The walls are packed earth reinforced with split pine, sweat-dark where hands once braced the cuts. Iron meat hooks line the ceiling in a row, most of them bare, rust blooming at the curves. One hook is not empty.\n\nA strip of burgundy silk hangs from it, hem weighted with lead shot — the same weighting you saw on the faded velvet curtain in the saloon's side passage. The fabric is torn, not cut cleanly. As though it was ripped free in a hurry and left here because there was no time to burn it with the papers in the charcoal ring.\n\nThe floor is packed clay, scuffed by boots. No ice remains. No meat. Only the cold that lives in earth dug deep into a slope, and the silk, and the feeling that you are standing in a room meant to store things the ridge did not want found in town.",
+      "useDetails": "",
+      "movement": {
+        "forward": true,
+        "backward": true,
+        "left": false,
+        "right": false
+      },
+      "actions": {
+        "examine": true,
+        "speak": false,
+        "hit": false,
+        "use": false
+      },
+      "exits": {
+        "forward": "private_overlook",
+        "backward": "survey_stake_line"
+      }
+    },
+    "private_overlook": {
+      "start": false,
+      "image": "resources/private_overlook.png",
+      "description": "The path breaks from the trees onto a ledge that does not appear on any tourist map. No stone wall, no keystone, no HIGH LINE ROAD carved for strangers. Only a wooden bench bolted to the exposed rock, facing a private drop where clouds move below you like slow water and the valley city glints through the gaps — Graysmill, distant and real. Whoever came here did not want to be seen looking. The bench waits as though someone might return before the fog closes the view.",
+      "examineDetails": "The bench is rough pine, weather-gray, iron bolts sunk deep into the granite. Carved into the seat back, letters worn by rain and hands:\n\nFOR M— WAIT FOR THE FOG\n\nThe name stops mid-letter, as though the carver lost patience or nerve. Boot scuffs mark the rock before the bench. Not many — this is not a popular place. A place for appointments kept in weather, not daylight.\n\nYou stand at the edge and let the view assemble itself. The same city the cowboy named. The same cloud deck the mountain road shows tourists from behind a safety wall. But here there is no rail, no warning, only height and the cold honesty of open air. When the fog thickens, the city vanishes — and the carved instruction on the bench reads less like poetry and more like a rule someone once made you swear to keep.\n\nIf you mean to tell anyone what you found up here, the saloon still holds the men who already know your face.",
+      "examineFlag": "path_c:overlook",
+      "useDetails": "",
+      "movement": {
+        "forward": false,
+        "backward": true,
+        "left": false,
+        "right": false
+      },
+      "actions": {
+        "examine": true,
+        "speak": false,
+        "hit": false,
+        "use": false
+      },
+      "exits": {
+        "backward": "ice_house"
       }
     },
     "mountain_road_forward": {

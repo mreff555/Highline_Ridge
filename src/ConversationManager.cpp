@@ -30,12 +30,17 @@ void ConversationManager::markPhaseComplete(const std::string& phaseId)
     completedPhaseIds.insert(phaseId);
 }
 
-bool ConversationManager::isPhaseRequirementMet(const ConversationPhase& phase) const
+bool ConversationManager::isPhaseRequirementMet(
+    const ConversationPhase& phase,
+    const std::set<std::string>& storyFlags) const
 {
-    if (phase.requiresPhaseId.empty())
-        return true;
+    if (!phase.requiresPhaseId.empty() && !isPhaseComplete(phase.requiresPhaseId))
+        return false;
 
-    return isPhaseComplete(phase.requiresPhaseId);
+    if (!phase.requiresFlag.empty() && storyFlags.count(phase.requiresFlag) == 0)
+        return false;
+
+    return true;
 }
 
 const ConversationPhase* ConversationManager::findPhase(
@@ -53,13 +58,14 @@ const ConversationPhase* ConversationManager::findPhase(
 
 const ConversationPhase* ConversationManager::findActivePhase(
     const std::string& roomId,
-    const RoomSpeakConfig& config) const
+    const RoomSpeakConfig& config,
+    const std::set<std::string>& storyFlags) const
 {
     (void)roomId;
 
     for (const ConversationPhase& phase : config.phases)
     {
-        if (!isPhaseRequirementMet(phase))
+        if (!isPhaseRequirementMet(phase, storyFlags))
             continue;
 
         if (phase.type == ConversationPhaseType::Once && !isPhaseComplete(phase.id))
@@ -75,12 +81,15 @@ const ConversationPhase* ConversationManager::findActivePhase(
     return nullptr;
 }
 
-bool ConversationManager::canSpeak(const RoomSpeakConfig& config, bool baseSpeakEnabled) const
+bool ConversationManager::canSpeak(
+    const RoomSpeakConfig& config,
+    bool baseSpeakEnabled,
+    const std::set<std::string>& storyFlags) const
 {
     if (!baseSpeakEnabled || config.phases.empty() || awaitingChoice)
         return false;
 
-    return findActivePhase(currentRoomId, config) != nullptr;
+    return findActivePhase(currentRoomId, config, storyFlags) != nullptr;
 }
 
 SpeakResult ConversationManager::buildNarrativeResult(
@@ -168,12 +177,15 @@ SpeakResult ConversationManager::pickRandomLine(
     return buildNarrativeResult(line.text, line.status);
 }
 
-SpeakResult ConversationManager::handleSpeak(const std::string& roomId, const RoomSpeakConfig& config)
+SpeakResult ConversationManager::handleSpeak(
+    const std::string& roomId,
+    const RoomSpeakConfig& config,
+    const std::set<std::string>& storyFlags)
 {
     if (awaitingChoice || config.phases.empty())
         return SpeakResult();
 
-    const ConversationPhase* phase = findActivePhase(roomId, config);
+    const ConversationPhase* phase = findActivePhase(roomId, config, storyFlags);
     if (!phase)
         return SpeakResult();
 
