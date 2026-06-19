@@ -27,14 +27,20 @@ class Location
     void draw() const;
     void update(const LocationStruct& locationStruct);
     void DrawTextBoxed(const char* text) const;
+    void drawNarrativeText() const;
+    void drawWrappedParagraph(const char* text, Font font, float paragraphFontSize, float& textOffsetY) const;
+    void appendExamineDetails();
 
     private:
     const int screenWidth;
     const int screenHeight;
     
     Texture2D locationImage;
-    std::string locationDescription;
+    std::string baseDescription;
+    std::string narrativeText;
+    std::string examineDetails;
     Font descriptionFont;
+    Font boldFont;
     
     bool forward;
     bool backward;

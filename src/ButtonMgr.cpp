@@ -149,6 +149,20 @@ void ButtonMgr::update()
     }
 
     updatePressedFlags();
+
+    if (buttons[4].isEnabled() &&
+        IsMouseButtonReleased(MOUSE_BUTTON_LEFT) &&
+        CheckCollisionPointRec(mousePos, buttons[4].getBounds()))
+    {
+        examineButtonClicked = true;
+    }
+}
+
+bool ButtonMgr::consumeExamineButtonClick()
+{
+    const bool clicked = examineButtonClicked;
+    examineButtonClicked = false;
+    return clicked;
 }
 
 void ButtonMgr::draw() const

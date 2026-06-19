@@ -41,6 +41,7 @@ bool parseRoom(const std::string& id, const nlohmann::json& room, RoomData& out)
     out.isStart = room.value("start", false);
     out.imagePath = room.value("image", "");
     out.description = room.value("description", "");
+    out.examineDetails = room.value("examineDetails", "");
 
     if (out.imagePath.empty() || out.description.empty())
         return false;
@@ -96,6 +97,7 @@ bool loadStartLocation(
         return false;
 
     const std::string fontPath = config.value("font", "");
+    const std::string boldFontPath = config.value("boldFont", fontPath);
     if (fontPath.empty())
         return false;
 
@@ -134,9 +136,15 @@ bool loadStartLocation(
         return false;
     }
 
+    Font boldFont = LoadFont(boldFontPath.c_str());
+    if (boldFont.texture.id == 0)
+        boldFont = font;
+
     outLocation.locationImage = texture;
     outLocation.locationDescription = startRoom.description;
+    outLocation.examineDetails = startRoom.examineDetails;
     outLocation.descriptionFont = font;
+    outLocation.boldFont = boldFont;
     outLocation.movementFilter = startRoom.movement;
     outLocation.actionFilter = startRoom.actions;
 

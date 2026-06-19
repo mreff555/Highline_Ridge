@@ -1,12 +1,16 @@
 #include <Location.h>
 #include <raylib.h>
+#include <sstream>
 
 namespace testgame
 {
     Location::Location(const LocationStruct& locationStruct, Vector2 screenSize)
     : locationImage(locationStruct.locationImage),
-      locationDescription(locationStruct.locationDescription),
+      baseDescription(locationStruct.locationDescription),
+      narrativeText(locationStruct.locationDescription),
+      examineDetails(locationStruct.examineDetails),
       descriptionFont(locationStruct.descriptionFont),
+      boldFont(locationStruct.boldFont),
       forward(locationStruct.movementFilter.forward),
       backward(locationStruct.movementFilter.backward),
       left(locationStruct.movementFilter.left),
@@ -33,7 +37,7 @@ namespace testgame
     }
     char* Location::getDescription() const
     {
-        return (char*)locationDescription.c_str();
+        return (char*)narrativeText.c_str();
     }
     const Font Location::getDescriptionFont() const
     {
@@ -55,10 +59,22 @@ namespace testgame
     {
         return right;
     }
+
+    void Location::appendExamineDetails()
+    {
+        if (examineDetails.empty())
+            return;
+
+        narrativeText += "\n\nExamining:\n";
+        narrativeText += examineDetails;
+    }
     
     void Location::update()
     {
         buttonMgr.update();
+
+        if (buttonMgr.consumeExamineButtonClick())
+            appendExamineDetails();
     }
 
     void Location::draw() const
@@ -68,7 +84,7 @@ namespace testgame
         // Text Box
         DrawTexture(locationImage, 0, 0, WHITE);
         DrawRectangleLinesEx(textBox, 4, GRAY);
-        DrawTextBoxed(locationDescription.c_str());
+        drawNarrativeText();
 
         // Button Box
         buttonMgr.draw();
@@ -77,8 +93,11 @@ namespace testgame
     void Location::update(const LocationStruct& locationStruct)
     {
         this->locationImage = locationStruct.locationImage;
-        this->locationDescription = locationStruct.locationDescription;
+        this->baseDescription = locationStruct.locationDescription;
+        this->narrativeText = locationStruct.locationDescription;
+        this->examineDetails = locationStruct.examineDetails;
         this->descriptionFont = locationStruct.descriptionFont;
+        this->boldFont = locationStruct.boldFont;
         this->forward = locationStruct.movementFilter.forward;
         this->backward = locationStruct.movementFilter.backward;
         this->left = locationStruct.movementFilter.left;
@@ -88,125 +107,144 @@ namespace testgame
             locationStruct.actionFilter);
     }
 
-    void Location::DrawTextBoxed(const char *text) const
+    void Location::drawNarrativeText() const
     {
-        // Draw text using descriptionFont inside textBoxtangle limits
-        int length = TextLength(text);  // Total length in bytes of the text, scanned by codepoints in loop
+        float textOffsetY = 0.0f;
+        std::istringstream stream(narrativeText);
+        std::string line;
 
-        float textOffsetY = 0;          // Offset between lines (on line break '\n')
-        float textOffsetX = 0.0f;       // Offset X to next character to draw
+        while (std::getline(stream, line))
+        {
+            if (line.empty())
+            {
+                textOffsetY += (descriptionFont.baseSize + descriptionFont.baseSize / 2.0f) *
+                    (fontSize / (float)descriptionFont.baseSize) * 0.5f;
+                continue;
+            }
 
-        float scaleFactor = fontSize / (float)descriptionFont.baseSize;     // Character textBoxtangle scaling factor
+            const bool isExaminingHeader = (line == "Examining:");
+            const Font lineFont = isExaminingHeader ? boldFont : descriptionFont;
+            const float lineFontSize = fontSize;
+            drawWrappedParagraph(line.c_str(), lineFont, lineFontSize, textOffsetY);
+        }
+    }
 
-        // Word/character wrapping mechanism variables
+    void Location::drawWrappedParagraph(const char* text, Font font, float paragraphFontSize, float& textOffsetY) const
+    {
+        int length = TextLength(text);
+
+        float textOffsetX = 0.0f;
+        float scaleFactor = paragraphFontSize / (float)font.baseSize;
+        float lineHeight = (font.baseSize + font.baseSize / 2.0f) * scaleFactor;
+
         enum { MEASURE_STATE = 0, DRAW_STATE = 1 };
         int state = wordWrap ? MEASURE_STATE : DRAW_STATE;
 
-        int startLine = -1;         // Index where to begin drawing (where a line begins)
-        int endLine = -1;           // Index where to stop drawing (where a line ends)
-        int lastk = -1;             // Holds last value of the character position
+        int startLine = -1;
+        int endLine = -1;
+        int lastk = -1;
 
         for (int i = 0, k = 0; i < length; i++, k++)
         {
-            // Get next codepoint from byte string and glyph index in descriptionFont
             int codepointByteCount = 0;
             int codepoint = GetCodepoint(&text[i], &codepointByteCount);
-            int index = GetGlyphIndex(descriptionFont, codepoint);
+            int index = GetGlyphIndex(font, codepoint);
 
-            // NOTE: Normally we exit the decoding sequence as soon as a bad byte is found (and return 0x3f)
-            // but we need to draw all of the bad bytes using the '?' symbol moving one byte
             if (codepoint == 0x3f) codepointByteCount = 1;
             i += (codepointByteCount - 1);
 
             float glyphWidth = 0;
             if (codepoint != '\n')
             {
-                glyphWidth = (descriptionFont.glyphs[index].advanceX == 0) ? descriptionFont.glyphs[index].advanceX * scaleFactor : descriptionFont.glyphs[index].advanceX * scaleFactor;
+                glyphWidth = (font.glyphs[index].advanceX == 0)
+                    ? font.recs[index].width * scaleFactor
+                    : font.glyphs[index].advanceX * scaleFactor;
 
                 if (i + 1 < length) glyphWidth = glyphWidth + spacing;
             }
 
-        // NOTE: When wordWrap is ON we first measure how much of the text we can draw before going outside of the textBox container
-        // We store this info in startLine and endLine, then we change states, draw the text between those two variables
-        // and change states again and again textBoxursively until the end of the text (or until we get outside of the container)
-        // When wordWrap is OFF we don't need the measure state so we go to the drawing state immediately
-        // and begin drawing on the next line before we can get outside the container
-        if (state == MEASURE_STATE)
-        {
-            // TODO: There are multiple types of spaces in UNICODE, maybe it's a good idea to add support for more
-            // Ref: http://jkorpela.fi/chars/spaces.html
-            if ((codepoint == ' ') || (codepoint == '\t') || (codepoint == '\n')) endLine = i;
-
-            if ((textOffsetX + glyphWidth) > (textBox.width - xOffset))
+            if (state == MEASURE_STATE)
             {
-                endLine = (endLine < 1) ? i : endLine;
-                if (i == endLine) endLine -= codepointByteCount;
-                if ((startLine + codepointByteCount) == endLine) endLine = (i - codepointByteCount);
+                if ((codepoint == ' ') || (codepoint == '\t') || (codepoint == '\n')) endLine = i;
 
-                state = !state;
-            }
-            else if ((i + 1) == length)
-            {
-                endLine = i;
-                state = !state;
-            }
-            else if (codepoint == '\n') state = !state;
-
-            if (state == DRAW_STATE)
-            {
-                textOffsetX = 0;
-                i = startLine;
-                glyphWidth = 0;
-
-                // Save character position when we switch states
-                int tmp = lastk;
-                lastk = k - 1;
-                k = tmp;
-            }
-        }
-        else
-        {
-            if (codepoint == '\n')
-            {
-                if (!wordWrap)
+                if ((textOffsetX + glyphWidth) > (textBox.width - xOffset))
                 {
-                    textOffsetY += (descriptionFont.baseSize + descriptionFont.baseSize / 2) * scaleFactor;
+                    endLine = (endLine < 1) ? i : endLine;
+                    if (i == endLine) endLine -= codepointByteCount;
+                    if ((startLine + codepointByteCount) == endLine) endLine = (i - codepointByteCount);
+
+                    state = !state;
+                }
+                else if ((i + 1) == length)
+                {
+                    endLine = i;
+                    state = !state;
+                }
+                else if (codepoint == '\n') state = !state;
+
+                if (state == DRAW_STATE)
+                {
                     textOffsetX = 0;
+                    i = startLine;
+                    glyphWidth = 0;
+
+                    int tmp = lastk;
+                    lastk = k - 1;
+                    k = tmp;
                 }
             }
             else
             {
-                if (!wordWrap && ((textOffsetX + glyphWidth) > (textBox.width - xOffset)))
+                if (codepoint == '\n')
                 {
-                    textOffsetY += (descriptionFont.baseSize + descriptionFont.baseSize / 2) * scaleFactor;
+                    if (!wordWrap)
+                    {
+                        textOffsetY += lineHeight;
+                        textOffsetX = 0;
+                    }
+                }
+                else
+                {
+                    if (!wordWrap && ((textOffsetX + glyphWidth) > (textBox.width - xOffset)))
+                    {
+                        textOffsetY += lineHeight;
+                        textOffsetX = 0;
+                    }
+
+                    if ((textOffsetY + yOffset + font.baseSize * scaleFactor) > textBox.height) return;
+
+                    if ((codepoint != ' ') && (codepoint != '\t'))
+                    {
+                        DrawTextCodepoint(
+                            font,
+                            codepoint,
+                            (Vector2){ textBox.x + xOffset + textOffsetX, textBox.y + yOffset + textOffsetY },
+                            paragraphFontSize,
+                            textColor);
+                    }
+                }
+
+                if (wordWrap && (i == endLine))
+                {
+                    textOffsetY += lineHeight;
                     textOffsetX = 0;
-                }
+                    startLine = endLine;
+                    endLine = -1;
+                    glyphWidth = 0;
+                    k = lastk;
 
-                // When text overflows textBoxtangle height limit, just stop drawing
-                if ((textOffsetY + yOffset + descriptionFont.baseSize * scaleFactor) > textBox.height) break;
-
-                // Draw current character glyph
-                if ((codepoint != ' ') && (codepoint != '\t'))
-                {
-                    DrawTextCodepoint(descriptionFont, codepoint, (Vector2){ textBox.x + xOffset + textOffsetX, textBox.y + yOffset + textOffsetY }, fontSize, textColor);
+                    state = !state;
                 }
             }
 
-            if (wordWrap && (i == endLine))
-            {
-                textOffsetY += (descriptionFont.baseSize + descriptionFont.baseSize / 2) * scaleFactor;
-                textOffsetX = 0;
-                startLine = endLine;
-                endLine = -1;
-                glyphWidth = 0;
-                k = lastk;
-
-                state = !state;
-            }
+            if ((textOffsetX != 0) || (codepoint != ' ')) textOffsetX += glyphWidth;
         }
-
-        if ((textOffsetX != 0) || (codepoint != ' ')) textOffsetX += glyphWidth;  // avoid leading spaces
     }
-}
+
+    void Location::DrawTextBoxed(const char *text) const
+    {
+        float textOffsetY = 0.0f;
+        drawWrappedParagraph(text, descriptionFont, fontSize, textOffsetY);
+    }
 
 }

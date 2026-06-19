@@ -13,7 +13,9 @@ struct LocationStruct
 {
     Texture2D locationImage;
     std::string locationDescription;
+    std::string examineDetails;
     Font descriptionFont;
+    Font boldFont;
     MovementStruct movementFilter;
     ActionStruct actionFilter;
 };

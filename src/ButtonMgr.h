@@ -24,6 +24,7 @@ namespace testgame
         bool isLeftButtonPressed() const { return leftButtonPressed; }
         bool isRightButtonPressed() const { return rightButtonPressed; }
         bool isExamineButtonPressed() const { return examineButtonPressed; }
+        bool consumeExamineButtonClick();
         bool isSpeakButtonPressed() const { return speakButtonPressed; }
         bool isInventoryButtonPressed() const { return inventoryButtonPressed; }
         bool isHitButtonPressed() const { return hitButtonPressed; }
@@ -39,6 +40,7 @@ namespace testgame
         bool leftButtonPressed = false;
         bool rightButtonPressed = false;
         bool examineButtonPressed = false;
+        bool examineButtonClicked = false;
         bool speakButtonPressed = false;
         bool inventoryButtonPressed = false;
         bool hitButtonPressed = false;

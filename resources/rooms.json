@@ -1,10 +1,12 @@
 {
   "font": "/System/Library/Fonts/Geneva.ttf",
+  "boldFont": "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
   "rooms": {
     "cabin": {
       "start": true,
       "image": "resources/cabin.png",
       "description": "In a dimly lit cabin, an old man sits by the fire surrounded by surprisingly lavish furnishings, given the condition of the cabin.",
+      "examineDetails": "The old man's eyes flick toward you, then back to the fire. The furnishings look out of place here — too fine for a cabin this worn. Something was brought here recently.",
       "movement": {
         "forward": false,
         "backward": true,
@@ -25,6 +27,7 @@
       "start": false,
       "image": "resources/cabin.png",
       "description": "A narrow hallway stretches ahead, its floorboards creaking underfoot.",
+      "examineDetails": "Scratches mark the floor near the far door, as though something heavy was dragged through recently. The air smells faintly of woodsmoke.",
       "movement": {
         "forward": true,
         "backward": false,
