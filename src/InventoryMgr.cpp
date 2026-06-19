@@ -28,8 +28,8 @@ namespace
         "No identification. The pockets are otherwise empty except for a small slip of paper, "
         "tucked deep into a corner seam as though someone meant to forget it and could not quite.";
 
-    const char* kWalletIconFiles[] = { "wallet_icon.png", "wallet_icon.jpg" };
-    const char* kWalletExamineFiles[] = { "wallet_examine.png", "wallet_examine.jpg" };
+    const char* kWalletIconFiles[] = { "wallet_icon.jpg", "wallet_icon.png" };
+    const char* kWalletExamineFiles[] = { "wallet_examine.jpg", "wallet_examine.png" };
 }
 
 const float InventoryMgr::kScrollbarWidth = 16.0f;
@@ -63,35 +63,43 @@ void InventoryMgr::setFont(Font font)
     panelFont = font;
 }
 
-Texture2D InventoryMgr::loadItemTexture(
-    const char* filename,
-    const std::string& primaryAssetRoot,
-    const std::string& fallbackAssetRoot) const
+void InventoryMgr::setAssetRoots(
+    const std::string& primaryRoot,
+    const std::string& fallbackRoot)
+{
+    primaryAssetRoot = primaryRoot;
+    fallbackAssetRoot = fallbackRoot;
+}
+
+bool InventoryMgr::hasLoadedAssets() const
+{
+    for (const InventoryItem& item : items)
+    {
+        if (item.icon.id == 0 || item.examineImage.id == 0)
+            return false;
+    }
+
+    return !items.empty();
+}
+
+bool InventoryMgr::loadItemTexture(const char* filename, Texture2D& outTexture) const
 {
     const std::string relativePath = std::string("resources/") + filename;
-    const std::string paths[] = {
-        resolveAssetPath(primaryAssetRoot, relativePath),
-        resolveAssetPath(fallbackAssetRoot, relativePath),
-        relativePath
-    };
 
-    for (const std::string& path : paths)
+    if (loadResourceTexture(primaryAssetRoot, relativePath, outTexture))
+        return true;
+
+    if (fallbackAssetRoot != primaryAssetRoot &&
+        loadResourceTexture(fallbackAssetRoot, relativePath, outTexture))
     {
-        if (!FileExists(path.c_str()))
-            continue;
-
-        const Texture2D texture = LoadTexture(path.c_str());
-        if (texture.id != 0)
-            return texture;
+        return true;
     }
 
     TraceLog(LOG_ERROR, "Failed to load inventory image: %s", filename);
-    return Texture2D{};
+    return false;
 }
 
-void InventoryMgr::loadItemTextures(
-    const std::string& primaryAssetRoot,
-    const std::string& fallbackAssetRoot)
+void InventoryMgr::loadItemTextures()
 {
     for (InventoryItem& item : items)
     {
@@ -119,32 +127,24 @@ void InventoryMgr::loadItemTextures(
 
     for (const char* filename : kWalletIconFiles)
     {
-        wallet->icon = loadItemTexture(filename, primaryAssetRoot, fallbackAssetRoot);
-        if (wallet->icon.id != 0)
+        if (loadItemTexture(filename, wallet->icon))
             break;
     }
 
     for (const char* filename : kWalletExamineFiles)
     {
-        wallet->examineImage = loadItemTexture(filename, primaryAssetRoot, fallbackAssetRoot);
-        if (wallet->examineImage.id != 0)
+        if (loadItemTexture(filename, wallet->examineImage))
             break;
     }
 }
 
-bool InventoryMgr::initializeAssets(
-    const std::string& primaryAssetRoot,
-    const std::string& fallbackAssetRoot)
+bool InventoryMgr::ensureAssetsLoaded()
 {
-    loadItemTextures(primaryAssetRoot, fallbackAssetRoot);
+    if (hasLoadedAssets())
+        return true;
 
-    for (const InventoryItem& item : items)
-    {
-        if (item.icon.id == 0 || item.examineImage.id == 0)
-            return false;
-    }
-
-    return true;
+    loadItemTextures();
+    return hasLoadedAssets();
 }
 
 void InventoryMgr::createDefaultItems()
@@ -158,6 +158,9 @@ void InventoryMgr::createDefaultItems()
 
 void InventoryMgr::open()
 {
+    if (!ensureAssetsLoaded())
+        TraceLog(LOG_WARNING, "Inventory images are not loaded; wallet art may be missing");
+
     viewState = InventoryViewState::ItemList;
     selectedItemId.clear();
     inventoryScrollY = 0.0f;
@@ -190,6 +193,7 @@ void InventoryMgr::examineSelectedItem()
     if (!canExamineSelectedItem())
         return;
 
+    ensureAssetsLoaded();
     viewState = InventoryViewState::ExaminingItem;
 }
 
