@@ -342,7 +342,14 @@ namespace
             return;
         }
 
+        const bool canSpeak = !speakDetails.empty() && !hasSpokenInCurrentRoom;
         appendSpeakDetails();
+
+        if (canSpeak && currentRoomId == "saloon_front")
+        {
+            if (tryApplyStatusDeltas("saloon_front:cowboy", 0.0f, 0.0f, 5.0f, 0.0f, false))
+                updateActionAvailability();
+        }
     }
 
     void Location::applyLucidityCollapseRestart()
@@ -450,6 +457,12 @@ namespace
         movement.backward = backward;
         movement.left = left;
         movement.right = right;
+
+        if (currentRoomId == "saloon_interior" && !hasExaminedCurrentRoom)
+        {
+            movement.up = false;
+            movement.right = false;
+        }
 
         ActionStruct actions = baseActionFilter;
         if (currentRoomId == "saloon_interior")
