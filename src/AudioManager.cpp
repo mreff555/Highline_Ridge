@@ -493,10 +493,12 @@ void AudioManager::update(float deltaSeconds)
 
     ambientTracks.swap(remainingAmbient);
 
-    if (roomTransitionPending && !hasActiveStreamAudio())
+    if (pendingMusicStart && musicTrack.loaded && !musicTrack.playing && !musicTrack.fadingIn && !musicTrack.fadingOut)
     {
-        applyRoomStreams(pendingRoomAudio);
-        roomTransitionPending = false;
+        const AudioClipDef clip = pendingMusicClip;
+        pendingMusicStart = false;
+        pendingMusicClip = AudioClipDef{};
+        startMusicTrack(musicTrack, clip);
     }
 }
 
@@ -550,33 +552,109 @@ void AudioManager::playRoomSfx(
     }
 }
 
-bool AudioManager::hasActiveStreamAudio() const
+bool AudioManager::isStreamActive(const FadingMusicTrack& track) const
 {
-    if (musicTrack.loaded && (musicTrack.playing || musicTrack.fadingOut))
-        return true;
-
-    for (const FadingMusicTrack& track : ambientTracks)
-    {
-        if (track.loaded && (track.playing || track.fadingOut))
-            return true;
-    }
-
-    return false;
+    return track.loaded && (track.playing || track.fadingIn || track.fadingOut);
 }
 
-void AudioManager::applyRoomStreams(const RoomAudioConfig& roomAudio)
+void AudioManager::retainMusicTrack(
+    FadingMusicTrack& track,
+    const AudioClipDef& clip,
+    AudioCategory category)
+{
+    track.fadingOut = false;
+    track.fadingIn = false;
+    track.fadeElapsed = 0.0f;
+    track.targetVolume = effectiveVolume(category, clip.volume);
+    track.fadeInSeconds = std::max(0.0f, attributeOrDefault(clip, "fade_in", clip.fadeIn));
+    track.fadeOutSeconds = std::max(0.0f, attributeOrDefault(clip, "fade_out", clip.fadeOut));
+    track.loop = clip.loop;
+
+    if (track.playing)
+        track.currentVolume = track.targetVolume;
+
+    SetMusicVolume(track.music, track.currentVolume);
+}
+
+AudioManager::FadingMusicTrack* AudioManager::findAmbientTrackByPath(const std::string& path)
+{
+    for (FadingMusicTrack& track : ambientTracks)
+    {
+        if (track.loaded && track.path == path)
+            return &track;
+    }
+
+    return nullptr;
+}
+
+void AudioManager::syncRoomStreams(const RoomAudioConfig& roomAudio)
 {
     if (!ensureDeviceReady())
         return;
 
     if (roomAudio.hasMusic)
-        startMusicTrack(musicTrack, roomAudio.music);
+    {
+        if (musicTrack.loaded && musicTrack.path == roomAudio.music.path && isStreamActive(musicTrack))
+        {
+            retainMusicTrack(musicTrack, roomAudio.music, AudioCategory::Music);
+            pendingMusicStart = false;
+        }
+        else if (isStreamActive(musicTrack))
+        {
+            fadeOutMusicTrack(musicTrack, musicTrack.fadeOutSeconds);
+            pendingMusicClip = roomAudio.music;
+            pendingMusicStart = true;
+        }
+        else
+        {
+            pendingMusicStart = false;
+            startMusicTrack(musicTrack, roomAudio.music);
+        }
+    }
+    else if (isStreamActive(musicTrack))
+    {
+        pendingMusicStart = false;
+        fadeOutMusicTrack(musicTrack, musicTrack.fadeOutSeconds);
+    }
     else
+    {
+        pendingMusicStart = false;
         unloadMusicTrack(musicTrack);
+    }
 
-    unloadAmbientTracks();
+    std::vector<bool> retainAmbient(ambientTracks.size(), false);
+
     for (const AudioClipDef& ambientClip : roomAudio.ambient)
+    {
+        FadingMusicTrack* existingTrack = findAmbientTrackByPath(ambientClip.path);
+        if (existingTrack != nullptr && isStreamActive(*existingTrack))
+        {
+            retainMusicTrack(*existingTrack, ambientClip, AudioCategory::Ambient);
+            for (size_t index = 0; index < ambientTracks.size(); ++index)
+            {
+                if (&ambientTracks[index] == existingTrack)
+                    retainAmbient[index] = true;
+            }
+            continue;
+        }
+
+        if (existingTrack != nullptr)
+            unloadMusicTrack(*existingTrack);
+
         startAmbientTrack(ambientClip);
+    }
+
+    for (size_t index = 0; index < ambientTracks.size(); ++index)
+    {
+        if (retainAmbient[index])
+            continue;
+
+        FadingMusicTrack& track = ambientTracks[index];
+        if (isStreamActive(track))
+            fadeOutMusicTrack(track, track.fadeOutSeconds);
+        else
+            unloadMusicTrack(track);
+    }
 }
 
 void AudioManager::onRoomExit(const RoomAudioConfig& roomAudio, const std::string& toRoom)
@@ -587,22 +665,7 @@ void AudioManager::onRoomExit(const RoomAudioConfig& roomAudio, const std::strin
 void AudioManager::onRoomEnter(const RoomAudioConfig& roomAudio, const std::string& fromRoom)
 {
     playRoomSfx(roomAudio, "on_enter", fromRoom, "");
-
-    if (hasActiveStreamAudio())
-    {
-        fadeOutMusicTrack(musicTrack, musicTrack.fadeOutSeconds);
-        float ambientFadeOut = 0.0f;
-        for (const FadingMusicTrack& track : ambientTracks)
-            ambientFadeOut = std::max(ambientFadeOut, track.fadeOutSeconds);
-        fadeOutAmbientTracks(ambientFadeOut);
-
-        pendingRoomAudio = roomAudio;
-        pendingRoomAudio.sfx.clear();
-        roomTransitionPending = true;
-        return;
-    }
-
-    applyRoomStreams(roomAudio);
+    syncRoomStreams(roomAudio);
 }
 
 }

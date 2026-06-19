@@ -67,14 +67,15 @@ class AudioManager
     void unloadMusicTrack(FadingMusicTrack& track);
     void unloadAmbientTracks();
     void updateActiveSounds(float deltaSeconds);
-    void applyRoomStreams(const RoomAudioConfig& roomAudio);
+    void syncRoomStreams(const RoomAudioConfig& roomAudio);
+    void retainMusicTrack(FadingMusicTrack& track, const AudioClipDef& clip, AudioCategory category);
+    FadingMusicTrack* findAmbientTrackByPath(const std::string& path);
+    bool isStreamActive(const FadingMusicTrack& track) const;
     void playRoomSfx(
         const RoomAudioConfig& roomAudio,
         const std::string& trigger,
         const std::string& fromRoom,
         const std::string& toRoom);
-    bool hasActiveStreamAudio() const;
-
     std::string assetRoot;
     AudioVolumeConfig volumes;
     bool deviceReady = false;
@@ -82,8 +83,8 @@ class AudioManager
     FadingMusicTrack musicTrack;
     std::vector<FadingMusicTrack> ambientTracks;
     std::vector<ActiveSound> activeSounds;
-    bool roomTransitionPending = false;
-    RoomAudioConfig pendingRoomAudio;
+    bool pendingMusicStart = false;
+    AudioClipDef pendingMusicClip;
 };
 
 }
