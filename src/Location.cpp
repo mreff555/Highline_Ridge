@@ -4,8 +4,12 @@
 
 namespace testgame
 {
-    Location::Location(const LocationStruct& locationStruct, Vector2 screenSize)
-    : locationImage(locationStruct.locationImage),
+    Location::Location(const LocationStruct& locationStruct, Vector2 screenSize, RoomDatabase& roomDatabase, const std::string& roomId)
+    : screenWidth((int)screenSize.x),
+      screenHeight((int)screenSize.y),
+      roomDatabase(roomDatabase),
+      currentRoomId(roomId),
+      locationImage(locationStruct.locationImage),
       baseDescription(locationStruct.locationDescription),
       narrativeText(locationStruct.locationDescription),
       examineDetails(locationStruct.examineDetails),
@@ -15,8 +19,6 @@ namespace testgame
       backward(locationStruct.movementFilter.backward),
       left(locationStruct.movementFilter.left),
       right(locationStruct.movementFilter.right),
-      screenWidth((int)screenSize.x),
-      screenHeight((int)screenSize.y),
       textBox{screenWidth / 2.0f, 0, screenWidth / 2.0f, screenHeight * 2.0f / 3.0f},
       buttonBox{screenWidth / 2.0f, screenHeight * 2.0f / 3.0f, screenWidth / 2.0f, screenHeight / 3.0f},
       buttonMgr(buttonBox, descriptionFont)
@@ -69,12 +71,53 @@ namespace testgame
         narrativeText += examineDetails;
     }
     
+    void Location::tryMove(const std::string& direction)
+    {
+        const std::string nextRoomId = roomDatabase.getExitRoomId(currentRoomId, direction);
+        if (nextRoomId.empty())
+            return;
+
+        LocationStruct nextLocation;
+        if (!roomDatabase.loadRoom(nextRoomId, nextLocation))
+            return;
+
+        UnloadTexture(locationImage);
+        currentRoomId = nextRoomId;
+        applyLocationStruct(nextLocation);
+    }
+
+    void Location::applyLocationStruct(const LocationStruct& locationStruct)
+    {
+        locationImage = locationStruct.locationImage;
+        baseDescription = locationStruct.locationDescription;
+        narrativeText = locationStruct.locationDescription;
+        examineDetails = locationStruct.examineDetails;
+        descriptionFont = locationStruct.descriptionFont;
+        boldFont = locationStruct.boldFont;
+        forward = locationStruct.movementFilter.forward;
+        backward = locationStruct.movementFilter.backward;
+        left = locationStruct.movementFilter.left;
+        right = locationStruct.movementFilter.right;
+        buttonMgr.setAvailability(
+            locationStruct.movementFilter,
+            locationStruct.actionFilter);
+    }
+
     void Location::update()
     {
         buttonMgr.update();
 
         if (buttonMgr.consumeExamineButtonClick())
             appendExamineDetails();
+
+        if (buttonMgr.consumeForwardButtonClick())
+            tryMove("forward");
+        if (buttonMgr.consumeBackwardButtonClick())
+            tryMove("backward");
+        if (buttonMgr.consumeLeftButtonClick())
+            tryMove("left");
+        if (buttonMgr.consumeRightButtonClick())
+            tryMove("right");
     }
 
     void Location::draw() const
@@ -88,23 +131,6 @@ namespace testgame
 
         // Button Box
         buttonMgr.draw();
-    }
-
-    void Location::update(const LocationStruct& locationStruct)
-    {
-        this->locationImage = locationStruct.locationImage;
-        this->baseDescription = locationStruct.locationDescription;
-        this->narrativeText = locationStruct.locationDescription;
-        this->examineDetails = locationStruct.examineDetails;
-        this->descriptionFont = locationStruct.descriptionFont;
-        this->boldFont = locationStruct.boldFont;
-        this->forward = locationStruct.movementFilter.forward;
-        this->backward = locationStruct.movementFilter.backward;
-        this->left = locationStruct.movementFilter.left;
-        this->right = locationStruct.movementFilter.right;
-        buttonMgr.setAvailability(
-            locationStruct.movementFilter,
-            locationStruct.actionFilter);
     }
 
     void Location::drawNarrativeText() const

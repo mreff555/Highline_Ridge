@@ -2,6 +2,7 @@
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <raylib.h>
+
 namespace testgame
 {
 
@@ -32,6 +33,21 @@ bool parseActions(const nlohmann::json& actions, ActionStruct& out)
     return true;
 }
 
+bool parseExits(const nlohmann::json& exits, std::map<std::string, std::string>& out)
+{
+    out.clear();
+    if (!exits.is_object())
+        return true;
+
+    for (auto it = exits.begin(); it != exits.end(); ++it)
+    {
+        if (it.value().is_string())
+            out[it.key()] = it.value().get<std::string>();
+    }
+
+    return true;
+}
+
 bool parseRoom(const std::string& id, const nlohmann::json& room, RoomData& out)
 {
     if (!room.is_object())
@@ -50,6 +66,9 @@ bool parseRoom(const std::string& id, const nlohmann::json& room, RoomData& out)
         return false;
 
     if (!parseActions(room.value("actions", nlohmann::json::object()), out.actions))
+        return false;
+
+    if (!parseExits(room.value("exits", nlohmann::json::object()), out.exits))
         return false;
 
     return true;
@@ -74,11 +93,28 @@ std::string resolveAssetPath(const std::string& assetRoot, const std::string& pa
 
 }
 
-bool loadStartLocation(
-    const std::string& configPath,
-    const std::string& assetRoot,
-    LocationStruct& outLocation)
+RoomDatabase::RoomDatabase()
+    : descriptionFont{},
+      boldFont{},
+      fontsLoaded(false)
 {
+}
+
+RoomDatabase::~RoomDatabase()
+{
+    if (fontsLoaded)
+    {
+        UnloadFont(descriptionFont);
+        if (boldFont.texture.id != descriptionFont.texture.id)
+            UnloadFont(boldFont);
+    }
+}
+
+bool RoomDatabase::load(const std::string& configPath, const std::string& assetRoot)
+{
+    this->assetRoot = assetRoot;
+    rooms.clear();
+
     std::ifstream file(configPath.c_str());
     if (!file.is_open())
         return false;
@@ -101,54 +137,97 @@ bool loadStartLocation(
     if (fontPath.empty())
         return false;
 
-    const nlohmann::json& rooms = config["rooms"];
-    RoomData startRoom;
-    bool foundStart = false;
+    if (!fontsLoaded)
+    {
+        descriptionFont = LoadFont(fontPath.c_str());
+        if (descriptionFont.texture.id == 0)
+            return false;
 
-    for (auto it = rooms.begin(); it != rooms.end(); ++it)
+        boldFont = LoadFont(boldFontPath.c_str());
+        if (boldFont.texture.id == 0)
+            boldFont = descriptionFont;
+
+        fontsLoaded = true;
+    }
+
+    const nlohmann::json& roomsJson = config["rooms"];
+    for (auto it = roomsJson.begin(); it != roomsJson.end(); ++it)
     {
         RoomData room;
         if (!parseRoom(it.key(), it.value(), room))
-            continue;
+            return false;
 
-        if (room.isStart)
-        {
-            if (foundStart)
-                return false;
-
-            startRoom = room;
-            foundStart = true;
-        }
+        rooms[room.id] = room;
     }
 
-    if (!foundStart)
-        return false;
+    return !rooms.empty();
+}
 
-    const std::string imagePath = resolveAssetPath(assetRoot, startRoom.imagePath);
+bool RoomDatabase::buildLocationStruct(const RoomData& room, LocationStruct& outLocation) const
+{
+    const std::string imagePath = resolveAssetPath(assetRoot, room.imagePath);
     const Texture2D texture = LoadTexture(imagePath.c_str());
     if (texture.id == 0)
         return false;
 
-    const Font font = LoadFont(fontPath.c_str());
-    if (font.texture.id == 0)
-    {
-        UnloadTexture(texture);
-        return false;
-    }
-
-    Font boldFont = LoadFont(boldFontPath.c_str());
-    if (boldFont.texture.id == 0)
-        boldFont = font;
-
     outLocation.locationImage = texture;
-    outLocation.locationDescription = startRoom.description;
-    outLocation.examineDetails = startRoom.examineDetails;
-    outLocation.descriptionFont = font;
+    outLocation.locationDescription = room.description;
+    outLocation.examineDetails = room.examineDetails;
+    outLocation.descriptionFont = descriptionFont;
     outLocation.boldFont = boldFont;
-    outLocation.movementFilter = startRoom.movement;
-    outLocation.actionFilter = startRoom.actions;
+    outLocation.movementFilter = room.movement;
+    outLocation.actionFilter = room.actions;
 
     return true;
+}
+
+bool RoomDatabase::loadStartRoom(LocationStruct& outLocation, std::string& outRoomId) const
+{
+    for (std::map<std::string, RoomData>::const_iterator it = rooms.begin(); it != rooms.end(); ++it)
+    {
+        if (it->second.isStart)
+        {
+            outRoomId = it->first;
+            return loadRoom(outRoomId, outLocation);
+        }
+    }
+
+    return false;
+}
+
+bool RoomDatabase::loadRoom(const std::string& roomId, LocationStruct& outLocation) const
+{
+    std::map<std::string, RoomData>::const_iterator it = rooms.find(roomId);
+    if (it == rooms.end())
+        return false;
+
+    return buildLocationStruct(it->second, outLocation);
+}
+
+std::string RoomDatabase::getExitRoomId(const std::string& roomId, const std::string& direction) const
+{
+    std::map<std::string, RoomData>::const_iterator it = rooms.find(roomId);
+    if (it == rooms.end())
+        return "";
+
+    std::map<std::string, std::string>::const_iterator exitIt = it->second.exits.find(direction);
+    if (exitIt == it->second.exits.end())
+        return "";
+
+    return exitIt->second;
+}
+
+bool loadStartLocation(
+    const std::string& configPath,
+    const std::string& assetRoot,
+    LocationStruct& outLocation)
+{
+    RoomDatabase database;
+    std::string roomId;
+    if (!database.load(configPath, assetRoot))
+        return false;
+
+    return database.loadStartRoom(outLocation, roomId);
 }
 
 }

@@ -20,17 +20,17 @@
         "use": false
       },
       "exits": {
-        "backward": "hallway"
+        "backward": "cabin_kitchen"
       }
     },
-    "hallway": {
+    "cabin_kitchen": {
       "start": false,
-      "image": "resources/cabin.png",
-      "description": "A narrow hallway stretches ahead, its floorboards creaking underfoot.",
-      "examineDetails": "Scratches mark the floor near the far door, as though something heavy was dragged through recently. The air smells faintly of woodsmoke.",
+      "image": "resources/cabin_kitchen.png",
+      "description": "The rest of the small cabin opens into a humble country kitchen with warm wood cabinetry and copper accents. A heavy wooden door leads outside. On the tiny counter sits an impressive espresso machine that looks far too sophisticated for this rustic retreat.",
+      "examineDetails": "The espresso machine is spotless and recently used — grounds still warm in the portafilter. The exit door is bolted from the inside. Whoever lives here takes their coffee seriously.",
       "movement": {
         "forward": true,
-        "backward": false,
+        "backward": true,
         "left": false,
         "right": false
       },
@@ -38,7 +38,7 @@
         "examine": true,
         "speak": false,
         "hit": false,
-        "use": false
+        "use": true
       },
       "exits": {
         "forward": "cabin"

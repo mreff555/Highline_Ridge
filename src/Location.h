@@ -3,6 +3,7 @@
 
 #include <LocationStruct.h>
 #include <ButtonMgr.h>
+#include <RoomLoader.h>
 #include <raylib.h>
 #include <string>
 namespace testgame
@@ -11,7 +12,7 @@ namespace testgame
 class Location
 {
     public:
-    Location(const LocationStruct& locationStruct, Vector2 screenSize);
+    Location(const LocationStruct& locationStruct, Vector2 screenSize, RoomDatabase& roomDatabase, const std::string& roomId);
 
     virtual ~Location();
 
@@ -25,15 +26,20 @@ class Location
 
     void update();
     void draw() const;
-    void update(const LocationStruct& locationStruct);
     void DrawTextBoxed(const char* text) const;
     void drawNarrativeText() const;
     void drawWrappedParagraph(const char* text, Font font, float paragraphFontSize, float& textOffsetY) const;
     void appendExamineDetails();
 
     private:
+    void applyLocationStruct(const LocationStruct& locationStruct);
+    void tryMove(const std::string& direction);
+
     const int screenWidth;
     const int screenHeight;
+
+    RoomDatabase& roomDatabase;
+    std::string currentRoomId;
     
     Texture2D locationImage;
     std::string baseDescription;
@@ -57,8 +63,6 @@ class Location
     const Rectangle textBox;
     const Rectangle buttonBox;
     ButtonMgr buttonMgr;
-
-    // TODO: class for observations and items
 };
 
 }

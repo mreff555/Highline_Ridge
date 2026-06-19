@@ -156,12 +156,68 @@ void ButtonMgr::update()
     {
         examineButtonClicked = true;
     }
+
+    if (buttons[0].isEnabled() &&
+        IsMouseButtonReleased(MOUSE_BUTTON_LEFT) &&
+        CheckCollisionPointRec(mousePos, buttons[0].getBounds()))
+    {
+        forwardButtonClicked = true;
+    }
+
+    if (buttons[3].isEnabled() &&
+        IsMouseButtonReleased(MOUSE_BUTTON_LEFT) &&
+        CheckCollisionPointRec(mousePos, buttons[3].getBounds()))
+    {
+        backwardButtonClicked = true;
+    }
+
+    if (buttons[1].isEnabled() &&
+        IsMouseButtonReleased(MOUSE_BUTTON_LEFT) &&
+        CheckCollisionPointRec(mousePos, buttons[1].getBounds()))
+    {
+        leftButtonClicked = true;
+    }
+
+    if (buttons[2].isEnabled() &&
+        IsMouseButtonReleased(MOUSE_BUTTON_LEFT) &&
+        CheckCollisionPointRec(mousePos, buttons[2].getBounds()))
+    {
+        rightButtonClicked = true;
+    }
 }
 
 bool ButtonMgr::consumeExamineButtonClick()
 {
     const bool clicked = examineButtonClicked;
     examineButtonClicked = false;
+    return clicked;
+}
+
+bool ButtonMgr::consumeForwardButtonClick()
+{
+    const bool clicked = forwardButtonClicked;
+    forwardButtonClicked = false;
+    return clicked;
+}
+
+bool ButtonMgr::consumeBackwardButtonClick()
+{
+    const bool clicked = backwardButtonClicked;
+    backwardButtonClicked = false;
+    return clicked;
+}
+
+bool ButtonMgr::consumeLeftButtonClick()
+{
+    const bool clicked = leftButtonClicked;
+    leftButtonClicked = false;
+    return clicked;
+}
+
+bool ButtonMgr::consumeRightButtonClick()
+{
+    const bool clicked = rightButtonClicked;
+    rightButtonClicked = false;
     return clicked;
 }
 

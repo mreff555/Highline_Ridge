@@ -15,15 +15,24 @@ int main(void)
     const Vector2 screenSize = {1500, 1117};
     InitWindow(screenSize.x, screenSize.y, "raylib test game");
 
+    RoomDatabase roomDatabase;
+    if (!roomDatabase.load("../resources/rooms.json", ".."))
+    {
+        TraceLog(LOG_ERROR, "Failed to load rooms from resources/rooms.json");
+        CloseWindow();
+        return 1;
+    }
+
+    std::string startRoomId;
     LocationStruct locationStruct;
-    if (!loadStartLocation("../resources/rooms.json", "..", locationStruct))
+    if (!roomDatabase.loadStartRoom(locationStruct, startRoomId))
     {
         TraceLog(LOG_ERROR, "Failed to load starting room from resources/rooms.json");
         CloseWindow();
         return 1;
     }
 
-    Location location(locationStruct, screenSize);
+    Location location(locationStruct, screenSize, roomDatabase, startRoomId);
 
     SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
