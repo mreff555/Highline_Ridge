@@ -18,6 +18,20 @@ namespace
     const Color kStatusTrack = {40, 38, 50, 255};
     const Color kHealthFill = {168, 72, 72, 255};
     const Color kEnergyFill = {168, 138, 72, 255};
+    const Color kTenacityFill = {88, 118, 168, 255};
+    const Color kLucidityFill = {118, 88, 168, 255};
+
+    Color statusBarFillColor(const char* label)
+    {
+        switch (label[0])
+        {
+            case 'H': return kHealthFill;
+            case 'E': return kEnergyFill;
+            case 'T': return kTenacityFill;
+            case 'L': return kLucidityFill;
+            default: return kEnergyFill;
+        }
+    }
 }
 
 ButtonMgr::ButtonMgr(Rectangle _buttonBox, Font _buttonFont)
@@ -25,6 +39,8 @@ ButtonMgr::ButtonMgr(Rectangle _buttonBox, Font _buttonFont)
       buttonFont(_buttonFont),
       healthBarBounds{},
       energyBarBounds{},
+      tenacityBarBounds{},
+      lucidityBarBounds{},
       buttonStyle{
           {228, 220, 198, 255},
           {54, 50, 64, 255},
@@ -85,8 +101,11 @@ ButtonMgr::ButtonMgr(Rectangle _buttonBox, Font _buttonFont)
 
     const float statusRowH = (contentH - gap) / 2.0f;
     const float statusBarW = (statusW - gap) / 2.0f;
+    const float statusRow2Y = contentY + statusRowH + gap;
     healthBarBounds = { statusX, contentY, statusBarW, statusRowH };
     energyBarBounds = { statusX + statusBarW + gap, contentY, statusBarW, statusRowH };
+    tenacityBarBounds = { statusX, statusRow2Y, statusBarW, statusRowH };
+    lucidityBarBounds = { statusX + statusBarW + gap, statusRow2Y, statusBarW, statusRowH };
 
     const float inventoryY = buttonBox.y + buttonBox.height - pad - inventoryHeight;
     addButton("Inventory",
@@ -97,10 +116,12 @@ ButtonMgr::~ButtonMgr()
 {
 }
 
-void ButtonMgr::setStatus(float health, float energy)
+void ButtonMgr::setStatus(float health, float energy, float tenacity, float lucidity)
 {
     healthPercent = std::max(0.0f, std::min(health, 100.0f));
     energyPercent = std::max(0.0f, std::min(energy, 100.0f));
+    tenacityPercent = std::max(0.0f, std::min(tenacity, 100.0f));
+    lucidityPercent = std::max(0.0f, std::min(lucidity, 100.0f));
 }
 
 void ButtonMgr::addButton(const char* label, Rectangle bounds)
@@ -120,8 +141,7 @@ void ButtonMgr::drawSectionLabel(const char* label, float x, float y) const
 
 void ButtonMgr::drawStatusBar(const char* label, Rectangle bounds, float percent) const
 {
-    const bool isHealth = (label[0] == 'H');
-    const float labelHeight = 18.0f;
+    const float labelHeight = 16.0f;
     const float barTop = bounds.y + labelHeight;
     const float barHeight = bounds.height - labelHeight - 4.0f;
     const Rectangle track = { bounds.x, barTop, bounds.width, barHeight };
@@ -133,14 +153,13 @@ void ButtonMgr::drawStatusBar(const char* label, Rectangle bounds, float percent
         barHeight - 4.0f
     };
 
-    DrawTextEx(buttonFont, label, { bounds.x, bounds.y }, 13.0f, 1, kSectionLabel);
+    DrawTextEx(buttonFont, label, { bounds.x, bounds.y }, 12.0f, 1, kSectionLabel);
     DrawRectangleRounded(track, 0.18f, 8, kStatusTrack);
     DrawRectangleRoundedLines(track, 0.18f, 8, 2.0f, kPanelBorder);
 
     if (fillWidth > 0.0f)
     {
-        const Color fillColor = isHealth ? kHealthFill : kEnergyFill;
-        DrawRectangleRounded(fill, 0.18f, 8, fillColor);
+        DrawRectangleRounded(fill, 0.18f, 8, statusBarFillColor(label));
     }
 
     char percentText[8];
@@ -354,6 +373,8 @@ void ButtonMgr::draw() const
 
     drawStatusBar("Health", healthBarBounds, healthPercent);
     drawStatusBar("Energy", energyBarBounds, energyPercent);
+    drawStatusBar("Tenacity", tenacityBarBounds, tenacityPercent);
+    drawStatusBar("Lucidity", lucidityBarBounds, lucidityPercent);
 
     for (const auto& button : buttons)
         button.draw();

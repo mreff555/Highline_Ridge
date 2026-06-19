@@ -18,7 +18,7 @@ namespace testgame
         void update();
         void draw() const;
         void setAvailability(const MovementStruct& movement, const ActionStruct& actions);
-        void setStatus(float healthPercent, float energyPercent);
+        void setStatus(float healthPercent, float energyPercent, float tenacityPercent, float lucidityPercent);
 
         bool isForwardButtonPressed() const { return forwardButtonPressed; }
         bool isBackButtonPressed() const { return backButtonPressed; }
@@ -64,11 +64,15 @@ namespace testgame
 
         float healthPercent = 90.0f;
         float energyPercent = 20.0f;
+        float tenacityPercent = 50.0f;
+        float lucidityPercent = 30.0f;
         bool mouseWasDownLastFrame = false;
 
         Rectangle buttonBox;
         Rectangle healthBarBounds;
         Rectangle energyBarBounds;
+        Rectangle tenacityBarBounds;
+        Rectangle lucidityBarBounds;
         Font buttonFont;
         ButtonStyle buttonStyle;
         std::vector<Button> buttons;

@@ -78,6 +78,8 @@ class Location
 
     float health = 90.0f;
     float energy = 20.0f;
+    float tenacity = 50.0f;
+    float lucidity = 30.0f;
 
     float fontSize = 20;
     const bool wordWrap = true;

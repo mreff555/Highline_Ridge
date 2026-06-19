@@ -189,7 +189,7 @@ namespace
             actions.use = false;
 
         buttonMgr.setAvailability(movement, actions);
-        buttonMgr.setStatus(health, energy);
+        buttonMgr.setStatus(health, energy, tenacity, lucidity);
     }
 
     void Location::scrollNarrativeToBottom()
