@@ -261,7 +261,13 @@ namespace
                 "The bartender holds your gaze a beat longer than necessary, then turns away for a glass. "
                 "He sets it on the bar without ceremony. Water, clear and cold. Under his breath, barely "
                 "audible above the piano, he mutters that he is perfectly all right with you not drinking "
-                "in his establishment. The words are flat. Not cruel. Not kind. Simply settled.");
+                "in his establishment. The words are flat. Not cruel. Not kind. Simply settled.\n\n"
+                "You lift the glass and drink. The water cuts clean through the smoke in your throat and "
+                "the ash at the back of your tongue. Your head steadies. The room feels a fraction less "
+                "unreal, as though someone has wiped a smear from a window you did not know was dirty.");
+
+            if (tryApplyStatusDeltas("saloon_interior:water", 5.0f, 0.0f, 0.0f, 10.0f, false))
+                updateActionAvailability();
         }
         else if (choiceId == "usual")
         {
@@ -410,7 +416,7 @@ namespace
         health = std::min(100.0f, health + healthDelta);
         energy = std::min(100.0f, energy + energyDelta);
         tenacity = std::min(100.0f, tenacity + tenacityDelta);
-        lucidity = std::max(0.0f, lucidity + lucidityDelta);
+        lucidity = std::min(100.0f, std::max(0.0f, lucidity + lucidityDelta));
 
         if (!allowRepeat)
             consumedStatusActions.insert(actionKey);

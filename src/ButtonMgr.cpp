@@ -96,7 +96,7 @@ ButtonMgr::ButtonMgr(Rectangle _buttonBox, Font _buttonFont)
     addButton("Right",
         { moveRightX + movePadBtnW + gap, contentY + movePadBtnH + gap, movePadBtnW, movePadBtnH });
 
-    addButton("Backward",
+    addButton("back",
         { moveRightX + movePadBtnW / 2.0f + gap / 2.0f, contentY + (movePadBtnH + gap) * 2.0f, movePadBtnW, movePadBtnH });
 
     addButton("Examine",
