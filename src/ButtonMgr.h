@@ -79,6 +79,7 @@ namespace testgame
         int activePressButtonIndex = -1;
         double activePressStartTime = 0.0;
         bool activePressClickFired = false;
+        bool mouseWasDownLastFrame = false;
 
         Rectangle buttonBox;
         Rectangle healthBarBounds;
