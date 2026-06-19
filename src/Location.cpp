@@ -204,22 +204,6 @@ namespace
             }
         }
 
-        const Rectangle topLeftStain = { 0.0f, 0.0f, width * 0.22f, height * 0.16f };
-        const Rectangle bottomRightStain = {
-            width * 0.72f,
-            height * 0.78f,
-            width * 0.28f,
-            height * 0.22f
-        };
-        ImageDrawRectangle(&paper, (int)topLeftStain.x, (int)topLeftStain.y, (int)topLeftStain.width, (int)topLeftStain.height, {92, 72, 42, 18});
-        ImageDrawRectangle(
-            &paper,
-            (int)bottomRightStain.x,
-            (int)bottomRightStain.y,
-            (int)bottomRightStain.width,
-            (int)bottomRightStain.height,
-            {88, 68, 38, 22});
-
         notebookPaperTexture = LoadTextureFromImage(paper);
         UnloadImage(paper);
         notebookPaperTextureReady = notebookPaperTexture.id != 0;
