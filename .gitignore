@@ -51,3 +51,6 @@ resources/*.tga
 resources/*.gif
 resources/*.webp
 Unknown.png
+
+# Story planning doc lives on storyboard-planning; ignore on main
+storyboard.md
