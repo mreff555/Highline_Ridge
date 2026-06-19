@@ -1,6 +1,7 @@
 #ifndef ROOM_LOADER_H
 #define ROOM_LOADER_H
 
+#include <ConversationStruct.h>
 #include <LocationStruct.h>
 #include <map>
 #include <string>
@@ -23,6 +24,7 @@ struct RoomData
     ActionStruct actions;
     bool isStart;
     std::map<std::string, std::string> exits;
+    RoomSpeakConfig speakConfig;
 };
 
 class RoomDatabase
@@ -35,6 +37,7 @@ class RoomDatabase
     bool loadStartRoom(LocationStruct& outLocation, std::string& outRoomId) const;
     bool loadRoom(const std::string& roomId, LocationStruct& outLocation) const;
     std::string getExitRoomId(const std::string& roomId, const std::string& direction) const;
+    const RoomSpeakConfig& getSpeakConfig(const std::string& roomId) const;
 
     private:
     bool buildLocationStruct(const RoomData& room, LocationStruct& outLocation) const;

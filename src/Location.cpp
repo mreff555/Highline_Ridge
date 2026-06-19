@@ -22,15 +22,6 @@ namespace
         "You come back to yourself on the floor of the cabin, cheek pressed to the Persian rug, "
         "the fireplace crackling somewhere near your shoulder. Your mouth tastes of ash and bourbon. "
         "How you got here from the saloon is a blank page. How you got here at all is no clearer than before.";
-
-    const char* kSaloonPatronLines[] = {
-        "A faro player at the stove table looks up long enough to fan his cards. \"House always remembers,\" he says, and returns to his stack as though you are part of the furniture.",
-        "On the balcony, a woman in burgundy silk follows your movement with professional interest. \"Back early,\" she murmurs, and the words are not quite a question.",
-        "The piano player cuts a glance your way mid-phrase, fingers never stopping. \"Easy now,\" he says to the keys, but you suspect the advice is meant for you.",
-        "A miner at the poker table rubs a thumb over a chipped ace. \"Luck ain't a debt you can outrun,\" he mutters, and the table laughs without warmth.",
-        "A barmaid passes with an empty tray, eyes flicking over you once. \"Mind the stairs,\" she says, already gone into the crowd."
-    };
-    const int kSaloonPatronLineCount = sizeof(kSaloonPatronLines) / sizeof(kSaloonPatronLines[0]);
 }
 
     Location::Location(const LocationStruct& locationStruct, Vector2 screenSize, RoomDatabase& roomDatabase, const std::string& roomId)
@@ -61,6 +52,7 @@ namespace
       buttonMgr(buttonBox, descriptionFont)
     {
         trimNarrativeBuffer();
+        conversationMgr.onEnterRoom(currentRoomId, roomDatabase.getSpeakConfig(currentRoomId));
         updateActionAvailability();
     }
 
@@ -229,127 +221,86 @@ namespace
         updateActionAvailability();
     }
 
-    void Location::beginBartenderConversation()
+    void Location::applyStatusEffects(const std::vector<StatusEffect>& effects)
     {
-        const std::string intro =
-            "You step to the bar. The noise closes around you, then parts. The bartender meets your eyes "
-            "with a neutral expression that gives away nothing. He knows you. That much is plain. He is not "
-            "inclined to tell a story about it.\n\n"
-            "\"You want the usual?\" he says, rag finally moving again across the wood.";
+        bool statsChanged = false;
 
-        appendNarrativeSection("Speaking:", intro);
-        appendDialogChoices({
-            {"water", "> No, just a water"},
-            {"usual", "> Sure"}
-        });
-    }
-
-    void Location::resolveDialogChoice(const std::string& choiceId)
-    {
-        if (!awaitingDialogChoice)
-            return;
-
-        awaitingDialogChoice = false;
-        pendingDialogChoices.clear();
-        narrativeChoiceHitAreas.clear();
-        bartenderConversationComplete = true;
-
-        if (choiceId == "water")
+        for (const StatusEffect& effect : effects)
         {
-            appendNarrativeSection(
-                "Speaking:",
-                "The bartender holds your gaze a beat longer than necessary, then turns away for a glass. "
-                "He sets it on the bar without ceremony. Water, clear and cold. Under his breath, barely "
-                "audible above the piano, he mutters that he is perfectly all right with you not drinking "
-                "in his establishment. The words are flat. Not cruel. Not kind. Simply settled.\n\n"
-                "You lift the glass and drink. The water cuts clean through the smoke in your throat and "
-                "the ash at the back of your tongue. Your head steadies. The room feels a fraction less "
-                "unreal, as though someone has wiped a smear from a window you did not know was dirty.");
+            if (!effect.hasDelta())
+                continue;
 
-            if (tryApplyStatusDeltas("saloon_interior:water", 5.0f, 0.0f, 0.0f, 10.0f, false))
-                updateActionAvailability();
-        }
-        else if (choiceId == "usual")
-        {
-            appendNarrativeSection(
-                "Speaking:",
-                "The bartender's jaw tightens almost imperceptibly. He reaches high above the backbar, "
-                "to a shelf you would need a ladder to trust, and brings down a bottle of bourbon with "
-                "an artistic label and a wax seal dark as blood. He pours a single shot without measuring, "
-                "slides it across the pine, and watches you with a look that could crush stone.\n\n"
-                "You down it anyway. Fire and oak. The room tilts half a degree and rights itself. Your "
-                "resolve hardens even as your thoughts go slippery at the edges.");
-
-            if (tryApplyStatusDeltas("saloon_interior:usual", 0.0f, 0.0f, 20.0f, -10.0f, false))
+            if (tryApplyStatusDeltas(
+                    effect.key,
+                    effect.health,
+                    effect.energy,
+                    effect.tenacity,
+                    effect.lucidity,
+                    effect.repeat))
             {
-                updateActionAvailability();
+                statsChanged = true;
 
-                if (lucidity <= 0.0f)
+                if (effect.onZeroLucidity == "restart_cabin" && lucidity <= 0.0f)
                 {
+                    if (statsChanged)
+                        updateActionAvailability();
                     applyLucidityCollapseRestart();
                     return;
                 }
             }
         }
 
+        if (statsChanged)
+            updateActionAvailability();
+    }
+
+    void Location::processSpeakResult(const SpeakResult& result)
+    {
+        if (result.action == SpeakResult::Action::None)
+            return;
+
+        if (!result.narrative.empty())
+            appendNarrativeSection("Speaking:", result.narrative);
+
+        if (result.action == SpeakResult::Action::ShowChoices)
+        {
+            std::vector<DialogChoice> uiChoices;
+            uiChoices.reserve(result.choices.size());
+            for (const ConversationChoiceDef& choice : result.choices)
+                uiChoices.push_back({ choice.id, choice.label });
+
+            appendDialogChoices(uiChoices);
+            return;
+        }
+
+        applyStatusEffects(result.statusEffects);
+    }
+
+    void Location::resolveDialogChoice(const std::string& choiceId)
+    {
+        if (!conversationMgr.isAwaitingChoice() && !awaitingDialogChoice)
+            return;
+
+        awaitingDialogChoice = false;
+        pendingDialogChoices.clear();
+        narrativeChoiceHitAreas.clear();
+
+        SpeakResult result = conversationMgr.resolveChoice(choiceId);
+        processSpeakResult(result);
         updateActionAvailability();
-    }
-
-    const char* Location::pickRandomSaloonPatronLine()
-    {
-        if (kSaloonPatronLineCount <= 0)
-            return "";
-
-        int index = rand() % kSaloonPatronLineCount;
-        if (kSaloonPatronLineCount > 1)
-        {
-            int guard = 0;
-            while (index == lastSaloonPatronIndex && guard < 8)
-            {
-                index = rand() % kSaloonPatronLineCount;
-                ++guard;
-            }
-        }
-
-        lastSaloonPatronIndex = index;
-        return kSaloonPatronLines[index];
-    }
-
-    void Location::handleSaloonSpeak()
-    {
-        if (awaitingDialogChoice)
-            return;
-
-        if (!bartenderConversationComplete)
-        {
-            beginBartenderConversation();
-            ++saloonSpeakCount;
-            return;
-        }
-
-        const char* patronLine = pickRandomSaloonPatronLine();
-        if (patronLine[0] != '\0')
-            appendNarrativeSection("Speaking:", patronLine);
-
-        ++saloonSpeakCount;
     }
 
     void Location::handleSpeak()
     {
-        if (currentRoomId == "saloon_interior")
+        const RoomSpeakConfig& speakConfig = roomDatabase.getSpeakConfig(currentRoomId);
+        if (speakConfig.hasPhases())
         {
-            handleSaloonSpeak();
+            SpeakResult result = conversationMgr.handleSpeak(currentRoomId, speakConfig);
+            processSpeakResult(result);
             return;
         }
 
-        const bool canSpeak = !speakDetails.empty() && !hasSpokenInCurrentRoom;
         appendSpeakDetails();
-
-        if (canSpeak && currentRoomId == "saloon_front")
-        {
-            if (tryApplyStatusDeltas("saloon_front:cowboy", 0.0f, 0.0f, 5.0f, 0.0f, false))
-                updateActionAvailability();
-        }
     }
 
     void Location::applyLucidityCollapseRestart()
@@ -465,8 +416,9 @@ namespace
         }
 
         ActionStruct actions = baseActionFilter;
-        if (currentRoomId == "saloon_interior")
-            actions.speak = baseActionFilter.speak && !awaitingDialogChoice;
+        const RoomSpeakConfig& speakConfig = roomDatabase.getSpeakConfig(currentRoomId);
+        if (speakConfig.hasPhases())
+            actions.speak = conversationMgr.canSpeak(speakConfig, baseActionFilter.speak);
         else if (!speakDetails.empty())
             actions.speak = !hasSpokenInCurrentRoom;
         else
@@ -572,12 +524,7 @@ namespace
         pendingDialogChoices.clear();
         narrativeChoiceHitAreas.clear();
 
-        if (currentRoomId == "saloon_interior")
-        {
-            saloonSpeakCount = 0;
-            bartenderConversationComplete = false;
-            lastSaloonPatronIndex = -1;
-        }
+        conversationMgr.onEnterRoom(currentRoomId, roomDatabase.getSpeakConfig(currentRoomId));
 
         narrativeScrollY = 0.0f;
         narrativeLayoutDirty = true;

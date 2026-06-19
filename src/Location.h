@@ -1,6 +1,8 @@
 #ifndef LOCATION_H
 #define LOCATION_H
 
+#include <ConversationManager.h>
+#include <ConversationStruct.h>
 #include <LocationStruct.h>
 #include <ButtonMgr.h>
 #include <RoomLoader.h>
@@ -48,13 +50,12 @@ class Location
 
     private:
     void handleSpeak();
-    void handleSaloonSpeak();
-    void beginBartenderConversation();
     void resolveDialogChoice(const std::string& choiceId);
+    void processSpeakResult(const SpeakResult& result);
+    void applyStatusEffects(const std::vector<StatusEffect>& effects);
     void handleNarrativeChoiceInput();
     void appendDialogChoices(const std::vector<DialogChoice>& choices);
     void applyLucidityCollapseRestart();
-    const char* pickRandomSaloonPatronLine();
     bool isDialogChoiceLine(const std::string& line) const;
     Color narrativeLineColor(const std::string& line) const;
     void applyLocationStruct(const LocationStruct& locationStruct);
@@ -113,10 +114,8 @@ class Location
     bool hasSpokenInCurrentRoom = false;
     bool hasUsedInCurrentRoom = false;
     bool awaitingDialogChoice = false;
-    bool bartenderConversationComplete = false;
-    int saloonSpeakCount = 0;
-    int lastSaloonPatronIndex = -1;
     std::vector<DialogChoice> pendingDialogChoices;
+    ConversationManager conversationMgr;
     mutable std::vector<NarrativeChoiceHitArea> narrativeChoiceHitAreas;
 
     float health = 90.0f;

@@ -36,6 +36,191 @@ bool parseActions(const nlohmann::json& actions, ActionStruct& out)
     return true;
 }
 
+bool parseStatusEffect(const nlohmann::json& status, StatusEffect& out)
+{
+    if (!status.is_object())
+        return true;
+
+    out.key = status.value("key", "");
+    out.health = status.value("health", 0.0f);
+    out.energy = status.value("energy", 0.0f);
+    out.tenacity = status.value("tenacity", 0.0f);
+    out.lucidity = status.value("lucidity", 0.0f);
+    out.repeat = status.value("repeat", false);
+    out.onZeroLucidity = status.value("onZeroLucidity", "");
+    return true;
+}
+
+ConversationPhaseType parsePhaseType(const std::string& type)
+{
+    if (type == "scripted")
+        return ConversationPhaseType::Scripted;
+    if (type == "random")
+        return ConversationPhaseType::Random;
+    return ConversationPhaseType::Once;
+}
+
+bool parseConversationChoice(const nlohmann::json& choice, ConversationChoiceDef& out)
+{
+    if (!choice.is_object())
+        return false;
+
+    out.id = choice.value("id", "");
+    out.label = choice.value("label", "");
+    out.response = choice.value("response", "");
+    if (!parseStatusEffect(choice.value("status", nlohmann::json::object()), out.status))
+        return false;
+
+    return !out.id.empty() && !out.label.empty() && !out.response.empty();
+}
+
+bool parseRandomLine(const nlohmann::json& line, RandomConversationLine& out)
+{
+    if (!line.is_object())
+        return false;
+
+    out.id = line.value("id", "");
+    out.text = line.value("text", "");
+    out.weight = line.value("weight", 1);
+    if (!parseStatusEffect(line.value("status", nlohmann::json::object()), out.status))
+        return false;
+
+    return !out.text.empty();
+}
+
+bool parseConversationPhase(const nlohmann::json& phase, ConversationPhase& out)
+{
+    if (!phase.is_object())
+        return false;
+
+    out.id = phase.value("id", "");
+    out.type = parsePhaseType(phase.value("type", "once"));
+    out.requiresPhaseId = phase.value("requiresPhase", "");
+    out.resetOnRoomEnter = phase.value("resetOnRoomEnter", true);
+    out.text = phase.value("text", "");
+    out.intro = phase.value("intro", "");
+    out.poolId = phase.value("poolId", "");
+    out.avoidRepeat = phase.value("avoidRepeat", true);
+
+    if (!parseStatusEffect(phase.value("status", nlohmann::json::object()), out.status))
+        return false;
+
+    out.choices.clear();
+    const nlohmann::json& choices = phase.value("choices", nlohmann::json::array());
+    if (!choices.is_array())
+        return false;
+
+    for (const nlohmann::json& choice : choices)
+    {
+        ConversationChoiceDef parsed;
+        if (!parseConversationChoice(choice, parsed))
+            return false;
+        out.choices.push_back(parsed);
+    }
+
+    out.lines.clear();
+    const nlohmann::json& lines = phase.value("lines", nlohmann::json::array());
+    if (!lines.is_array())
+        return false;
+
+    for (const nlohmann::json& line : lines)
+    {
+        RandomConversationLine parsed;
+        if (!parseRandomLine(line, parsed))
+            return false;
+        out.lines.push_back(parsed);
+    }
+
+    if (out.id.empty())
+        return false;
+
+    if (out.type == ConversationPhaseType::Once && out.text.empty())
+        return false;
+
+    if (out.type == ConversationPhaseType::Scripted &&
+        (out.intro.empty() || out.choices.empty()))
+        return false;
+
+    if (out.type == ConversationPhaseType::Random && out.lines.empty())
+        return false;
+
+    return true;
+}
+
+bool parseSpeakPhasesArray(const nlohmann::json& phases, RoomSpeakConfig& out)
+{
+    if (!phases.is_array())
+        return false;
+
+    out.phases.clear();
+    for (const nlohmann::json& phase : phases)
+    {
+        ConversationPhase parsed;
+        if (!parseConversationPhase(phase, parsed))
+            return false;
+        out.phases.push_back(parsed);
+    }
+
+    return true;
+}
+
+bool parseSpeakConfig(const nlohmann::json& room, RoomSpeakConfig& out)
+{
+    out.phases.clear();
+
+    if (room.contains("conversations") &&
+        room["conversations"].is_object() &&
+        room["conversations"].contains("speakPhases"))
+    {
+        return parseSpeakPhasesArray(room["conversations"]["speakPhases"], out);
+    }
+
+    if (room.contains("speakPhases"))
+        return parseSpeakPhasesArray(room["speakPhases"], out);
+
+    const std::string speakDetails = room.value("speakDetails", "");
+    if (speakDetails.empty())
+        return true;
+
+    ConversationPhase legacy;
+    legacy.id = "speak";
+    legacy.type = ConversationPhaseType::Once;
+    legacy.text = speakDetails;
+    legacy.resetOnRoomEnter = true;
+    if (!parseStatusEffect(room.value("speakStatus", nlohmann::json::object()), legacy.status))
+        return false;
+    out.phases.push_back(legacy);
+    return true;
+}
+
+bool applyConversationOverlays(
+    const nlohmann::json& overlays,
+    std::map<std::string, RoomData>& rooms)
+{
+    if (!overlays.is_object())
+        return true;
+
+    for (auto it = overlays.begin(); it != overlays.end(); ++it)
+    {
+        std::map<std::string, RoomData>::iterator roomIt = rooms.find(it.key());
+        if (roomIt == rooms.end())
+            return false;
+
+        if (!parseSpeakConfig(it.value(), roomIt->second.speakConfig))
+            return false;
+    }
+
+    return true;
+}
+
+std::string siblingConfigPath(const std::string& configPath, const std::string& filename)
+{
+    const size_t slash = configPath.find_last_of('/');
+    if (slash == std::string::npos)
+        return filename;
+    return configPath.substr(0, slash + 1) + filename;
+}
+
 bool parseExits(const nlohmann::json& exits, std::map<std::string, std::string>& out)
 {
     out.clear();
@@ -77,6 +262,9 @@ bool parseRoom(const std::string& id, const nlohmann::json& room, RoomData& out)
         return false;
 
     if (!parseExits(room.value("exits", nlohmann::json::object()), out.exits))
+        return false;
+
+    if (!parseSpeakConfig(room, out.speakConfig))
         return false;
 
     return true;
@@ -168,6 +356,32 @@ bool RoomDatabase::load(const std::string& configPath, const std::string& assetR
         rooms[room.id] = room;
     }
 
+    if (config.contains("conversations"))
+    {
+        if (!applyConversationOverlays(config["conversations"], rooms))
+            return false;
+    }
+    else
+    {
+        const std::string conversationsPath = siblingConfigPath(configPath, "conversations.json");
+        std::ifstream conversationsFile(conversationsPath.c_str());
+        if (conversationsFile.is_open())
+        {
+            nlohmann::json conversationsConfig;
+            try
+            {
+                conversationsFile >> conversationsConfig;
+            }
+            catch (const nlohmann::json::exception&)
+            {
+                return false;
+            }
+
+            if (!applyConversationOverlays(conversationsConfig, rooms))
+                return false;
+        }
+    }
+
     return !rooms.empty();
 }
 
@@ -229,6 +443,16 @@ bool RoomDatabase::loadRoom(const std::string& roomId, LocationStruct& outLocati
         return false;
 
     return buildLocationStruct(it->second, outLocation);
+}
+
+const RoomSpeakConfig& RoomDatabase::getSpeakConfig(const std::string& roomId) const
+{
+    static const RoomSpeakConfig kEmptyConfig;
+    std::map<std::string, RoomData>::const_iterator it = rooms.find(roomId);
+    if (it == rooms.end())
+        return kEmptyConfig;
+
+    return it->second.speakConfig;
 }
 
 std::string RoomDatabase::getExitRoomId(const std::string& roomId, const std::string& direction) const

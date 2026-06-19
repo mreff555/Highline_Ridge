@@ -11,6 +11,7 @@ set(SOURCES
     src/Button.cpp
     src/ButtonMgr.cpp
     src/RoomLoader.cpp
+    src/ConversationManager.cpp
 )
 
 # 1. Look for raylib installed via brew/system
