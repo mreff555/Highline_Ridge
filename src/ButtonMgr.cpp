@@ -290,15 +290,18 @@ void ButtonMgr::update()
     inventoryButtonClicked = false;
 
     Vector2 mousePos = GetMousePosition();
+    const bool mouseDown = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
+    const bool mouseJustPressed = mouseDown && !mouseWasDownLastFrame;
+    const bool mouseJustReleased = !mouseDown && mouseWasDownLastFrame;
 
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    if (mouseJustPressed)
     {
         activePressButtonIndex = findEnabledButtonUnderMouse(mousePos);
         activePressStartTime = GetTime();
         activePressClickFired = false;
     }
 
-    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) &&
+    if (mouseDown &&
         activePressButtonIndex >= 0 &&
         !activePressClickFired)
     {
@@ -316,7 +319,7 @@ void ButtonMgr::update()
         }
     }
 
-    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+    if (mouseJustReleased)
     {
         if (activePressButtonIndex >= 0 && !activePressClickFired)
             registerButtonClick(activePressButtonIndex);
@@ -324,6 +327,8 @@ void ButtonMgr::update()
         activePressButtonIndex = -1;
         activePressClickFired = false;
     }
+
+    mouseWasDownLastFrame = mouseDown;
 
     for (auto& button : buttons)
     {
