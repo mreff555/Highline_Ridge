@@ -327,33 +327,26 @@ bool loadResourceTexture(
 
     for (const std::string& path : paths)
     {
-        if (!FileExists(path.c_str()))
-            continue;
-
-        Texture2D texture = LoadTexture(path.c_str());
-        if (texture.id != 0)
+        if (FileExists(path.c_str()))
         {
-            outTexture = texture;
-            TraceLog(LOG_INFO, "Loaded resource texture: %s", path.c_str());
-            return true;
-        }
+            Texture2D texture = LoadTexture(path.c_str());
+            if (texture.id != 0)
+            {
+                outTexture = texture;
+                TraceLog(LOG_INFO, "Loaded resource texture: %s", path.c_str());
+                return true;
+            }
 
-        Image image = LoadImage(path.c_str());
-        if (image.data == nullptr)
-            continue;
-
-        texture = LoadTextureFromImage(image);
-        UnloadImage(image);
-
-        if (texture.id != 0)
-        if (loadTextureFromAssetFile(path, outTexture))
-        {
-            TraceLog(LOG_INFO, "Loaded resource texture: %s", path.c_str());
-            return true;
+            if (loadTextureFromAssetFile(path, outTexture))
+            {
+                TraceLog(LOG_INFO, "Loaded resource texture: %s", path.c_str());
+                return true;
+            }
         }
 
         const std::string compressedPath = compressedAssetPath(path);
-        if (loadTextureFromAssetFile(compressedPath, outTexture))
+        if (FileExists(compressedPath.c_str()) &&
+            loadTextureFromAssetFile(compressedPath, outTexture))
         {
             TraceLog(LOG_INFO, "Loaded compressed resource texture: %s", compressedPath.c_str());
             return true;
@@ -575,14 +568,6 @@ Texture2D RoomDatabase::createOwnedPlaceholderTexture() const
 
 bool RoomDatabase::buildLocationStruct(const RoomData& room, LocationStruct& outLocation) const
 {
-    Texture2D texture{};
-    if (!loadResourceTexture(assetRoot, room.imagePath, texture))
-    {
-        TraceLog(LOG_ERROR, "Room image not found: %s", room.imagePath.c_str());
-        return false;
-    }
-
-    outLocation.locationImage = texture;
     outLocation.locationDescription = room.description;
     outLocation.examineDetails = room.examineDetails;
     outLocation.examineFlag = room.examineFlag;
