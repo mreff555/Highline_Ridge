@@ -326,11 +326,19 @@ bool loadResourceTexture(
         if (!FileExists(path.c_str()))
             continue;
 
+        Texture2D texture = LoadTexture(path.c_str());
+        if (texture.id != 0)
+        {
+            outTexture = texture;
+            TraceLog(LOG_INFO, "Loaded resource texture: %s", path.c_str());
+            return true;
+        }
+
         Image image = LoadImage(path.c_str());
         if (image.data == nullptr)
             continue;
 
-        const Texture2D texture = LoadTextureFromImage(image);
+        texture = LoadTextureFromImage(image);
         UnloadImage(image);
 
         if (texture.id != 0)

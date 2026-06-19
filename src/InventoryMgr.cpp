@@ -28,8 +28,8 @@ namespace
         "No identification. The pockets are otherwise empty except for a small slip of paper, "
         "tucked deep into a corner seam as though someone meant to forget it and could not quite.";
 
-    const char* kWalletIconFiles[] = { "wallet_icon.jpg", "wallet_icon.png" };
-    const char* kWalletExamineFiles[] = { "wallet_examine.jpg", "wallet_examine.png" };
+    const char* kWalletIconFiles[] = { "wallet_icon.png", "wallet_icon.jpg" };
+    const char* kWalletExamineFiles[] = { "wallet_examine.png", "wallet_examine.jpg" };
 }
 
 const float InventoryMgr::kScrollbarWidth = 16.0f;
@@ -128,13 +128,19 @@ void InventoryMgr::loadItemTextures()
     for (const char* filename : kWalletIconFiles)
     {
         if (loadItemTexture(filename, wallet->icon))
+        {
+            SetTextureFilter(wallet->icon, TEXTURE_FILTER_BILINEAR);
             break;
+        }
     }
 
     for (const char* filename : kWalletExamineFiles)
     {
         if (loadItemTexture(filename, wallet->examineImage))
+        {
+            SetTextureFilter(wallet->examineImage, TEXTURE_FILTER_BILINEAR);
             break;
+        }
     }
 }
 

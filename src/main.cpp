@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <stdio.h>
+#include <string>
 
 using namespace testgame;
 
@@ -18,9 +19,39 @@ int main(void)
     InitWindow(screenSize.x, screenSize.y, "Highline Ridge");
     std::srand((unsigned int)std::time(nullptr));
 
-    if (FileExists("../resources/rooms.json"))
-        ChangeDirectory("..");
-    else if (!FileExists("resources/rooms.json"))
+    auto locateResources = []() -> bool
+    {
+        if (FileExists("resources/rooms.json"))
+            return true;
+
+        if (FileExists("../resources/rooms.json"))
+        {
+            ChangeDirectory("..");
+            return true;
+        }
+
+        const char* appDir = GetApplicationDirectory();
+        if (appDir != nullptr && appDir[0] != '\0')
+        {
+            const std::string resourcePath = std::string(appDir) + "/resources/rooms.json";
+            if (FileExists(resourcePath.c_str()))
+            {
+                ChangeDirectory(appDir);
+                return true;
+            }
+
+            const std::string parentResourcePath = std::string(appDir) + "/../resources/rooms.json";
+            if (FileExists(parentResourcePath.c_str()))
+            {
+                ChangeDirectory((std::string(appDir) + "/..").c_str());
+                return true;
+            }
+        }
+
+        return false;
+    };
+
+    if (!locateResources())
         TraceLog(LOG_WARNING, "Could not locate resources/rooms.json from current working directory");
 
     RoomDatabase roomDatabase;
