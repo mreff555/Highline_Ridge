@@ -270,6 +270,8 @@ bool parseRoom(const std::string& id, const nlohmann::json& room, RoomData& out)
     return true;
 }
 
+}
+
 std::string resolveAssetPath(const std::string& assetRoot, const std::string& path)
 {
     if (path.empty())
@@ -285,8 +287,6 @@ std::string resolveAssetPath(const std::string& assetRoot, const std::string& pa
         return assetRoot + path;
 
     return assetRoot + "/" + path;
-}
-
 }
 
 RoomDatabase::RoomDatabase()

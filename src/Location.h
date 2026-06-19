@@ -70,6 +70,8 @@ class Location
     void drawNarrativeScrollbar() const;
     void drawInventoryExamineView() const;
     void drawInventoryExamineScrollbar() const;
+    void drawMainImage() const;
+    Rectangle getMainImageBounds() const;
     Rectangle getDialogBounds() const;
     Rectangle getInventoryPanelBounds() const;
     void appendNarrativeSection(const char* header, const std::string& details);
