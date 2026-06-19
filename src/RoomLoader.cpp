@@ -583,14 +583,14 @@ void RoomDatabase::ensureUnderConstructionImage() const
         return;
 
     Texture2D assetTexture{};
-    if (loadResourceTexture(assetRoot, "resources/room_under_construction.png", assetTexture))
+    if (loadResourceTexture(assetRoot, "resources/images/room_under_construction.png", assetTexture))
     {
         underConstructionImage = LoadImageFromTexture(assetTexture);
         UnloadTexture(assetTexture);
         if (underConstructionImage.data != nullptr)
         {
             underConstructionImageReady = true;
-            TraceLog(LOG_INFO, "Loaded under-construction image from resources/room_under_construction.png");
+            TraceLog(LOG_INFO, "Loaded under-construction image from resources/images/room_under_construction.png");
             return;
         }
     }
