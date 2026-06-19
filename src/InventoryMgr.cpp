@@ -31,6 +31,15 @@ namespace
 
     const char* kWalletIconFiles[] = { "icons/wallet_icon.png", "icons/wallet_icon.jpg" };
     const char* kWalletExamineFiles[] = { "images/wallet_examine.png", "images/wallet_examine.jpg" };
+    const char* kLardIconFiles[] = { "icons/lard_icon.png", "icons/lard_icon.jpg" };
+    const char* kLardExamineFiles[] = { "images/lard_examine.png", "images/lard_examine.jpg" };
+
+    bool itemNeedsExamineImage(const InventoryItem& item)
+    {
+        return item.id == "wallet"
+            || item.id == "lard"
+            || !item.examineImagePath.empty();
+    }
 }
 
 const float InventoryMgr::kScrollbarWidth = 16.0f;
@@ -76,7 +85,10 @@ bool InventoryMgr::hasLoadedAssets() const
 {
     for (const InventoryItem& item : items)
     {
-        if (item.icon.id == 0 || item.examineImage.id == 0)
+        if (item.icon.id == 0)
+            return false;
+
+        if (itemNeedsExamineImage(item) && item.examineImage.id == 0)
             return false;
     }
 
@@ -125,6 +137,28 @@ void InventoryMgr::loadItemAssets(InventoryItem& item)
         }
 
         for (const char* filename : kWalletExamineFiles)
+        {
+            if (loadItemTexture(filename, item.examineImage))
+            {
+                SetTextureFilter(item.examineImage, TEXTURE_FILTER_BILINEAR);
+                break;
+            }
+        }
+        return;
+    }
+
+    if (item.id == "lard")
+    {
+        for (const char* filename : kLardIconFiles)
+        {
+            if (loadItemTexture(filename, item.icon))
+            {
+                SetTextureFilter(item.icon, TEXTURE_FILTER_BILINEAR);
+                break;
+            }
+        }
+
+        for (const char* filename : kLardExamineFiles)
         {
             if (loadItemTexture(filename, item.examineImage))
             {

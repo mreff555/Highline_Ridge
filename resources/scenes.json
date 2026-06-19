@@ -27,10 +27,17 @@
         "backward": "cabin_kitchen"
       },
       "audio": {
+        "music": {
+          "path": "resources/audio/music/cabin_theme.mp3",
+          "volume": 0.14,
+          "fade_in": 4.0,
+          "fade_out": 3.0,
+          "loop": true
+        },
         "ambient": [
           {
             "path": "resources/audio/ambient/fireplace.mp3",
-            "volume": 0.9,
+            "volume": 1.0,
             "fade_in": 0.8,
             "fade_out": 1.5,
             "loop": true
@@ -47,6 +54,8 @@
         {
           "id": "lard",
           "name": "Lard",
+          "icon": "resources/icons/lard_icon.png",
+          "examineImage": "resources/images/lard_examine.png",
           "examineText": "A wide-mouth mason jar packed with smooth, ivory-white rendered lard. The waxed lid is screwed down tight, and a faint waxy scent rises when you tilt it toward the light."
         }
       ],
@@ -70,10 +79,17 @@
         "forward": "mountain_road"
       },
       "audio": {
+        "music": {
+          "path": "resources/audio/music/cabin_theme.mp3",
+          "volume": 0.14,
+          "fade_in": 4.0,
+          "fade_out": 3.0,
+          "loop": true
+        },
         "ambient": [
           {
             "path": "resources/audio/ambient/fireplace.mp3",
-            "volume": 0.75,
+            "volume": 1.0,
             "fade_in": 0.5,
             "fade_out": 0.5,
             "loop": true
