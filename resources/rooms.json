@@ -79,7 +79,7 @@
     },
     "narrow_path": {
       "start": false,
-      "image": "",
+      "image": "resources/narrow_path.png",
       "description": "A narrow footpath branches off the mountain road between two weathered cabins, barely wide enough for one person. The ground is soft with pine needles and recent boot prints. The path bends quickly out of sight behind a stand of young firs, as though the mountain prefers to keep its secrets until you commit to following them.",
       "examineDetails": "The path is not on any map you can remember. Someone has cleared fallen branches recently, but the work is rough. practical, not decorative. A rusted tin marker nailed to the nearest tree is too faded to read. Whatever lies ahead, it is meant to be found on foot and not from the main road.",
       "useDetails": "",

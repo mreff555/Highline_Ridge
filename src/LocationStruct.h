@@ -13,6 +13,7 @@ struct LocationStruct
 {
     Texture2D locationImage;
     bool ownsLocationImage = true;
+    bool isUnderConstruction = false;
     std::string locationDescription;
     std::string examineDetails;
     std::string speakDetails;

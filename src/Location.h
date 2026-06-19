@@ -104,6 +104,8 @@ class Location
     
     Texture2D locationImage;
     bool ownsLocationImage = true;
+    bool isUnderConstruction = false;
+    std::string previousRoomId;
     std::string baseDescription;
     std::string narrativeText;
     std::string examineDetails;
