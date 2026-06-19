@@ -52,7 +52,7 @@ struct ConversationPhase
     ConversationPhaseType type = ConversationPhaseType::Once;
     std::string requiresPhaseId;
     std::string requiresFlag;
-    bool resetOnRoomEnter = true;
+    bool resetOnSceneEnter = true;
 
     std::string text;
     StatusEffect status;
@@ -65,7 +65,7 @@ struct ConversationPhase
     bool avoidRepeat = true;
 };
 
-struct RoomSpeakConfig
+struct SceneSpeakConfig
 {
     std::vector<ConversationPhase> phases;
 

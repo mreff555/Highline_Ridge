@@ -4,15 +4,17 @@
 namespace testgame
 {
 
-void ConversationManager::onEnterRoom(const std::string& roomId, const RoomSpeakConfig& config)
+void ConversationManager::onEnterScene(const std::string& sceneId, const SceneSpeakConfig& config)
 {
-    currentRoomId = roomId;
-    completedPhaseIds.clear();
+    currentSceneId = sceneId;
 
     for (const ConversationPhase& phase : config.phases)
     {
-        if (phase.resetOnRoomEnter)
-            lastRandomLineIndex.erase(randomPoolKey(roomId, phase));
+        if (phase.resetOnSceneEnter)
+        {
+            completedPhaseIds.erase(phase.id);
+            lastRandomLineIndex.erase(randomPoolKey(sceneId, phase));
+        }
     }
 
     awaitingChoice = false;
@@ -44,7 +46,7 @@ bool ConversationManager::isPhaseRequirementMet(
 }
 
 const ConversationPhase* ConversationManager::findPhase(
-    const RoomSpeakConfig& config,
+    const SceneSpeakConfig& config,
     const std::string& phaseId) const
 {
     for (const ConversationPhase& phase : config.phases)
@@ -57,11 +59,11 @@ const ConversationPhase* ConversationManager::findPhase(
 }
 
 const ConversationPhase* ConversationManager::findActivePhase(
-    const std::string& roomId,
-    const RoomSpeakConfig& config,
+    const std::string& sceneId,
+    const SceneSpeakConfig& config,
     const std::set<std::string>& storyFlags) const
 {
-    (void)roomId;
+    (void)sceneId;
 
     for (const ConversationPhase& phase : config.phases)
     {
@@ -82,14 +84,14 @@ const ConversationPhase* ConversationManager::findActivePhase(
 }
 
 bool ConversationManager::canSpeak(
-    const RoomSpeakConfig& config,
+    const SceneSpeakConfig& config,
     bool baseSpeakEnabled,
     const std::set<std::string>& storyFlags) const
 {
     if (!baseSpeakEnabled || config.phases.empty() || awaitingChoice)
         return false;
 
-    return findActivePhase(currentRoomId, config, storyFlags) != nullptr;
+    return findActivePhase(currentSceneId, config, storyFlags) != nullptr;
 }
 
 SpeakResult ConversationManager::buildNarrativeResult(
@@ -108,14 +110,14 @@ SpeakResult ConversationManager::buildNarrativeResult(
 }
 
 std::string ConversationManager::randomPoolKey(
-    const std::string& roomId,
+    const std::string& sceneId,
     const ConversationPhase& phase) const
 {
-    return roomId + ":" + (phase.poolId.empty() ? phase.id : phase.poolId);
+    return sceneId + ":" + (phase.poolId.empty() ? phase.id : phase.poolId);
 }
 
 SpeakResult ConversationManager::pickRandomLine(
-    const std::string& roomId,
+    const std::string& sceneId,
     const ConversationPhase& phase)
 {
     if (phase.lines.empty())
@@ -128,7 +130,7 @@ SpeakResult ConversationManager::pickRandomLine(
     if (totalWeight <= 0)
         return SpeakResult();
 
-    const std::string poolKey = randomPoolKey(roomId, phase);
+    const std::string poolKey = randomPoolKey(sceneId, phase);
     int chosenIndex = 0;
 
     if (phase.avoidRepeat && phase.lines.size() > 1)
@@ -178,14 +180,14 @@ SpeakResult ConversationManager::pickRandomLine(
 }
 
 SpeakResult ConversationManager::handleSpeak(
-    const std::string& roomId,
-    const RoomSpeakConfig& config,
+    const std::string& sceneId,
+    const SceneSpeakConfig& config,
     const std::set<std::string>& storyFlags)
 {
     if (awaitingChoice || config.phases.empty())
         return SpeakResult();
 
-    const ConversationPhase* phase = findActivePhase(roomId, config, storyFlags);
+    const ConversationPhase* phase = findActivePhase(sceneId, config, storyFlags);
     if (!phase)
         return SpeakResult();
 
@@ -208,7 +210,7 @@ SpeakResult ConversationManager::handleSpeak(
     }
 
     if (phase->type == ConversationPhaseType::Random)
-        return pickRandomLine(roomId, *phase);
+        return pickRandomLine(sceneId, *phase);
 
     return SpeakResult();
 }
@@ -248,7 +250,7 @@ SpeakResult ConversationManager::resolveChoice(const std::string& choiceId)
 }
 
 SpeakResult ConversationManager::resolveChoiceFromConfig(
-    const RoomSpeakConfig& config,
+    const SceneSpeakConfig& config,
     const std::string& choiceId)
 {
     for (const ConversationPhase& phase : config.phases)

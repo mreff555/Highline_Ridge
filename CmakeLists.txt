@@ -11,7 +11,7 @@ set(SOURCES
     src/Location.cpp
     src/Button.cpp
     src/ButtonMgr.cpp
-    src/RoomLoader.cpp
+    src/SceneLoader.cpp
     src/ConversationManager.cpp
     src/InventoryMgr.cpp
     src/ImageCompression.cpp

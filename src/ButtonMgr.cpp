@@ -444,14 +444,9 @@ void ButtonMgr::draw() const
     drawSectionLabel("ACTIONS", buttonBox.x + pad + buttonBox.width * 0.32f, buttonBox.y + pad);
     drawSectionLabel("STATUS", healthBarBounds.x, buttonBox.y + pad);
 
-    const float dividerY = buttonBox.y + buttonBox.height - pad - 52.0f - 8.0f;
-    DrawLineEx(
-        { buttonBox.x + pad, dividerY },
-        { buttonBox.x + buttonBox.width - pad, dividerY },
-        1.0f,
-        kDivider);
-
-    drawSectionLabel("INVENTORY", buttonBox.x + pad, dividerY + 6.0f);
+    const float inventoryHeight = 52.0f;
+    const float inventoryY = buttonBox.y + buttonBox.height - pad - inventoryHeight;
+    drawSectionLabel("INVENTORY", buttonBox.x + pad, inventoryY - 24.0f);
 
     drawStatusBar("Health", healthBarBounds, healthPercent);
     drawStatusBar("Energy", energyBarBounds, energyPercent);

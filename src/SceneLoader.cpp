@@ -1,4 +1,4 @@
-#include "RoomLoader.h"
+#include "SceneLoader.h"
 #include "ImageCompression.h"
 #include <algorithm>
 #include <fstream>
@@ -104,13 +104,20 @@ ConversationPhaseType parsePhaseType(const std::string& type)
     return ConversationPhaseType::Once;
 }
 
+std::string formatChoiceLabel(const std::string& label)
+{
+    if (label.size() >= 2 && label.compare(0, 2, "> ") == 0)
+        return label;
+    return "> " + label;
+}
+
 bool parseConversationChoice(const nlohmann::json& choice, ConversationChoiceDef& out)
 {
     if (!choice.is_object())
         return false;
 
     out.id = choice.value("id", "");
-    out.label = choice.value("label", "");
+    out.label = formatChoiceLabel(choice.value("label", ""));
     out.response = choice.value("response", "");
     if (!parseStatusEffect(choice.value("status", nlohmann::json::object()), out.status))
         return false;
@@ -141,7 +148,7 @@ bool parseConversationPhase(const nlohmann::json& phase, ConversationPhase& out)
     out.type = parsePhaseType(phase.value("type", "once"));
     out.requiresPhaseId = phase.value("requiresPhase", "");
     out.requiresFlag = phase.value("requiresFlag", "");
-    out.resetOnRoomEnter = phase.value("resetOnRoomEnter", true);
+    out.resetOnSceneEnter = phase.value("resetOnSceneEnter", true);
     out.text = phase.value("text", "");
     out.intro = phase.value("intro", "");
     out.poolId = phase.value("poolId", "");
@@ -192,7 +199,7 @@ bool parseConversationPhase(const nlohmann::json& phase, ConversationPhase& out)
     return true;
 }
 
-bool parseSpeakPhasesArray(const nlohmann::json& phases, RoomSpeakConfig& out)
+bool parseSpeakPhasesArray(const nlohmann::json& phases, SceneSpeakConfig& out)
 {
     if (!phases.is_array())
         return false;
@@ -209,21 +216,21 @@ bool parseSpeakPhasesArray(const nlohmann::json& phases, RoomSpeakConfig& out)
     return true;
 }
 
-bool parseSpeakConfig(const nlohmann::json& room, RoomSpeakConfig& out)
+bool parseSpeakConfig(const nlohmann::json& sceneJson, SceneSpeakConfig& out)
 {
     out.phases.clear();
 
-    if (room.contains("conversations") &&
-        room["conversations"].is_object() &&
-        room["conversations"].contains("speakPhases"))
+    if (sceneJson.contains("conversations") &&
+        sceneJson["conversations"].is_object() &&
+        sceneJson["conversations"].contains("speakPhases"))
     {
-        return parseSpeakPhasesArray(room["conversations"]["speakPhases"], out);
+        return parseSpeakPhasesArray(sceneJson["conversations"]["speakPhases"], out);
     }
 
-    if (room.contains("speakPhases"))
-        return parseSpeakPhasesArray(room["speakPhases"], out);
+    if (sceneJson.contains("speakPhases"))
+        return parseSpeakPhasesArray(sceneJson["speakPhases"], out);
 
-    const std::string speakDetails = room.value("speakDetails", "");
+    const std::string speakDetails = sceneJson.value("speakDetails", "");
     if (speakDetails.empty())
         return true;
 
@@ -231,8 +238,8 @@ bool parseSpeakConfig(const nlohmann::json& room, RoomSpeakConfig& out)
     legacy.id = "speak";
     legacy.type = ConversationPhaseType::Once;
     legacy.text = speakDetails;
-    legacy.resetOnRoomEnter = true;
-    if (!parseStatusEffect(room.value("speakStatus", nlohmann::json::object()), legacy.status))
+    legacy.resetOnSceneEnter = true;
+    if (!parseStatusEffect(sceneJson.value("speakStatus", nlohmann::json::object()), legacy.status))
         return false;
     out.phases.push_back(legacy);
     return true;
@@ -240,18 +247,18 @@ bool parseSpeakConfig(const nlohmann::json& room, RoomSpeakConfig& out)
 
 bool applyConversationOverlays(
     const nlohmann::json& overlays,
-    std::map<std::string, RoomData>& rooms)
+    std::map<std::string, SceneData>& scenes)
 {
     if (!overlays.is_object())
         return true;
 
     for (auto it = overlays.begin(); it != overlays.end(); ++it)
     {
-        std::map<std::string, RoomData>::iterator roomIt = rooms.find(it.key());
-        if (roomIt == rooms.end())
+        std::map<std::string, SceneData>::iterator sceneIt = scenes.find(it.key());
+        if (sceneIt == scenes.end())
             return false;
 
-        if (!parseSpeakConfig(it.value(), roomIt->second.speakConfig))
+        if (!parseSpeakConfig(it.value(), sceneIt->second.speakConfig))
             return false;
     }
 
@@ -367,39 +374,39 @@ bool parseExits(const nlohmann::json& exits, std::map<std::string, std::string>&
     return true;
 }
 
-bool parseRoom(const std::string& id, const nlohmann::json& room, RoomData& out)
+bool parseScene(const std::string& id, const nlohmann::json& sceneJson, SceneData& out)
 {
-    if (!room.is_object())
+    if (!sceneJson.is_object())
         return false;
 
     out.id = id;
-    out.isStart = room.value("start", false);
-    out.imagePath = room.value("image", "");
-    out.description = room.value("description", "");
-    out.examineDetails = room.value("examineDetails", "");
-    out.examineFlag = room.value("examineFlag", "");
-    out.speakDetails = room.value("speakDetails", "");
-    out.useDetails = room.value("useDetails", "");
-    out.useHealthDelta = room.value("useHealthDelta", 0.0f);
-    out.useEnergyDelta = room.value("useEnergyDelta", 0.0f);
-    out.useRepeatStatus = room.value("useRepeatStatus", false);
+    out.isStart = sceneJson.value("start", false);
+    out.imagePath = sceneJson.value("image", "");
+    out.description = sceneJson.value("description", "");
+    out.examineDetails = sceneJson.value("examineDetails", "");
+    out.examineFlag = sceneJson.value("examineFlag", "");
+    out.speakDetails = sceneJson.value("speakDetails", "");
+    out.useDetails = sceneJson.value("useDetails", "");
+    out.useHealthDelta = sceneJson.value("useHealthDelta", 0.0f);
+    out.useEnergyDelta = sceneJson.value("useEnergyDelta", 0.0f);
+    out.useRepeatStatus = sceneJson.value("useRepeatStatus", false);
 
     if (out.description.empty())
         return false;
 
-    if (!parseMovement(room.value("movement", nlohmann::json::object()), out.movement))
+    if (!parseMovement(sceneJson.value("movement", nlohmann::json::object()), out.movement))
         return false;
 
-    if (!parseActions(room.value("actions", nlohmann::json::object()), out.actions))
+    if (!parseActions(sceneJson.value("actions", nlohmann::json::object()), out.actions))
         return false;
 
-    if (!parseExits(room.value("exits", nlohmann::json::object()), out.exits))
+    if (!parseExits(sceneJson.value("exits", nlohmann::json::object()), out.exits))
         return false;
 
-    if (!parseSpeakConfig(room, out.speakConfig))
+    if (!parseSpeakConfig(sceneJson, out.speakConfig))
         return false;
 
-    if (!parseRoomAudio(room.value("audio", nlohmann::json::object()), out.audio))
+    if (!parseRoomAudio(sceneJson.value("audio", nlohmann::json::object()), out.audio))
         return false;
 
     return true;
@@ -446,7 +453,7 @@ bool loadResourceTexture(
     return false;
 }
 
-RoomDatabase::RoomDatabase()
+SceneDatabase::SceneDatabase()
     : descriptionFont{},
       boldFont{},
       uiFont{},
@@ -454,7 +461,7 @@ RoomDatabase::RoomDatabase()
 {
 }
 
-RoomDatabase::~RoomDatabase()
+SceneDatabase::~SceneDatabase()
 {
     if (underConstructionImageReady && underConstructionImage.data != nullptr)
         UnloadImage(underConstructionImage);
@@ -472,10 +479,10 @@ RoomDatabase::~RoomDatabase()
     }
 }
 
-bool RoomDatabase::load(const std::string& configPath, const std::string& assetRoot)
+bool SceneDatabase::load(const std::string& configPath, const std::string& assetRoot)
 {
     this->assetRoot = assetRoot;
-    rooms.clear();
+    scenes.clear();
 
     std::ifstream file(configPath.c_str());
     if (!file.is_open())
@@ -491,7 +498,7 @@ bool RoomDatabase::load(const std::string& configPath, const std::string& assetR
         return false;
     }
 
-    if (!config.is_object() || !config.contains("rooms") || !config["rooms"].is_object())
+    if (!config.is_object() || !config.contains("scenes") || !config["scenes"].is_object())
         return false;
 
     const std::string fontPath = config.value("font", "");
@@ -523,19 +530,19 @@ bool RoomDatabase::load(const std::string& configPath, const std::string& assetR
         fontsLoaded = true;
     }
 
-    const nlohmann::json& roomsJson = config["rooms"];
-    for (auto it = roomsJson.begin(); it != roomsJson.end(); ++it)
+    const nlohmann::json& scenesJson = config["scenes"];
+    for (auto it = scenesJson.begin(); it != scenesJson.end(); ++it)
     {
-        RoomData room;
-        if (!parseRoom(it.key(), it.value(), room))
+        SceneData scene;
+        if (!parseScene(it.key(), it.value(), scene))
             return false;
 
-        rooms[room.id] = room;
+        scenes[scene.id] = scene;
     }
 
     if (config.contains("conversations"))
     {
-        if (!applyConversationOverlays(config["conversations"], rooms))
+        if (!applyConversationOverlays(config["conversations"], scenes))
             return false;
     }
     else
@@ -554,15 +561,15 @@ bool RoomDatabase::load(const std::string& configPath, const std::string& assetR
                 return false;
             }
 
-            if (!applyConversationOverlays(conversationsConfig, rooms))
+            if (!applyConversationOverlays(conversationsConfig, scenes))
                 return false;
         }
     }
 
-    return !rooms.empty();
+    return !scenes.empty();
 }
 
-bool RoomDatabase::tryLoadRoomImage(const std::string& imagePath, Texture2D& outTexture) const
+bool SceneDatabase::tryLoadSceneImage(const std::string& imagePath, Texture2D& outTexture) const
 {
     if (imagePath.empty())
         return false;
@@ -577,20 +584,20 @@ bool RoomDatabase::tryLoadRoomImage(const std::string& imagePath, Texture2D& out
     return false;
 }
 
-void RoomDatabase::ensureUnderConstructionImage() const
+void SceneDatabase::ensureUnderConstructionImage() const
 {
     if (underConstructionImageReady && underConstructionImage.data != nullptr)
         return;
 
     Texture2D assetTexture{};
-    if (loadResourceTexture(assetRoot, "resources/images/room_under_construction.png", assetTexture))
+    if (loadResourceTexture(assetRoot, "resources/images/scene_under_construction.png", assetTexture))
     {
         underConstructionImage = LoadImageFromTexture(assetTexture);
         UnloadTexture(assetTexture);
         if (underConstructionImage.data != nullptr)
         {
             underConstructionImageReady = true;
-            TraceLog(LOG_INFO, "Loaded under-construction image from resources/images/room_under_construction.png");
+            TraceLog(LOG_INFO, "Loaded under-construction image from resources/images/scene_under_construction.png");
             return;
         }
     }
@@ -611,7 +618,7 @@ void RoomDatabase::ensureUnderConstructionImage() const
         DrawRectangle(x, height / 2 - 36, 24, 72, stripe);
 
     const char* title = "UNDER CONSTRUCTION";
-    const char* subtitle = "This location is not yet complete.";
+    const char* subtitle = "This scene is not yet complete.";
     const float titleSize = 52.0f;
     const float subtitleSize = 24.0f;
     const Vector2 titleMeasure = MeasureTextEx(descriptionFont, title, titleSize, 2.0f);
@@ -644,7 +651,7 @@ void RoomDatabase::ensureUnderConstructionImage() const
     TraceLog(LOG_INFO, "Generated under-construction placeholder image");
 }
 
-Texture2D RoomDatabase::createOwnedPlaceholderTexture() const
+Texture2D SceneDatabase::createOwnedPlaceholderTexture() const
 {
     ensureUnderConstructionImage();
 
@@ -655,35 +662,35 @@ Texture2D RoomDatabase::createOwnedPlaceholderTexture() const
     return texture;
 }
 
-bool RoomDatabase::buildLocationStruct(const RoomData& room, LocationStruct& outLocation) const
+bool SceneDatabase::buildLocationStruct(const SceneData& scene, LocationStruct& outLocation) const
 {
-    outLocation.locationDescription = room.description;
-    outLocation.examineDetails = room.examineDetails;
-    outLocation.examineFlag = room.examineFlag;
-    outLocation.speakDetails = room.speakDetails;
-    outLocation.useDetails = room.useDetails;
-    outLocation.useHealthDelta = room.useHealthDelta;
-    outLocation.useEnergyDelta = room.useEnergyDelta;
-    outLocation.useRepeatStatus = room.useRepeatStatus;
+    outLocation.locationDescription = scene.description;
+    outLocation.examineDetails = scene.examineDetails;
+    outLocation.examineFlag = scene.examineFlag;
+    outLocation.speakDetails = scene.speakDetails;
+    outLocation.useDetails = scene.useDetails;
+    outLocation.useHealthDelta = scene.useHealthDelta;
+    outLocation.useEnergyDelta = scene.useEnergyDelta;
+    outLocation.useRepeatStatus = scene.useRepeatStatus;
     outLocation.descriptionFont = descriptionFont;
     outLocation.boldFont = boldFont;
     outLocation.uiFont = uiFont;
-    outLocation.movementFilter = room.movement;
-    outLocation.actionFilter = room.actions;
+    outLocation.movementFilter = scene.movement;
+    outLocation.actionFilter = scene.actions;
     outLocation.ownsLocationImage = true;
     outLocation.isUnderConstruction = false;
 
-    Texture2D roomTexture{};
-    if (tryLoadRoomImage(room.imagePath, roomTexture))
+    Texture2D sceneTexture{};
+    if (tryLoadSceneImage(scene.imagePath, sceneTexture))
     {
-        outLocation.locationImage = roomTexture;
+        outLocation.locationImage = sceneTexture;
         return true;
     }
 
-    if (!room.imagePath.empty())
-        TraceLog(LOG_WARNING, "Room '%s' image unavailable (%s); using under-construction placeholder", room.id.c_str(), room.imagePath.c_str());
+    if (!scene.imagePath.empty())
+        TraceLog(LOG_WARNING, "Scene '%s' image unavailable (%s); using under-construction placeholder", scene.id.c_str(), scene.imagePath.c_str());
     else
-        TraceLog(LOG_INFO, "Room '%s' has no image; using under-construction placeholder", room.id.c_str());
+        TraceLog(LOG_INFO, "Scene '%s' has no image; using under-construction placeholder", scene.id.c_str());
 
     outLocation.isUnderConstruction = true;
     outLocation.locationImage = createOwnedPlaceholderTexture();
@@ -691,53 +698,53 @@ bool RoomDatabase::buildLocationStruct(const RoomData& room, LocationStruct& out
     return true;
 }
 
-bool RoomDatabase::loadStartRoom(LocationStruct& outLocation, std::string& outRoomId) const
+bool SceneDatabase::loadStartScene(LocationStruct& outLocation, std::string& outSceneId) const
 {
-    for (std::map<std::string, RoomData>::const_iterator it = rooms.begin(); it != rooms.end(); ++it)
+    for (std::map<std::string, SceneData>::const_iterator it = scenes.begin(); it != scenes.end(); ++it)
     {
         if (it->second.isStart)
         {
-            outRoomId = it->first;
-            return loadRoom(outRoomId, outLocation);
+            outSceneId = it->first;
+            return loadScene(outSceneId, outLocation);
         }
     }
 
     return false;
 }
 
-bool RoomDatabase::loadRoom(const std::string& roomId, LocationStruct& outLocation) const
+bool SceneDatabase::loadScene(const std::string& sceneId, LocationStruct& outLocation) const
 {
-    std::map<std::string, RoomData>::const_iterator it = rooms.find(roomId);
-    if (it == rooms.end())
+    std::map<std::string, SceneData>::const_iterator it = scenes.find(sceneId);
+    if (it == scenes.end())
         return false;
 
     return buildLocationStruct(it->second, outLocation);
 }
 
-const RoomSpeakConfig& RoomDatabase::getSpeakConfig(const std::string& roomId) const
+const SceneSpeakConfig& SceneDatabase::getSpeakConfig(const std::string& sceneId) const
 {
-    static const RoomSpeakConfig kEmptyConfig;
-    std::map<std::string, RoomData>::const_iterator it = rooms.find(roomId);
-    if (it == rooms.end())
+    static const SceneSpeakConfig kEmptyConfig;
+    std::map<std::string, SceneData>::const_iterator it = scenes.find(sceneId);
+    if (it == scenes.end())
         return kEmptyConfig;
 
     return it->second.speakConfig;
 }
 
-const RoomAudioConfig& RoomDatabase::getRoomAudio(const std::string& roomId) const
+const RoomAudioConfig& SceneDatabase::getSceneAudio(const std::string& sceneId) const
 {
     static const RoomAudioConfig kEmptyConfig;
-    std::map<std::string, RoomData>::const_iterator it = rooms.find(roomId);
-    if (it == rooms.end())
+    std::map<std::string, SceneData>::const_iterator it = scenes.find(sceneId);
+    if (it == scenes.end())
         return kEmptyConfig;
 
     return it->second.audio;
 }
 
-std::string RoomDatabase::getExitRoomId(const std::string& roomId, const std::string& direction) const
+std::string SceneDatabase::getExitSceneId(const std::string& sceneId, const std::string& direction) const
 {
-    std::map<std::string, RoomData>::const_iterator it = rooms.find(roomId);
-    if (it == rooms.end())
+    std::map<std::string, SceneData>::const_iterator it = scenes.find(sceneId);
+    if (it == scenes.end())
         return "";
 
     std::map<std::string, std::string>::const_iterator exitIt = it->second.exits.find(direction);
@@ -752,12 +759,12 @@ bool loadStartLocation(
     const std::string& assetRoot,
     LocationStruct& outLocation)
 {
-    RoomDatabase database;
-    std::string roomId;
+    SceneDatabase database;
+    std::string sceneId;
     if (!database.load(configPath, assetRoot))
         return false;
 
-    return database.loadStartRoom(outLocation, roomId);
+    return database.loadStartScene(outLocation, sceneId);
 }
 
 }

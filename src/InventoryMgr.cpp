@@ -1,5 +1,5 @@
 #include <InventoryMgr.h>
-#include <RoomLoader.h>
+#include <SceneLoader.h>
 #include <algorithm>
 
 namespace testgame

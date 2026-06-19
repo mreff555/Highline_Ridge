@@ -1,5 +1,5 @@
-#ifndef ROOM_LOADER_H
-#define ROOM_LOADER_H
+#ifndef SCENE_LOADER_H
+#define SCENE_LOADER_H
 
 #include <AudioTypes.h>
 #include <ConversationStruct.h>
@@ -13,7 +13,7 @@ namespace testgame
 
 bool loadResourceTexture(const std::string& assetRoot, const std::string& relativePath, Texture2D& outTexture);
 
-struct RoomData
+struct SceneData
 {
     std::string id;
     std::string imagePath;
@@ -29,31 +29,31 @@ struct RoomData
     ActionStruct actions;
     bool isStart;
     std::map<std::string, std::string> exits;
-    RoomSpeakConfig speakConfig;
+    SceneSpeakConfig speakConfig;
     RoomAudioConfig audio;
 };
 
-class RoomDatabase
+class SceneDatabase
 {
     public:
-    RoomDatabase();
-    ~RoomDatabase();
+    SceneDatabase();
+    ~SceneDatabase();
 
     bool load(const std::string& configPath, const std::string& assetRoot);
-    bool loadStartRoom(LocationStruct& outLocation, std::string& outRoomId) const;
-    bool loadRoom(const std::string& roomId, LocationStruct& outLocation) const;
-    std::string getExitRoomId(const std::string& roomId, const std::string& direction) const;
-    const RoomSpeakConfig& getSpeakConfig(const std::string& roomId) const;
-    const RoomAudioConfig& getRoomAudio(const std::string& roomId) const;
+    bool loadStartScene(LocationStruct& outLocation, std::string& outSceneId) const;
+    bool loadScene(const std::string& sceneId, LocationStruct& outLocation) const;
+    std::string getExitSceneId(const std::string& sceneId, const std::string& direction) const;
+    const SceneSpeakConfig& getSpeakConfig(const std::string& sceneId) const;
+    const RoomAudioConfig& getSceneAudio(const std::string& sceneId) const;
     const std::string& getAssetRoot() const { return assetRoot; }
 
     private:
-    bool buildLocationStruct(const RoomData& room, LocationStruct& outLocation) const;
-    bool tryLoadRoomImage(const std::string& imagePath, Texture2D& outTexture) const;
+    bool buildLocationStruct(const SceneData& scene, LocationStruct& outLocation) const;
+    bool tryLoadSceneImage(const std::string& imagePath, Texture2D& outTexture) const;
     void ensureUnderConstructionImage() const;
     Texture2D createOwnedPlaceholderTexture() const;
 
-    std::map<std::string, RoomData> rooms;
+    std::map<std::string, SceneData> scenes;
     Font descriptionFont;
     Font boldFont;
     Font uiFont;
@@ -70,4 +70,4 @@ bool loadStartLocation(
 
 }
 
-#endif /* ROOM_LOADER_H */
+#endif /* SCENE_LOADER_H */

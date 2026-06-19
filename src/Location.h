@@ -7,19 +7,13 @@
 #include <InventoryMgr.h>
 #include <LocationStruct.h>
 #include <ButtonMgr.h>
-#include <RoomLoader.h>
+#include <SceneLoader.h>
 #include <raylib.h>
 #include <set>
 #include <string>
 #include <vector>
 namespace testgame
 {
-
-struct DialogChoice
-{
-    std::string id;
-    std::string lineText;
-};
 
 struct NarrativeChoiceHitArea
 {
@@ -33,9 +27,9 @@ class Location
     Location(
         const LocationStruct& locationStruct,
         Vector2 screenSize,
-        RoomDatabase& roomDatabase,
+        SceneDatabase& sceneDatabase,
         AudioManager& audioManager,
-        const std::string& roomId);
+        const std::string& sceneId);
 
     virtual ~Location();
 
@@ -61,8 +55,10 @@ class Location
     void processSpeakResult(const SpeakResult& result);
     void applyStatusEffects(const std::vector<StatusEffect>& effects);
     void handleNarrativeChoiceInput();
-    void appendDialogChoices(const std::vector<DialogChoice>& choices);
-    void stripDialogChoiceLinesFromNarrative(const std::vector<DialogChoice>& choices);
+    void appendChoiceLinesToNarrative(const std::vector<ConversationChoiceDef>& choices);
+    void stripDialogChoiceLinesFromNarrative(
+        const std::vector<ConversationChoiceDef>& choices,
+        const std::string& keepLineText = "");
     void applyLucidityCollapseRestart();
     bool isDialogChoiceLine(const std::string& line) const;
     Color narrativeLineColor(const std::string& line) const;
@@ -102,6 +98,8 @@ class Location
     void layoutWrappedParagraph(const char* text, Font font, float paragraphFontSize, float& textOffsetY, bool draw, float scrollY, Color lineColor) const;
     bool isBoldNarrativeHeader(const std::string& line) const;
     bool isBoldNarrativeLine(const std::string& line) const;
+    bool hasExaminedScene(const std::string& sceneId) const;
+    bool canUseInCurrentScene() const;
 
     static const int kMaxNarrativeLines = 500;
     static const float kScrollbarWidth;
@@ -109,14 +107,14 @@ class Location
     const int screenWidth;
     const int screenHeight;
 
-    RoomDatabase& roomDatabase;
+    SceneDatabase& sceneDatabase;
     AudioManager& audioManager;
-    std::string currentRoomId;
+    std::string currentSceneId;
     
     Texture2D locationImage;
     bool ownsLocationImage = true;
     bool isUnderConstruction = false;
-    std::string previousRoomId;
+    std::string previousSceneId;
     std::string baseDescription;
     std::string narrativeText;
     std::string examineDetails;
@@ -136,11 +134,11 @@ class Location
     bool backward;
     bool left;
     bool right;
-    bool hasExaminedCurrentRoom = false;
-    bool hasSpokenInCurrentRoom = false;
-    bool hasUsedInCurrentRoom = false;
-    bool awaitingDialogChoice = false;
-    std::vector<DialogChoice> pendingDialogChoices;
+    bool hasSpokenInCurrentScene = false;
+    bool hasUsedInCurrentScene = false;
+    std::set<std::string> examinedSceneIds;
+    std::set<std::string> usedSceneIds;
+    std::set<std::string> committedPlayerDialogLines;
     ConversationManager conversationMgr;
     mutable std::vector<NarrativeChoiceHitArea> narrativeChoiceHitAreas;
 

@@ -2,7 +2,7 @@
   "font": "resources/fonts/Caveat-Regular.ttf",
   "boldFont": "resources/fonts/Caveat-Bold.ttf",
   "uiFont": "resources/fonts/CourierPrime-Regular.ttf",
-  "rooms": {
+  "scenes": {
     "cabin": {
       "start": true,
       "image": "resources/images/cabin.png",
