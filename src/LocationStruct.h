@@ -16,6 +16,7 @@ struct LocationStruct
     bool isUnderConstruction = false;
     std::string locationDescription;
     std::string examineDetails;
+    std::string examineFlag;
     std::string speakDetails;
     std::string useDetails;
     float useHealthDelta = 0.0f;

@@ -51,6 +51,7 @@ struct ConversationPhase
     std::string id;
     ConversationPhaseType type = ConversationPhaseType::Once;
     std::string requiresPhaseId;
+    std::string requiresFlag;
     bool resetOnRoomEnter = true;
 
     std::string text;

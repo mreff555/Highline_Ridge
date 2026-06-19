@@ -140,6 +140,7 @@ bool parseConversationPhase(const nlohmann::json& phase, ConversationPhase& out)
     out.id = phase.value("id", "");
     out.type = parsePhaseType(phase.value("type", "once"));
     out.requiresPhaseId = phase.value("requiresPhase", "");
+    out.requiresFlag = phase.value("requiresFlag", "");
     out.resetOnRoomEnter = phase.value("resetOnRoomEnter", true);
     out.text = phase.value("text", "");
     out.intro = phase.value("intro", "");
@@ -290,6 +291,7 @@ bool parseRoom(const std::string& id, const nlohmann::json& room, RoomData& out)
     out.imagePath = room.value("image", "");
     out.description = room.value("description", "");
     out.examineDetails = room.value("examineDetails", "");
+    out.examineFlag = room.value("examineFlag", "");
     out.speakDetails = room.value("speakDetails", "");
     out.useDetails = room.value("useDetails", "");
     out.useHealthDelta = room.value("useHealthDelta", 0.0f);
@@ -583,6 +585,7 @@ bool RoomDatabase::buildLocationStruct(const RoomData& room, LocationStruct& out
     outLocation.locationImage = texture;
     outLocation.locationDescription = room.description;
     outLocation.examineDetails = room.examineDetails;
+    outLocation.examineFlag = room.examineFlag;
     outLocation.speakDetails = room.speakDetails;
     outLocation.useDetails = room.useDetails;
     outLocation.useHealthDelta = room.useHealthDelta;
