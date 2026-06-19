@@ -18,6 +18,7 @@ struct RoomData
     std::string useDetails;
     float useHealthDelta = 0.0f;
     float useEnergyDelta = 0.0f;
+    bool useRepeatStatus = false;
     MovementStruct movement;
     ActionStruct actions;
     bool isStart;

@@ -63,6 +63,7 @@ bool parseRoom(const std::string& id, const nlohmann::json& room, RoomData& out)
     out.useDetails = room.value("useDetails", "");
     out.useHealthDelta = room.value("useHealthDelta", 0.0f);
     out.useEnergyDelta = room.value("useEnergyDelta", 0.0f);
+    out.useRepeatStatus = room.value("useRepeatStatus", false);
 
     if (out.imagePath.empty() || out.description.empty())
         return false;
@@ -196,6 +197,7 @@ bool RoomDatabase::buildLocationStruct(const RoomData& room, LocationStruct& out
     outLocation.useDetails = room.useDetails;
     outLocation.useHealthDelta = room.useHealthDelta;
     outLocation.useEnergyDelta = room.useEnergyDelta;
+    outLocation.useRepeatStatus = room.useRepeatStatus;
     outLocation.descriptionFont = descriptionFont;
     outLocation.boldFont = boldFont;
     outLocation.movementFilter = room.movement;

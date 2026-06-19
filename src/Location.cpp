@@ -46,6 +46,7 @@ namespace
       useDetails(locationStruct.useDetails),
       useHealthDelta(locationStruct.useHealthDelta),
       useEnergyDelta(locationStruct.useEnergyDelta),
+      useRepeatStatus(locationStruct.useRepeatStatus),
       baseActionFilter(locationStruct.actionFilter),
       descriptionFont(locationStruct.descriptionFont),
       boldFont(locationStruct.boldFont),
@@ -263,14 +264,15 @@ namespace
                 "You down it anyway. Fire and oak. The room tilts half a degree and rights itself. Your "
                 "resolve hardens even as your thoughts go slippery at the edges.");
 
-            tenacity = std::min(100.0f, tenacity + 20.0f);
-            lucidity = std::max(0.0f, lucidity - 10.0f);
-            updateActionAvailability();
-
-            if (lucidity <= 0.0f)
+            if (tryApplyStatusDeltas("saloon_interior:usual", 0.0f, 0.0f, 20.0f, -10.0f, false))
             {
-                applyLucidityCollapseRestart();
-                return;
+                updateActionAvailability();
+
+                if (lucidity <= 0.0f)
+                {
+                    applyLucidityCollapseRestart();
+                    return;
+                }
             }
         }
 
@@ -373,10 +375,37 @@ namespace
             if (CheckCollisionPointRec(mousePos, hitArea.bounds))
             {
                 resolveDialogChoice(hitArea.id);
-                scrollNarrativeToBottom();
+                scrollNarrativeToHeader("Speaking:");
                 return;
             }
         }
+    }
+
+    bool Location::tryApplyStatusDeltas(
+        const std::string& actionKey,
+        float healthDelta,
+        float energyDelta,
+        float tenacityDelta,
+        float lucidityDelta,
+        bool allowRepeat)
+    {
+        const bool hasAnyDelta = healthDelta != 0.0f || energyDelta != 0.0f
+            || tenacityDelta != 0.0f || lucidityDelta != 0.0f;
+        if (!hasAnyDelta)
+            return false;
+
+        if (!allowRepeat && consumedStatusActions.count(actionKey) > 0)
+            return false;
+
+        health = std::min(100.0f, health + healthDelta);
+        energy = std::min(100.0f, energy + energyDelta);
+        tenacity = std::min(100.0f, tenacity + tenacityDelta);
+        lucidity = std::max(0.0f, lucidity + lucidityDelta);
+
+        if (!allowRepeat)
+            consumedStatusActions.insert(actionKey);
+
+        return true;
     }
 
     void Location::appendUseDetails()
@@ -385,8 +414,13 @@ namespace
             return;
 
         appendNarrativeSection("Using:", useDetails);
-        health = std::min(100.0f, health + useHealthDelta);
-        energy = std::min(100.0f, energy + useEnergyDelta);
+        tryApplyStatusDeltas(
+            currentRoomId + ":use",
+            useHealthDelta,
+            useEnergyDelta,
+            0.0f,
+            0.0f,
+            useRepeatStatus);
         hasUsedInCurrentRoom = true;
         updateActionAvailability();
     }
@@ -416,13 +450,47 @@ namespace
         buttonMgr.setStatus(health, energy, tenacity, lucidity);
     }
 
-    void Location::scrollNarrativeToBottom()
+    float Location::getNarrativeLineOffsetY(const std::string& lineText, bool lastOccurrence) const
     {
-        if (narrativeLayoutDirty)
-            rebuildNarrativeLayout();
+        float textOffsetY = 0.0f;
+        float foundOffset = -1.0f;
+        std::istringstream stream(narrativeText);
+        std::string line;
+
+        while (std::getline(stream, line))
+        {
+            if (line.empty())
+            {
+                textOffsetY += getNarrativeLineHeight() * 0.5f;
+                continue;
+            }
+
+            if (line == lineText)
+                foundOffset = textOffsetY;
+            else if (!lastOccurrence && foundOffset >= 0.0f)
+            {
+                narrativeContentHeight = textOffsetY;
+                narrativeLayoutDirty = false;
+                return foundOffset;
+            }
+
+            const Font lineFont = isBoldNarrativeHeader(line) ? boldFont : descriptionFont;
+            layoutWrappedParagraph(line.c_str(), lineFont, fontSize, textOffsetY, false, 0.0f, textColor);
+        }
+
+        narrativeContentHeight = textOffsetY;
+        narrativeLayoutDirty = false;
+        return foundOffset;
+    }
+
+    void Location::scrollNarrativeToHeader(const char* header)
+    {
+        const float headerOffset = getNarrativeLineOffsetY(header, true);
+        if (headerOffset < 0.0f)
+            return;
 
         const float maxScroll = std::max(0.0f, narrativeContentHeight - getNarrativeVisibleHeight());
-        narrativeScrollY = maxScroll;
+        narrativeScrollY = std::max(0.0f, std::min(headerOffset, maxScroll));
     }
     
     void Location::tryMove(const std::string& direction)
@@ -456,6 +524,7 @@ namespace
         useDetails = locationStruct.useDetails;
         useHealthDelta = locationStruct.useHealthDelta;
         useEnergyDelta = locationStruct.useEnergyDelta;
+        useRepeatStatus = locationStruct.useRepeatStatus;
         baseActionFilter = locationStruct.actionFilter;
         descriptionFont = locationStruct.descriptionFont;
         boldFont = locationStruct.boldFont;
@@ -588,19 +657,19 @@ namespace
         if (buttonMgr.consumeExamineButtonClick())
         {
             appendExamineDetails();
-            scrollNarrativeToBottom();
+            scrollNarrativeToHeader("Examining:");
         }
 
         if (buttonMgr.consumeSpeakButtonClick())
         {
             handleSpeak();
-            scrollNarrativeToBottom();
+            scrollNarrativeToHeader("Speaking:");
         }
 
         if (buttonMgr.consumeUseButtonClick())
         {
             appendUseDetails();
-            scrollNarrativeToBottom();
+            scrollNarrativeToHeader("Using:");
         }
 
         handleNarrativeScrollInput();

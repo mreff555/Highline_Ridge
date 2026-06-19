@@ -18,6 +18,7 @@ struct LocationStruct
     std::string useDetails;
     float useHealthDelta = 0.0f;
     float useEnergyDelta = 0.0f;
+    bool useRepeatStatus = false;
     Font descriptionFont;
     Font boldFont;
     MovementStruct movementFilter;

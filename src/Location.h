@@ -5,6 +5,7 @@
 #include <ButtonMgr.h>
 #include <RoomLoader.h>
 #include <raylib.h>
+#include <set>
 #include <string>
 #include <vector>
 namespace testgame
@@ -63,7 +64,15 @@ class Location
     void drawNarrativeScrollbar() const;
     void appendNarrativeSection(const char* header, const std::string& details);
     void updateActionAvailability();
-    void scrollNarrativeToBottom();
+    bool tryApplyStatusDeltas(
+        const std::string& actionKey,
+        float healthDelta,
+        float energyDelta,
+        float tenacityDelta,
+        float lucidityDelta,
+        bool allowRepeat);
+    void scrollNarrativeToHeader(const char* header);
+    float getNarrativeLineOffsetY(const std::string& lineText, bool lastOccurrence) const;
     float getNarrativeVisibleHeight() const;
     float getNarrativeLineHeight() const;
     float getNarrativeWrapWidth() const;
@@ -87,6 +96,7 @@ class Location
     std::string useDetails;
     float useHealthDelta = 0.0f;
     float useEnergyDelta = 0.0f;
+    bool useRepeatStatus = false;
     Font descriptionFont;
     Font boldFont;
     ActionStruct baseActionFilter;
@@ -109,6 +119,7 @@ class Location
     float energy = 20.0f;
     float tenacity = 50.0f;
     float lucidity = 30.0f;
+    std::set<std::string> consumedStatusActions;
 
     float fontSize = 20;
     const bool wordWrap = true;
