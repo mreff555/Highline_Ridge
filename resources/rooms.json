@@ -291,11 +291,25 @@
         "backward": "ice_house"
       },
       "audio": {
+        "music": {
+          "path": "resources/audio/music/mountain_wind.mp3",
+          "volume": 0.40,
+          "fade_in": 4.0,
+          "fade_out": 2.5,
+          "loop": true
+        },
         "ambient": [
           {
+            "path": "resources/audio/ambient/cliff_wind_gusts.mp3",
+            "volume": 0.36,
+            "fade_in": 2.5,
+            "fade_out": 2.5,
+            "loop": true
+          },
+          {
             "path": "resources/audio/ambient/narrow_path_aspen_grove.mp3",
-            "volume": 0.85,
-            "fade_in": 1.0,
+            "volume": 0.20,
+            "fade_in": 3.0,
             "fade_out": 2.0,
             "loop": true
           }
