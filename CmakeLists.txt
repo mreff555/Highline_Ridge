@@ -13,6 +13,8 @@ set(SOURCES
     src/ButtonMgr.cpp
     src/SceneLoader.cpp
     src/ConversationManager.cpp
+    src/MilestoneDatabase.cpp
+    src/MilestoneManager.cpp
     src/InventoryMgr.cpp
     src/TakeMgr.cpp
     src/ImageCompression.cpp

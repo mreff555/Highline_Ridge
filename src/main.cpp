@@ -1,6 +1,7 @@
 #include <AudioManager.h>
 #include <GameConfig.h>
 #include <Location.h>
+#include <MilestoneDatabase.h>
 #include <SceneLoader.h>
 #include <raylib.h>
 #include <cstdlib>
@@ -91,6 +92,13 @@ int main(void)
         return 1;
     }
 
+    MilestoneDatabase milestoneDatabase;
+    const bool milestonesLoaded =
+        milestoneDatabase.load("resources/milestones.json") ||
+        milestoneDatabase.load("../resources/milestones.json");
+    if (!milestonesLoaded)
+        TraceLog(LOG_WARNING, "Failed to load milestones from resources/milestones.json");
+
     std::string startSceneId;
     LocationStruct locationStruct;
     if (!sceneDatabase.loadStartScene(locationStruct, startSceneId))
@@ -105,6 +113,7 @@ int main(void)
         locationStruct,
         screenSize,
         sceneDatabase,
+        milestoneDatabase,
         audioManager,
         gameConfig,
         startSceneId,

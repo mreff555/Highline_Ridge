@@ -2,6 +2,7 @@
 #define SAVE_GAME_H
 
 #include <InventoryItem.h>
+#include <MilestoneStruct.h>
 #include <set>
 #include <string>
 #include <vector>
@@ -37,6 +38,7 @@ struct SavedGameState
     std::set<std::string> committedPlayerDialogLines;
     std::vector<InventoryItem> inventoryItems;
     ConversationPersistState conversation;
+    MilestonePersistState milestones;
 };
 
 const char* defaultSavePath();

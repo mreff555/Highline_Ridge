@@ -1,6 +1,7 @@
 #include "SaveGame.h"
 
 #include <nlohmann/json.hpp>
+#include <map>
 #include <fstream>
 #include <sys/stat.h>
 
@@ -69,6 +70,85 @@ nlohmann::json inventoryToJson(const std::vector<InventoryItem>& items)
     return array;
 }
 
+std::string milestoneStatusToString(MilestoneStatus status)
+{
+    switch (status)
+    {
+    case MilestoneStatus::Started: return "started";
+    case MilestoneStatus::Complete: return "complete";
+    case MilestoneStatus::Failed: return "failed";
+    case MilestoneStatus::NotStarted:
+    default:
+        return "not_started";
+    }
+}
+
+MilestoneStatus milestoneStatusFromString(const std::string& value)
+{
+    if (value == "started")
+        return MilestoneStatus::Started;
+    if (value == "complete")
+        return MilestoneStatus::Complete;
+    if (value == "failed")
+        return MilestoneStatus::Failed;
+    return MilestoneStatus::NotStarted;
+}
+
+nlohmann::json milestonesToJson(const MilestonePersistState& milestones)
+{
+    nlohmann::json root = nlohmann::json::object();
+    for (const std::pair<const std::string, MilestoneRuntimeEntry>& pair : milestones.entries)
+    {
+        if (pair.second.status == MilestoneStatus::NotStarted &&
+            pair.second.completedObjectiveIds.empty() &&
+            !pair.second.startedAt.isValid())
+        {
+            continue;
+        }
+
+        nlohmann::json entry;
+        entry["status"] = milestoneStatusToString(pair.second.status);
+        entry["completedObjectives"] = setToJsonArray(pair.second.completedObjectiveIds);
+        if (pair.second.startedAt.isValid())
+        {
+            entry["startedAt"] = {
+                {"gameDay", pair.second.startedAt.gameDay},
+                {"gameHour", pair.second.startedAt.gameHour}
+            };
+        }
+        root[pair.first] = entry;
+    }
+    return root;
+}
+
+void milestonesFromJson(const nlohmann::json& root, MilestonePersistState& outMilestones)
+{
+    outMilestones.entries.clear();
+    if (!root.is_object())
+        return;
+
+    for (auto it = root.begin(); it != root.end(); ++it)
+    {
+        if (!it.value().is_object())
+            continue;
+
+        MilestoneRuntimeEntry entry;
+        entry.status = milestoneStatusFromString(it.value().value("status", "not_started"));
+        jsonArrayToSet(
+            it.value().value("completedObjectives", nlohmann::json::array()),
+            entry.completedObjectiveIds);
+
+        const nlohmann::json& startedAt = it.value().value("startedAt", nlohmann::json::object());
+        if (startedAt.is_object())
+        {
+            entry.startedAt.gameDay = startedAt.value("gameDay", -1);
+            entry.startedAt.gameHour = startedAt.value("gameHour", -1);
+        }
+
+        outMilestones.entries[it.key()] = entry;
+    }
+}
+
 void inventoryFromJson(const nlohmann::json& array, std::vector<InventoryItem>& outItems)
 {
     outItems.clear();
@@ -109,7 +189,7 @@ bool writeSaveFile(const std::string& path, const SavedGameState& state)
         return false;
 
     nlohmann::json root;
-    root["version"] = 1;
+    root["version"] = 2;
     root["sceneId"] = state.sceneId;
     root["previousSceneId"] = state.previousSceneId;
     root["narrativeText"] = state.narrativeText;
@@ -133,6 +213,7 @@ bool writeSaveFile(const std::string& path, const SavedGameState& state)
         {"completedRandomLineIds", setToJsonArray(state.conversation.completedRandomLineIds)},
         {"consumedScriptedChoiceIds", setToJsonArray(state.conversation.consumedScriptedChoiceIds)}
     };
+    root["milestones"] = milestonesToJson(state.milestones);
 
     std::ofstream file(path.c_str());
     if (!file.is_open())
@@ -191,6 +272,7 @@ bool readSaveFile(const std::string& path, SavedGameState& state)
     jsonArrayToSet(
         conversation.value("consumedScriptedChoiceIds", nlohmann::json::array()),
         state.conversation.consumedScriptedChoiceIds);
+    milestonesFromJson(root.value("milestones", nlohmann::json::object()), state.milestones);
 
     return !state.sceneId.empty();
 }
