@@ -18,13 +18,6 @@ void Button::draw() const
     {
         DrawRectangleRounded(bounds, style.roundness, 8, style.disabledBg);
         DrawRoundedBorder(bounds, style.roundness, 8, 2.0f, style.disabledBorderColor);
-
-        Vector2 textSize = MeasureTextEx(font, text, style.fontSize, 1);
-        Vector2 textPosition = {
-            position.x + (size.x - textSize.x) / 2.0f,
-            position.y + (size.y - textSize.y) / 2.0f
-        };
-        DrawTextEx(font, text, textPosition, style.fontSize, 1, style.disabledTextColor);
         return;
     }
 
@@ -48,7 +41,14 @@ void Button::draw() const
         position.x + (size.x - textSize.x) / 2.0f,
         position.y + (size.y - textSize.y) / 2.0f
     };
+
+    BeginScissorMode(
+        (int)bounds.x,
+        (int)bounds.y,
+        (int)bounds.width,
+        (int)bounds.height);
     DrawTextEx(font, text, textPosition, style.fontSize, 1, style.textColor);
+    EndScissorMode();
 }
 
 bool Button::isClicked() const
