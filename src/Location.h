@@ -73,9 +73,11 @@ class Location
     void resolveCombatEncounter(const std::string& encounterId);
     void processSpeakResult(const SpeakResult& result);
     void grantConversationItem(const GrantedInventoryItemDef& granted);
+    void playDialogAudio(const SpeakResult& result);
     void applyStatusEffects(const std::vector<StatusEffect>& effects);
     void handleNarrativeChoiceInput();
     void appendChoiceLinesToNarrative(const std::vector<ConversationChoiceDef>& choices);
+    void scrollToPendingDialogChoices();
     void stripDialogChoiceLinesFromNarrative(
         const std::vector<ConversationChoiceDef>& choices,
         const std::string& keepLineText = "");

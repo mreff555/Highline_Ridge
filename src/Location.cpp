@@ -681,7 +681,17 @@ namespace
         updateActionAvailability();
 
         if (!choices.empty())
-            scrollNarrativeToLine(choices.front().label, false);
+            scrollToPendingDialogChoices();
+    }
+
+    void Location::scrollToPendingDialogChoices()
+    {
+        const std::vector<ConversationChoiceDef>& choices = conversationMgr.getPendingChoices();
+        if (choices.empty())
+            return;
+
+        rebuildNarrativeLayout();
+        scrollNarrativeToLine(choices.front().label, true);
     }
 
     void Location::stripDialogChoiceLinesFromNarrative(
@@ -770,6 +780,12 @@ namespace
         inventoryMgr.addItem(item);
     }
 
+    void Location::playDialogAudio(const SpeakResult& result)
+    {
+        if (!result.dialogAudioTracks.empty())
+            audioManager.playDialogSequence(result.dialogAudioTracks);
+    }
+
     void Location::processSpeakResult(const SpeakResult& result)
     {
         if (result.action == SpeakResult::Action::None && result.narrative.empty())
@@ -781,12 +797,14 @@ namespace
         if (result.action == SpeakResult::Action::ShowChoices)
         {
             applyStatusEffects(result.statusEffects);
+            playDialogAudio(result);
             appendChoiceLinesToNarrative(conversationMgr.getPendingChoices());
             return;
         }
 
         applyStatusEffects(result.statusEffects);
         grantConversationItem(result.grantItem);
+        playDialogAudio(result);
     }
 
     void Location::resolveDialogChoice(const std::string& choiceId)
@@ -835,21 +853,15 @@ namespace
         if (result.action == SpeakResult::Action::ShowChoices)
         {
             applyStatusEffects(effects);
+            playDialogAudio(result);
             appendChoiceLinesToNarrative(conversationMgr.getPendingChoices());
-            if (!responseText.empty())
-            {
-                rebuildNarrativeLayout();
-                std::istringstream responseStream(responseText);
-                std::string firstLine;
-                if (std::getline(responseStream, firstLine) && !firstLine.empty())
-                    scrollNarrativeToLine(firstLine, true);
-            }
             updateActionAvailability();
             return;
         }
 
         applyStatusEffects(effects);
         grantConversationItem(result.grantItem);
+        playDialogAudio(result);
 
         if (!responseText.empty())
         {
