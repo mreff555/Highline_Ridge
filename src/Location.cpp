@@ -1706,7 +1706,8 @@ namespace
         if (!conversationMgr.isAwaitingChoice() && buttonMgr.consumeSpeakButtonClick())
         {
             handleSpeak();
-            scrollNarrativeToHeader("Speaking:");
+            if (!conversationMgr.isAwaitingChoice())
+                scrollNarrativeToHeader("Speaking:");
         }
 
         if (!conversationMgr.isAwaitingChoice() && buttonMgr.consumeUseButtonClick())
