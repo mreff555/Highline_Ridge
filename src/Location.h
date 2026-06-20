@@ -27,6 +27,12 @@ struct NarrativeChoiceHitArea
     Rectangle bounds;
 };
 
+enum class NotebookPage
+{
+    CaseNotes,
+    Todo
+};
+
 class Location
 {
     public:
@@ -107,6 +113,13 @@ class Location
     void drawInventoryExamineScrollbar() const;
     void drawMainImage() const;
     void drawNotebookBackdrop(const Rectangle& bounds) const;
+    void drawNotebookHeader(const Rectangle& bounds) const;
+    void drawNotebookNavButtons(const Rectangle& bounds) const;
+    void drawQuestTodoPage() const;
+    void drawTodoScrollbar() const;
+    void handleNotebookNavInput();
+    void handleTodoScrollInput();
+    bool canUseNotebookNav() const;
     void ensureNotebookPaperTexture() const;
     Rectangle getMainImageBounds() const;
     Rectangle getDialogBounds() const;
@@ -118,6 +131,7 @@ class Location
     void scrollNarrativeToLine(const std::string& lineText, bool lastOccurrence);
     void rebuildNarrativeChoiceHitAreas() const;
     float getNarrativeLineOffsetY(const std::string& lineText, bool lastOccurrence) const;
+    Rectangle getNotebookContentBounds() const;
     float getNarrativeVisibleHeight() const;
     float getNarrativeLineHeight() const;
     float getNarrativeWrapWidth() const;
@@ -187,7 +201,15 @@ class Location
     const int spacing = 3;
     const Color textColor = {32, 42, 68, 255};
     const int xOffset = 78;
-    const int yOffset = 36;
+    const float notebookHeaderReserve = 52.0f;
+    const float notebookContentBottomPad = 18.0f;
+    const float notebookHeaderFontSize = 22.0f;
+
+    NotebookPage notebookPage = NotebookPage::CaseNotes;
+    float todoScrollY = 0.0f;
+    bool todoScrollbarDragging = false;
+    float todoScrollbarDragOffsetY = 0.0f;
+    mutable float todoContentHeight = 0.0f;
 
     Rectangle textBox;
     Rectangle buttonBox;

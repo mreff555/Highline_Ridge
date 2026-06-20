@@ -23,6 +23,61 @@ namespace
     const Color kScrollThumbHover = {148, 118, 78, 255};
     const Color kChoiceText = {92, 52, 22, 255};
     const Color kChoiceHover = {148, 88, 28, 255};
+    const Color kNotebookHeader = {78, 54, 34, 255};
+    const Color kNotebookNavEnabled = {78, 54, 34, 255};
+    const Color kNotebookNavDisabled = {148, 132, 112, 255};
+    const Color kQuestComplete = {52, 92, 58, 255};
+    const Color kQuestFailed = {108, 72, 72, 255};
+
+    Rectangle getNotebookHeaderBand(const Rectangle& bounds)
+    {
+        return {
+            bounds.x + 58.0f,
+            bounds.y,
+            bounds.width - 58.0f - 16.0f,
+            46.0f
+        };
+    }
+
+    void drawCenteredUnderlinedHeader(
+        Font font,
+        const char* title,
+        const Rectangle& band,
+        float fontSize,
+        Color color)
+    {
+        const Vector2 textSize = MeasureTextEx(font, title, fontSize, 1.0f);
+        const float textX = band.x + (band.width - textSize.x) / 2.0f;
+        const float textY = band.y + (band.height - textSize.y) / 2.0f - 2.0f;
+
+        DrawTextEx(font, title, { textX, textY }, fontSize, 1.0f, color);
+        DrawLineEx(
+            { textX, textY + textSize.y + 2.0f },
+            { textX + textSize.x, textY + textSize.y + 2.0f },
+            1.5f,
+            color);
+    }
+
+    void drawNotebookArrowButton(
+        Font font,
+        const char* label,
+        Rectangle bounds,
+        bool enabled,
+        bool hovered)
+    {
+        const float fontSize = bounds.height - 4.0f;
+        const Vector2 textSize = MeasureTextEx(font, label, fontSize, 1.0f);
+        const Vector2 textPos = {
+            bounds.x + (bounds.width - textSize.x) / 2.0f,
+            bounds.y + (bounds.height - textSize.y) / 2.0f
+        };
+
+        Color color = enabled ? kNotebookNavEnabled : kNotebookNavDisabled;
+        if (enabled && hovered)
+            color = kChoiceHover;
+
+        DrawTextEx(font, label, textPos, fontSize, 1.0f, color);
+    }
 
     const char* kWakeOnFloorPrefix =
         "You come back to yourself on the floor of the cabin, cheek pressed to the Persian rug, "
@@ -317,7 +372,7 @@ namespace
         }
 
         const float lineStep = getNarrativeLineHeight();
-        const float firstLineY = bounds.y + yOffset + lineStep * 0.35f;
+        const float firstLineY = bounds.y + notebookHeaderReserve + lineStep * 0.15f;
         for (float ruleY = firstLineY; ruleY < bounds.y + bounds.height - 18.0f; ruleY += lineStep)
         {
             DrawLineEx(
@@ -352,14 +407,6 @@ namespace
             DrawCircleV({ holeCenter.x - 1.0f, holeCenter.y - 1.0f }, holeRadius - 2.0f, {78, 66, 52, 255});
         }
 
-        DrawTextEx(
-            boldFont,
-            "CASE NOTES",
-            { bounds.x + 26.0f, bounds.y + 12.0f },
-            18.0f,
-            1.0f,
-            Fade({98, 72, 48, 255}, 0.62f));
-
         const float foldSize = 28.0f;
         DrawTriangle(
             { bounds.x + bounds.width, bounds.y },
@@ -386,6 +433,298 @@ namespace
             { scrollbarGutter.x, scrollbarGutter.y + scrollbarGutter.height - 8.0f },
             1.0f,
             Fade(kPaperEdge, 0.8f));
+    }
+
+    void Location::drawNotebookHeader(const Rectangle& bounds) const
+    {
+        const Rectangle headerBand = getNotebookHeaderBand(bounds);
+        const char* title = notebookPage == NotebookPage::CaseNotes ? "CASE NOTES" : "TO DO";
+        drawCenteredUnderlinedHeader(
+            boldFont,
+            title,
+            headerBand,
+            notebookHeaderFontSize,
+            kNotebookHeader);
+    }
+
+    void Location::drawNotebookNavButtons(const Rectangle& bounds) const
+    {
+        const bool prevEnabled = notebookPage != NotebookPage::CaseNotes;
+        const bool nextEnabled = notebookPage != NotebookPage::Todo;
+
+        const float arrowFontSize = notebookHeaderFontSize;
+        const Vector2 arrowSize = MeasureTextEx(boldFont, "<", arrowFontSize, 1.0f);
+        const float buttonWidth = arrowSize.x + 6.0f;
+        const float buttonHeight = arrowSize.y + 4.0f;
+        const float gap = 4.0f;
+        const float topPad = 10.0f;
+        const float rightPad = 8.0f;
+
+        const float buttonsRight = bounds.x + bounds.width - kScrollbarWidth - rightPad;
+        const Rectangle nextBounds = {
+            buttonsRight - buttonWidth,
+            bounds.y + topPad,
+            buttonWidth,
+            buttonHeight
+        };
+        const Rectangle prevBounds = {
+            nextBounds.x - gap - buttonWidth,
+            bounds.y + topPad,
+            buttonWidth,
+            buttonHeight
+        };
+
+        const Vector2 mousePos = GetMousePosition();
+        const bool prevHovered = prevEnabled && CheckCollisionPointRec(mousePos, prevBounds);
+        const bool nextHovered = nextEnabled && CheckCollisionPointRec(mousePos, nextBounds);
+
+        drawNotebookArrowButton(boldFont, "<", prevBounds, prevEnabled, prevHovered);
+        drawNotebookArrowButton(boldFont, ">", nextBounds, nextEnabled, nextHovered);
+    }
+
+    bool Location::canUseNotebookNav() const
+    {
+        if (pauseMenu.isOpen())
+            return false;
+        if (takeMgr.isOpen())
+            return false;
+        if (inventoryMgr.isOpen() && inventoryMgr.isExaminingItem())
+            return false;
+        return true;
+    }
+
+    void Location::handleNotebookNavInput()
+    {
+        if (!canUseNotebookNav())
+            return;
+
+        const Rectangle dialog = getDialogBounds();
+        const bool prevEnabled = notebookPage != NotebookPage::CaseNotes;
+        const bool nextEnabled = notebookPage != NotebookPage::Todo;
+
+        const float arrowFontSize = notebookHeaderFontSize;
+        const Vector2 arrowSize = MeasureTextEx(boldFont, "<", arrowFontSize, 1.0f);
+        const float buttonWidth = arrowSize.x + 6.0f;
+        const float buttonHeight = arrowSize.y + 4.0f;
+        const float gap = 4.0f;
+        const float topPad = 10.0f;
+        const float rightPad = 8.0f;
+
+        const float buttonsRight = dialog.x + dialog.width - kScrollbarWidth - rightPad;
+        const Rectangle nextBounds = {
+            buttonsRight - buttonWidth,
+            dialog.y + topPad,
+            buttonWidth,
+            buttonHeight
+        };
+        const Rectangle prevBounds = {
+            nextBounds.x - gap - buttonWidth,
+            dialog.y + topPad,
+            buttonWidth,
+            buttonHeight
+        };
+
+        if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+            return;
+
+        const Vector2 mousePos = GetMousePosition();
+        if (prevEnabled && CheckCollisionPointRec(mousePos, prevBounds))
+        {
+            notebookPage = NotebookPage::CaseNotes;
+            todoScrollY = 0.0f;
+        }
+        else if (nextEnabled && CheckCollisionPointRec(mousePos, nextBounds))
+        {
+            notebookPage = NotebookPage::Todo;
+            todoScrollY = 0.0f;
+        }
+    }
+
+    void Location::drawQuestTodoPage() const
+    {
+        const Rectangle dialog = getDialogBounds();
+        const Rectangle clipArea = getNotebookContentBounds();
+
+        BeginScissorMode(
+            (int)clipArea.x,
+            (int)clipArea.y,
+            (int)clipArea.width,
+            (int)clipArea.height);
+
+        const float lineHeight = getNarrativeLineHeight();
+        float contentY = 0.0f;
+        const std::vector<const MilestoneDef*> quests = milestoneMgr.getVisibleQuests();
+
+        const Rectangle content = getNotebookContentBounds();
+
+        if (quests.empty())
+        {
+            const char* emptyText = "No quests on record yet.";
+            DrawTextEx(
+                descriptionFont,
+                emptyText,
+                { dialog.x + xOffset, content.y + contentY - todoScrollY },
+                fontSize,
+                spacing,
+                Fade(textColor, 0.72f));
+            contentY += lineHeight * 1.5f;
+        }
+        else
+        {
+            for (const MilestoneDef* quest : quests)
+            {
+                if (!quest)
+                    continue;
+
+                const MilestoneStatus status = milestoneMgr.getStatus(quest->id);
+                std::string questBody;
+                if (status == MilestoneStatus::Complete && !quest->completeSummary.empty())
+                    questBody = quest->completeSummary;
+                else if (!quest->title.empty())
+                    questBody = quest->title;
+                else
+                    questBody = quest->summary;
+
+                std::string displayLine;
+                Color lineColor = textColor;
+                if (status == MilestoneStatus::Complete)
+                {
+                    displayLine = std::string("+ ") + questBody;
+                    lineColor = kQuestComplete;
+                }
+                else
+                {
+                    displayLine = std::string("- ") + questBody;
+                    if (status == MilestoneStatus::Failed)
+                        lineColor = kQuestFailed;
+                }
+
+                const float blockStartY = contentY;
+                layoutWrappedParagraph(
+                    displayLine.c_str(),
+                    status == MilestoneStatus::Complete ? boldFont : descriptionFont,
+                    fontSize,
+                    contentY,
+                    true,
+                    todoScrollY,
+                    lineColor);
+
+                if (status == MilestoneStatus::Failed)
+                {
+                    const float drawY = content.y + blockStartY - todoScrollY;
+                    const float blockHeight = std::max(lineHeight, contentY - blockStartY);
+                    const float strikeY = drawY + blockHeight * 0.55f;
+                    DrawLineEx(
+                        { dialog.x + xOffset, strikeY },
+                        { dialog.x + xOffset + getNarrativeWrapWidth(), strikeY },
+                        1.5f,
+                        kQuestFailed);
+                }
+
+                contentY += lineHeight * 0.35f;
+            }
+        }
+
+        todoContentHeight = contentY;
+        EndScissorMode();
+    }
+
+    void Location::drawTodoScrollbar() const
+    {
+        const Rectangle dialog = getDialogBounds();
+        const Rectangle content = getNotebookContentBounds();
+        const float visibleHeight = content.height;
+        const float maxScroll = std::max(0.0f, todoContentHeight - visibleHeight);
+
+        const Rectangle scrollTrack = {
+            dialog.x + dialog.width - kScrollbarWidth,
+            content.y,
+            kScrollbarWidth,
+            visibleHeight
+        };
+
+        DrawRectangleRec(scrollTrack, kScrollTrack);
+
+        if (maxScroll <= 0.0f)
+            return;
+
+        const float thumbHeight = std::max(24.0f, visibleHeight * (visibleHeight / todoContentHeight));
+        const float thumbTravel = std::max(0.0f, visibleHeight - thumbHeight);
+        const float thumbY = scrollTrack.y + (todoScrollY / maxScroll) * thumbTravel;
+
+        const Rectangle scrollThumb = {
+            scrollTrack.x + 2.0f,
+            thumbY,
+            scrollTrack.width - 4.0f,
+            thumbHeight
+        };
+
+        const bool thumbHovered = CheckCollisionPointRec(GetMousePosition(), scrollThumb);
+        DrawRectangleRounded(scrollThumb, 0.4f, 6, thumbHovered ? kScrollThumbHover : kScrollThumb);
+    }
+
+    void Location::handleTodoScrollInput()
+    {
+        const Rectangle dialog = getDialogBounds();
+        const Rectangle content = getNotebookContentBounds();
+        const float visibleHeight = content.height;
+        const float maxScroll = std::max(0.0f, todoContentHeight - visibleHeight);
+        const float lineHeight = getNarrativeLineHeight();
+
+        const Rectangle scrollTrack = {
+            dialog.x + dialog.width - kScrollbarWidth,
+            content.y,
+            kScrollbarWidth,
+            visibleHeight
+        };
+
+        const float thumbHeight = (todoContentHeight <= 0.0f)
+            ? visibleHeight
+            : std::max(24.0f, visibleHeight * (visibleHeight / todoContentHeight));
+        const float thumbTravel = std::max(0.0f, visibleHeight - thumbHeight);
+        const float thumbY = scrollTrack.y + (maxScroll > 0.0f
+            ? (todoScrollY / maxScroll) * thumbTravel
+            : 0.0f);
+
+        const Rectangle scrollThumb = {
+            scrollTrack.x + 2.0f,
+            thumbY,
+            scrollTrack.width - 4.0f,
+            thumbHeight
+        };
+        const Vector2 mousePos = GetMousePosition();
+
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+            if (CheckCollisionPointRec(mousePos, scrollThumb))
+            {
+                todoScrollbarDragging = true;
+                todoScrollbarDragOffsetY = mousePos.y - scrollThumb.y;
+            }
+            else if (CheckCollisionPointRec(mousePos, scrollTrack) && thumbTravel > 0.0f)
+            {
+                todoScrollY =
+                    ((mousePos.y - scrollTrack.y - thumbHeight * 0.5f) / thumbTravel) * maxScroll;
+            }
+        }
+
+        if (todoScrollbarDragging)
+        {
+            if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && thumbTravel > 0.0f)
+            {
+                todoScrollY =
+                    ((mousePos.y - scrollTrack.y - todoScrollbarDragOffsetY) / thumbTravel) * maxScroll;
+            }
+            else
+            {
+                todoScrollbarDragging = false;
+            }
+        }
+
+        if (CheckCollisionPointRec(mousePos, content))
+            todoScrollY -= GetMouseWheelMove() * lineHeight * 3.0f;
+
+        todoScrollY = std::max(0.0f, std::min(todoScrollY, maxScroll));
     }
 
     void Location::drawMainImage() const
@@ -546,9 +885,22 @@ namespace
         }
     }
 
+    Rectangle Location::getNotebookContentBounds() const
+    {
+        const Rectangle dialog = getDialogBounds();
+        const float contentTop = dialog.y + notebookHeaderReserve;
+        const float contentHeight = dialog.height - notebookHeaderReserve - notebookContentBottomPad;
+        return {
+            dialog.x,
+            contentTop,
+            dialog.width - kScrollbarWidth,
+            std::max(0.0f, contentHeight)
+        };
+    }
+
     float Location::getNarrativeVisibleHeight() const
     {
-        return getDialogBounds().height - yOffset * 2.0f;
+        return getNotebookContentBounds().height;
     }
 
     float Location::getNarrativeWrapWidth() const
@@ -1074,14 +1426,7 @@ namespace
         if (narrativeChoiceHitAreas.empty())
             return;
 
-        const Rectangle dialog = getDialogBounds();
-        const Rectangle textArea = {
-            dialog.x,
-            dialog.y,
-            dialog.width - kScrollbarWidth,
-            dialog.height
-        };
-
+        const Rectangle textArea = getNotebookContentBounds();
         const Vector2 mousePos = GetMousePosition();
         if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || !CheckCollisionPointRec(mousePos, textArea))
             return;
@@ -1292,7 +1637,7 @@ namespace
                     float measureY = textOffsetY;
                     layoutWrappedParagraph(line.c_str(), lineFont, fontSize, measureY, false, 0.0f, textColor);
                     const float choiceHeight = std::max(getNarrativeLineHeight(), measureY - textOffsetY);
-                    const float drawY = dialog.y + yOffset + textOffsetY - narrativeScrollY;
+                    const float drawY = getNotebookContentBounds().y + textOffsetY - narrativeScrollY;
 
                     narrativeChoiceHitAreas.push_back({
                         choice.id,
@@ -1427,14 +1772,15 @@ namespace
         if (narrativeLayoutDirty)
             rebuildNarrativeLayout();
 
-        const float visibleHeight = getNarrativeVisibleHeight();
+        const Rectangle content = getNotebookContentBounds();
+        const float visibleHeight = content.height;
         const float maxScroll = std::max(0.0f, narrativeContentHeight - visibleHeight);
         const float lineHeight = getNarrativeLineHeight();
 
         const Rectangle dialog = getDialogBounds();
         const Rectangle scrollTrack = {
             dialog.x + dialog.width - kScrollbarWidth,
-            dialog.y + yOffset,
+            content.y,
             kScrollbarWidth,
             visibleHeight
         };
@@ -1471,14 +1817,7 @@ namespace
                 scrollbarDragging = false;
         }
 
-        const Rectangle textScrollArea = {
-            dialog.x,
-            dialog.y,
-            dialog.width - kScrollbarWidth,
-            dialog.height
-        };
-
-        if (CheckCollisionPointRec(mousePos, textScrollArea))
+        if (CheckCollisionPointRec(mousePos, content))
             narrativeScrollY -= GetMouseWheelMove() * lineHeight * 3.0f;
 
         narrativeScrollY = std::max(0.0f, std::min(narrativeScrollY, maxScroll));
@@ -1648,8 +1987,10 @@ namespace
         updateInventoryLayout();
         updateActionAvailability();
 
-        if (!inventoryMgr.isExaminingItem())
+        if (!inventoryMgr.isExaminingItem() && notebookPage == NotebookPage::CaseNotes)
             handleNarrativeChoiceInput();
+
+        handleNotebookNavInput();
 
         buttonMgr.update();
 
@@ -1712,6 +2053,8 @@ namespace
 
             if (inventoryMgr.isExaminingItem())
                 handleInventoryExamineScrollInput();
+            else if (notebookPage == NotebookPage::Todo)
+                handleTodoScrollInput();
             else
                 handleNarrativeScrollInput();
 
@@ -1757,19 +2100,23 @@ namespace
             scrollNarrativeToHeader("Using:");
         }
 
-        handleNarrativeScrollInput();
+        if (notebookPage == NotebookPage::Todo)
+            handleTodoScrollInput();
+        else
+            handleNarrativeScrollInput();
     }
 
     void Location::handleInventoryExamineScrollInput()
     {
         const Rectangle dialog = getDialogBounds();
-        const float visibleHeight = getNarrativeVisibleHeight();
+        const Rectangle content = getNotebookContentBounds();
+        const float visibleHeight = content.height;
         const float maxScroll = std::max(0.0f, inventoryExamineContentHeight - visibleHeight);
         const float lineHeight = getNarrativeLineHeight();
 
         const Rectangle scrollTrack = {
             dialog.x + dialog.width - kScrollbarWidth,
-            dialog.y + yOffset,
+            content.y,
             kScrollbarWidth,
             visibleHeight
         };
@@ -1817,14 +2164,7 @@ namespace
             }
         }
 
-        const Rectangle textScrollArea = {
-            dialog.x,
-            dialog.y,
-            dialog.width - kScrollbarWidth,
-            dialog.height
-        };
-
-        if (CheckCollisionPointRec(mousePos, textScrollArea))
+        if (CheckCollisionPointRec(mousePos, content))
             inventoryExamineScrollY -= GetMouseWheelMove() * lineHeight * 3.0f;
 
         inventoryExamineScrollY = std::max(0.0f, std::min(inventoryExamineScrollY, maxScroll));
@@ -1844,11 +2184,19 @@ namespace
             drawInventoryExamineView();
             drawInventoryExamineScrollbar();
         }
+        else if (notebookPage == NotebookPage::Todo)
+        {
+            drawQuestTodoPage();
+            drawTodoScrollbar();
+        }
         else
         {
             drawNarrativeText();
             drawNarrativeScrollbar();
         }
+
+        drawNotebookHeader(dialog);
+        drawNotebookNavButtons(dialog);
 
         if (inventoryMgr.isOpen())
             inventoryMgr.draw();
@@ -1862,12 +2210,13 @@ namespace
     void Location::drawInventoryExamineScrollbar() const
     {
         const Rectangle dialog = getDialogBounds();
-        const float visibleHeight = getNarrativeVisibleHeight();
+        const Rectangle content = getNotebookContentBounds();
+        const float visibleHeight = content.height;
         const float maxScroll = std::max(0.0f, inventoryExamineContentHeight - visibleHeight);
 
         const Rectangle scrollTrack = {
             dialog.x + dialog.width - kScrollbarWidth,
-            dialog.y + yOffset,
+            content.y,
             kScrollbarWidth,
             visibleHeight
         };
@@ -1899,12 +2248,7 @@ namespace
             return;
 
         const Rectangle dialog = getDialogBounds();
-        const Rectangle clipArea = {
-            dialog.x,
-            dialog.y,
-            dialog.width - kScrollbarWidth,
-            dialog.height
-        };
+        const Rectangle clipArea = getNotebookContentBounds();
 
         BeginScissorMode(
             (int)clipArea.x,
@@ -1919,7 +2263,7 @@ namespace
         DrawTextEx(
             boldFont,
             header,
-            { dialog.x + xOffset, dialog.y + yOffset + contentY - inventoryExamineScrollY },
+            { dialog.x + xOffset, clipArea.y + contentY - inventoryExamineScrollY },
             fontSize,
             spacing,
             textColor);
@@ -1944,12 +2288,13 @@ namespace
             rebuildNarrativeLayout();
 
         const Rectangle dialog = getDialogBounds();
-        const float visibleHeight = getNarrativeVisibleHeight();
+        const Rectangle content = getNotebookContentBounds();
+        const float visibleHeight = content.height;
         const float maxScroll = std::max(0.0f, narrativeContentHeight - visibleHeight);
 
         const Rectangle scrollTrack = {
             dialog.x + dialog.width - kScrollbarWidth,
-            dialog.y + yOffset,
+            content.y,
             kScrollbarWidth,
             visibleHeight
         };
@@ -1981,13 +2326,7 @@ namespace
 
         rebuildNarrativeChoiceHitAreas();
 
-        const Rectangle dialog = getDialogBounds();
-        const Rectangle clipArea = {
-            dialog.x,
-            dialog.y,
-            dialog.width - kScrollbarWidth,
-            dialog.height
-        };
+        const Rectangle clipArea = getNotebookContentBounds();
 
         BeginScissorMode(
             (int)clipArea.x,
@@ -2023,7 +2362,8 @@ namespace
         float scaleFactor = paragraphFontSize / (float)font.baseSize;
         float lineHeight = (font.baseSize + font.baseSize / 2.0f) * scaleFactor;
         const float wrapWidth = getNarrativeWrapWidth();
-        const float visibleHeight = getNarrativeVisibleHeight();
+        const Rectangle content = getNotebookContentBounds();
+        const float visibleHeight = content.height;
         const Rectangle dialog = getDialogBounds();
 
         enum { MEASURE_STATE = 0, DRAW_STATE = 1 };
@@ -2100,7 +2440,7 @@ namespace
                         textOffsetX = 0;
                     }
 
-                    const float drawY = dialog.y + yOffset + textOffsetY - scrollY;
+                    const float drawY = content.y + textOffsetY - scrollY;
                     const bool visible = (textOffsetY + lineHeight > scrollY) &&
                                          (textOffsetY < scrollY + visibleHeight);
 
