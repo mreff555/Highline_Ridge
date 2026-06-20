@@ -187,9 +187,10 @@ if (APPLE)
 endif()
 
 # 7. Keep resources beside the executable so texture loads work when launched from build/
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+add_custom_target(sync_resources ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_SOURCE_DIR}/resources"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/resources"
-    COMMENT "Copying resources to build directory"
+        "${CMAKE_BINARY_DIR}/resources"
+    COMMENT "Syncing resources to build directory"
 )
+add_dependencies(${PROJECT_NAME} sync_resources)

@@ -933,6 +933,10 @@ void AudioManager::syncRoomStreams(const RoomAudioConfig& roomAudio)
     if (!ensureDeviceReady())
         return;
 
+    TraceLog(LOG_INFO, "Room audio sync: music=%s ambient_tracks=%zu",
+        roomAudio.hasMusic ? roomAudio.music.path.c_str() : "(none)",
+        roomAudio.ambient.size());
+
     if (roomAudio.hasMusic)
     {
         if (musicTrack.loaded && musicTrack.path == roomAudio.music.path && isMusicStreamActive(musicTrack))
