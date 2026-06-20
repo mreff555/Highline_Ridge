@@ -88,7 +88,7 @@ bool parseStatusEffect(const nlohmann::json& status, StatusEffect& out)
     out.key = status.value("key", "");
     out.health = status.value("health", 0.0f);
     out.energy = status.value("energy", 0.0f);
-    out.tenacity = status.value("tenacity", 0.0f);
+    out.resolve = status.value("resolve", status.value("tenacity", 0.0f));
     out.lucidity = status.value("lucidity", 0.0f);
     out.charisma = status.value("charisma", 0.0f);
     out.money = status.value("money", 0.0f);
@@ -135,6 +135,7 @@ bool parseRandomLine(const nlohmann::json& line, RandomConversationLine& out)
     out.id = line.value("id", "");
     out.text = line.value("text", "");
     out.weight = line.value("weight", 1);
+    out.once = line.value("once", false);
     out.allowAttack = line.value("allowAttack", false);
     out.attackEncounterId = line.value("attackEncounterId", "");
     if (!parseStatusEffect(line.value("status", nlohmann::json::object()), out.status))

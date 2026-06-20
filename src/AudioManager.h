@@ -21,6 +21,8 @@ class AudioManager
     void shutdown();
 
     void setVolumes(const AudioVolumeConfig& volumes);
+    void setGameplayPaused(bool paused, float fadeSeconds = 0.6f);
+    bool isGameplayPaused() const { return gameplayPaused; }
     void update(float deltaSeconds);
 
     void onRoomEnter(const RoomAudioConfig& roomAudio, const std::string& fromRoom = "");
@@ -33,6 +35,7 @@ class AudioManager
         Music music{};
         bool loaded = false;
         bool playing = false;
+        float sourceClipVolume = 1.0f;
         float targetVolume = 1.0f;
         float currentVolume = 0.0f;
         float fadeInSeconds = 0.0f;
@@ -50,6 +53,7 @@ class AudioManager
         Sound sound{};
         bool loaded = false;
         bool playing = false;
+        float sourceClipVolume = 1.0f;
         float targetVolume = 1.0f;
         float currentVolume = 0.0f;
         float fadeInSeconds = 0.0f;
@@ -67,9 +71,14 @@ class AudioManager
     {
         Sound sound{};
         bool loaded = false;
+        float baseVolume = 1.0f;
         float remainingSeconds = 0.0f;
         std::string tempFilePath;
     };
+
+    void refreshCategoryVolumes();
+    void updateGameplayMix(float deltaSeconds);
+    float appliedVolume(float baseVolume) const;
 
     bool ensureDeviceReady();
     bool loadMusicClip(const std::string& path, Music& outMusic, std::string& outTempFile);
@@ -119,6 +128,10 @@ class AudioManager
     std::vector<ActiveSound> activeSounds;
     bool pendingMusicStart = false;
     AudioClipDef pendingMusicClip;
+    bool gameplayPaused = false;
+    float gameplayMix = 1.0f;
+    float gameplayMixTarget = 1.0f;
+    float gameplayMixFadeRate = 2.0f;
 };
 
 }

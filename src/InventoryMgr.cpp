@@ -566,7 +566,7 @@ void InventoryMgr::draw() const
     DrawRectangleRounded(accentBar, 1.0f, 4, kPanelAccent);
 
     const float pad = 14.0f;
-    DrawTextEx(panelFont, "INVENTORY", { panelBounds.x + pad, panelBounds.y + pad }, 15.0f, 1, kSectionLabel);
+    DrawTextEx(panelFont, "INVENTORY", { panelBounds.x + pad, panelBounds.y + pad }, 17.0f, 1, kSectionLabel);
 
     drawCloseButton();
     drawItemGrid();
@@ -590,6 +590,51 @@ void InventoryMgr::addItem(const InventoryItem& item)
 
     items.push_back(item);
     loadItemAssets(items.back());
+}
+
+std::vector<InventoryItem> InventoryMgr::exportItemSnapshots() const
+{
+    std::vector<InventoryItem> snapshots;
+    snapshots.reserve(items.size());
+
+    for (const InventoryItem& item : items)
+    {
+        InventoryItem snapshot;
+        snapshot.id = item.id;
+        snapshot.name = item.name;
+        snapshot.iconPath = item.iconPath;
+        snapshot.examineImagePath = item.examineImagePath;
+        snapshot.examineText = item.examineText;
+        snapshots.push_back(snapshot);
+    }
+
+    return snapshots;
+}
+
+void InventoryMgr::restoreFromSnapshots(const std::vector<InventoryItem>& savedItems)
+{
+    close();
+
+    while (items.size() > 1)
+    {
+        InventoryItem& item = items.back();
+        if (item.icon.id != 0)
+            UnloadTexture(item.icon);
+        if (item.examineImage.id != 0)
+            UnloadTexture(item.examineImage);
+        items.pop_back();
+    }
+
+    if (items.empty())
+        createDefaultItems();
+
+    for (const InventoryItem& savedItem : savedItems)
+    {
+        if (savedItem.id.empty() || savedItem.id == "wallet")
+            continue;
+
+        addItem(savedItem);
+    }
 }
 
 }

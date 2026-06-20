@@ -4,7 +4,10 @@
 #include <AudioManager.h>
 #include <ConversationManager.h>
 #include <ConversationStruct.h>
+#include <GameConfig.h>
 #include <InventoryMgr.h>
+#include <PauseMenuMgr.h>
+#include <SaveGame.h>
 #include <TakeMgr.h>
 #include <TakeableItemDef.h>
 #include <LocationStruct.h>
@@ -31,9 +34,15 @@ class Location
         Vector2 screenSize,
         SceneDatabase& sceneDatabase,
         AudioManager& audioManager,
-        const std::string& sceneId);
+        GameConfig& gameConfig,
+        const std::string& sceneId,
+        const std::string& configPath = "resources/game_config.json");
 
     virtual ~Location();
+
+    bool shouldQuit() const { return quitRequested; }
+    void applyDisplayConfig();
+    void applyInputConfig();
 
     Texture2D getImage() const;
      char* getDescription() const;
@@ -54,6 +63,12 @@ class Location
     private:
     void handleSpeak();
     void handleAttack();
+    void handlePauseMenuInput();
+    void relayoutForScreenSize(int width, int height);
+    SavedGameState captureSaveState() const;
+    bool applySaveState(const SavedGameState& state);
+    bool saveGameToDisk();
+    bool loadGameFromDisk();
     void resolveDialogChoice(const std::string& choiceId);
     void resolveCombatEncounter(const std::string& encounterId);
     void processSpeakResult(const SpeakResult& result);
@@ -109,11 +124,15 @@ class Location
     static const int kMaxNarrativeLines = 500;
     static const float kScrollbarWidth;
 
-    const int screenWidth;
-    const int screenHeight;
+    int screenWidth;
+    int screenHeight;
 
     SceneDatabase& sceneDatabase;
     AudioManager& audioManager;
+    GameConfig& gameConfig;
+    PauseMenuMgr pauseMenu;
+    std::string gameConfigPath;
+    bool quitRequested = false;
     std::string currentSceneId;
     
     Texture2D locationImage;
@@ -149,23 +168,23 @@ class Location
 
     float health = 90.0f;
     float energy = 20.0f;
-    float tenacity = 50.0f;
+    float resolve = 50.0f;
     float lucidity = 30.0f;
     float charisma = 50.0f;
     float walletCash = 20.0f;
     std::set<std::string> consumedStatusActions;
     std::set<std::string> storyFlags;
 
-    float fontSize = 28.0f;
+    float fontSize = 32.0f;
     const bool wordWrap = true;
     const int spacing = 3;
     const Color textColor = {32, 42, 68, 255};
     const int xOffset = 78;
     const int yOffset = 36;
 
-    const Rectangle textBox;
-    const Rectangle buttonBox;
-    const float fullDialogHeight;
+    Rectangle textBox;
+    Rectangle buttonBox;
+    float fullDialogHeight;
     ButtonMgr buttonMgr;
     InventoryMgr inventoryMgr;
     TakeMgr takeMgr;

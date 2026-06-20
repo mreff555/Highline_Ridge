@@ -45,6 +45,8 @@ class InventoryMgr
     const InventoryItem* getSelectedItem() const;
     bool hasItem(const std::string& id) const;
     void addItem(const InventoryItem& item);
+    std::vector<InventoryItem> exportItemSnapshots() const;
+    void restoreFromSnapshots(const std::vector<InventoryItem>& savedItems);
 
     private:
     void createDefaultItems();

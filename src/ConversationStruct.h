@@ -12,7 +12,7 @@ struct StatusEffect
     std::string key;
     float health = 0.0f;
     float energy = 0.0f;
-    float tenacity = 0.0f;
+    float resolve = 0.0f;
     float lucidity = 0.0f;
     float charisma = 0.0f;
     float money = 0.0f;
@@ -21,7 +21,7 @@ struct StatusEffect
 
     bool hasDelta() const
     {
-        return health != 0.0f || energy != 0.0f || tenacity != 0.0f || lucidity != 0.0f
+        return health != 0.0f || energy != 0.0f || resolve != 0.0f || lucidity != 0.0f
             || charisma != 0.0f || money != 0.0f;
     }
 };
@@ -40,6 +40,7 @@ struct RandomConversationLine
     std::string text;
     StatusEffect status;
     int weight = 1;
+    bool once = false;
     bool allowAttack = false;
     std::string attackEncounterId;
     std::vector<ConversationChoiceDef> choices;

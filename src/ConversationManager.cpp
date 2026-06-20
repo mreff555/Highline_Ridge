@@ -137,9 +137,23 @@ SpeakResult ConversationManager::pickRandomLine(
     if (phase.lines.empty())
         return SpeakResult();
 
+    std::vector<size_t> eligibleIndices;
+    eligibleIndices.reserve(phase.lines.size());
+    for (size_t i = 0; i < phase.lines.size(); ++i)
+    {
+        const RandomConversationLine& line = phase.lines[i];
+        if (line.once && !line.id.empty() && completedRandomLineIds.count(line.id) > 0)
+            continue;
+
+        eligibleIndices.push_back(i);
+    }
+
+    if (eligibleIndices.empty())
+        return SpeakResult();
+
     int totalWeight = 0;
-    for (const RandomConversationLine& line : phase.lines)
-        totalWeight += line.weight > 0 ? line.weight : 1;
+    for (size_t index : eligibleIndices)
+        totalWeight += phase.lines[index].weight > 0 ? phase.lines[index].weight : 1;
 
     if (totalWeight <= 0)
         return SpeakResult();
@@ -147,7 +161,7 @@ SpeakResult ConversationManager::pickRandomLine(
     const std::string poolKey = randomPoolKey(sceneId, phase);
     int chosenIndex = 0;
 
-    if (phase.avoidRepeat && phase.lines.size() > 1)
+    if (phase.avoidRepeat && eligibleIndices.size() > 1)
     {
         const int lastIndex = lastRandomLineIndex.count(poolKey) > 0
             ? lastRandomLineIndex.at(poolKey)
@@ -158,18 +172,18 @@ SpeakResult ConversationManager::pickRandomLine(
         {
             int roll = rand() % totalWeight;
             int cumulative = 0;
-            for (size_t i = 0; i < phase.lines.size(); ++i)
+            for (size_t index : eligibleIndices)
             {
-                cumulative += phase.lines[i].weight > 0 ? phase.lines[i].weight : 1;
+                cumulative += phase.lines[index].weight > 0 ? phase.lines[index].weight : 1;
                 if (roll < cumulative)
                 {
-                    chosenIndex = (int)i;
+                    chosenIndex = (int)index;
                     break;
                 }
             }
             ++guard;
         }
-        while ((int)chosenIndex == lastIndex && guard < 12);
+        while (chosenIndex == lastIndex && guard < 12);
 
         lastRandomLineIndex[poolKey] = chosenIndex;
     }
@@ -177,12 +191,12 @@ SpeakResult ConversationManager::pickRandomLine(
     {
         int roll = rand() % totalWeight;
         int cumulative = 0;
-        for (size_t i = 0; i < phase.lines.size(); ++i)
+        for (size_t index : eligibleIndices)
         {
-            cumulative += phase.lines[i].weight > 0 ? phase.lines[i].weight : 1;
+            cumulative += phase.lines[index].weight > 0 ? phase.lines[index].weight : 1;
             if (roll < cumulative)
             {
-                chosenIndex = (int)i;
+                chosenIndex = (int)index;
                 break;
             }
         }
@@ -190,6 +204,9 @@ SpeakResult ConversationManager::pickRandomLine(
     }
 
     const RandomConversationLine& line = phase.lines[(size_t)chosenIndex];
+
+    if (line.once && !line.id.empty())
+        completedRandomLineIds.insert(line.id);
 
     if (!line.choices.empty())
     {
@@ -308,6 +325,23 @@ SpeakResult ConversationManager::resolveChoiceFromConfig(
     }
 
     return SpeakResult();
+}
+
+void ConversationManager::exportPersistState(ConversationPersistState& out) const
+{
+    out.completedPhaseIds = completedPhaseIds;
+    out.completedRandomLineIds = completedRandomLineIds;
+}
+
+void ConversationManager::importPersistState(const ConversationPersistState& state)
+{
+    completedPhaseIds = state.completedPhaseIds;
+    completedRandomLineIds = state.completedRandomLineIds;
+    awaitingChoice = false;
+    combatAttackAllowed = false;
+    combatEncounterId.clear();
+    activeScriptPhaseId.clear();
+    pendingChoices.clear();
 }
 
 }

@@ -35,11 +35,16 @@ namespace
         Vector2 screenSize,
         SceneDatabase& sceneDatabase,
         AudioManager& audioManager,
-        const std::string& sceneId)
+        GameConfig& gameConfig,
+        const std::string& sceneId,
+        const std::string& configPath)
     : screenWidth((int)screenSize.x),
       screenHeight((int)screenSize.y),
       sceneDatabase(sceneDatabase),
       audioManager(audioManager),
+      gameConfig(gameConfig),
+      pauseMenu((int)screenSize.x, (int)screenSize.y, locationStruct.uiFont),
+      gameConfigPath(configPath),
       currentSceneId(sceneId),
       locationImage(locationStruct.locationImage),
       ownsLocationImage(locationStruct.ownsLocationImage),
@@ -65,7 +70,7 @@ namespace
       textBox{screenWidth / 2.0f, 0, screenWidth / 2.0f, screenHeight * 2.0f / 3.0f},
       buttonBox{screenWidth / 2.0f, screenHeight * 2.0f / 3.0f, screenWidth / 2.0f, screenHeight / 3.0f},
       fullDialogHeight(screenHeight * 2.0f / 3.0f),
-      buttonMgr(buttonBox, locationStruct.uiFont)
+      buttonMgr(buttonBox, locationStruct.uiFont, locationStruct.boldFont)
     {
         inventoryMgr.setFont(locationStruct.uiFont);
         takeMgr.setFont(locationStruct.uiFont);
@@ -77,8 +82,67 @@ namespace
             TraceLog(LOG_WARNING, "Some inventory images failed to load at startup");
         trimNarrativeBuffer();
         conversationMgr.onEnterScene(currentSceneId, sceneDatabase.getSpeakConfig(currentSceneId));
+        pauseMenu.setAudioManager(&audioManager);
+        pauseMenu.setGameConfig(&gameConfig);
+        pauseMenu.setConfigPath(gameConfigPath);
+        pauseMenu.setOnDisplaySettingsChanged([this]() { applyDisplayConfig(); });
+        pauseMenu.setOnInputSettingsChanged([this]() { applyInputConfig(); });
+        applyInputConfig();
         updateInventoryLayout();
         updateActionAvailability();
+    }
+
+    void Location::relayoutForScreenSize(int width, int height)
+    {
+        screenWidth = width;
+        screenHeight = height;
+        textBox = {
+            screenWidth / 2.0f,
+            0.0f,
+            screenWidth / 2.0f,
+            screenHeight * 2.0f / 3.0f
+        };
+        buttonBox = {
+            screenWidth / 2.0f,
+            screenHeight * 2.0f / 3.0f,
+            screenWidth / 2.0f,
+            screenHeight / 3.0f
+        };
+        fullDialogHeight = screenHeight * 2.0f / 3.0f;
+        buttonMgr.relayout(buttonBox);
+        pauseMenu.setScreenSize(screenWidth, screenHeight);
+
+        if (notebookPaperTextureReady)
+        {
+            UnloadTexture(notebookPaperTexture);
+            notebookPaperTextureReady = false;
+        }
+
+        narrativeLayoutDirty = true;
+        updateInventoryLayout();
+    }
+
+    void Location::applyDisplayConfig()
+    {
+        if (gameConfig.display.fullscreen)
+        {
+            if (!IsWindowFullscreen())
+                ToggleFullscreen();
+
+            relayoutForScreenSize(GetScreenWidth(), GetScreenHeight());
+            return;
+        }
+
+        if (IsWindowFullscreen())
+            ToggleFullscreen();
+
+        SetWindowSize(gameConfig.display.width, gameConfig.display.height);
+        relayoutForScreenSize(gameConfig.display.width, gameConfig.display.height);
+    }
+
+    void Location::applyInputConfig()
+    {
+        buttonMgr.setClickHoldDuration(gameConfig.input.clickHoldSeconds);
     }
 
     Location::~Location()
@@ -354,7 +418,7 @@ namespace
         {
             DrawRectangleRec(mainBounds, (Color){48, 44, 56, 255});
             const char* fallback = "UNDER CONSTRUCTION";
-            const float fontSize = 36.0f;
+            const float fontSize = 42.0f;
             const Vector2 size = MeasureTextEx(descriptionFont, fallback, fontSize, 2.0f);
             DrawTextEx(
                 descriptionFont,
@@ -785,7 +849,7 @@ namespace
 
         if (encounterId == "drunk_patron")
         {
-            if (tenacity > 65.0f)
+            if (resolve > 65.0f)
             {
                 responseText =
                     "You do not think. You move.\n\n"
@@ -911,7 +975,7 @@ namespace
         narrativeText += baseDescription;
         health = 90.0f;
         energy = 20.0f;
-        tenacity = 50.0f;
+        resolve = 50.0f;
         lucidity = 30.0f;
         charisma = 50.0f;
         walletCash = 20.0f;
@@ -966,7 +1030,7 @@ namespace
 
         health = std::min(100.0f, std::max(0.0f, health + effect.health));
         energy = std::min(100.0f, std::max(0.0f, energy + effect.energy));
-        tenacity = std::min(100.0f, std::max(0.0f, tenacity + effect.tenacity));
+        resolve = std::min(100.0f, std::max(0.0f, resolve + effect.resolve));
         lucidity = std::min(100.0f, std::max(0.0f, lucidity + effect.lucidity));
         charisma = std::min(100.0f, std::max(0.0f, charisma + effect.charisma));
         walletCash = std::max(0.0f, walletCash + effect.money);
@@ -1069,7 +1133,7 @@ namespace
         }
 
         buttonMgr.setAvailability(movement, actions);
-        buttonMgr.setStatus(health, energy, tenacity, lucidity, charisma);
+        buttonMgr.setStatus(health, energy, resolve, lucidity, charisma);
     }
 
     float Location::getNarrativeLineOffsetY(const std::string& lineText, bool lastOccurrence) const
@@ -1346,6 +1410,136 @@ namespace
             narrativeScrollY = maxScroll;
     }
 
+    SavedGameState Location::captureSaveState() const
+    {
+        SavedGameState state;
+        state.sceneId = currentSceneId;
+        state.previousSceneId = previousSceneId;
+        state.narrativeText = narrativeText;
+        state.health = health;
+        state.energy = energy;
+        state.resolve = resolve;
+        state.lucidity = lucidity;
+        state.charisma = charisma;
+        state.walletCash = walletCash;
+        state.hasSpokenInCurrentScene = hasSpokenInCurrentScene;
+        state.hasUsedInCurrentScene = hasUsedInCurrentScene;
+        state.examinedSceneIds = examinedSceneIds;
+        state.usedSceneIds = usedSceneIds;
+        state.takenItemKeys = takenItemKeys;
+        state.storyFlags = storyFlags;
+        state.consumedStatusActions = consumedStatusActions;
+        state.committedPlayerDialogLines = committedPlayerDialogLines;
+        state.inventoryItems = inventoryMgr.exportItemSnapshots();
+        conversationMgr.exportPersistState(state.conversation);
+        return state;
+    }
+
+    bool Location::applySaveState(const SavedGameState& state)
+    {
+        LocationStruct locationStruct;
+        if (!sceneDatabase.loadScene(state.sceneId, locationStruct))
+            return false;
+
+        if (ownsLocationImage && locationImage.id != 0)
+            UnloadTexture(locationImage);
+
+        const std::string fromSceneId = currentSceneId;
+        audioManager.onRoomExit(sceneDatabase.getSceneAudio(currentSceneId), state.sceneId);
+
+        currentSceneId = state.sceneId;
+        previousSceneId = state.previousSceneId;
+        applyLocationStruct(locationStruct, fromSceneId);
+
+        narrativeText = state.narrativeText;
+        health = state.health;
+        energy = state.energy;
+        resolve = state.resolve;
+        lucidity = state.lucidity;
+        charisma = state.charisma;
+        walletCash = state.walletCash;
+        hasSpokenInCurrentScene = state.hasSpokenInCurrentScene;
+        hasUsedInCurrentScene = state.hasUsedInCurrentScene;
+        examinedSceneIds = state.examinedSceneIds;
+        usedSceneIds = state.usedSceneIds;
+        takenItemKeys = state.takenItemKeys;
+        storyFlags = state.storyFlags;
+        consumedStatusActions = state.consumedStatusActions;
+        committedPlayerDialogLines = state.committedPlayerDialogLines;
+        narrativeScrollY = 0.0f;
+        narrativeLayoutDirty = true;
+
+        inventoryMgr.restoreFromSnapshots(state.inventoryItems);
+        conversationMgr.importPersistState(state.conversation);
+        takeMgr.close();
+        narrativeChoiceHitAreas.clear();
+
+        audioManager.onRoomEnter(sceneDatabase.getSceneAudio(currentSceneId), fromSceneId);
+        trimNarrativeBuffer();
+        updateInventoryLayout();
+        updateActionAvailability();
+        return true;
+    }
+
+    bool Location::saveGameToDisk()
+    {
+        return writeSaveFile(defaultSavePath(), captureSaveState());
+    }
+
+    bool Location::loadGameFromDisk()
+    {
+        SavedGameState state;
+        if (!readSaveFile(defaultSavePath(), state))
+            return false;
+
+        return applySaveState(state);
+    }
+
+    void Location::handlePauseMenuInput()
+    {
+        if (IsKeyPressed(KEY_ESCAPE))
+        {
+            if (pauseMenu.isOpen())
+            {
+                if (pauseMenu.isConfigPanel())
+                    pauseMenu.showMainPanel();
+                else
+                {
+                    pauseMenu.closeMenu();
+                    audioManager.setGameplayPaused(false);
+                }
+            }
+            else
+            {
+                pauseMenu.openMenu();
+                audioManager.setGameplayPaused(true);
+            }
+        }
+
+        pauseMenu.update(GetFrameTime());
+
+        if (pauseMenu.consumeSaveRequest())
+        {
+            if (saveGameToDisk())
+                pauseMenu.setStatusMessage("Game saved.");
+            else
+                pauseMenu.setStatusMessage("Save failed.");
+        }
+
+        if (pauseMenu.consumeLoadRequest())
+        {
+            if (loadGameFromDisk())
+                pauseMenu.setStatusMessage("Game loaded.");
+            else if (!saveFileExists(defaultSavePath()))
+                pauseMenu.setStatusMessage("No save file found.");
+            else
+                pauseMenu.setStatusMessage("Load failed.");
+        }
+
+        if (pauseMenu.consumeQuitRequest())
+            quitRequested = true;
+    }
+
     void Location::update()
     {
         if (!initialFrameComplete)
@@ -1359,6 +1553,11 @@ namespace
         }
 
         audioManager.update(GetFrameTime());
+        handlePauseMenuInput();
+
+        if (pauseMenu.isOpen())
+            return;
+
         updateInventoryLayout();
         updateActionAvailability();
 
@@ -1569,6 +1768,7 @@ namespace
             takeMgr.draw();
 
         buttonMgr.draw();
+        pauseMenu.draw();
     }
 
     void Location::drawInventoryExamineScrollbar() const

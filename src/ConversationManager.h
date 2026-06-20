@@ -2,6 +2,7 @@
 #define CONVERSATION_MANAGER_H
 
 #include <ConversationStruct.h>
+#include <SaveGame.h>
 #include <map>
 #include <set>
 #include <string>
@@ -29,6 +30,8 @@ class ConversationManager
         const std::set<std::string>& storyFlags);
     SpeakResult resolveChoice(const std::string& choiceId);
     SpeakResult resolveChoiceFromConfig(const SceneSpeakConfig& config, const std::string& choiceId);
+    void exportPersistState(ConversationPersistState& out) const;
+    void importPersistState(const ConversationPersistState& state);
 
     private:
     bool isPhaseComplete(const std::string& phaseId) const;
@@ -47,6 +50,7 @@ class ConversationManager
 
     std::string currentSceneId;
     std::set<std::string> completedPhaseIds;
+    std::set<std::string> completedRandomLineIds;
     std::map<std::string, int> lastRandomLineIndex;
     bool awaitingChoice = false;
     bool combatAttackAllowed = false;

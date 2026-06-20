@@ -116,7 +116,7 @@ Texture2D TakeMgr::createPlaceholderIcon(const std::string& label) const
     DrawRectangleRounded({ 30.0f, 6.0f, 36.0f, 12.0f }, 0.4f, 4, (Color){118, 96, 58, 255});
 
     const char* text = label.empty() ? "?" : label.c_str();
-    const float fontSize = 14.0f;
+    const float fontSize = 16.0f;
     const Vector2 textSize = MeasureTextEx(panelFont, text, fontSize, 1.0f);
     DrawTextEx(
         panelFont,
@@ -387,7 +387,7 @@ void TakeMgr::drawItemGrid() const
     if (slots.empty())
     {
         const char* emptyText = "Nothing left to take.";
-        const float fontSize = 16.0f;
+        const float fontSize = 18.0f;
         const Vector2 textSize = MeasureTextEx(panelFont, emptyText, fontSize, 1.0f);
         DrawTextEx(
             panelFont,
@@ -421,7 +421,7 @@ void TakeMgr::drawTakeAllButton() const
         enabled ? kPanelBorder : kPanelAccent);
 
     const char* label = "Take All";
-    const float fontSize = 16.0f;
+    const float fontSize = 18.0f;
     const Vector2 textSize = MeasureTextEx(panelFont, label, fontSize, 1.0f);
     DrawTextEx(
         panelFont,
@@ -452,7 +452,7 @@ void TakeMgr::draw() const
     DrawRectangleRounded(accentBar, 1.0f, 4, kPanelAccent);
 
     const float pad = 14.0f;
-    DrawTextEx(panelFont, "TAKE", { panelBounds.x + pad, panelBounds.y + pad }, 15.0f, 1, kSectionLabel);
+    DrawTextEx(panelFont, "TAKE", { panelBounds.x + pad, panelBounds.y + pad }, 17.0f, 1, kSectionLabel);
 
     drawCloseButton();
     drawItemGrid();

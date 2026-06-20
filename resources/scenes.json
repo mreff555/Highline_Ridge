@@ -540,7 +540,7 @@
       "start": false,
       "image": "resources/images/saloon_service_hall.png",
       "description": "You step into a service hallway that feels imported from another class of building entirely. A single brass wall lantern throws a narrow cone of amber down the corridor, leaving the far end in soft shadow. Dark walnut wainscoting rises to cream plaster. A worn runner rug leads your eye toward the back of the saloon. Immediately on your left is a doorway where warm light and the muffled clatter of a working kitchen push through the cracks. Farther down the left wall, a second door stands in carved mahogany and brass, elegant enough for a city hotel. On your right, halfway along the hall, a plain pine plank door hangs on strap hinges without apology. At the end of the passage, a heavy back door of iron-strapped timber waits in the gloom, built for function rather than impression, and built to last.",
-      "examineDetails": "You work the hallway the way you would a crime scene: perimeter first, then detail, then the things that do not match.\n\nThe lantern is the only fitting that makes immediate sense in a ridge saloon: utilitarian brass, chimney smoked at the top, wick trimmed with care. Its light falls short of the end door on purpose, or because someone wanted the back of the building to stay in half-dark. The floorboards under the runner are old growth pine, face-nailed, pitch sealed in the grain. The rug itself is a narrow Persian runner, not a saloon sawdust path. Someone laid city habits back here where patrons would never think to look.\n\nThe first door on your left is kitchen. You do not need to open it to know. Heat breathes through the jamb. You catch metal on metal, a drawer closing, water running somewhere behind thick panels. The frame is honest work but not fine: painted pine, frosted transom glass, enamel knob worn to brass at the edges from hands carrying trays.\n\nThe second door on the left is the one that stops you. It is out of place the way a silk dress is out of place in a mining camp. The jamb is mahogany, not pine. The panels are raised and hand-planed, the corners eased with a cabinetmaker's patience. The hardware is cast brass with rosette backplates and a lever latch in the Eastlake style, the sort of fittings ordered from a catalog and shipped up the mountain at real expense. The varnish is deep and even. No boot has scuffed the threshold. Whoever uses this room does not carry dishes. You run your knuckle along the casing and feel no saw tear-out, no hurried millwork. This door was built to be looked at and to keep secrets. It is the finest piece of joinery in the building, and it is hiding in the service hall.\n\nHalfway down on the right, the pine plank door is the opposite statement. Two-inch boards, face-mounted strap hinges, a wooden thumb latch, no transom, no pretense. A storage room, perhaps, or quarters for someone the saloon does not dress up for guests. The boards have cupped slightly with altitude dry air. It is unimpressive in every respect except that it is honest.\n\nThe end door is another matter. Visually plain: heavy planks, cross-braced, iron straps and a box lock with a blackened hasp. Unimpressive until you test it with your eye the way a carpenter would. The hinges are sunk into the frame, not surface-mounted. The sill is stone-backed against boot traffic. The gap at the bottom is tight enough to hold out mountain wind. This is a back exit built for deliveries, escapes, and nights when the front doors are too public. It probably opens onto the rear of the building, the service yard, the alley where garbage and truth both get carried away.\n\nThe saloon's piano and laughter are a dull pulse behind the curtain you came through. Up here the air smells of lard, soap, varnish, and cold plaster. A house with two faces. You are in the one it does not put on the poster.",
+      "examineDetails": "You work the hallway the way you would a crime scene: perimeter first, then detail, then the things that do not match.\n\nThe lantern is the only fitting that makes immediate sense in a ridge saloon: utilitarian brass, chimney smoked at the top, wick trimmed with care. Its light falls short of the end door on purpose, or because someone wanted the back of the building to stay in half-dark. The floorboards under the runner are old growth pine, face-nailed, pitch sealed in the grain. The rug itself is a narrow Persian runner, not a saloon sawdust path. Someone laid city habits back here where patrons would never think to look.\n\nThe first door on your left is kitchen. You do not need to open it to know. Heat breathes through the jamb. You catch metal on metal, a drawer closing, water running somewhere behind thick panels. The frame is honest work but not fine: painted pine, frosted transom glass, enamel knob worn to brass at the edges from hands carrying trays.\n\nThe second door on the left is the one that stops you. It is out of place the way a silk dress is out of place in a mining camp. The jamb is mahogany, not pine. The panels are raised and hand-planed, the corners eased with a cabinetmaker's patience. The hardware is cast brass with rosette backplates and a lever latch in the Eastlake style, the sort of fittings ordered from a catalog and shipped up the mountain at real expense. The varnish is deep and even. No boot has scuffed the threshold. Whoever uses this room does not carry dishes. You run your knuckle along the casing and feel no saw tear-out, no hurried millwork. This door was built to be looked at and to keep secrets. Beyond it lies the owner's office, if rumor and joinery both tell true. It is the finest piece of work in the building, and it is hiding in the service hall.\n\nHalfway down on the right, the pine plank door is the opposite statement. Two-inch boards, face-mounted strap hinges, a wooden thumb latch, no transom, no pretense. It opens on the supply closet: chemicals, tools, and the blunt inventory of keeping a saloon alive where guests never look. The boards have cupped slightly with altitude dry air. It is unimpressive in every respect except that it is honest.\n\nThe end door is another matter. Visually plain: heavy planks, cross-braced, iron straps and a box lock with a blackened hasp. Unimpressive until you test it with your eye the way a carpenter would. The hinges are sunk into the frame, not surface-mounted. The sill is stone-backed against boot traffic. The gap at the bottom is tight enough to hold out mountain wind. This is a back exit built for deliveries, escapes, and nights when the front doors are too public. It probably opens onto the rear of the building, the service yard, the alley where garbage and truth both get carried away.\n\nThe saloon's piano and laughter are a dull pulse behind the curtain you came through. Up here the air smells of lard, soap, varnish, and cold plaster. A house with two faces. You are in the one it does not put on the poster.",
       "speakDetails": "",
       "useDetails": "",
       "movement": {
@@ -549,7 +549,7 @@
         "left": true,
         "right": true,
         "up": false,
-        "down": false
+        "down": true
       },
       "actions": {
         "examine": true,
@@ -559,8 +559,9 @@
       },
       "exits": {
         "backward": "saloon_side_passage",
-        "left": "saloon_kitchen",
-        "right": "saloon_pantry",
+        "left": "saloon_owner_office",
+        "down": "saloon_kitchen",
+        "right": "saloon_supply_closet",
         "forward": "saloon_back_exit"
       },
       "audio": {
@@ -580,6 +581,40 @@
             "loop": true
           }
         ]
+      }
+    },
+    "saloon_owner_office": {
+      "start": false,
+      "image": "resources/images/saloon_owner_office.png",
+      "description": "The ornate door opens on a private office that should not exist behind a ridge saloon. The room is modest in footprint and extravagant in intention. Walnut paneling climbs the walls in raised fields and oiled curves, the work of a craftsman who charged by the hour and meant to be remembered. A wide window commands a clear view of the mountains, pale daylight washing the peaks while the valley below keeps its secrets. An ironwood desk anchors the room, the grain dark as cured tobacco, the front panel carved in layered scrollwork that catches the light. Behind it waits a walnut swivel club chair upholstered in top-grain leather pinned with brass studs. A Tiffany lamp on the desk throws a soft orange glow across an open planner laid precisely at center, the only deliberate light in the room besides the window. Across from the desk sits a small settee in burgundy velvet over walnut, brass studs marching its frame with the same disciplined vanity. Beneath both pieces spreads a Persian rug whose reds and umbers answer the furniture, far too fine for a service hall hidden behind kitchen steam. This must be the saloon owner's office. It is surprisingly lavish, and it is not meant for you to see.",
+      "examineDetails": "You read the room the way you would a ledger: what is displayed, what is guarded, what is meant to impress.\n\nThe window first. Mountain sky, ridgeline snow catching afternoon, timber dark on the slopes. The glass is good plate, not saloon glazing. The view is the kind of prospect men build houses for, then pretend they earned by hard work alone. Below, the town is only suggestion, smoke, and geometry too small to judge.\n\nThe desk is ironwood, dense enough that the floorboards barely complain under its weight. The carving is not local. The motifs travel: vine and shell, a touch of Eastlake, a touch of something older brought back from somewhere with ports and money. The surface is cared for. No rings from careless glasses. A planner lies open at center, columns ruled in ink, appointments written in a hand that does not hurry. You do not touch the pages yet. The Tiffany lamp beside it is the real tell: leaded glass in bronze, dragonfly or peacock tones you cannot quite name in this light, casting warm orange across paper and wood. Turn it off and the room would fall into window-shadow and paneling, respectable and cold. Someone works late by this lamp alone.\n\nThe club chair behind the desk swivels on a brass pedestal with a soft click when you test it with two fingers. Leather worn only where elbows would rest. This is a chair for decisions, not for guests.\n\nThe settee across the room is smaller but no less deliberate. Burgundy velvet, walnut frame, brass studs set in rows precise enough to count. It faces the desk as though an audience chair, for one visitor at a time. No one sits with their back to the window here.\n\nThe rug is Persian, or close enough that only a dealer would argue. Deep field, border geometry, colors picked up in the velvet and the lamp glow. It cost more than most claims on the mountain. It says the owner does not think in sawdust and rye alone.\n\nThe paneling is walnut throughout, matched for grain, fitted tight at the corners. A room assembled from corners of the earth and shipped uphill at cruel expense. You smell varnish, leather, old paper, and cold mountain air at the window seam.\n\nNo photographs. No names on the planner from this distance. No safe in plain sight. A man's private kingdom, hidden behind the service hall like a king who prefers his crown in a drawer. Lavish. Controlled. And very much not an accident.",
+      "speakDetails": "",
+      "useDetails": "",
+      "movement": {
+        "backward": true,
+        "forward": false,
+        "left": false,
+        "right": false,
+        "up": false,
+        "down": false
+      },
+      "actions": {
+        "examine": true,
+        "speak": false,
+        "hit": false,
+        "use": false
+      },
+      "exits": {
+        "backward": "saloon_service_hall"
+      },
+      "audio": {
+        "music": {
+          "path": "resources/audio/music/cabin_theme.mp3",
+          "volume": 0.18,
+          "fade_in": 3.0,
+          "fade_out": 2.5,
+          "loop": true
+        }
       }
     },
     "saloon_kitchen": {
@@ -604,26 +639,40 @@
         "backward": "saloon_service_hall"
       }
     },
-    "saloon_pantry": {
+    "saloon_supply_closet": {
       "start": false,
-      "image": "resources/images/scene_under_construction.png",
-      "description": "The plain pine door opens on darkness and stored goods. Shelving, sacks, and mountain dry air. This room has not been fully mapped yet.",
-      "examineDetails": "",
+      "image": "resources/images/saloon_supply_closet.png",
+      "description": "The plain pine door gives into a supply closet barely wider than a man's shoulders. A single bare bulb throws hard light on rough-built shelves that occupy the center of the room like an island of unfinished carpentry. Mops and brooms lean along the left wall, their handles dark with use and damp. The shelves are crowded with the unglamorous machinery of keeping a saloon running: glass bottles of cleaning chemicals with faded labels, spare kitchen tins, stacked boxes of nails, a tin of stove polish, coils of twine, and hand tools hung from nails where a carpenter stopped organizing and started surviving. On the front edge of the middle shelf sit a small jar of lamp oil and a hunting knife in a worn leather sheath, placed within easy reach as though someone meant to come back for them.",
+      "examineDetails": "You take inventory the way you would a witness list: what is here, what is missing, what does not belong.\n\nThe shelves are homemade and honest. Two-by stock, cross-braced with scrap, face-nailed where a cabinetmaker would have used dowels. Someone built this to hold weight, not to impress. The wood is dry and splintered at the ends from altitude and heat cycles. Each level tells a different story.\n\nTop shelf: lye soap in paper, a tin of stove blacking, two unlabeled glass bottles that smell sharply of ammonia when you ease the stoppers. Kitchen overflow lives here too, spare enamel cups, a cracked mixing bowl, a sack of flour gone hard at the corners.\n\nMiddle shelf: hardware in quantity. Nails sorted by rough guess into wooden boxes, a hand plane with a chipped iron, a coil of baling wire, a mason jar of lamp oil half full and wick-yellow at the shoulder. Beside it rests a hunting knife in a dark leather sheath, the handle polished where a palm has worried it. The blade has been honed recently. This is not kitchen equipment. It is personal, and it was left where a man could grab it on the way out.\n\nLower shelf: rags in a lidded bucket, a bottle of liniment, spare lamp chimneys wrapped in newsprint, and a tin of matches with the striker worn smooth.\n\nAlong the left wall, mops and brooms stand in a disciplined row that has slipped with use. One mop head is still damp. Someone cleaned recently and did not finish putting the tools away. The floor is bare pine, swept but stained around the bucket shelf where chemicals have dripped and been wiped at, not scrubbed.\n\nThe air is close. Soap, metal, oil, and the faint sweet rot of old mop water. The saloon's music does not reach in here. Only the muffled kitchen, a dull domestic pulse through the wall. A room for work, not for guests. The sort of place where a body could be hidden between shelves for an hour before anyone thought to look.",
+      "speakDetails": "",
       "useDetails": "",
       "movement": {
         "backward": true,
         "forward": false,
         "left": false,
-        "right": false
+        "right": false,
+        "up": false,
+        "down": false
       },
       "actions": {
-        "examine": false,
+        "examine": true,
         "speak": false,
         "hit": false,
         "use": false
       },
       "exits": {
         "backward": "saloon_service_hall"
+      },
+      "audio": {
+        "ambient": [
+          {
+            "path": "resources/audio/ambient/kitchen_muffled.mp3",
+            "volume": 0.35,
+            "fade_in": 1.5,
+            "fade_out": 1.5,
+            "loop": true
+          }
+        ]
       }
     },
     "saloon_back_exit": {

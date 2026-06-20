@@ -54,11 +54,14 @@ int main(void)
     if (!locateResources())
         TraceLog(LOG_WARNING, "Could not locate resources/scenes.json from current working directory");
 
+    std::string gameConfigPath = "resources/game_config.json";
     GameConfig gameConfig;
-    if (!loadGameConfig("resources/game_config.json", gameConfig) &&
-        !loadGameConfig("../resources/game_config.json", gameConfig))
+    if (!loadGameConfig(gameConfigPath, gameConfig))
     {
-        TraceLog(LOG_WARNING, "Failed to load resources/game_config.json; using defaults");
+        if (loadGameConfig("../resources/game_config.json", gameConfig))
+            gameConfigPath = "../resources/game_config.json";
+        else
+            TraceLog(LOG_WARNING, "Failed to load resources/game_config.json; using defaults");
     }
 
     const Vector2 screenSize = {
@@ -67,6 +70,9 @@ int main(void)
     };
 
     InitWindow(screenSize.x, screenSize.y, "Highline Ridge");
+    SetExitKey(0);
+    if (gameConfig.display.fullscreen)
+        ToggleFullscreen();
     if (!IsAudioDeviceReady())
         InitAudioDevice();
 
@@ -95,13 +101,23 @@ int main(void)
         return 1;
     }
 
-    Location location(locationStruct, screenSize, sceneDatabase, audioManager, startSceneId);
+    Location location(
+        locationStruct,
+        screenSize,
+        sceneDatabase,
+        audioManager,
+        gameConfig,
+        startSceneId,
+        gameConfigPath);
+
+    if (gameConfig.display.fullscreen)
+        location.applyDisplayConfig();
 
     SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
 
     // Main game loop
-    while (!WindowShouldClose())    // Detect window close button or ESC key
+    while (!WindowShouldClose() && !location.shouldQuit())
     {
         // Update
         //----------------------------------------------------------------------------------

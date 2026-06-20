@@ -136,6 +136,48 @@ void AudioManager::setVolumes(const AudioVolumeConfig& volumeConfig)
     volumes = volumeConfig;
     if (deviceReady)
         SetMasterVolume(volumes.master);
+
+    refreshCategoryVolumes();
+}
+
+void AudioManager::setGameplayPaused(bool paused, float fadeSeconds)
+{
+    gameplayPaused = paused;
+    gameplayMixTarget = paused ? 0.0f : 1.0f;
+    gameplayMixFadeRate = fadeSeconds > 0.0f ? (1.0f / fadeSeconds) : 1000.0f;
+}
+
+float AudioManager::appliedVolume(float baseVolume) const
+{
+    return baseVolume * gameplayMix;
+}
+
+void AudioManager::updateGameplayMix(float deltaSeconds)
+{
+    if (gameplayMix < gameplayMixTarget)
+        gameplayMix = std::min(gameplayMixTarget, gameplayMix + gameplayMixFadeRate * deltaSeconds);
+    else if (gameplayMix > gameplayMixTarget)
+        gameplayMix = std::max(gameplayMixTarget, gameplayMix - gameplayMixFadeRate * deltaSeconds);
+}
+
+void AudioManager::refreshCategoryVolumes()
+{
+    if (musicTrack.loaded)
+    {
+        musicTrack.targetVolume = effectiveVolume(AudioCategory::Music, musicTrack.sourceClipVolume);
+        if (musicTrack.playing && !musicTrack.fadingIn && !musicTrack.fadingOut)
+            musicTrack.currentVolume = musicTrack.targetVolume;
+    }
+
+    for (FadingAmbientTrack& track : ambientTracks)
+    {
+        if (!track.loaded)
+            continue;
+
+        track.targetVolume = effectiveVolume(AudioCategory::Ambient, track.sourceClipVolume);
+        if (track.playing && !track.fadingIn && !track.fadingOut)
+            track.currentVolume = track.targetVolume;
+    }
 }
 
 float AudioManager::effectiveVolume(AudioCategory category, float clipVolume) const
@@ -408,6 +450,7 @@ void AudioManager::startMusicTrack(FadingMusicTrack& track, const AudioClipDef& 
     track.loaded = true;
     track.path = clip.path;
     track.tempFilePath = tempFile;
+    track.sourceClipVolume = clip.volume;
     track.targetVolume = effectiveVolume(AudioCategory::Music, clip.volume);
     track.fadeInSeconds = std::max(0.0f, attributeOrDefault(clip, "fade_in", clip.fadeIn));
     track.fadeOutSeconds = std::max(0.0f, attributeOrDefault(clip, "fade_out", clip.fadeOut));
@@ -418,7 +461,7 @@ void AudioManager::startMusicTrack(FadingMusicTrack& track, const AudioClipDef& 
     track.loop = clip.loop;
     track.music.looping = clip.loop;
 
-    SetMusicVolume(track.music, track.currentVolume);
+    SetMusicVolume(track.music, appliedVolume(track.currentVolume));
     PlayMusicStream(track.music);
     track.playing = true;
     TraceLog(LOG_INFO, "Started music: %s", clip.path.c_str());
@@ -442,6 +485,7 @@ void AudioManager::startAmbientTrack(const AudioClipDef& clip)
     track.loaded = true;
     track.path = clip.path;
     track.usesCachedAlias = usesAlias;
+    track.sourceClipVolume = clip.volume;
     track.targetVolume = effectiveVolume(AudioCategory::Ambient, clip.volume);
     track.fadeInSeconds = std::max(0.0f, attributeOrDefault(clip, "fade_in", clip.fadeIn));
     track.fadeOutSeconds = std::max(0.0f, attributeOrDefault(clip, "fade_out", clip.fadeOut));
@@ -451,7 +495,7 @@ void AudioManager::startAmbientTrack(const AudioClipDef& clip)
     track.currentVolume = track.fadingIn ? 0.0f : track.targetVolume;
     track.loop = clip.loop;
 
-    SetSoundVolume(track.sound, track.currentVolume);
+    SetSoundVolume(track.sound, appliedVolume(track.currentVolume));
     PlaySound(track.sound);
     track.playing = true;
     ambientTracks.push_back(track);
@@ -511,7 +555,7 @@ void AudioManager::updateMusicTrack(FadingMusicTrack& track, float deltaSeconds)
     }
 
     if (track.playing || track.fadingOut)
-        SetMusicVolume(track.music, track.currentVolume);
+        SetMusicVolume(track.music, appliedVolume(track.currentVolume));
 }
 
 void AudioManager::updateAmbientTrack(FadingAmbientTrack& track, float deltaSeconds)
@@ -521,7 +565,7 @@ void AudioManager::updateAmbientTrack(FadingAmbientTrack& track, float deltaSeco
 
     if (track.loop && track.playing && !track.fadingOut && !IsSoundPlaying(track.sound))
     {
-        SetSoundVolume(track.sound, track.currentVolume);
+        SetSoundVolume(track.sound, appliedVolume(track.currentVolume));
         PlaySound(track.sound);
     }
 
@@ -570,7 +614,7 @@ void AudioManager::updateAmbientTrack(FadingAmbientTrack& track, float deltaSeco
     }
 
     if (track.playing || track.fadingOut)
-        SetSoundVolume(track.sound, track.currentVolume);
+        SetSoundVolume(track.sound, appliedVolume(track.currentVolume));
 }
 
 void AudioManager::updateActiveSounds(float deltaSeconds)
@@ -586,6 +630,7 @@ void AudioManager::updateActiveSounds(float deltaSeconds)
         activeSound.remainingSeconds -= deltaSeconds;
         if (activeSound.remainingSeconds > 0.0f)
         {
+            SetSoundVolume(activeSound.sound, appliedVolume(activeSound.baseVolume));
             remainingSounds.push_back(activeSound);
             continue;
         }
@@ -602,6 +647,7 @@ void AudioManager::update(float deltaSeconds)
     if (!deviceReady)
         return;
 
+    updateGameplayMix(deltaSeconds);
     updateActiveSounds(deltaSeconds);
     updateMusicTrack(musicTrack, deltaSeconds);
 
@@ -643,13 +689,14 @@ void AudioManager::playSfx(const AudioClipDef& clip)
     }
 
     const float volume = effectiveVolume(AudioCategory::Sfx, clip.volume);
-    SetSoundVolume(sound, volume);
+    SetSoundVolume(sound, appliedVolume(volume));
     PlaySound(sound);
     TraceLog(LOG_INFO, "Playing sfx: %s (%.2fs at volume %.2f)", clip.path.c_str(), durationSeconds, volume);
 
     ActiveSound activeSound;
     activeSound.sound = sound;
     activeSound.loaded = true;
+    activeSound.baseVolume = volume;
     activeSound.remainingSeconds = std::max(0.05f, durationSeconds);
     activeSound.tempFilePath = tempFile;
     activeSounds.push_back(activeSound);
@@ -693,6 +740,7 @@ void AudioManager::retainMusicTrack(FadingMusicTrack& track, const AudioClipDef&
     track.fadingOut = false;
     track.fadingIn = false;
     track.fadeElapsed = 0.0f;
+    track.sourceClipVolume = clip.volume;
     track.targetVolume = effectiveVolume(AudioCategory::Music, clip.volume);
     track.fadeInSeconds = std::max(0.0f, attributeOrDefault(clip, "fade_in", clip.fadeIn));
     track.fadeOutSeconds = std::max(0.0f, attributeOrDefault(clip, "fade_out", clip.fadeOut));
@@ -702,7 +750,7 @@ void AudioManager::retainMusicTrack(FadingMusicTrack& track, const AudioClipDef&
     if (track.playing)
         track.currentVolume = track.targetVolume;
 
-    SetMusicVolume(track.music, track.currentVolume);
+    SetMusicVolume(track.music, appliedVolume(track.currentVolume));
 }
 
 void AudioManager::retainAmbientTrack(FadingAmbientTrack& track, const AudioClipDef& clip)
@@ -710,6 +758,7 @@ void AudioManager::retainAmbientTrack(FadingAmbientTrack& track, const AudioClip
     track.fadingOut = false;
     track.fadingIn = false;
     track.fadeElapsed = 0.0f;
+    track.sourceClipVolume = clip.volume;
     track.targetVolume = effectiveVolume(AudioCategory::Ambient, clip.volume);
     track.fadeInSeconds = std::max(0.0f, attributeOrDefault(clip, "fade_in", clip.fadeIn));
     track.fadeOutSeconds = std::max(0.0f, attributeOrDefault(clip, "fade_out", clip.fadeOut));
@@ -718,7 +767,7 @@ void AudioManager::retainAmbientTrack(FadingAmbientTrack& track, const AudioClip
     if (track.playing)
         track.currentVolume = track.targetVolume;
 
-    SetSoundVolume(track.sound, track.currentVolume);
+    SetSoundVolume(track.sound, appliedVolume(track.currentVolume));
 
     if (track.loop && !IsSoundPlaying(track.sound))
     {

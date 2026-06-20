@@ -18,7 +18,7 @@ namespace
     const Color kStatusTrack = {40, 38, 50, 255};
     const Color kHealthFill = {168, 72, 72, 255};
     const Color kEnergyFill = {168, 138, 72, 255};
-    const Color kTenacityFill = {88, 118, 168, 255};
+    const Color kResolveFill = {88, 118, 168, 255};
     const Color kLucidityFill = {118, 88, 168, 255};
     const Color kCharismaFill = {168, 108, 88, 255};
 
@@ -28,22 +28,22 @@ namespace
         {
             case 'H': return kHealthFill;
             case 'E': return kEnergyFill;
-            case 'T': return kTenacityFill;
+            case 'R': return kResolveFill;
             case 'L': return kLucidityFill;
             case 'C': return kCharismaFill;
             default: return kEnergyFill;
         }
     }
 
-    const float kButtonHoldDurationSeconds = 0.1f;
 }
 
-ButtonMgr::ButtonMgr(Rectangle _buttonBox, Font _buttonFont)
+ButtonMgr::ButtonMgr(Rectangle _buttonBox, Font _buttonFont, Font _boldButtonFont)
     : buttonBox(_buttonBox),
       buttonFont(_buttonFont),
+      boldButtonFont(_boldButtonFont.texture.id != 0 ? _boldButtonFont : _buttonFont),
       healthBarBounds{},
       energyBarBounds{},
-      tenacityBarBounds{},
+      resolveBarBounds{},
       lucidityBarBounds{},
       charismaBarBounds{},
       reservedBarBounds{},
@@ -57,9 +57,16 @@ ButtonMgr::ButtonMgr(Rectangle _buttonBox, Font _buttonFont)
           {62, 52, 34, 255},
           {108, 102, 92, 255},
           0.18f,
-          17.0f
+          19.0f
       }
 {
+    buildButtonLayout();
+}
+
+void ButtonMgr::buildButtonLayout()
+{
+    buttons.clear();
+
     const float pad = 18.0f;
     const float labelHeight = 22.0f;
     const float gap = 10.0f;
@@ -129,7 +136,7 @@ ButtonMgr::ButtonMgr(Rectangle _buttonBox, Font _buttonFont)
     const float statusRow3Y = contentY + (statusRowH + gap) * 2.0f;
     healthBarBounds = { statusX, contentY, statusBarW, statusRowH };
     energyBarBounds = { statusX + statusBarW + gap, contentY, statusBarW, statusRowH };
-    tenacityBarBounds = { statusX, statusRow2Y, statusBarW, statusRowH };
+    resolveBarBounds = { statusX, statusRow2Y, statusBarW, statusRowH };
     lucidityBarBounds = { statusX + statusBarW + gap, statusRow2Y, statusBarW, statusRowH };
     charismaBarBounds = { statusX, statusRow3Y, statusBarW, statusRowH };
     reservedBarBounds = { statusX + statusBarW + gap, statusRow3Y, statusBarW, statusRowH };
@@ -139,15 +146,26 @@ ButtonMgr::ButtonMgr(Rectangle _buttonBox, Font _buttonFont)
         { contentX, inventoryY, contentW, inventoryHeight });
 }
 
+void ButtonMgr::relayout(Rectangle newButtonBox)
+{
+    buttonBox = newButtonBox;
+    buildButtonLayout();
+}
+
+void ButtonMgr::setClickHoldDuration(float seconds)
+{
+    clickHoldDurationSeconds = std::max(0.05f, std::min(seconds, 0.5f));
+}
+
 ButtonMgr::~ButtonMgr()
 {
 }
 
-void ButtonMgr::setStatus(float health, float energy, float tenacity, float lucidity, float charisma)
+void ButtonMgr::setStatus(float health, float energy, float resolve, float lucidity, float charisma)
 {
     healthPercent = std::max(0.0f, std::min(health, 100.0f));
     energyPercent = std::max(0.0f, std::min(energy, 100.0f));
-    tenacityPercent = std::max(0.0f, std::min(tenacity, 100.0f));
+    resolvePercent = std::max(0.0f, std::min(resolve, 100.0f));
     lucidityPercent = std::max(0.0f, std::min(lucidity, 100.0f));
     charismaPercent = std::max(0.0f, std::min(charisma, 100.0f));
 }
@@ -164,12 +182,12 @@ void ButtonMgr::addButton(const char* label, Rectangle bounds)
 
 void ButtonMgr::drawSectionLabel(const char* label, float x, float y) const
 {
-    DrawTextEx(buttonFont, label, { x, y }, 15.0f, 1, kSectionLabel);
+    DrawTextEx(buttonFont, label, { x, y }, 17.0f, 1, kSectionLabel);
 }
 
 void ButtonMgr::drawStatusBar(const char* label, Rectangle bounds, float percent) const
 {
-    const float labelHeight = 16.0f;
+    const float labelHeight = 17.0f;
     const float barTop = bounds.y + labelHeight;
     const float barHeight = bounds.height - labelHeight - 4.0f;
     const Rectangle track = { bounds.x, barTop, bounds.width, barHeight };
@@ -181,7 +199,7 @@ void ButtonMgr::drawStatusBar(const char* label, Rectangle bounds, float percent
         barHeight - 4.0f
     };
 
-    DrawTextEx(buttonFont, label, { bounds.x, bounds.y }, 13.0f, 1, kSectionLabel);
+    DrawTextEx(buttonFont, label, { bounds.x, bounds.y }, 15.0f, 1, kSectionLabel);
     DrawRectangleRounded(track, 0.18f, 8, kStatusTrack);
     DrawRoundedBorder(track, 0.18f, 8, 2.0f, kPanelBorder);
 
@@ -192,14 +210,15 @@ void ButtonMgr::drawStatusBar(const char* label, Rectangle bounds, float percent
 
     char percentText[8];
     snprintf(percentText, sizeof(percentText), "%d%%", (int)percent);
-    const Vector2 textSize = MeasureTextEx(buttonFont, percentText, 13.0f, 1);
+    const float percentFontSize = 16.0f;
+    const Vector2 textSize = MeasureTextEx(boldButtonFont, percentText, percentFontSize, 1);
     DrawTextEx(
-        buttonFont,
+        boldButtonFont,
         percentText,
         { bounds.x + (bounds.width - textSize.x) / 2.0f, barTop + (barHeight - textSize.y) / 2.0f },
-        13.0f,
+        percentFontSize,
         1,
-        {228, 220, 198, 220});
+        {228, 220, 198, 255});
 }
 
 void ButtonMgr::setAvailability(const MovementStruct& movement, const ActionStruct& actions)
@@ -319,7 +338,7 @@ void ButtonMgr::update()
     {
         if (findEnabledButtonUnderMouse(mousePos) == activePressButtonIndex)
         {
-            if (GetTime() - activePressStartTime >= kButtonHoldDurationSeconds)
+            if (GetTime() - activePressStartTime >= clickHoldDurationSeconds)
             {
                 registerButtonClick(activePressButtonIndex);
                 activePressClickFired = true;
@@ -476,7 +495,7 @@ void ButtonMgr::draw() const
 
     drawStatusBar("Health", healthBarBounds, healthPercent);
     drawStatusBar("Energy", energyBarBounds, energyPercent);
-    drawStatusBar("Tenacity", tenacityBarBounds, tenacityPercent);
+    drawStatusBar("Resolve", resolveBarBounds, resolvePercent);
     drawStatusBar("Lucidity", lucidityBarBounds, lucidityPercent);
     drawStatusBar("Charisma", charismaBarBounds, charismaPercent);
     drawStatusBar("Reserved", reservedBarBounds, 0.0f);

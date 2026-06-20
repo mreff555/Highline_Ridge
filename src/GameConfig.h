@@ -18,15 +18,23 @@ struct DisplayConfig
 {
     int width = 1500;
     int height = 1117;
+    bool fullscreen = false;
+};
+
+struct InputConfig
+{
+    float clickHoldSeconds = 0.1f;
 };
 
 struct GameConfig
 {
     DisplayConfig display;
     AudioVolumeConfig audio;
+    InputConfig input;
 };
 
 bool loadGameConfig(const std::string& configPath, GameConfig& outConfig);
+bool saveGameConfig(const std::string& configPath, const GameConfig& config);
 
 }
 
