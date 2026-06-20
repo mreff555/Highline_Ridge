@@ -102,10 +102,10 @@ void ButtonMgr::buildButtonLayout()
     addButton("Forward",
         { moveRightX, contentY, moveColRightW, movePadBtnH });
 
-    addButton("Left",
+    addButton("Lt",
         { moveRightX, contentY + movePadBtnH + gap, movePadBtnW, movePadBtnH });
 
-    addButton("Right",
+    addButton("Rt",
         { moveRightX + movePadBtnW + gap, contentY + movePadBtnH + gap, movePadBtnW, movePadBtnH });
 
     addButton("Back",
@@ -467,6 +467,8 @@ bool ButtonMgr::consumeHitButtonClick()
 void ButtonMgr::draw() const
 {
     const float pad = 18.0f;
+
+    EndScissorMode();
 
     DrawRectangleRounded(buttonBox, 0.04f, 10, kPanelFill);
     DrawRoundedBorder(buttonBox, 0.04f, 10, 3.0f, kPanelBorder);
