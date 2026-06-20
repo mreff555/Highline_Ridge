@@ -103,13 +103,13 @@ void ButtonMgr::buildButtonLayout()
         { moveRightX, contentY, moveColRightW, movePadBtnH });
 
     addButton("Left",
-        { moveRightX, contentY + movePadBtnH + gap, movePadBtnW, movePadBtnH });
+        { moveRightX, contentY + movePadBtnH + gap, moveColRightW, movePadBtnH });
 
     addButton("Right",
-        { moveRightX + movePadBtnW + gap, contentY + movePadBtnH + gap, movePadBtnW, movePadBtnH });
+        { moveRightX + movePadBtnW + gap, contentY + (movePadBtnH + gap) * 2.0f, movePadBtnW, movePadBtnH });
 
     addButton("Back",
-        { moveRightX, contentY + (movePadBtnH + gap) * 2.0f, moveColRightW, movePadBtnH });
+        { moveRightX, contentY + (movePadBtnH + gap) * 2.0f, movePadBtnW, movePadBtnH });
 
     addButton("Examine",
         { actionX, contentY, actionBtnW, actionBtnH });
@@ -124,10 +124,7 @@ void ButtonMgr::buildButtonLayout()
         { actionX + actionBtnW + gap, contentY + (actionBtnH + gap) * 1.0f, actionBtnW, actionBtnH });
 
     addButton("Attack",
-        { actionX, contentY + (actionBtnH + gap) * 2.0f, actionBtnW, actionBtnH });
-
-    addButton("Reserved",
-        { actionX + actionBtnW + gap, contentY + (actionBtnH + gap) * 2.0f, actionBtnW, actionBtnH });
+        { actionX, contentY + (actionBtnH + gap) * 2.0f, actionW, actionBtnH });
 
     const float statusRowH = (contentH - gap * 2.0f) / 3.0f;
     const float statusBarW = (statusW - gap) / 2.0f;
@@ -233,8 +230,7 @@ void ButtonMgr::setAvailability(const MovementStruct& movement, const ActionStru
     buttons[8].setEnabled(actions.take);
     buttons[9].setEnabled(actions.use);
     buttons[10].setEnabled(actions.hit);
-    buttons[11].setEnabled(false);
-    buttons[12].setEnabled(true);
+    buttons[11].setEnabled(true);
 }
 
 namespace
@@ -254,7 +250,7 @@ namespace
 int ButtonMgr::findEnabledButtonUnderMouse(Vector2 mousePos) const
 {
     const float clickPadding = 3.0f;
-    const int movementAndActionCount = 12;
+    const int movementAndActionCount = 11;
     for (int i = 0; i < movementAndActionCount; ++i)
     {
         if (buttons[i].isEnabled() &&
@@ -262,9 +258,9 @@ int ButtonMgr::findEnabledButtonUnderMouse(Vector2 mousePos) const
             return i;
     }
 
-    if (buttons[12].isEnabled() &&
-        isPointInClickableBounds(mousePos, buttons[12].getBounds(), clickPadding))
-        return 12;
+    if (buttons[11].isEnabled() &&
+        isPointInClickableBounds(mousePos, buttons[11].getBounds(), clickPadding))
+        return 11;
 
     return -1;
 }
@@ -284,7 +280,7 @@ void ButtonMgr::registerButtonClick(int buttonIndex)
         case 8: takeButtonClicked = true; break;
         case 9: useButtonClicked = true; break;
         case 10: hitButtonClicked = true; break;
-        case 12: inventoryButtonClicked = true; break;
+        case 11: inventoryButtonClicked = true; break;
         default: break;
     }
 }
@@ -301,7 +297,7 @@ void ButtonMgr::updatePressedFlags()
     speakButtonPressed = buttons[7].isEnabled() && buttons[7].getState() == PRESSED;
     hitButtonPressed = buttons[10].isEnabled() && buttons[10].getState() == PRESSED;
     useButtonPressed = buttons[9].isEnabled() && buttons[9].getState() == PRESSED;
-    inventoryButtonPressed = buttons[12].isEnabled() && buttons[12].getState() == PRESSED;
+    inventoryButtonPressed = buttons[11].isEnabled() && buttons[11].getState() == PRESSED;
 }
 
 void ButtonMgr::update()
