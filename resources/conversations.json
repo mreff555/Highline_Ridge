@@ -137,11 +137,38 @@
           {
             "id": "stay_last_night",
             "label": "> Did I stay with you last night?",
-            "response": "Her smile returns for half a heartbeat, then goes still.\n\n\"You stayed,\" she says. \"You always do, until you don't.\" She taps ash into the rail groove with a neat flick of her wrist. \"You asked questions in your sleep. The same ones. Where you are. Who brought you. Whether the fog was weather.\" She holds your gaze without blinking. \"I answered none of them. I am not sure you heard me when you woke either.\"\n\nBelow, the piano stumbles and recovers. The two women at the rail glance back once, decide you are not their business, and return to their gossip.",
-            "status": {
-              "key": "saloon_balcony:stay_last_night",
-              "lucidity": -5
-            }
+            "response": "Her smile returns for half a heartbeat, then goes still.\n\n\"You stayed,\" she says. \"You always do, until you don't.\" She taps ash into the rail groove with a neat flick of her wrist. \"You asked questions in your sleep. The same ones. Where you are. Who brought you. Whether the fog was weather.\" She holds your gaze without blinking. \"I answered none of them. I am not sure you heard me when you woke either.\"",
+            "choices": [
+              {
+                "id": "what_did_you_say",
+                "label": "What did you say?",
+                "response": "She studies you a moment, as though deciding how much truth the room can afford.\n\n\"I told you to stop apologizing to men who weren't in the room,\" she says. \"I told you the fog wasn't weather. I told you Graysmill was still down there whether you believed it or not.\" She exhales smoke toward the balusters. \"You mumbled something about a bench and a name you couldn't finish. Then you went quiet and slept like a man who had finally run out of places to run.\"\n\nThe words settle with uncomfortable clarity. You are not sure whether you remember any of it. You are sure she does.",
+                "status": {
+                  "key": "saloon_balcony:what_did_you_say",
+                  "lucidity": 5,
+                  "resolve": -5
+                }
+              },
+              {
+                "id": "tell_me_now",
+                "label": "If it was that important, you would tell me now.",
+                "response": "Her mouth curves, not quite amusement, not quite warning.\n\n\"Would I?\" she says. \"Perhaps I would, if you were ready to hear it without flinching.\" She leans one shoulder against the stair post, voice dropping beneath the piano. \"You were brought here. Not rescued. Not invited. Brought. Someone wanted you on this ridge while the town below kept its accounts.\" She holds your gaze. \"That is all you get for pressing. The rest you earn, or you drink until you stop asking.\"\n\nBelow, the piano stumbles and recovers. The two women at the rail glance back once, decide you are not their business, and return to their gossip.",
+                "status": {
+                  "key": "saloon_balcony:tell_me_now",
+                  "resolve": 5,
+                  "charisma": 5
+                }
+              },
+              {
+                "id": "dont_care",
+                "label": "I honestly don't care.",
+                "response": "For the first time since you approached, something like respect crosses her face.\n\n\"Good,\" she says. \"Pretending to care is worse than indifference. It makes men reckless in the wrong direction.\" She flicks ash over the rail and watches it fall toward the main floor. \"Stay careless in public and careful in private. That is how you survive a place like this.\"\n\nShe turns back to the room below as though the conversation is closed on her terms, not yours. The choice remains yours anyway.",
+                "status": {
+                  "key": "saloon_balcony:dont_care",
+                  "resolve": 10
+                }
+              }
+            ]
           },
           {
             "id": "ignore_comment",

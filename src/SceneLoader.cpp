@@ -124,6 +124,19 @@ bool parseConversationChoice(const nlohmann::json& choice, ConversationChoiceDef
     if (!parseStatusEffect(choice.value("status", nlohmann::json::object()), out.status))
         return false;
 
+    out.followUpChoices.clear();
+    const nlohmann::json& followUps = choice.value("choices", nlohmann::json::array());
+    if (!followUps.is_array())
+        return false;
+
+    for (const nlohmann::json& followUp : followUps)
+    {
+        ConversationChoiceDef parsed;
+        if (!parseConversationChoice(followUp, parsed))
+            return false;
+        out.followUpChoices.push_back(parsed);
+    }
+
     return !out.id.empty() && !out.label.empty() && !out.response.empty();
 }
 

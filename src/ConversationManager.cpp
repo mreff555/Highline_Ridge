@@ -281,6 +281,17 @@ SpeakResult ConversationManager::resolveChoice(const std::string& choiceId)
 
     const ConversationChoiceDef resolved = *chosen;
 
+    if (!resolved.followUpChoices.empty())
+    {
+        SpeakResult result;
+        result.action = SpeakResult::Action::ShowChoices;
+        result.narrative = resolved.response;
+        result.choices = resolved.followUpChoices;
+        awaitingChoice = true;
+        pendingChoices = resolved.followUpChoices;
+        return result;
+    }
+
     awaitingChoice = false;
     pendingChoices.clear();
     combatAttackAllowed = false;
@@ -310,6 +321,18 @@ SpeakResult ConversationManager::resolveChoiceFromConfig(
         {
             if (choice.id != choiceId)
                 continue;
+
+            if (!choice.followUpChoices.empty())
+            {
+                SpeakResult result;
+                result.action = SpeakResult::Action::ShowChoices;
+                result.narrative = choice.response;
+                result.choices = choice.followUpChoices;
+                awaitingChoice = true;
+                pendingChoices = choice.followUpChoices;
+                activeScriptPhaseId = phase.id;
+                return result;
+            }
 
             awaitingChoice = false;
             pendingChoices.clear();

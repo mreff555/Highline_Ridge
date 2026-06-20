@@ -818,6 +818,21 @@ namespace
             narrativeLayoutDirty = true;
         }
 
+        if (result.action == SpeakResult::Action::ShowChoices)
+        {
+            appendChoiceLinesToNarrative(conversationMgr.getPendingChoices());
+            if (!responseText.empty())
+            {
+                rebuildNarrativeLayout();
+                std::istringstream responseStream(responseText);
+                std::string firstLine;
+                if (std::getline(responseStream, firstLine) && !firstLine.empty())
+                    scrollNarrativeToLine(firstLine, true);
+            }
+            updateActionAvailability();
+            return;
+        }
+
         applyStatusEffects(effects);
 
         if (!responseText.empty())

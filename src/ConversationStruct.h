@@ -32,6 +32,7 @@ struct ConversationChoiceDef
     std::string label;
     std::string response;
     StatusEffect status;
+    std::vector<ConversationChoiceDef> followUpChoices;
 };
 
 struct RandomConversationLine
