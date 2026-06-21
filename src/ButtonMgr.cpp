@@ -206,7 +206,7 @@ void ButtonMgr::drawStatusBar(const char* label, Rectangle bounds, float percent
 
     char percentText[8];
     snprintf(percentText, sizeof(percentText), "%d%%", (int)percent);
-    const float percentFontSize = 16.0f;
+    const float percentFontSize = 20.0f;
     const Vector2 textSize = MeasureTextEx(boldButtonFont, percentText, percentFontSize, 1);
     DrawTextEx(
         boldButtonFont,
