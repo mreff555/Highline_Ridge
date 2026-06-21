@@ -56,7 +56,7 @@ def main() -> None:
                             "For the first time, something like pleasure enters his face.\n\n"
                             "\"I built it myself,\" he says. \"Every beam, every brace, every "
                             "peg. My father ran a mill in Pennsylvania. I learned timber before "
-                            "I learned trade. Came up here in ninety-one when the High Line "
+                            "I learned trade. Came up here in eighty-one when the High Line "
                             "decided it was going to stay, not just camp. There was no proper "
                             "hardware north of Graysmill that would make the climb worth a "
                             "mule's temper, so I opened this room and stocked it for men who "
