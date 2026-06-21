@@ -60,9 +60,9 @@
     "cabin_under_rug": {
       "start": false,
       "image": "resources/images/cabin_under_rug.png",
-      "description": "You kneel on the Persian Heriz rug and work your fingers beneath the dense wool near its center. The pile gives way with a dry whisper. You fold a section of the crimson field back over itself, exposing rough-hewn floorboards that do not match the cabin's careless carpentry. Set flush into the wood is a cellar door, iron straps crossing dark oak, its surface level with the floor as though the room was built to hide what lies below. A brass pull ring sits in a recessed oval, polished by hands that did not want to be seen using it.",
-      "examineDetails": "Up close the door is older than the cabin. The oak planks are iron-bound and sunk so flush with the surrounding boards that sawdust and wax were worked into the seams to disguise the join. The pull ring is brass, oval, and mounted in a shallow well with chamfered edges so it will not catch a heel. Someone filed away the tarnish where fingers would grip. No keyhole. No hasp. Just the ring, waiting. The folded rug still shows its navy medallions and ivory vine-scroll border at the edge of your vision, city luxury laid over mountain timber and a door that was never meant for guests.",
-      "useDetails": "You hook your fingers through the brass ring and lift. The door rises on oiled hinges with a low complaint, as though the mountain itself resents being opened. Cool air breathes up from below, carrying earth and old timber and something faintly metallic. You set the panel aside and look down into darkness that does not reflect the hearth light. Whatever was hidden under the rug is ready to be entered.",
+      "description": "You kneel on the Persian Heriz rug and work your fingers beneath the dense wool near its center. The pile gives way with a dry whisper. You fold a section of the crimson field back over itself, exposing wide oak floorboards and a small square hatch set flush into the wood. Iron straps cross dark oak planks level with the floor, as though the room was built to hide what lies below. A brass pull ring rests in a shallow oval depression carved into the door so it sits nearly flat, polished where careful hands have lifted it before.",
+      "examineDetails": "Up close the hatch is older than the cabin. The oak planks are iron-bound and sunk so flush with the surrounding boards that sawdust and wax were worked into the seams to disguise the join. The pull ring is brass, oval, and set inside a recessed well with chamfered edges so it lies nearly flat against the wood and will not catch a heel. Someone filed away the tarnish in the finger groove. No keyhole. No hasp. Just the ring, waiting in its depression. The folded rug still shows its navy medallions and ivory vine-scroll border at the edge of your vision, city luxury laid over mountain timber and a door that was never meant for guests.",
+      "useDetails": "You slip your fingers under the flush ring and lift. The small hatch rises on oiled hinges with a low complaint, as though the mountain itself resents being opened. Cool air breathes up from below, carrying earth and old timber. Through the square opening you catch the top rungs of a wooden ladder dropping into darkness that does not reflect the hearth light. Whatever was hidden under the rug is ready to be entered.",
       "useExit": "cabin_cellar_open",
       "useRepeatStatus": true,
       "useRequiresExamine": true,
@@ -103,8 +103,8 @@
     "cabin_cellar_open": {
       "start": false,
       "image": "resources/images/cabin_cellar_open.png",
-      "description": "The cellar door stands open at your knees. Rough stairs descend into blackness, their edges worn concave by years of careful foot traffic. The hearth warmth stops at the threshold. Below, the air is cool and still, as though the mountain keeps a second room beneath the first and does not care who finds it.",
-      "examineDetails": "The stairs are cut from the same iron-bound oak as the door, narrower than comfort would suggest, built for a man who already knows where he is going. The lower treads vanish into darkness that your lamp logic cannot penetrate from up here. No railing. No rope. Just worn wood and a draft that pulls downward, patient and old.",
+      "description": "The hatch stands open at your knees, the iron-bound panel swung back where you lifted it from the floor. The rug still lies folded aside in the same crimson fold you made a moment ago. Through the small square opening, the top rungs of a wooden ladder drop into blackness. The hearth warmth stops at the threshold. Below, the air is cool and still, as though the mountain keeps a second room beneath the first and does not care who finds it.",
+      "examineDetails": "The ladder is plain, workman-made, its side rails and top rungs worn smooth by hands that did not need a railing to know where they were going. The opening is barely wide enough for a man to lower himself through. Lower rungs vanish into darkness your lamp logic cannot reach from up here. No rope. No rail. Just old wood and a draft that pulls downward, patient and old.",
       "movement": {
         "forward": true,
         "backward": true,
@@ -134,7 +134,7 @@
     "cabin_cellar_depth": {
       "start": false,
       "image": "resources/images/scene_under_construction.png",
-      "description": "The stairs continue down into stone and silence. Whatever waits at the bottom has not been mapped yet.",
+      "description": "The ladder continues down into stone and silence. Whatever waits at the bottom has not been mapped yet.",
       "examineDetails": "",
       "movement": {
         "forward": false,
