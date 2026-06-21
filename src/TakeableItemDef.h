@@ -14,6 +14,14 @@ struct TakeableItemDef
     std::string examineImagePath;
     std::string examineText;
     bool requiresExamine = true;
+
+    bool hasOverrides() const
+    {
+        return !name.empty()
+            || !iconPath.empty()
+            || !examineImagePath.empty()
+            || !examineText.empty();
+    }
 };
 
 }

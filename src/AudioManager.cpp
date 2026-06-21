@@ -107,6 +107,7 @@ bool AudioManager::ensureDeviceReady()
 void AudioManager::shutdown()
 {
     stopDialog();
+    clearItemExamineAudio();
     unloadMusicTrack(musicTrack);
     unloadAmbientTracks();
 
@@ -906,7 +907,9 @@ void AudioManager::update(float deltaSeconds)
     const bool duckRoomAudio = !dialogQueue.empty()
         && dialogQueueIndex < dialogQueue.size()
         && dialogQueue[dialogQueueIndex].loaded;
-    const float roomAudioDuck = duckRoomAudio ? 0.15f : 1.0f;
+    const float dialogDuck = duckRoomAudio ? 0.15f : 1.0f;
+    const float sceneMix = itemExamineAudioActive ? itemSceneMix : 1.0f;
+    const float roomAudioDuck = dialogDuck * sceneMix;
     if (musicTrack.loaded && musicTrack.playing)
         musicTrack.targetVolume = effectiveVolume(AudioCategory::Music, musicTrack.sourceClipVolume) * roomAudioDuck;
     for (FadingAmbientTrack& track : ambientTracks)
@@ -916,6 +919,7 @@ void AudioManager::update(float deltaSeconds)
     }
 
     updateMusicTrack(musicTrack, deltaSeconds);
+    updateMusicTrack(itemMusicTrack, deltaSeconds);
 
     std::vector<FadingAmbientTrack> remainingAmbient;
     remainingAmbient.reserve(ambientTracks.size());
@@ -930,6 +934,18 @@ void AudioManager::update(float deltaSeconds)
     }
 
     ambientTracks.swap(remainingAmbient);
+
+    std::vector<FadingAmbientTrack> remainingItemAmbient;
+    remainingItemAmbient.reserve(itemAmbientTracks.size());
+    for (FadingAmbientTrack& track : itemAmbientTracks)
+    {
+        updateAmbientTrack(track, deltaSeconds);
+        if (track.loaded && (track.playing || track.fadingIn || track.fadingOut))
+            remainingItemAmbient.push_back(track);
+        else
+            unloadAmbientTrack(track);
+    }
+    itemAmbientTracks.swap(remainingItemAmbient);
 
     if (pendingMusicStart && musicTrack.loaded && !musicTrack.playing && !musicTrack.fadingIn && !musicTrack.fadingOut)
     {
@@ -1129,6 +1145,75 @@ void AudioManager::onRoomEnter(const RoomAudioConfig& roomAudio, const std::stri
 {
     playRoomSfx(roomAudio, "on_enter", fromRoom, "");
     syncRoomStreams(roomAudio);
+}
+
+void AudioManager::applyItemExamineAudio(const ItemAudioOverlayDef& overlay)
+{
+    clearItemExamineAudio();
+
+    if (!overlay.hasMusic && overlay.ambient.empty() && !overlay.muteSceneAudio)
+        return;
+
+    itemExamineAudioActive = true;
+    activeItemAudio = overlay;
+    itemSceneMix = overlay.muteSceneAudio ? 0.0f : std::max(0.0f, overlay.sceneMix);
+
+    if (overlay.hasMusic)
+        startMusicTrack(itemMusicTrack, overlay.music);
+
+    for (const AudioClipDef& clip : overlay.ambient)
+    {
+        if (clip.path.empty() || !ensureDeviceReady())
+            continue;
+
+        FadingAmbientTrack track;
+        Sound sound{};
+        bool usesAlias = false;
+        if (!acquireAmbientSound(clip.path, sound, usesAlias))
+            continue;
+
+        track.sound = sound;
+        track.loaded = true;
+        track.path = clip.path;
+        track.usesCachedAlias = usesAlias;
+        track.sourceClipVolume = clip.volume;
+        track.targetVolume = effectiveVolume(AudioCategory::Ambient, clip.volume);
+        track.fadeInSeconds = std::max(0.0f, clip.fadeIn);
+        track.fadeOutSeconds = std::max(0.0f, clip.fadeOut);
+        track.fadeElapsed = 0.0f;
+        track.fadingIn = track.fadeInSeconds > 0.0f;
+        track.fadingOut = false;
+        track.currentVolume = track.fadingIn ? 0.0f : track.targetVolume;
+        track.loop = clip.loop;
+
+        SetSoundVolume(track.sound, appliedVolume(track.currentVolume));
+        PlaySound(track.sound);
+        track.playing = true;
+        itemAmbientTracks.push_back(track);
+    }
+}
+
+void AudioManager::clearItemExamineAudio()
+{
+    if (itemMusicTrack.loaded)
+    {
+        if (itemMusicTrack.playing)
+            fadeOutMusicTrack(itemMusicTrack, itemMusicTrack.fadeOutSeconds > 0.0f ? itemMusicTrack.fadeOutSeconds : 0.35f);
+        else
+            unloadMusicTrack(itemMusicTrack);
+    }
+
+    for (FadingAmbientTrack& track : itemAmbientTracks)
+    {
+        if (track.playing)
+            fadeOutAmbientTrack(track, track.fadeOutSeconds > 0.0f ? track.fadeOutSeconds : 0.35f);
+        else if (track.loaded)
+            unloadAmbientTrack(track);
+    }
+
+    itemExamineAudioActive = false;
+    activeItemAudio = ItemAudioOverlayDef{};
+    itemSceneMix = 1.0f;
 }
 
 }

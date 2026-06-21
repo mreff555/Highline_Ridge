@@ -1,5 +1,6 @@
 #include "SaveGame.h"
 
+#include <ItemInstance.h>
 #include <TakeableItemDef.h>
 #include <nlohmann/json.hpp>
 #include <map>
@@ -52,6 +53,57 @@ bool ensureParentDirectory(const std::string& path)
     return true;
 }
 
+nlohmann::json itemInstanceToJson(const ItemInstance& instance)
+{
+    nlohmann::json contents = nlohmann::json::array();
+    for (const ItemInstance& child : instance.contents)
+        contents.push_back(itemInstanceToJson(child));
+
+    return {
+        {"instanceId", instance.instanceId},
+        {"defId", instance.defId},
+        {"quantity", instance.quantity},
+        {"usedFraction", instance.usedFraction},
+        {"activeFlags", instance.activeFlags},
+        {"contents", contents}
+    };
+}
+
+void itemInstanceFromJson(const nlohmann::json& entry, ItemInstance& outInstance)
+{
+    outInstance.instanceId = entry.value("instanceId", "");
+    outInstance.defId = entry.value("defId", "");
+    outInstance.quantity = entry.value("quantity", 1);
+    outInstance.usedFraction = entry.value("usedFraction", 0.0f);
+    outInstance.activeFlags.clear();
+
+    const nlohmann::json& flags = entry.value("activeFlags", nlohmann::json::array());
+    if (flags.is_array())
+    {
+        for (const nlohmann::json& flag : flags)
+        {
+            if (flag.is_string())
+                outInstance.activeFlags.push_back(flag.get<std::string>());
+        }
+    }
+
+    outInstance.contents.clear();
+    const nlohmann::json& contents = entry.value("contents", nlohmann::json::array());
+    if (!contents.is_array())
+        return;
+
+    for (const nlohmann::json& child : contents)
+    {
+        if (!child.is_object())
+            continue;
+
+        ItemInstance parsed;
+        itemInstanceFromJson(child, parsed);
+        if (!parsed.defId.empty())
+            outInstance.contents.push_back(parsed);
+    }
+}
+
 nlohmann::json inventoryToJson(const std::vector<InventoryItem>& items)
 {
     nlohmann::json array = nlohmann::json::array();
@@ -65,7 +117,9 @@ nlohmann::json inventoryToJson(const std::vector<InventoryItem>& items)
             {"name", item.name},
             {"iconPath", item.iconPath},
             {"examineImagePath", item.examineImagePath},
-            {"examineText", item.examineText}
+            {"examineText", item.examineText},
+            {"weightLb", item.weightLb},
+            {"instance", itemInstanceToJson(item.instance)}
         });
     }
     return array;
@@ -232,6 +286,17 @@ void inventoryFromJson(const nlohmann::json& array, std::vector<InventoryItem>& 
         item.iconPath = entry.value("iconPath", "");
         item.examineImagePath = entry.value("examineImagePath", "");
         item.examineText = entry.value("examineText", "");
+        item.weightLb = entry.value("weightLb", 0.0f);
+
+        const nlohmann::json& instance = entry.value("instance", nlohmann::json::object());
+        if (instance.is_object() && !instance.empty())
+            itemInstanceFromJson(instance, item.instance);
+        else
+        {
+            item.instance.instanceId = item.id;
+            item.instance.defId = item.id;
+        }
+
         if (!item.id.empty())
             outItems.push_back(item);
     }
@@ -255,7 +320,7 @@ bool writeSaveFile(const std::string& path, const SavedGameState& state)
         return false;
 
     nlohmann::json root;
-    root["version"] = 2;
+    root["version"] = 3;
     root["sceneId"] = state.sceneId;
     root["previousSceneId"] = state.previousSceneId;
     root["narrativeText"] = state.narrativeText;

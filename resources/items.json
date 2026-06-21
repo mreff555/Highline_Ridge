@@ -1,0 +1,67 @@
+{
+  "items": {
+    "wallet": {
+      "name": "Wallet",
+      "description": "The wallet is worked from thick full-grain leather, hand-stitched along the edges with waxed thread the color of strong tea. The dye is uneven in the way of good hides, not factory perfect. A maker's stamp inside the flap is too worn to read. It sits heavy in your palm, the sort of piece a man buys once and carries for years.\n\nYou count what it holds. Twenty dollars in worn notes, nothing more. No credit cards. No identification. The pockets are otherwise empty except for a small slip of paper, tucked deep into a corner seam as though someone meant to forget it and could not quite.",
+      "weightLb": 0.18,
+      "visuals": {
+        "image": "resources/images/wallet_examine.png"
+      },
+      "icons": {
+        "icon": "resources/icons/wallet_icon.png"
+      },
+      "container": {
+        "isContainer": true,
+        "decomposes": false,
+        "contents": [
+          {
+            "itemId": "wallet_slip",
+            "quantity": 1,
+            "hidden": true,
+            "revealFlag": "wallet:slip_found"
+          }
+        ]
+      }
+    },
+    "wallet_slip": {
+      "name": "Slip of Paper",
+      "description": "A small slip of paper, folded until the creases have gone soft. The ink is faded but legible.",
+      "weightLb": 0.01
+    },
+    "lard": {
+      "name": "Lard",
+      "description": "A wide-mouth mason jar packed with smooth, ivory-white rendered lard. The waxed lid is screwed down tight, and a faint waxy scent rises when you tilt it toward the light.",
+      "weightLb": 1.42,
+      "visuals": {
+        "image": "resources/images/lard_examine.png"
+      },
+      "icons": {
+        "icon": "resources/icons/lard_icon.png"
+      }
+    },
+    "lamp_oil": {
+      "name": "Lamp Oil",
+      "description": "A small mason jar, half full of pale golden lamp oil. The glass is wick-yellow at the shoulder where oil has crept up the sides. The cork stopper is stained and fits tight.",
+      "weightLb": 0.64,
+      "icons": {
+        "icon": "resources/icons/lamp_oil_icon.png"
+      }
+    },
+    "hunting_knife": {
+      "name": "Hunting Knife",
+      "description": "A fixed-blade hunting knife in a dark leather sheath scuffed from carry. The wooden handle is smooth where a palm has worn it. When you ease the blade free, the edge catches the bare bulb's light—recently honed, and kept close at hand.",
+      "weightLb": 0.87,
+      "icons": {
+        "icon": "resources/icons/hunting_knife_icon.png"
+      }
+    },
+    "fedora": {
+      "name": "Fedora",
+      "description": "A weathered felt fedora, dark charcoal gone dusty at the brim. The grosgrain ribbon is stained where smoke and rain have worked the same habit. The crown is dented from carry and sleep. It smells faintly of cigarettes and another room.",
+      "weightLb": 0.31,
+      "icons": {
+        "icon": "resources/icons/fedora_icon.png"
+      }
+    }
+  }
+}

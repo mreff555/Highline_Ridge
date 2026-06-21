@@ -3,6 +3,7 @@
 #include <raylib.h>
 #include <sstream>
 #include <algorithm>
+#include <cstdio>
 #include <cstdlib>
 #include <ctime>
 
@@ -91,6 +92,7 @@ namespace
         const LocationStruct& locationStruct,
         Vector2 screenSize,
         SceneDatabase& sceneDatabase,
+        const ItemDatabase& itemDatabase,
         const MilestoneDatabase& milestoneDatabase,
         AudioManager& audioManager,
         GameConfig& gameConfig,
@@ -99,6 +101,7 @@ namespace
     : screenWidth((int)screenSize.x),
       screenHeight((int)screenSize.y),
       sceneDatabase(sceneDatabase),
+      itemDatabase(itemDatabase),
       milestoneMgr(milestoneDatabase),
       audioManager(audioManager),
       gameConfig(gameConfig),
@@ -137,6 +140,7 @@ namespace
         const std::string& assetRoot = sceneDatabase.getAssetRoot();
         const std::string fallbackRoot = (assetRoot == ".") ? ".." : ".";
         inventoryMgr.setAssetRoots(assetRoot, fallbackRoot);
+        inventoryMgr.setItemDatabase(&itemDatabase);
         takeMgr.setAssetRoots(assetRoot, fallbackRoot);
         if (!inventoryMgr.ensureIconAssetsLoaded())
             TraceLog(LOG_WARNING, "Some inventory icons failed to load at startup");
@@ -934,18 +938,66 @@ namespace
         return !getAvailableTakeables().empty();
     }
 
+    InventoryItem Location::buildInventoryItem(
+        const std::string& defId,
+        const ItemDefOverrides& overrides) const
+    {
+        std::vector<std::string> flags(storyFlags.begin(), storyFlags.end());
+        ItemInstance instance = itemDatabase.hasDef(defId)
+            ? itemDatabase.createInstance(defId, flags)
+            : ItemInstance{};
+        if (!itemDatabase.hasDef(defId))
+        {
+            instance.instanceId = defId;
+            instance.defId = defId;
+        }
+
+        return itemDatabase.buildInventoryItem(instance, overrides);
+    }
+
+    void Location::playItemExamineAudio(const InventoryItem& item)
+    {
+        const ItemDef* def = itemDatabase.getDef(item.id);
+        if (def == nullptr)
+            return;
+
+        if (def->examineTts.enabled && gameConfig.tts.enabled)
+        {
+            if (!def->examineTts.audio.empty())
+                audioManager.playDialogAsset(def->examineTts.audio);
+            else
+                TraceLog(LOG_WARNING, "Item %s has examine TTS enabled but no bundled audio", item.id.c_str());
+        }
+
+        if (!def->sfx.examine.empty())
+        {
+            AudioClipDef examineSfx;
+            examineSfx.path = def->sfx.examine;
+            examineSfx.loop = false;
+            audioManager.playSfx(examineSfx);
+        }
+
+        if (def->examineAudio.hasMusic || !def->examineAudio.ambient.empty() || def->examineAudio.muteSceneAudio)
+            audioManager.applyItemExamineAudio(def->examineAudio);
+    }
+
+    void Location::clearItemExamineAudio()
+    {
+        audioManager.clearItemExamineAudio();
+    }
+
     void Location::addTakenItemToInventory(const TakeableItemDef& taken)
     {
         if (inventoryMgr.hasItem(taken.id))
             return;
 
-        InventoryItem item;
-        item.id = taken.id;
-        item.name = taken.name;
-        item.iconPath = taken.iconPath;
-        item.examineImagePath = taken.examineImagePath;
-        item.examineText = taken.examineText;
-        inventoryMgr.addItem(item);
+        ItemDefOverrides overrides;
+        overrides.name = taken.name;
+        overrides.description = taken.examineText;
+        overrides.iconPath = taken.iconPath;
+        overrides.examineImagePath = taken.examineImagePath;
+
+        inventoryMgr.addItem(buildInventoryItem(taken.id, overrides));
     }
 
     void Location::refreshTakeItems()
@@ -1457,13 +1509,13 @@ namespace
         if (!granted.isValid() || inventoryMgr.hasItem(granted.id))
             return;
 
-        InventoryItem item;
-        item.id = granted.id;
-        item.name = granted.name;
-        item.iconPath = granted.iconPath;
-        item.examineImagePath = granted.examineImagePath;
-        item.examineText = granted.examineText;
-        inventoryMgr.addItem(item);
+        ItemDefOverrides overrides;
+        overrides.name = granted.name;
+        overrides.description = granted.examineText;
+        overrides.iconPath = granted.iconPath;
+        overrides.examineImagePath = granted.examineImagePath;
+
+        inventoryMgr.addItem(buildInventoryItem(granted.id, overrides));
         evaluateMilestones();
     }
 
@@ -2428,6 +2480,7 @@ namespace
 
             if (buttonMgr.consumeBackwardButtonClick() && inventoryMgr.isExaminingItem())
             {
+                clearItemExamineAudio();
                 inventoryMgr.returnToItemList();
                 inventoryExamineScrollY = 0.0f;
                 updateActionAvailability();
@@ -2435,6 +2488,9 @@ namespace
             else if (buttonMgr.consumeExamineButtonClick() && inventoryMgr.canExamineSelectedItem())
             {
                 inventoryMgr.examineSelectedItem();
+                const InventoryItem* examinedItem = inventoryMgr.getSelectedItem();
+                if (examinedItem != nullptr)
+                    playItemExamineAudio(*examinedItem);
                 inventoryExamineScrollY = 0.0f;
                 updateActionAvailability();
             }
@@ -2666,6 +2722,21 @@ namespace
             true,
             inventoryExamineScrollY,
             textColor);
+
+        if (item->weightLb > 0.0f)
+        {
+            char weightLine[64];
+            std::snprintf(weightLine, sizeof(weightLine), "Weight: %.2f lb", item->weightLb);
+            contentY += lineHeight * 0.4f;
+            DrawTextEx(
+                descriptionFont,
+                weightLine,
+                { dialog.x + xOffset, clipArea.y + contentY - inventoryExamineScrollY },
+                fontSize * 0.85f,
+                spacing,
+                textColor);
+            contentY += lineHeight;
+        }
 
         inventoryExamineContentHeight = contentY;
         EndScissorMode();

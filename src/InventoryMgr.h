@@ -2,6 +2,7 @@
 #define INVENTORY_MGR_H
 
 #include <InventoryItem.h>
+#include <ItemDatabase.h>
 #include <raylib.h>
 #include <string>
 #include <vector>
@@ -25,6 +26,7 @@ class InventoryMgr
     void setPanelBounds(Rectangle bounds);
     void setFont(Font font);
     void setAssetRoots(const std::string& primaryAssetRoot, const std::string& fallbackAssetRoot);
+    void setItemDatabase(const ItemDatabase* database);
     bool ensureAssetsLoaded();
     bool ensureIconAssetsLoaded();
     void reloadItemIconsIfNeeded();
@@ -91,6 +93,7 @@ class InventoryMgr
     mutable std::vector<Rectangle> itemSlotBounds;
     std::string primaryAssetRoot;
     std::string fallbackAssetRoot;
+    const ItemDatabase* itemDatabase = nullptr;
 
     float inventoryScrollY = 0.0f;
     mutable float inventoryContentHeight = 0.0f;

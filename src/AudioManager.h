@@ -2,6 +2,7 @@
 #define AUDIO_MANAGER_H
 
 #include <AudioTypes.h>
+#include <ItemDef.h>
 #include <GameConfig.h>
 #include <raylib.h>
 #include <map>
@@ -38,6 +39,9 @@ class AudioManager
     bool playDialogAsset(const std::string& relativePath, float volume = 1.0f);
     bool playDialogAssetSequence(const std::vector<std::string>& relativePaths, float volume = 1.0f);
     void stopDialog();
+    void applyItemExamineAudio(const ItemAudioOverlayDef& overlay);
+    void clearItemExamineAudio();
+    bool hasItemExamineAudio() const { return itemExamineAudioActive; }
 
     private:
     struct FadingMusicTrack
@@ -148,6 +152,12 @@ class AudioManager
     float gameplayMix = 1.0f;
     float gameplayMixTarget = 1.0f;
     float gameplayMixFadeRate = 2.0f;
+
+    bool itemExamineAudioActive = false;
+    ItemAudioOverlayDef activeItemAudio;
+    FadingMusicTrack itemMusicTrack;
+    std::vector<FadingAmbientTrack> itemAmbientTracks;
+    float itemSceneMix = 1.0f;
 };
 
 }

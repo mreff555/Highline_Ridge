@@ -1,5 +1,6 @@
 #include <AudioManager.h>
 #include <GameConfig.h>
+#include <ItemDatabase.h>
 #include <Location.h>
 #include <MilestoneDatabase.h>
 #include <SceneLoader.h>
@@ -168,6 +169,13 @@ int main(int argc, char* argv[])
     if (!milestonesLoaded)
         TraceLog(LOG_WARNING, "Failed to load milestones from resources/milestones.json");
 
+    ItemDatabase itemDatabase;
+    const bool itemsLoaded =
+        itemDatabase.load("resources/items.json", ".") ||
+        itemDatabase.load("../resources/items.json", "..");
+    if (!itemsLoaded)
+        TraceLog(LOG_WARNING, "Failed to load items from resources/items.json");
+
     std::string startSceneId;
     LocationStruct locationStruct;
     if (!sceneDatabase.loadStartScene(locationStruct, startSceneId))
@@ -182,6 +190,7 @@ int main(int argc, char* argv[])
         locationStruct,
         screenSize,
         sceneDatabase,
+        itemDatabase,
         milestoneDatabase,
         audioManager,
         gameConfig,

@@ -7,6 +7,7 @@
 #include <MilestoneManager.h>
 #include <GameConfig.h>
 #include <InventoryMgr.h>
+#include <ItemDatabase.h>
 #include <DropConfirmMgr.h>
 #include <PauseMenuMgr.h>
 #include <SaveGame.h>
@@ -51,6 +52,7 @@ class Location
         const LocationStruct& locationStruct,
         Vector2 screenSize,
         SceneDatabase& sceneDatabase,
+        const ItemDatabase& itemDatabase,
         const MilestoneDatabase& milestoneDatabase,
         AudioManager& audioManager,
         GameConfig& gameConfig,
@@ -92,6 +94,11 @@ class Location
     void resolveCombatEncounter(const std::string& encounterId);
     void processSpeakResult(const SpeakResult& result);
     void grantConversationItem(const GrantedInventoryItemDef& granted);
+    InventoryItem buildInventoryItem(
+        const std::string& defId,
+        const ItemDefOverrides& overrides = {}) const;
+    void playItemExamineAudio(const InventoryItem& item);
+    void clearItemExamineAudio();
     void playDialogAudio(const SpeakResult& result);
     void applyStatusEffects(const std::vector<StatusEffect>& effects);
     void handleNarrativeChoiceInput();
@@ -175,6 +182,7 @@ class Location
     int screenHeight;
 
     SceneDatabase& sceneDatabase;
+    const ItemDatabase& itemDatabase;
     MilestoneManager milestoneMgr;
     AudioManager& audioManager;
     GameConfig& gameConfig;

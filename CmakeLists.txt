@@ -25,6 +25,8 @@ set(SOURCES
     src/DropConfirmMgr.cpp
     src/SaveGame.cpp
     src/XaiTtsClient.cpp
+    src/ItemInstance.cpp
+    src/ItemDatabase.cpp
 )
 
 include(FetchContent)

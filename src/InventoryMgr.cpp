@@ -20,25 +20,9 @@ namespace
     const Color kSlotSelected = {62, 52, 34, 255};
     const Color kCloseHover = {210, 178, 108, 255};
 
-    const char* kWalletExamineText =
-        "The wallet is worked from thick full-grain leather, hand-stitched along the edges "
-        "with waxed thread the color of strong tea. The dye is uneven in the way of good hides, "
-        "not factory perfect. A maker's stamp inside the flap is too worn to read. It sits heavy "
-        "in your palm, the sort of piece a man buys once and carries for years.\n\n"
-        "You count what it holds. Twenty dollars in worn notes, nothing more. No credit cards. "
-        "No identification. The pockets are otherwise empty except for a small slip of paper, "
-        "tucked deep into a corner seam as though someone meant to forget it and could not quite.";
-
-    const char* kWalletIconFiles[] = { "icons/wallet_icon.png", "icons/wallet_icon.jpg" };
-    const char* kWalletExamineFiles[] = { "images/wallet_examine.png", "images/wallet_examine.jpg" };
-    const char* kLardIconFiles[] = { "icons/lard_icon.png", "icons/lard_icon.jpg" };
-    const char* kLardExamineFiles[] = { "images/lard_examine.png", "images/lard_examine.jpg" };
-
     bool itemNeedsExamineImage(const InventoryItem& item)
     {
-        return item.id == "wallet"
-            || item.id == "lard"
-            || !item.examineImagePath.empty();
+        return !item.examineImagePath.empty();
     }
 }
 
@@ -47,10 +31,7 @@ const float InventoryMgr::kCloseButtonSize = 28.0f;
 const float InventoryMgr::kItemSlotSize = 76.0f;
 const float InventoryMgr::kItemGap = 12.0f;
 
-InventoryMgr::InventoryMgr()
-{
-    createDefaultItems();
-}
+InventoryMgr::InventoryMgr() = default;
 
 InventoryMgr::~InventoryMgr()
 {
@@ -79,6 +60,13 @@ void InventoryMgr::setAssetRoots(
 {
     primaryAssetRoot = primaryRoot;
     fallbackAssetRoot = fallbackRoot;
+}
+
+void InventoryMgr::setItemDatabase(const ItemDatabase* database)
+{
+    itemDatabase = database;
+    if (items.empty())
+        createDefaultItems();
 }
 
 bool InventoryMgr::isItemIconReady(const InventoryItem& item) const
@@ -116,32 +104,6 @@ bool InventoryMgr::loadItemTexture(const char* filename, Texture2D& outTexture) 
 
 void InventoryMgr::loadItemIcon(InventoryItem& item)
 {
-    if (item.id == "wallet")
-    {
-        for (const char* filename : kWalletIconFiles)
-        {
-            if (loadItemTexture(filename, item.icon))
-            {
-                SetTextureFilter(item.icon, TEXTURE_FILTER_BILINEAR);
-                break;
-            }
-        }
-        return;
-    }
-
-    if (item.id == "lard")
-    {
-        for (const char* filename : kLardIconFiles)
-        {
-            if (loadItemTexture(filename, item.icon))
-            {
-                SetTextureFilter(item.icon, TEXTURE_FILTER_BILINEAR);
-                break;
-            }
-        }
-        return;
-    }
-
     if (item.iconPath.empty())
         return;
 
@@ -156,32 +118,6 @@ void InventoryMgr::loadItemExamineImage(InventoryItem& item)
 {
     if (!itemNeedsExamineImage(item))
         return;
-
-    if (item.id == "wallet")
-    {
-        for (const char* filename : kWalletExamineFiles)
-        {
-            if (loadItemTexture(filename, item.examineImage))
-            {
-                SetTextureFilter(item.examineImage, TEXTURE_FILTER_BILINEAR);
-                break;
-            }
-        }
-        return;
-    }
-
-    if (item.id == "lard")
-    {
-        for (const char* filename : kLardExamineFiles)
-        {
-            if (loadItemTexture(filename, item.examineImage))
-            {
-                SetTextureFilter(item.examineImage, TEXTURE_FILTER_BILINEAR);
-                break;
-            }
-        }
-        return;
-    }
 
     if (item.examineImagePath.empty())
         return;
@@ -271,10 +207,22 @@ bool InventoryMgr::ensureAssetsLoaded()
 
 void InventoryMgr::createDefaultItems()
 {
+    items.clear();
+
+    if (itemDatabase != nullptr && itemDatabase->hasDef("wallet"))
+    {
+        items.push_back(itemDatabase->buildInventoryItem(itemDatabase->createInstance("wallet")));
+        return;
+    }
+
     InventoryItem wallet;
     wallet.id = "wallet";
+    wallet.instance.defId = "wallet";
+    wallet.instance.instanceId = "wallet";
     wallet.name = "Wallet";
-    wallet.examineText = kWalletExamineText;
+    wallet.examineText =
+        "The wallet is worked from thick full-grain leather, hand-stitched along the edges "
+        "with waxed thread the color of strong tea.";
     items.push_back(wallet);
 }
 
@@ -324,12 +272,10 @@ void InventoryMgr::examineSelectedItem()
 
 const InventoryItem* InventoryMgr::findItem(const std::string& id) const
 {
-    for (const InventoryItem& item : items)
-    {
-        if (item.id == id)
-            return &item;
-    }
-    return nullptr;
+    const int itemIndex = findItemIndex(id);
+    if (itemIndex < 0)
+        return nullptr;
+    return &items[(size_t)itemIndex];
 }
 
 int InventoryMgr::findItemIndex(const std::string& id) const
@@ -346,7 +292,7 @@ Rectangle InventoryMgr::getCloseButtonBounds() const
 {
     const float pad = 14.0f;
     return {
-        panelBounds.x + panelBounds.width - pad - kCloseButtonSize,
+        panelBounds.x + panelBounds.width - kCloseButtonSize - pad,
         panelBounds.y + pad,
         kCloseButtonSize,
         kCloseButtonSize
@@ -363,11 +309,8 @@ float InventoryMgr::getInventoryVisibleHeight() const
 void InventoryMgr::handleCloseButtonInput()
 {
     const Rectangle closeBounds = getCloseButtonBounds();
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
-        CheckCollisionPointRec(GetMousePosition(), closeBounds))
-    {
+    if (CheckCollisionPointRec(GetMousePosition(), closeBounds) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
         close();
-    }
 }
 
 void InventoryMgr::handleItemGridInput()
@@ -376,31 +319,17 @@ void InventoryMgr::handleItemGridInput()
         return;
 
     const Vector2 mousePos = GetMousePosition();
-
-    if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
+    for (size_t i = 0; i < items.size() && i < itemSlotBounds.size(); ++i)
     {
-        for (size_t i = 0; i < itemSlotBounds.size(); ++i)
-        {
-            if (i < items.size() && CheckCollisionPointRec(mousePos, itemSlotBounds[i]))
-            {
-                pendingDropItemId = items[i].id;
-                return;
-            }
-        }
-        return;
-    }
+        Rectangle slot = itemSlotBounds[i];
+        slot.y -= inventoryScrollY;
 
-    if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-        return;
+        if (!CheckCollisionPointRec(mousePos, slot) || !IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+            continue;
 
-    for (size_t i = 0; i < itemSlotBounds.size(); ++i)
-    {
-        if (CheckCollisionPointRec(mousePos, itemSlotBounds[i]))
-        {
-            if (i < items.size())
-                selectedItemId = items[i].id;
-            return;
-        }
+        if (i < items.size())
+            selectedItemId = items[i].id;
+        return;
     }
 }
 
@@ -723,6 +652,8 @@ std::vector<InventoryItem> InventoryMgr::exportItemSnapshots() const
         snapshot.iconPath = item.iconPath;
         snapshot.examineImagePath = item.examineImagePath;
         snapshot.examineText = item.examineText;
+        snapshot.weightLb = item.weightLb;
+        snapshot.instance = item.instance;
         snapshots.push_back(snapshot);
     }
 
@@ -751,7 +682,27 @@ void InventoryMgr::restoreFromSnapshots(const std::vector<InventoryItem>& savedI
         if (savedItem.id.empty() || savedItem.id == "wallet")
             continue;
 
-        addItem(savedItem);
+        InventoryItem restored = savedItem;
+        if (itemDatabase != nullptr && itemDatabase->hasDef(savedItem.id))
+        {
+            ItemDefOverrides overrides;
+            overrides.name = savedItem.name;
+            overrides.description = savedItem.examineText;
+            overrides.iconPath = savedItem.iconPath;
+            overrides.examineImagePath = savedItem.examineImagePath;
+
+            ItemInstance instance = savedItem.instance.defId.empty()
+                ? itemDatabase->createInstance(savedItem.id)
+                : savedItem.instance;
+            if (instance.defId.empty())
+                instance.defId = savedItem.id;
+            if (instance.instanceId.empty())
+                instance.instanceId = savedItem.id;
+
+            restored = itemDatabase->buildInventoryItem(instance, overrides);
+        }
+
+        addItem(restored);
     }
 
     ensureIconAssetsLoaded();
