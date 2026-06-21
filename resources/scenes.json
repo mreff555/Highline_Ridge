@@ -518,7 +518,7 @@
         "forward": true,
         "backward": true,
         "left": true,
-        "right": false
+        "right": true
       },
       "actions": {
         "examine": true,
@@ -529,7 +529,8 @@
       "exits": {
         "backward": "mountain_road_trade_row",
         "forward": "mountain_road_forward",
-        "left": "ridge_haberdashery"
+        "left": "ridge_haberdashery",
+        "right": "alpine_hardware"
       },
       "audio": {
         "ambient": [
@@ -555,6 +556,54 @@
       "image": "resources/images/ridge_haberdashery.png",
       "description": "You push through the door and the Ridge Haberdashery closes around you like a well-tailored coat. Warm lamplight, the faint resin of wool and cedar, the civilized hush of a shop that expects better manners than the saloon down the road. A gentleman stands behind a counter that runs nearly the full width of the room, an opening at the left for a customer to pass around. He is dressed the part: vest, crisp collar, tie pinned with care, cuffs brushed clean. He greets you kindly, voice level and professional, though his face betrays the surprise of a man who did not expect someone like you to be a patron in his store.",
       "examineDetails": "You take the measure of the room the way you would a witness statement: what is displayed, what is guarded, what is meant to impress.\n\nThe shopkeeper first. He holds himself with the posture of a man who learned tailoring before he learned commerce. Vest cut close, shirt collar pressed, tie knotted with the same attention he would give a lapel. His hands are clean. His gaze is courteous. And still, when he looks at you, surprise flickers at the edges - not disdain, not fear, simply the reflex of a tradesman who stocks for church Sundays and timber deeds and did not picture you at his counter.\n\nBehind him, cloistered shelves climb the wall in neat ranks. Glass bottles of potions and oils catch the lamplight. Badger brushes, ivory-handled combs, cuff links in small trays, straight razors laid edge-up in felt-lined boxes, strops and soaps and the whole masculine vocabulary of a man who shaves by mirror-light and means to be presentable at altitude. Nothing frivolous. Everything priced for men who still pretend the ridge is civilization.\n\nThe counter itself is long dark wood, scarred only where honest trade has worn it. At the left end, a glass display case holds bow ties and ascots folded with museum patience: silk, satin, grosgrain, patterns sober enough for a funeral and sharp enough for a wedding. At the right corner sits an old brass cash register, ornate and heavy, angled toward the shopkeeper as though the machine and the man share a private understanding.\n\nAlong the left wall, bolts of cloth hang from mounted rolls - fine material in a dozen weights and weaves, wool, worsted, tweed, summer linen pale as chalk. The rolls are fixed to the wall at working height so a customer can examine the drape and the shopkeeper can cut without ceremony. This is not dry goods. This is suit-making stock for men who intend to be taken seriously.\n\nTo the right, a lavish iron clothing rack on casters holds ready-made merchandise: suit jackets on hangers, dress shirts folded and pinned, colors chosen by someone who trusts navy and charcoal more than he trusts fashion. Against the right wall leans a full-length mirror in an elaborately carved walnut frame, the glass clear enough to show a man where his shoulders fail him. Beside it, a small round stool with three walnut legs waits with a cloth measuring tape coiled on the seat, as though someone was measured here recently and the room has not yet reset itself.\n\nThe air smells of wool, cedar, lamp oil, and faint lavender from a drawer you cannot see. Quiet. Orderly. A haberdashery built for men who dress like arguments.",
+      "speakDetails": "",
+      "useDetails": "",
+      "movement": {
+        "forward": false,
+        "backward": true,
+        "left": false,
+        "right": false
+      },
+      "actions": {
+        "examine": true,
+        "speak": true,
+        "hit": false,
+        "use": false
+      },
+      "exits": {
+        "backward": "mountain_road_supply_row"
+      },
+      "audio": {
+        "ambient": [
+          {
+            "path": "resources/audio/ambient/town_ambient.mp3",
+            "volume": 0.18,
+            "fade_in": 2.0,
+            "fade_out": 2.0,
+            "loop": true
+          }
+        ],
+        "sfx": [
+          {
+            "path": "resources/audio/sfx/door_open.mp3",
+            "trigger": "on_enter",
+            "from_room": "mountain_road_supply_row",
+            "volume": 0.85
+          },
+          {
+            "path": "resources/audio/sfx/door_close.mp3",
+            "trigger": "on_exit",
+            "to_room": "mountain_road_supply_row",
+            "volume": 0.85
+          }
+        ]
+      }
+    },
+    "alpine_hardware": {
+      "start": false,
+      "image": "resources/images/alpine_hardware.png",
+      "description": "You step inside Alpine Hardware and Mining Supplies and the room answers with timber, iron, and lamp oil. Post-and-beam construction rises around you with a joiner's precision: braces cut true, pegs seated flush, every bearing face squared as though the building itself were a tool. Kerosene lanterns hang from posts and wall hooks, throwing a steady amber light across merchandise meant for men who work with their hands. A merchant stands behind the counter, tall and broad as an ox, shirt pressed, suspenders straight, beard trimmed with the same seriousness he brings to stock and shelf. He looks up as you enter, professional and unhurried, a man who obviously takes his job seriously.",
+      "examineDetails": "You read the room the way you would a workshop: what is stored, how it is kept, what kind of man tends it.\n\nThe frame first. Post-and-beam timbers, hand-hewn and joined with a craftsman's patience. Cross braces cut to length, pegged mortises tight enough that the structure hums when a boot strikes the floor. This is not frontier slap construction. Someone built this room to stand through snow load and mine blast and the slow contempt of altitude.\n\nLight comes from kerosene lanterns hung on posts and wall hooks, glass chimneys trimmed, wicks recently cut. The air smells of lamp oil, iron, pine shavings, and the faint mineral tang of hardware stock kept dry against ridge damp.\n\nFloor space is honest mercantile clutter. Barrels hold rakes, hoes, and shovels standing handle-up like a stand of pale timber. Along the wall, picks and scythes hang from forged hooks in a row that keeps edge from edge. Hammers, hatchets, draw knives, augers, pry bars, and the other hand tools of 1891 line pegboards with labels written in a clerk's square hand. Rope in coils. Lanterns ready for filling. Mining candles in tins. Lime and blasting caps behind a counter drawer you are not meant to open without asking.\n\nBehind the merchant, open shelves carry the small necessities: nails sorted by penny weight in wooden bins, drill bits in cloth rolls, spools of copper and iron wire, hinges, hasps, stove bolts, and the thousand minor fasteners that keep a settlement from falling apart.\n\nThe counter is thick plank scarred by honest trade. At the right corner sits a brass cash register angled toward the merchant, as though the machine and the man share a private understanding of accounts.\n\nThe merchant himself is the room's other proof of competence. Tall, thick through the chest and arms, clean shirt, practical suspenders, eyes that measure you the way a man measures stock: weight, use, likelihood of return. He is not unfriendly. He is simply serious. This is a store built by someone who expects the ridge to dig, build, and stay.",
       "speakDetails": "",
       "useDetails": "",
       "movement": {

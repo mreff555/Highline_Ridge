@@ -1,13 +1,13 @@
 [
   {
     "id": "browse_mens_cologne",
-    "label": "Men's Cologne - $100",
-    "response": "\"Excellent choice, sir,\" he says. \"That will be one hundred dollars.\"",
+    "label": "Men's Cologne - $4.50",
+    "response": "\"Excellent choice, sir,\" he says. \"That will be four dollars and fifty cents.\"",
     "choices": [
       {
         "id": "buy_mens_cologne",
         "label": "I'll take it.",
-        "requiresMoney": 100,
+        "requiresMoney": 4.5,
         "response": "He wraps the men's cologne with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"",
         "grantItem": {
           "id": "mens_cologne",
@@ -17,7 +17,7 @@
           "examineText": "A heavy glass bottle of men's cologne with a ground stopper and a label printed in restrained copperplate. The scent is cedar, bergamot, and something drier beneath\u2014tobacco leaf, perhaps, or the memory of it. The Ridge Haberdashery wraps its goods as though altitude might bruise them."
         },
         "status": {
-          "money": -100
+          "money": -4.5
         }
       },
       {
@@ -29,13 +29,13 @@
   },
   {
     "id": "browse_straight_razor",
-    "label": "Straight Razor - $150",
-    "response": "\"Excellent choice, sir,\" he says. \"That will be one hundred fifty dollars.\"",
+    "label": "Straight Razor - $12",
+    "response": "\"Excellent choice, sir,\" he says. \"That will be twelve dollars.\"",
     "choices": [
       {
         "id": "buy_straight_razor",
         "label": "I'll take it.",
-        "requiresMoney": 150,
+        "requiresMoney": 12.0,
         "response": "He wraps the straight razor with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"",
         "grantItem": {
           "id": "straight_razor",
@@ -45,7 +45,7 @@
           "examineText": "A straight razor in a fitted leather sheath, the blade hollow-ground and polished to a mirror that shows your face in fragments. The handle is horn, warm from the maker's bench, pinned with a brass tang. The edge is sharp enough to part a hair without complaint."
         },
         "status": {
-          "money": -150
+          "money": -12.0
         }
       },
       {
@@ -57,13 +57,13 @@
   },
   {
     "id": "browse_hair_tonic",
-    "label": "Hair Tonic - $20",
-    "response": "\"Excellent choice, sir,\" he says. \"That will be twenty dollars.\"",
+    "label": "Hair Tonic - $0.75",
+    "response": "\"Excellent choice, sir,\" he says. \"That will be seventy-five cents.\"",
     "choices": [
       {
         "id": "buy_hair_tonic",
         "label": "I'll take it.",
-        "requiresMoney": 20,
+        "requiresMoney": 0.75,
         "response": "He wraps the hair tonic with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"",
         "grantItem": {
           "id": "hair_tonic",
@@ -73,7 +73,7 @@
           "examineText": "A cobalt bottle of hair tonic with a cork sealed in red wax. The label promises restorative virtue in language more medical than honest. The liquid smells of bay rum and barber soap. A man's vanity in a bottle small enough to hide in a coat pocket."
         },
         "status": {
-          "money": -20
+          "money": -0.75
         }
       },
       {
@@ -85,13 +85,13 @@
   },
   {
     "id": "browse_shaving_brush",
-    "label": "Shaving Brush - $40",
-    "response": "\"Excellent choice, sir,\" he says. \"That will be forty dollars.\"",
+    "label": "Shaving Brush - $2.50",
+    "response": "\"Excellent choice, sir,\" he says. \"That will be two dollars and fifty cents.\"",
     "choices": [
       {
         "id": "buy_shaving_brush",
         "label": "I'll take it.",
-        "requiresMoney": 40,
+        "requiresMoney": 2.5,
         "response": "He wraps the shaving brush with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"",
         "grantItem": {
           "id": "shaving_brush",
@@ -101,7 +101,7 @@
           "examineText": "A shaving brush with a turned handle of pale boxwood and a knot of badger hair dense enough to hold a proper lather. The ferrule is nickel silver, stamped with a London maker's mark worn thin at the edge. Used with care, it would last longer than most resolutions on the High Line."
         },
         "status": {
-          "money": -40
+          "money": -2.5
         }
       },
       {
@@ -113,13 +113,13 @@
   },
   {
     "id": "browse_cuff_links",
-    "label": "Cuff Links - $180",
-    "response": "\"Excellent choice, sir,\" he says. \"That will be one hundred eighty dollars.\"",
+    "label": "Cuff Links - $14",
+    "response": "\"Excellent choice, sir,\" he says. \"That will be fourteen dollars.\"",
     "choices": [
       {
         "id": "buy_cuff_links",
         "label": "I'll take it.",
-        "requiresMoney": 180,
+        "requiresMoney": 14.0,
         "response": "He wraps the cuff links with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"",
         "grantItem": {
           "id": "cuff_links",
@@ -129,7 +129,7 @@
           "examineText": "A pair of cuff links in a small velvet tray: onyx faces set in sterling, engine-turned at the border so they catch lamplight without shouting. The posts click shut with the satisfying precision of good mechanism. The sort of detail a man buys when he wants a room to revise its estimate of him."
         },
         "status": {
-          "money": -180
+          "money": -14.0
         }
       },
       {
@@ -141,13 +141,13 @@
   },
   {
     "id": "browse_bow_tie",
-    "label": "Bow Tie - $70",
-    "response": "\"Excellent choice, sir,\" he says. \"That will be seventy dollars.\"",
+    "label": "Bow Tie - $2.75",
+    "response": "\"Excellent choice, sir,\" he says. \"That will be two dollars and seventy-five cents.\"",
     "choices": [
       {
         "id": "buy_bow_tie",
         "label": "I'll take it.",
-        "requiresMoney": 70,
+        "requiresMoney": 2.75,
         "response": "He wraps the bow tie with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"",
         "grantItem": {
           "id": "bow_tie",
@@ -157,7 +157,7 @@
           "examineText": "A bow tie of black silk grosgrain, pre-tied on a band but finished well enough that the deception would pass at a distance. The fabric has a dry hand and a subtle rib that speaks of formal rooms and better lighting than the ridge usually affords."
         },
         "status": {
-          "money": -70
+          "money": -2.75
         }
       },
       {
@@ -169,13 +169,13 @@
   },
   {
     "id": "browse_custom_shirt",
-    "label": "Custom Men's Shirt - $150",
+    "label": "Custom Men's Shirt - $18",
     "response": "\"Excellent, sir. If you have the funds today I can begin taking measurements, and it should be about six weeks' lead time.\" He straightens slightly, pride entering his voice like a pressed crease. \"All of my custom clothes are designed and constructed on Savile Row in London.\"",
     "choices": [
       {
         "id": "buy_custom_shirt",
         "label": "Let's do this",
-        "requiresMoney": 150,
+        "requiresMoney": 18.0,
         "response": "He produces his measuring tape without another word and begins the ritual of numbers and posture, writing each measure as though recording scripture. \"Very good, sir. Six weeks. I will send word when it arrives from London.\"",
         "grantItem": {
           "id": "custom_shirt",
@@ -185,18 +185,18 @@
           "examineText": "A measurement card and fabric swatch pinned to a tailor's ticket for a custom shirt: long-grain cotton, mother-of-pearl buttons, collar cut to your measure. The haberdasher notes a six-week lead time and, with quiet pride, Savile Row construction. The garment itself is not here yet. The promise is."
         },
         "status": {
-          "money": -150
+          "money": -18.0
         }
       },
       {
         "id": "fabric_custom_shirt",
         "label": "I don't have the funds today, just browsing. I do really like that fabric though.",
-        "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric\u2014one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for one dollar.\"",
+        "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric\u2014one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\"",
         "choices": [
           {
             "id": "buy_fabric_from_custom_shirt",
             "label": "I'll take it.",
-            "requiresMoney": 1,
+            "requiresMoney": 0.25,
             "response": "He cuts a small square from the bolt with scissors that barely whisper, folds it into a card, and ties it with twine. \"For consideration, sir.\"",
             "grantItem": {
               "id": "wool_fabric_sample",
@@ -206,7 +206,7 @@
               "examineText": "A small cut of premium long-grain wool, one hundred percent, folded into a card and tied with twine. The hand is dense and cool, the weave tight enough that light passes reluctantly. The haberdasher's note on the card reads simply: for consideration."
             },
             "status": {
-              "money": -1
+              "money": -0.25
             }
           },
           {
@@ -225,13 +225,13 @@
   },
   {
     "id": "browse_custom_trousers",
-    "label": "Custom Men's Trousers - $225",
+    "label": "Custom Men's Trousers - $22",
     "response": "\"Excellent, sir. If you have the funds today I can begin taking measurements, and it should be about six weeks' lead time.\" He straightens slightly, pride entering his voice like a pressed crease. \"All of my custom clothes are designed and constructed on Savile Row in London.\"",
     "choices": [
       {
         "id": "buy_custom_trousers",
         "label": "Let's do this",
-        "requiresMoney": 225,
+        "requiresMoney": 22.0,
         "response": "He produces his measuring tape without another word and begins the ritual of numbers and posture, writing each measure as though recording scripture. \"Very good, sir. Six weeks. I will send word when it arrives from London.\"",
         "grantItem": {
           "id": "custom_trousers",
@@ -241,18 +241,18 @@
           "examineText": "A tailor's order for custom trousers: waist, inseam, and rise recorded in ink that does not smudge. The cloth sample is worsted wool, dark enough for church and boardrooms that do not exist on the High Line but might in Graysmill. Six weeks, the card says. Made on Savile Row in London."
         },
         "status": {
-          "money": -225
+          "money": -22.0
         }
       },
       {
         "id": "fabric_custom_trousers",
         "label": "I don't have the funds today, just browsing. I do really like that fabric though.",
-        "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric\u2014one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for one dollar.\"",
+        "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric\u2014one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\"",
         "choices": [
           {
             "id": "buy_fabric_from_custom_trousers",
             "label": "I'll take it.",
-            "requiresMoney": 1,
+            "requiresMoney": 0.25,
             "response": "He cuts a small square from the bolt with scissors that barely whisper, folds it into a card, and ties it with twine. \"For consideration, sir.\"",
             "grantItem": {
               "id": "wool_fabric_sample",
@@ -262,7 +262,7 @@
               "examineText": "A small cut of premium long-grain wool, one hundred percent, folded into a card and tied with twine. The hand is dense and cool, the weave tight enough that light passes reluctantly. The haberdasher's note on the card reads simply: for consideration."
             },
             "status": {
-              "money": -1
+              "money": -0.25
             }
           },
           {
@@ -281,13 +281,13 @@
   },
   {
     "id": "browse_custom_jacket",
-    "label": "Custom Men's Jacket - $600",
+    "label": "Custom Men's Jacket - $45",
     "response": "\"Excellent, sir. If you have the funds today I can begin taking measurements, and it should be about six weeks' lead time.\" He straightens slightly, pride entering his voice like a pressed crease. \"All of my custom clothes are designed and constructed on Savile Row in London.\"",
     "choices": [
       {
         "id": "buy_custom_jacket",
         "label": "Let's do this",
-        "requiresMoney": 600,
+        "requiresMoney": 45.0,
         "response": "He produces his measuring tape without another word and begins the ritual of numbers and posture, writing each measure as though recording scripture. \"Very good, sir. Six weeks. I will send word when it arrives from London.\"",
         "grantItem": {
           "id": "custom_jacket",
@@ -297,18 +297,18 @@
           "examineText": "A commission card for a custom jacket: shoulder width, chest, and lapel style noted with the care of a man who believes fit is morality. The fabric sample is long-grain wool in charcoal, substantial enough to hold a ridge wind at bay. Six weeks' lead. Designed and constructed on Savile Row in London, as though the address itself were a kind of guarantee."
         },
         "status": {
-          "money": -600
+          "money": -45.0
         }
       },
       {
         "id": "fabric_custom_jacket",
         "label": "I don't have the funds today, just browsing. I do really like that fabric though.",
-        "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric\u2014one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for one dollar.\"",
+        "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric\u2014one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\"",
         "choices": [
           {
             "id": "buy_fabric_from_custom_jacket",
             "label": "I'll take it.",
-            "requiresMoney": 1,
+            "requiresMoney": 0.25,
             "response": "He cuts a small square from the bolt with scissors that barely whisper, folds it into a card, and ties it with twine. \"For consideration, sir.\"",
             "grantItem": {
               "id": "wool_fabric_sample",
@@ -318,7 +318,7 @@
               "examineText": "A small cut of premium long-grain wool, one hundred percent, folded into a card and tied with twine. The hand is dense and cool, the weave tight enough that light passes reluctantly. The haberdasher's note on the card reads simply: for consideration."
             },
             "status": {
-              "money": -1
+              "money": -0.25
             }
           },
           {
@@ -337,13 +337,13 @@
   },
   {
     "id": "browse_mens_pea_coat",
-    "label": "Men's Pea Coat - $500",
-    "response": "\"Excellent choice, sir,\" he says. \"That will be five hundred dollars.\"",
+    "label": "Men's Pea Coat - $32",
+    "response": "\"Excellent choice, sir,\" he says. \"That will be thirty-two dollars.\"",
     "choices": [
       {
         "id": "buy_mens_pea_coat",
         "label": "I'll take it.",
-        "requiresMoney": 500,
+        "requiresMoney": 32.0,
         "response": "He wraps the men's pea coat with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"",
         "grantItem": {
           "id": "mens_pea_coat",
@@ -353,7 +353,7 @@
           "examineText": "A men's pea coat of heavy navy melton wool, double-breasted with anchor buttons and a collar that can be turned against wind that has never learned manners. The lining is quilted. The shoulders are broad. It smells of new cloth and cold air, as though it has been waiting for a ship that docks at altitude."
         },
         "status": {
-          "money": -500
+          "money": -32.0
         }
       },
       {
@@ -365,13 +365,13 @@
   },
   {
     "id": "browse_mens_duster",
-    "label": "Men's Duster - $700",
-    "response": "\"Excellent choice, sir,\" he says. \"That will be seven hundred dollars.\"",
+    "label": "Men's Duster - $24",
+    "response": "\"Excellent choice, sir,\" he says. \"That will be twenty-four dollars.\"",
     "choices": [
       {
         "id": "buy_mens_duster",
         "label": "I'll take it.",
-        "requiresMoney": 700,
+        "requiresMoney": 24.0,
         "response": "He wraps the men's duster with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"",
         "grantItem": {
           "id": "mens_duster",
@@ -381,7 +381,7 @@
           "examineText": "A full-length men's duster in oiled canvas the color of winter road dust, with a split back for riding and pockets deep enough to lose a man's intentions. The metal buttons are darkened against tarnish. It is less garment than declaration: a man who expects distance, weather, and the kind of work that keeps his hands dirty."
         },
         "status": {
-          "money": -700
+          "money": -24.0
         }
       },
       {

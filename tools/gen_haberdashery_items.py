@@ -4,15 +4,18 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+from shop_utils import catalog_choices  # noqa: E402
 
 ITEMS = [
     {
         "id": "mens_cologne",
         "name": "Men's Cologne",
-        "price": 100,
+        "price": 4.50,
         "weightLb": 0.42,
         "icon": "mens_cologne_icon.png",
         "examine": "mens_cologne_examine.png",
@@ -27,7 +30,7 @@ ITEMS = [
     {
         "id": "straight_razor",
         "name": "Straight Razor",
-        "price": 150,
+        "price": 12.00,
         "weightLb": 0.22,
         "icon": "straight_razor_icon.png",
         "examine": "straight_razor_examine.png",
@@ -42,7 +45,7 @@ ITEMS = [
     {
         "id": "hair_tonic",
         "name": "Hair Tonic",
-        "price": 20,
+        "price": 0.75,
         "weightLb": 0.28,
         "icon": "hair_tonic_icon.png",
         "examine": "hair_tonic_examine.png",
@@ -57,7 +60,7 @@ ITEMS = [
     {
         "id": "shaving_brush",
         "name": "Shaving Brush",
-        "price": 40,
+        "price": 2.50,
         "weightLb": 0.14,
         "icon": "shaving_brush_icon.png",
         "examine": "shaving_brush_examine.png",
@@ -72,7 +75,7 @@ ITEMS = [
     {
         "id": "cuff_links",
         "name": "Cuff Links",
-        "price": 180,
+        "price": 14.00,
         "weightLb": 0.08,
         "icon": "cuff_links_icon.png",
         "examine": "cuff_links_examine.png",
@@ -87,7 +90,7 @@ ITEMS = [
     {
         "id": "bow_tie",
         "name": "Bow Tie",
-        "price": 70,
+        "price": 2.75,
         "weightLb": 0.05,
         "icon": "bow_tie_icon.png",
         "examine": "bow_tie_examine.png",
@@ -102,7 +105,7 @@ ITEMS = [
     {
         "id": "custom_shirt",
         "name": "Custom Men's Shirt",
-        "price": 150,
+        "price": 18.00,
         "weightLb": 0.55,
         "icon": "custom_shirt_icon.png",
         "examine": "custom_shirt_examine.png",
@@ -117,7 +120,7 @@ ITEMS = [
     {
         "id": "custom_trousers",
         "name": "Custom Men's Trousers",
-        "price": 225,
+        "price": 22.00,
         "weightLb": 0.72,
         "icon": "custom_trousers_icon.png",
         "examine": "custom_trousers_examine.png",
@@ -132,7 +135,7 @@ ITEMS = [
     {
         "id": "custom_jacket",
         "name": "Custom Men's Jacket",
-        "price": 600,
+        "price": 45.00,
         "weightLb": 1.35,
         "icon": "custom_jacket_icon.png",
         "examine": "custom_jacket_examine.png",
@@ -148,7 +151,7 @@ ITEMS = [
     {
         "id": "mens_pea_coat",
         "name": "Men's Pea Coat",
-        "price": 500,
+        "price": 32.00,
         "weightLb": 2.8,
         "icon": "mens_pea_coat_icon.png",
         "examine": "mens_pea_coat_examine.png",
@@ -163,7 +166,7 @@ ITEMS = [
     {
         "id": "mens_duster",
         "name": "Men's Duster",
-        "price": 700,
+        "price": 24.00,
         "weightLb": 3.1,
         "icon": "mens_duster_icon.png",
         "examine": "mens_duster_examine.png",
@@ -179,7 +182,7 @@ ITEMS = [
     {
         "id": "wool_fabric_sample",
         "name": "Wool Fabric Sample",
-        "price": 1,
+        "price": 0.25,
         "weightLb": 0.02,
         "icon": "wool_fabric_sample_icon.png",
         "examine": "wool_fabric_sample_examine.png",
@@ -193,158 +196,8 @@ ITEMS = [
     },
 ]
 
-
-def price_words(amount: int) -> str:
-    mapping = {
-        1: "one dollar",
-        20: "twenty dollars",
-        40: "forty dollars",
-        70: "seventy dollars",
-        100: "one hundred dollars",
-        150: "one hundred fifty dollars",
-        180: "one hundred eighty dollars",
-        225: "two hundred twenty-five dollars",
-        500: "five hundred dollars",
-        600: "six hundred dollars",
-        700: "seven hundred dollars",
-    }
-    return mapping.get(amount, f"{amount} dollars")
-
-
-def grant_item(item: dict) -> dict:
-    return {
-        "id": item["id"],
-        "name": item["name"],
-        "icon": f"resources/icons/{item['icon']}",
-        "examineImage": f"resources/images/{item['examine']}",
-        "examineText": item["description"],
-    }
-
-
-def standard_purchase_choice(item: dict) -> dict:
-    price = item["price"]
-    return {
-        "id": f"browse_{item['id']}",
-        "label": f"{item['name']} - ${price}",
-        "response": (
-            f"\"Excellent choice, sir,\" he says. \"That will be {price_words(price)}.\""
-        ),
-        "choices": [
-            {
-                "id": f"buy_{item['id']}",
-                "label": "I'll take it.",
-                "requiresMoney": price,
-                "response": (
-                    f"He wraps the {item['name'].lower()} with the care of a man who believes "
-                    "presentation is part of the purchase. \"A pleasure doing business with you, sir.\""
-                ),
-                "grantItem": grant_item(item),
-                "status": {"money": -price},
-            },
-            {
-                "id": f"decline_{item['id']}",
-                "label": "Thanks, maybe next time.",
-                "response": (
-                    "\"Of course, sir,\" he says with a courteous nod. "
-                    "\"The goods will be here when you return.\""
-                ),
-            },
-        ],
-    }
-
-
-def custom_purchase_choice(item: dict) -> dict:
-    price = item["price"]
-    return {
-        "id": f"browse_{item['id']}",
-        "label": f"{item['name']} - ${price}",
-        "response": (
-            "\"Excellent, sir. If you have the funds today I can begin taking measurements, "
-            "and it should be about six weeks' lead time.\" He straightens slightly, pride "
-            "entering his voice like a pressed crease. \"All of my custom clothes are designed "
-            "and constructed on Savile Row in London.\""
-        ),
-        "choices": [
-            {
-                "id": f"buy_{item['id']}",
-                "label": "Let's do this",
-                "requiresMoney": price,
-                "response": (
-                    "He produces his measuring tape without another word and begins the ritual "
-                    "of numbers and posture, writing each measure as though recording scripture. "
-                    "\"Very good, sir. Six weeks. I will send word when it arrives from London.\""
-                ),
-                "grantItem": grant_item(item),
-                "status": {"money": -price},
-            },
-            {
-                "id": f"fabric_{item['id']}",
-                "label": (
-                    "I don't have the funds today, just browsing. "
-                    "I do really like that fabric though."
-                ),
-                "response": (
-                    "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n"
-                    "\"Yes, this is my more premium fabric—one hundred percent long-grain wool. "
-                    "If you would like to consider it, I can get you a sample for one dollar.\""
-                ),
-                "choices": [
-                    {
-                        "id": f"buy_fabric_from_{item['id']}",
-                        "label": "I'll take it.",
-                        "requiresMoney": 1,
-                        "response": (
-                            "He cuts a small square from the bolt with scissors that barely "
-                            "whisper, folds it into a card, and ties it with twine. "
-                            "\"For consideration, sir.\""
-                        ),
-                        "grantItem": grant_item(
-                            next(i for i in ITEMS if i["id"] == "wool_fabric_sample")
-                        ),
-                        "status": {"money": -1},
-                    },
-                    {
-                        "id": f"decline_fabric_from_{item['id']}",
-                        "label": "Thanks, maybe next time.",
-                        "response": (
-                            "\"No trouble at all, sir,\" he says. "
-                            "\"The cloth isn't going anywhere.\""
-                        ),
-                    },
-                ],
-            },
-            {
-                "id": f"decline_{item['id']}",
-                "label": "Thanks, maybe next time.",
-                "response": (
-                    "\"Of course, sir,\" he says. "
-                    "\"Custom work requires patience on both sides.\""
-                ),
-            },
-        ],
-    }
-
-
-def catalog_choices() -> list[dict]:
-    choices = []
-    for item in ITEMS:
-        if item["id"] == "wool_fabric_sample":
-            continue
-        if item["custom"]:
-            choices.append(custom_purchase_choice(item))
-        else:
-            choices.append(standard_purchase_choice(item))
-    choices.append(
-        {
-            "id": "catalog_done",
-            "label": "Thanks, just browsing.",
-            "response": (
-                "\"Very well, sir,\" he says pleasantly. "
-                "\"Take your time with the room. I am here if you change your mind.\""
-            ),
-        }
-    )
-    return choices
+SAMPLE_ITEM = next(item for item in ITEMS if item["id"] == "wool_fabric_sample")
+CATALOG_ITEMS = [item for item in ITEMS if item["id"] != "wool_fabric_sample"]
 
 
 def main() -> None:
@@ -360,7 +213,11 @@ def main() -> None:
         }
     items_path.write_text(json.dumps(data, indent=2) + "\n")
 
-    catalog = catalog_choices()
+    catalog = catalog_choices(
+        CATALOG_ITEMS,
+        merchant_tone="haberdasher",
+        sample_item=SAMPLE_ITEM,
+    )
     out = ROOT / "tools" / "haberdashery_catalog.json"
     out.write_text(json.dumps(catalog, indent=2) + "\n")
     print(f"Wrote {len(ITEMS)} items and {len(catalog)} catalog choices")

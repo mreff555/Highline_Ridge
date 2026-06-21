@@ -1,0 +1,231 @@
+[
+  {
+    "id": "browse_mining_pick",
+    "label": "Mining Pick - $4.50",
+    "response": "\"Solid choice,\" he says. \"That'll be four dollars and fifty cents.\"",
+    "choices": [
+      {
+        "id": "buy_mining_pick",
+        "label": "I'll take it.",
+        "requiresMoney": 4.5,
+        "response": "He sets the mining pick on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"",
+        "grantItem": {
+          "id": "mining_pick",
+          "name": "Mining Pick",
+          "icon": "resources/icons/mining_pick_icon.png",
+          "examineImage": "resources/images/mining_pick_examine.png",
+          "examineText": "A prospector's pick with a hickory handle darkened by pitch and honest sweat. The head is forged steel, double-bit, with an edge that has been dressed recently on a wheel. Weighted for mountain ground: quartz, shale, and the stubborn ribs of ore that men chase above the timberline."
+        },
+        "status": {
+          "money": -4.5
+        }
+      },
+      {
+        "id": "decline_mining_pick",
+        "label": "Thanks, maybe next time.",
+        "response": "\"No trouble,\" he says. \"Stock's not going anywhere.\""
+      }
+    ]
+  },
+  {
+    "id": "browse_shovel",
+    "label": "Shovel - $1.75",
+    "response": "\"Solid choice,\" he says. \"That'll be one dollar and seventy-five cents.\"",
+    "choices": [
+      {
+        "id": "buy_shovel",
+        "label": "I'll take it.",
+        "requiresMoney": 1.75,
+        "response": "He sets the shovel on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"",
+        "grantItem": {
+          "id": "shovel",
+          "name": "Shovel",
+          "icon": "resources/icons/shovel_icon.png",
+          "examineImage": "resources/images/shovel_examine.png",
+          "examineText": "A round-point shovel with a long ash handle and a steel blade rolled at the edge. The socket is riveted true, the grip worn smooth where working hands have found the balance. Built for snow, gravel, and the endless digging that altitude demands."
+        },
+        "status": {
+          "money": -1.75
+        }
+      },
+      {
+        "id": "decline_shovel",
+        "label": "Thanks, maybe next time.",
+        "response": "\"No trouble,\" he says. \"Stock's not going anywhere.\""
+      }
+    ]
+  },
+  {
+    "id": "browse_garden_rake",
+    "label": "Garden Rake - $1.25",
+    "response": "\"Solid choice,\" he says. \"That'll be one dollar and twenty-five cents.\"",
+    "choices": [
+      {
+        "id": "buy_garden_rake",
+        "label": "I'll take it.",
+        "requiresMoney": 1.25,
+        "response": "He sets the garden rake on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"",
+        "grantItem": {
+          "id": "garden_rake",
+          "name": "Garden Rake",
+          "icon": "resources/icons/garden_rake_icon.png",
+          "examineImage": "resources/images/garden_rake_examine.png",
+          "examineText": "A bow rake with sixteen forged tines and a handle cut from straight-grained ash. The head is pinned, not merely nailed, the way tools were made when men expected to keep them through more than one hard season."
+        },
+        "status": {
+          "money": -1.25
+        }
+      },
+      {
+        "id": "decline_garden_rake",
+        "label": "Thanks, maybe next time.",
+        "response": "\"No trouble,\" he says. \"Stock's not going anywhere.\""
+      }
+    ]
+  },
+  {
+    "id": "browse_hand_drill",
+    "label": "Hand Drill - $2.50",
+    "response": "\"Solid choice,\" he says. \"That'll be two dollars and fifty cents.\"",
+    "choices": [
+      {
+        "id": "buy_hand_drill",
+        "label": "I'll take it.",
+        "requiresMoney": 2.5,
+        "response": "He sets the hand drill on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"",
+        "grantItem": {
+          "id": "hand_drill",
+          "name": "Hand Drill",
+          "icon": "resources/icons/hand_drill_icon.png",
+          "examineImage": "resources/images/hand_drill_examine.png",
+          "examineText": "A carpenter's brace-and-bit hand drill in beech and steel, the chuck tight, the crank worn bright at the palm. Three interchangeable bits ride in a cloth wrap: steel made for timber, cabinet work, and the small precise holes hardware men trust more than luck."
+        },
+        "status": {
+          "money": -2.5
+        }
+      },
+      {
+        "id": "decline_hand_drill",
+        "label": "Thanks, maybe next time.",
+        "response": "\"No trouble,\" he says. \"Stock's not going anywhere.\""
+      }
+    ]
+  },
+  {
+    "id": "browse_blacksmith_hammer",
+    "label": "Blacksmith's Hammer - $2",
+    "response": "\"Solid choice,\" he says. \"That'll be two dollars.\"",
+    "choices": [
+      {
+        "id": "buy_blacksmith_hammer",
+        "label": "I'll take it.",
+        "requiresMoney": 2.0,
+        "response": "He sets the blacksmith's hammer on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"",
+        "grantItem": {
+          "id": "blacksmith_hammer",
+          "name": "Blacksmith's Hammer",
+          "icon": "resources/icons/blacksmith_hammer_icon.png",
+          "examineImage": "resources/images/blacksmith_hammer_examine.png",
+          "examineText": "A cross-peen blacksmith's hammer with a hickory handle shaped to the swing. The head carries the honest scars of work, peened and polished where countless blows have landed true. Not a wall decoration. A tool meant to move hot iron."
+        },
+        "status": {
+          "money": -2.0
+        }
+      },
+      {
+        "id": "decline_blacksmith_hammer",
+        "label": "Thanks, maybe next time.",
+        "response": "\"No trouble,\" he says. \"Stock's not going anywhere.\""
+      }
+    ]
+  },
+  {
+    "id": "browse_mid_anvil",
+    "label": "Mid-Sized Anvil - $28",
+    "response": "\"Solid choice,\" he says. \"That'll be twenty-eight dollars.\"",
+    "choices": [
+      {
+        "id": "buy_mid_anvil",
+        "label": "I'll take it.",
+        "requiresMoney": 28.0,
+        "response": "He sets the mid-sized anvil on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"",
+        "grantItem": {
+          "id": "mid_anvil",
+          "name": "Mid-Sized Anvil",
+          "icon": "resources/icons/mid_anvil_icon.png",
+          "examineImage": "resources/images/mid_anvil_examine.png",
+          "examineText": "A mid-sized cast-steel anvil, roughly eighty pounds, with a clean face, hard horn, and a hardy hole dark from use. The waist is stamped with a Pittsburgh maker's mark. It rings when you tap it, a bright note that says the steel was tempered by someone who understood the trade."
+        },
+        "status": {
+          "money": -28.0
+        }
+      },
+      {
+        "id": "decline_mid_anvil",
+        "label": "Thanks, maybe next time.",
+        "response": "\"No trouble,\" he says. \"Stock's not going anywhere.\""
+      }
+    ]
+  },
+  {
+    "id": "browse_box_of_nails",
+    "label": "Box of Nails - $0.45",
+    "response": "\"Solid choice,\" he says. \"That'll be forty-five cents.\"",
+    "choices": [
+      {
+        "id": "buy_box_of_nails",
+        "label": "I'll take it.",
+        "requiresMoney": 0.45,
+        "response": "He sets the box of nails on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"",
+        "grantItem": {
+          "id": "box_of_nails",
+          "name": "Box of Nails",
+          "icon": "resources/icons/box_of_nails_icon.png",
+          "examineImage": "resources/images/box_of_nails_examine.png",
+          "examineText": "A pine box of cut common nails, four-penny weight, the heads slightly proud, the points sharp enough to bite on first strike. The lid is chalk-marked with the count and the date received. The small arithmetic of every cabin, fence, and mine brace on the ridge."
+        },
+        "status": {
+          "money": -0.45
+        }
+      },
+      {
+        "id": "decline_box_of_nails",
+        "label": "Thanks, maybe next time.",
+        "response": "\"No trouble,\" he says. \"Stock's not going anywhere.\""
+      }
+    ]
+  },
+  {
+    "id": "browse_copper_wire_spool",
+    "label": "Spool of Copper Wire - $1.60",
+    "response": "\"Solid choice,\" he says. \"That'll be one dollar and sixty cents.\"",
+    "choices": [
+      {
+        "id": "buy_copper_wire_spool",
+        "label": "I'll take it.",
+        "requiresMoney": 1.6,
+        "response": "He sets the spool of copper wire on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"",
+        "grantItem": {
+          "id": "copper_wire_spool",
+          "name": "Spool of Copper Wire",
+          "icon": "resources/icons/copper_wire_spool_icon.png",
+          "examineImage": "resources/images/copper_wire_spool_examine.png",
+          "examineText": "A spool of bare copper wire, twelve-gauge, wound tight on a turned wooden core. The metal has the warm rose color of new copper and the faint oily sheen of stock kept dry against mountain damp. Useful for repairs, grounding lanterns, and the small improvisations men make when the valley is too far below."
+        },
+        "status": {
+          "money": -1.6
+        }
+      },
+      {
+        "id": "decline_copper_wire_spool",
+        "label": "Thanks, maybe next time.",
+        "response": "\"No trouble,\" he says. \"Stock's not going anywhere.\""
+      }
+    ]
+  },
+  {
+    "id": "catalog_done",
+    "label": "Thanks, just browsing.",
+    "response": "\"Suit yourself,\" he says, not unkindly. \"Walk the aisles. Holler if you need a hand.\""
+  }
+]
