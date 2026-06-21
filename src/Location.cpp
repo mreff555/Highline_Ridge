@@ -966,6 +966,11 @@ namespace
                 addTakenItemToInventory(taken);
             }
             refreshTakeItems();
+            if (takeMgr.isEmpty())
+            {
+                takeMgr.close();
+                updateInventoryLayout();
+            }
             updateActionAvailability();
             return;
         }
@@ -985,6 +990,11 @@ namespace
 
         addTakenItemToInventory(taken);
         refreshTakeItems();
+        if (takeMgr.isEmpty())
+        {
+            takeMgr.close();
+            updateInventoryLayout();
+        }
         updateActionAvailability();
     }
 
