@@ -84,3 +84,7 @@ def main() -> None:
 
     conversations_path.write_text(json.dumps(data, indent=2) + "\n")
     print("Updated alpine_hardware conversation")
+
+
+if __name__ == "__main__":
+    main()
