@@ -17,6 +17,7 @@ set(SOURCES
     src/MilestoneManager.cpp
     src/InventoryMgr.cpp
     src/TakeMgr.cpp
+    src/InteractionMgr.cpp
     src/ImageCompression.cpp
     src/GameConfig.cpp
     src/AudioManager.cpp

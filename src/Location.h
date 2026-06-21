@@ -13,6 +13,8 @@
 #include <SaveGame.h>
 #include <TakeMgr.h>
 #include <TakeableItemDef.h>
+#include <InteractionMgr.h>
+#include <SceneInteractionDef.h>
 
 #include <LocationStruct.h>
 #include <ButtonMgr.h>
@@ -130,8 +132,15 @@ class Location
     void handleInventoryExamineScrollInput();
     void updateInventoryLayout();
     void refreshTakeItems();
+    void refreshInteractions();
     void addTakenItemToInventory(const TakeableItemDef& taken);
     void processPendingTakes();
+    void processPendingInteractions();
+    void applyInteraction(const SceneInteractionDef& interaction);
+    void applyDirectUse();
+    void transitionToScene(const std::string& sceneId);
+    std::vector<SceneInteractionDef> getAvailableInteractions() const;
+    std::string interactionKey(const std::string& interactionId) const;
     void handleInventoryDropInput();
     void dropInventoryItem(const std::string& itemId);
     TakeableItemDef takeableFromInventory(const InventoryItem& item) const;
@@ -207,6 +216,8 @@ class Location
     float useHealthDelta = 0.0f;
     float useEnergyDelta = 0.0f;
     bool useRepeatStatus = false;
+    bool useRequiresExamine = true;
+    std::string useExit;
     Font descriptionFont;
     Font boldFont;
     ActionStruct baseActionFilter;
@@ -255,7 +266,9 @@ class Location
     ButtonMgr buttonMgr;
     InventoryMgr inventoryMgr;
     TakeMgr takeMgr;
+    InteractionMgr interactionMgr;
     std::set<std::string> takenItemKeys;
+    std::set<std::string> usedInteractionKeys;
     std::map<std::string, std::vector<TakeableItemDef>> droppedItemsByScene;
 
     float narrativeScrollY = 0.0f;

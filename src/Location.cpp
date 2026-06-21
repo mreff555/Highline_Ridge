@@ -123,6 +123,8 @@ namespace
       useHealthDelta(locationStruct.useHealthDelta),
       useEnergyDelta(locationStruct.useEnergyDelta),
       useRepeatStatus(locationStruct.useRepeatStatus),
+      useRequiresExamine(locationStruct.useRequiresExamine),
+      useExit(locationStruct.useExit),
       descriptionFont(locationStruct.descriptionFont),
       boldFont(locationStruct.boldFont),
       baseActionFilter(locationStruct.actionFilter),
@@ -139,6 +141,7 @@ namespace
     {
         inventoryMgr.setFont(locationStruct.uiFont);
         takeMgr.setFont(locationStruct.uiFont);
+        interactionMgr.setFont(locationStruct.uiFont);
         const std::string& assetRoot = sceneDatabase.getAssetRoot();
         const std::string fallbackRoot = (assetRoot == ".") ? ".." : ".";
         inventoryMgr.setAssetRoots(assetRoot, fallbackRoot);
@@ -496,7 +499,7 @@ namespace
     {
         if (pauseMenu.isOpen() || dropConfirmMgr.isOpen())
             return false;
-        if (takeMgr.isOpen())
+        if (takeMgr.isOpen() || interactionMgr.isOpen())
             return false;
         if (inventoryMgr.isOpen() && inventoryMgr.isExaminingItem())
             return false;
@@ -788,7 +791,7 @@ namespace
 
     bool Location::isSidePanelOpen() const
     {
-        return inventoryMgr.isOpen() || takeMgr.isOpen();
+        return inventoryMgr.isOpen() || takeMgr.isOpen() || interactionMgr.isOpen();
     }
 
     std::string Location::takenItemKey(const std::string& itemId) const
@@ -1095,13 +1098,15 @@ namespace
 
     void Location::updateInventoryLayout()
     {
-        if (inventoryMgr.isOpen() || takeMgr.isOpen())
+        if (inventoryMgr.isOpen() || takeMgr.isOpen() || interactionMgr.isOpen())
         {
             const Rectangle panelBounds = getInventoryPanelBounds();
             if (inventoryMgr.isOpen())
                 inventoryMgr.setPanelBounds(panelBounds);
             if (takeMgr.isOpen())
                 takeMgr.setPanelBounds(panelBounds);
+            if (interactionMgr.isOpen())
+                interactionMgr.setPanelBounds(panelBounds);
         }
     }
 
@@ -1171,9 +1176,43 @@ namespace
         return examinedSceneIds.count(sceneId) > 0;
     }
 
+    std::string Location::interactionKey(const std::string& interactionId) const
+    {
+        return currentSceneId + ":" + interactionId;
+    }
+
+    std::vector<SceneInteractionDef> Location::getAvailableInteractions() const
+    {
+        std::vector<SceneInteractionDef> available;
+        const std::vector<SceneInteractionDef>& interactions =
+            sceneDatabase.getInteractions(currentSceneId);
+
+        for (const SceneInteractionDef& interaction : interactions)
+        {
+            if (interaction.requiresExamine && !hasExaminedScene(currentSceneId))
+                continue;
+
+            if (!interaction.repeat &&
+                usedInteractionKeys.count(interactionKey(interaction.id)) > 0)
+            {
+                continue;
+            }
+
+            available.push_back(interaction);
+        }
+
+        return available;
+    }
+
     bool Location::canUseInCurrentScene() const
     {
-        if (useDetails.empty() || !hasExaminedScene(currentSceneId))
+        if (!getAvailableInteractions().empty())
+            return true;
+
+        if (useDetails.empty() && useExit.empty())
+            return false;
+
+        if (useRequiresExamine && !hasExaminedScene(currentSceneId))
             return false;
 
         if (useRepeatStatus)
@@ -1803,6 +1842,7 @@ namespace
         takenItemKeys.clear();
         droppedItemsByScene.clear();
         takeMgr.close();
+        interactionMgr.close();
         inventoryMgr.close();
         dropConfirmMgr.close();
         applyLocationStruct(cabinLocation);
@@ -1872,12 +1912,65 @@ namespace
         return true;
     }
 
-    void Location::appendUseDetails()
+    void Location::transitionToScene(const std::string& nextSceneId)
+    {
+        if (nextSceneId.empty())
+            return;
+
+        LocationStruct nextLocation;
+        if (!sceneDatabase.loadScene(nextSceneId, nextLocation))
+        {
+            TraceLog(LOG_ERROR, "Failed to load scene '%s'", nextSceneId.c_str());
+            return;
+        }
+
+        if (ownsLocationImage && locationImage.id != 0)
+            UnloadTexture(locationImage);
+
+        const std::string fromSceneId = currentSceneId;
+        audioManager.onRoomExit(sceneDatabase.getSceneAudio(currentSceneId), nextSceneId);
+        previousSceneId = fromSceneId;
+        currentSceneId = nextSceneId;
+        applyLocationStruct(nextLocation, fromSceneId);
+
+        if (!isUnderConstruction)
+            previousSceneId.clear();
+
+        interactionMgr.close();
+        takeMgr.close();
+    }
+
+    void Location::applyInteraction(const SceneInteractionDef& interaction)
+    {
+        if (!interaction.useDetails.empty())
+            appendNarrativeSection("Using:", interaction.useDetails);
+
+        StatusEffect useEffect;
+        useEffect.key = interactionKey(interaction.id);
+        useEffect.health = interaction.useHealthDelta;
+        useEffect.energy = interaction.useEnergyDelta;
+        tryApplyStatusEffect(useEffect, interaction.repeat);
+
+        if (!interaction.repeat)
+            usedInteractionKeys.insert(interactionKey(interaction.id));
+
+        interactionMgr.close();
+        updateInventoryLayout();
+
+        if (!interaction.exitSceneId.empty())
+            transitionToScene(interaction.exitSceneId);
+        else
+            updateActionAvailability();
+    }
+
+    void Location::applyDirectUse()
     {
         if (!canUseInCurrentScene())
             return;
 
-        appendNarrativeSection("Using:", useDetails);
+        if (!useDetails.empty())
+            appendNarrativeSection("Using:", useDetails);
+
         StatusEffect useEffect;
         useEffect.key = currentSceneId + ":use";
         useEffect.health = useHealthDelta;
@@ -1886,7 +1979,41 @@ namespace
         hasUsedInCurrentScene = true;
         if (!useRepeatStatus)
             usedSceneIds.insert(currentSceneId);
-        updateActionAvailability();
+
+        const std::string exitSceneId = useExit;
+        if (!exitSceneId.empty())
+            transitionToScene(exitSceneId);
+        else
+            updateActionAvailability();
+    }
+
+    void Location::refreshInteractions()
+    {
+        interactionMgr.setAvailableInteractions(getAvailableInteractions());
+    }
+
+    void Location::processPendingInteractions()
+    {
+        const std::string interactionId = interactionMgr.consumePendingInteractionId();
+        if (interactionId.empty())
+            return;
+
+        const std::vector<SceneInteractionDef> available = getAvailableInteractions();
+        for (const SceneInteractionDef& interaction : available)
+        {
+            if (interaction.id != interactionId)
+                continue;
+
+            applyInteraction(interaction);
+            scrollNarrativeToHeader("Using:");
+            return;
+        }
+    }
+
+    void Location::appendUseDetails()
+    {
+        applyDirectUse();
+        scrollNarrativeToHeader("Using:");
     }
 
     void Location::updateActionAvailability()
@@ -1910,6 +2037,16 @@ namespace
             movement.right = false;
             movement.backward = false;
             actions.take = true;
+        }
+        else if (interactionMgr.isOpen())
+        {
+            movement.up = false;
+            movement.down = false;
+            movement.forward = false;
+            movement.left = false;
+            movement.right = false;
+            movement.backward = false;
+            actions.use = true;
         }
         else if (inventoryMgr.isOpen())
         {
@@ -2120,24 +2257,7 @@ namespace
             return;
         }
 
-        LocationStruct nextLocation;
-        if (!sceneDatabase.loadScene(nextSceneId, nextLocation))
-        {
-            TraceLog(LOG_ERROR, "Failed to load scene '%s'", nextSceneId.c_str());
-            return;
-        }
-
-        if (ownsLocationImage && locationImage.id != 0)
-            UnloadTexture(locationImage);
-
-        const std::string fromSceneId = currentSceneId;
-        audioManager.onRoomExit(sceneDatabase.getSceneAudio(currentSceneId), nextSceneId);
-        previousSceneId = fromSceneId;
-        currentSceneId = nextSceneId;
-        applyLocationStruct(nextLocation, fromSceneId);
-
-        if (!isUnderConstruction)
-            previousSceneId.clear();
+        transitionToScene(nextSceneId);
     }
 
     void Location::applyLocationStruct(const LocationStruct& locationStruct, const std::string& fromRoom)
@@ -2154,6 +2274,8 @@ namespace
         useHealthDelta = locationStruct.useHealthDelta;
         useEnergyDelta = locationStruct.useEnergyDelta;
         useRepeatStatus = locationStruct.useRepeatStatus;
+        useRequiresExamine = locationStruct.useRequiresExamine;
+        useExit = locationStruct.useExit;
         baseActionFilter = locationStruct.actionFilter;
         descriptionFont = locationStruct.descriptionFont;
         boldFont = locationStruct.boldFont;
@@ -2469,6 +2591,8 @@ namespace
             {
                 if (takeMgr.isOpen())
                     takeMgr.close();
+                if (interactionMgr.isOpen())
+                    interactionMgr.close();
                 inventoryMgr.open();
             }
 
@@ -2489,6 +2613,8 @@ namespace
             {
                 if (inventoryMgr.isOpen())
                     inventoryMgr.close();
+                if (interactionMgr.isOpen())
+                    interactionMgr.close();
                 refreshTakeItems();
                 takeMgr.open();
             }
@@ -2501,6 +2627,15 @@ namespace
         {
             takeMgr.update();
             processPendingTakes();
+            handleNarrativeScrollInput();
+            updateActionAvailability();
+            return;
+        }
+
+        if (interactionMgr.isOpen())
+        {
+            interactionMgr.update();
+            processPendingInteractions();
             handleNarrativeScrollInput();
             updateActionAvailability();
             return;
@@ -2572,8 +2707,26 @@ namespace
 
         if (!conversationMgr.isAwaitingChoice() && buttonMgr.consumeUseButtonClick())
         {
-            appendUseDetails();
-            scrollNarrativeToHeader("Using:");
+            if (!getAvailableInteractions().empty())
+            {
+                if (interactionMgr.isOpen())
+                    interactionMgr.close();
+                else
+                {
+                    if (inventoryMgr.isOpen())
+                        inventoryMgr.close();
+                    if (takeMgr.isOpen())
+                        takeMgr.close();
+                    refreshInteractions();
+                    interactionMgr.open();
+                    updateInventoryLayout();
+                }
+                updateActionAvailability();
+            }
+            else
+            {
+                appendUseDetails();
+            }
         }
 
         if (notebookPage == NotebookPage::Todo)
@@ -2678,6 +2831,8 @@ namespace
             inventoryMgr.draw();
         else if (takeMgr.isOpen())
             takeMgr.draw();
+        else if (interactionMgr.isOpen())
+            interactionMgr.draw();
 
         buttonMgr.draw();
         pauseMenu.draw();

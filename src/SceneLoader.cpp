@@ -490,6 +490,40 @@ bool parseTakeables(const nlohmann::json& takeables, std::vector<TakeableItemDef
     return true;
 }
 
+bool parseInteraction(const nlohmann::json& interaction, SceneInteractionDef& out)
+{
+    if (!interaction.is_object())
+        return false;
+
+    out.id = interaction.value("id", "");
+    out.label = interaction.value("label", "");
+    out.useDetails = interaction.value("useDetails", "");
+    out.exitSceneId = interaction.value("exitSceneId", "");
+    out.useHealthDelta = interaction.value("useHealthDelta", 0.0f);
+    out.useEnergyDelta = interaction.value("useEnergyDelta", 0.0f);
+    out.repeat = interaction.value("repeat", false);
+    out.requiresExamine = interaction.value("requiresExamine", true);
+
+    return !out.id.empty() && !out.label.empty();
+}
+
+bool parseInteractions(const nlohmann::json& interactions, std::vector<SceneInteractionDef>& out)
+{
+    out.clear();
+    if (!interactions.is_array())
+        return true;
+
+    for (const nlohmann::json& interaction : interactions)
+    {
+        SceneInteractionDef parsed;
+        if (!parseInteraction(interaction, parsed))
+            return false;
+        out.push_back(parsed);
+    }
+
+    return true;
+}
+
 bool parseScene(const std::string& id, const nlohmann::json& sceneJson, SceneData& out)
 {
     if (!sceneJson.is_object())
@@ -506,6 +540,8 @@ bool parseScene(const std::string& id, const nlohmann::json& sceneJson, SceneDat
     out.useHealthDelta = sceneJson.value("useHealthDelta", 0.0f);
     out.useEnergyDelta = sceneJson.value("useEnergyDelta", 0.0f);
     out.useRepeatStatus = sceneJson.value("useRepeatStatus", false);
+    out.useRequiresExamine = sceneJson.value("useRequiresExamine", true);
+    out.useExit = sceneJson.value("useExit", "");
 
     if (out.description.empty())
         return false;
@@ -526,6 +562,9 @@ bool parseScene(const std::string& id, const nlohmann::json& sceneJson, SceneDat
         return false;
 
     if (!parseTakeables(sceneJson.value("takeables", nlohmann::json::array()), out.takeables))
+        return false;
+
+    if (!parseInteractions(sceneJson.value("interactions", nlohmann::json::array()), out.interactions))
         return false;
 
     return true;
@@ -791,6 +830,8 @@ bool SceneDatabase::buildLocationStruct(const SceneData& scene, LocationStruct& 
     outLocation.useHealthDelta = scene.useHealthDelta;
     outLocation.useEnergyDelta = scene.useEnergyDelta;
     outLocation.useRepeatStatus = scene.useRepeatStatus;
+    outLocation.useRequiresExamine = scene.useRequiresExamine;
+    outLocation.useExit = scene.useExit;
     outLocation.descriptionFont = descriptionFont;
     outLocation.boldFont = boldFont;
     outLocation.uiFont = uiFont;
@@ -868,6 +909,16 @@ const std::vector<TakeableItemDef>& SceneDatabase::getTakeables(const std::strin
         return kEmptyTakeables;
 
     return it->second.takeables;
+}
+
+const std::vector<SceneInteractionDef>& SceneDatabase::getInteractions(const std::string& sceneId) const
+{
+    static const std::vector<SceneInteractionDef> kEmptyInteractions;
+    std::map<std::string, SceneData>::const_iterator it = scenes.find(sceneId);
+    if (it == scenes.end())
+        return kEmptyInteractions;
+
+    return it->second.interactions;
 }
 
 std::string SceneDatabase::getExitSceneId(const std::string& sceneId, const std::string& direction) const

@@ -4,6 +4,7 @@
 #include <AudioTypes.h>
 #include <ConversationStruct.h>
 #include <LocationStruct.h>
+#include <SceneInteractionDef.h>
 #include <TakeableItemDef.h>
 #include <raylib.h>
 #include <map>
@@ -26,6 +27,8 @@ struct SceneData
     float useHealthDelta = 0.0f;
     float useEnergyDelta = 0.0f;
     bool useRepeatStatus = false;
+    bool useRequiresExamine = true;
+    std::string useExit;
     MovementStruct movement;
     ActionStruct actions;
     bool isStart;
@@ -33,6 +36,7 @@ struct SceneData
     SceneSpeakConfig speakConfig;
     RoomAudioConfig audio;
     std::vector<TakeableItemDef> takeables;
+    std::vector<SceneInteractionDef> interactions;
 };
 
 class SceneDatabase
@@ -48,6 +52,7 @@ class SceneDatabase
     const SceneSpeakConfig& getSpeakConfig(const std::string& sceneId) const;
     const RoomAudioConfig& getSceneAudio(const std::string& sceneId) const;
     const std::vector<TakeableItemDef>& getTakeables(const std::string& sceneId) const;
+    const std::vector<SceneInteractionDef>& getInteractions(const std::string& sceneId) const;
     const std::string& getAssetRoot() const { return assetRoot; }
 
     private:

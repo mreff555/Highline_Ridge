@@ -22,6 +22,8 @@ struct LocationStruct
     float useHealthDelta = 0.0f;
     float useEnergyDelta = 0.0f;
     bool useRepeatStatus = false;
+    bool useRequiresExamine = true;
+    std::string useExit;
     Font descriptionFont;
     Font boldFont;
     Font uiFont;
