@@ -259,7 +259,7 @@
       },
       "exits": {
         "backward": "cabin_kitchen",
-        "forward": "mountain_road_forward",
+        "forward": "mountain_road_trade_row",
         "left": "narrow_path",
         "right": "saloon_front"
       },
@@ -467,6 +467,75 @@
         ]
       }
     },
+    "mountain_road_trade_row": {
+      "start": false,
+      "image": "resources/images/mountain_road_trade_row.png",
+      "description": "The road widens into the busiest stretch of the High Line. On your left, a general store spreads its porch with the unapologetic abundance of a place that expects winter to last: flour sacks, mason jars, rope coils, lantern oil, and tinned goods arranged on trestle tables as though the mountain might run out of patience before it runs out of stock. On your right, a blacksmith's forge breathes orange against the failing light. You catch the ring of hammer on iron, the roar when the bellows feed the coals, and the stamp and snort of a horse tied to the hitching rail. Smoke rises from both chimneys and mingles with the cold alpine air. Beyond the shops the road still runs forward, and below it the valley city keeps lighting its windows one by one.",
+      "examineDetails": "You read the row the way you would a ledger: who trades, who makes, what the ridge cannot do without.\n\nThe general store on your left is honest frontier carpentry dressed up with mercantile habit. Glass jars in the window catch the last sun. Sacks stamped for flour and sugar sit on the porch boards beside lantern crates and coils of hemp rope. A painted sign advertises the Mountain Trading Company, est. 1891, which is recent enough to mean someone expected this settlement to last. The goods are not tourist trinkets. lamp chimneys, nails, salt, coffee, the dry architecture of a community that feeds itself at altitude.\n\nAcross the road the blacksmith shop tells a harder story. The forge is open to the street, fire alive in the coals, an anvil set on a stout stump, horseshoes and iron stock hung along the wall. A wagon wheel leans in the dirt beside leather bellows hose still warm from use. The smith is not at his work, or not visible, but the shop is not idle: a saddled horse waits at the rail, ears forward, breath steaming in the cold. Tools are laid out in the order of a job interrupted, not abandoned.\n\nThe road between them is beaten flat by boots, hooves, and iron-rimmed wheels. Whoever keeps the High Line running buys here and shoes here. This is not the overlook yet, but it is the reason the overlook has a name worth carving in stone.",
+      "useDetails": "",
+      "movement": {
+        "forward": true,
+        "backward": true,
+        "left": false,
+        "right": false
+      },
+      "actions": {
+        "examine": true,
+        "speak": false,
+        "hit": false,
+        "use": false
+      },
+      "exits": {
+        "backward": "mountain_road",
+        "forward": "mountain_road_forward"
+      },
+      "audio": {
+        "ambient": [
+          {
+            "path": "resources/audio/ambient/town_ambient.mp3",
+            "volume": 0.35,
+            "fade_in": 2.0,
+            "fade_out": 2.0,
+            "loop": true
+          },
+          {
+            "path": "resources/audio/ambient/town_footsteps.mp3",
+            "volume": 0.25,
+            "fade_in": 1.5,
+            "fade_out": 1.5,
+            "loop": true
+          },
+          {
+            "path": "resources/audio/ambient/blacksmith_hammer.mp3",
+            "volume": 0.34,
+            "fade_in": 2.5,
+            "fade_out": 2.0,
+            "loop": true
+          },
+          {
+            "path": "resources/audio/ambient/forge_fire.mp3",
+            "volume": 0.14,
+            "fade_in": 2.5,
+            "fade_out": 2.0,
+            "loop": true
+          },
+          {
+            "path": "resources/audio/ambient/forge_bellows.mp3",
+            "volume": 0.14,
+            "fade_in": 2.0,
+            "fade_out": 2.0,
+            "loop": true
+          },
+          {
+            "path": "resources/audio/ambient/horse_stable.mp3",
+            "volume": 0.16,
+            "fade_in": 2.5,
+            "fade_out": 2.0,
+            "loop": true
+          }
+        ]
+      }
+    },
     "mountain_road_forward": {
       "start": false,
       "image": "resources/images/mountain_road.png",
@@ -487,7 +556,25 @@
         "use": false
       },
       "exits": {
-        "backward": "mountain_road"
+        "backward": "mountain_road_trade_row"
+      },
+      "audio": {
+        "ambient": [
+          {
+            "path": "resources/audio/ambient/town_ambient.mp3",
+            "volume": 0.35,
+            "fade_in": 2.0,
+            "fade_out": 2.0,
+            "loop": true
+          },
+          {
+            "path": "resources/audio/ambient/town_footsteps.mp3",
+            "volume": 0.25,
+            "fade_in": 1.5,
+            "fade_out": 1.5,
+            "loop": true
+          }
+        ]
       }
     },
     "saloon_front": {
