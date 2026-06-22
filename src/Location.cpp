@@ -2620,15 +2620,20 @@ namespace
         if (transientMessage.empty())
             return;
 
-        const float fontSize = 16.0f;
-        const Vector2 textSize = MeasureTextEx(descriptionFont, transientMessage.c_str(), fontSize, 1);
-        const float padX = 18.0f;
-        const float padY = 10.0f;
+        const Vector2 textSize = MeasureTextEx(
+            descriptionFont,
+            transientMessage.c_str(),
+            fontSize,
+            spacing);
+        const float padX = 28.0f;
+        const float padY = 16.0f;
+        const float panelWidth = textSize.x + padX * 2.0f;
+        const float panelHeight = textSize.y + padY * 2.0f;
         const Rectangle panel = {
-            (screenWidth - textSize.x) * 0.5f - padX,
-            screenHeight - 72.0f - textSize.y - padY,
-            textSize.x + padX * 2.0f,
-            textSize.y + padY * 2.0f
+            (screenWidth - panelWidth) * 0.5f,
+            5.0f,
+            panelWidth,
+            panelHeight
         };
 
         DrawRectangleRounded(panel, 0.2f, 8, {28, 26, 34, 230});
@@ -2638,7 +2643,7 @@ namespace
             transientMessage.c_str(),
             { panel.x + padX, panel.y + padY },
             fontSize,
-            1,
+            spacing,
             {228, 220, 198, 255});
     }
 
