@@ -2,6 +2,7 @@
 #include <GameConfig.h>
 #include <Location.h>
 #include <SceneLoader.h>
+#include <UiBackdrop.h>
 #include <raylib.h>
 #include <cstdlib>
 #include <ctime>
@@ -73,6 +74,10 @@ int main(void)
     AudioManager audioManager;
     audioManager.initialize(".", gameConfig.audio);
 
+    UiBackdrop uiBackdrop;
+    if (!uiBackdrop.load(gameConfig.ui, "."))
+        TraceLog(LOG_WARNING, "UI backdrop unavailable; using flat panels");
+
     SceneDatabase sceneDatabase;
     const bool scenesLoaded =
         sceneDatabase.load("resources/scenes.json", ".") ||
@@ -95,7 +100,7 @@ int main(void)
         return 1;
     }
 
-    Location location(locationStruct, screenSize, sceneDatabase, audioManager, startSceneId);
+    Location location(locationStruct, screenSize, sceneDatabase, audioManager, uiBackdrop, startSceneId);
 
     SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------

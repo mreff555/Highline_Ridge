@@ -43,7 +43,7 @@ ButtonMgr::ButtonMgr(Rectangle _buttonBox, Font _buttonFont)
       energyBarBounds{},
       tenacityBarBounds{},
       lucidityBarBounds{},
-      buttonStyle{
+      baseButtonStyle{
           {228, 220, 198, 255},
           {54, 50, 64, 255},
           {78, 72, 92, 255},
@@ -54,8 +54,10 @@ ButtonMgr::ButtonMgr(Rectangle _buttonBox, Font _buttonFont)
           {108, 102, 92, 255},
           0.18f,
           17.0f
-      }
+      },
+      buttonStyle{}
 {
+    buttonStyle = baseButtonStyle;
     const float pad = 18.0f;
     const float labelHeight = 22.0f;
     const float gap = 10.0f;
@@ -136,6 +138,22 @@ ButtonMgr::~ButtonMgr()
 {
 }
 
+void ButtonMgr::setUiBackdrop(const UiBackdrop* backdrop)
+{
+    uiBackdrop = backdrop;
+    refreshButtonStyles();
+}
+
+void ButtonMgr::refreshButtonStyles()
+{
+    buttonStyle = (uiBackdrop != nullptr)
+        ? uiBackdrop->contrastedButtonStyle(baseButtonStyle)
+        : baseButtonStyle;
+
+    for (auto& button : buttons)
+        button.setStyle(buttonStyle);
+}
+
 void ButtonMgr::setStatus(float health, float energy, float tenacity, float lucidity)
 {
     healthPercent = std::max(0.0f, std::min(health, 100.0f));
@@ -173,9 +191,19 @@ void ButtonMgr::drawStatusBar(const char* label, Rectangle bounds, float percent
         barHeight - 4.0f
     };
 
-    DrawTextEx(buttonFont, label, { bounds.x, bounds.y }, 13.0f, 1, kSectionLabel);
-    DrawRectangleRounded(track, 0.18f, 8, kStatusTrack);
-    DrawRectangleRoundedLinesEx(track, 0.18f, 8, 2.0f, kPanelBorder);
+    const Color sectionLabel = (uiBackdrop != nullptr)
+        ? uiBackdrop->sectionLabelColor()
+        : kSectionLabel;
+    const Color statusTrack = (uiBackdrop != nullptr)
+        ? uiBackdrop->statusTrackColor()
+        : kStatusTrack;
+    const Color panelBorder = (uiBackdrop != nullptr)
+        ? uiBackdrop->panelBorderColor()
+        : kPanelBorder;
+
+    DrawTextEx(buttonFont, label, { bounds.x, bounds.y }, 13.0f, 1, sectionLabel);
+    DrawRectangleRounded(track, 0.18f, 8, statusTrack);
+    DrawRectangleRoundedLinesEx(track, 0.18f, 8, 2.0f, panelBorder);
 
     if (fillWidth > 0.0f)
     {
@@ -428,9 +456,19 @@ void ButtonMgr::draw() const
 {
     const float pad = 18.0f;
     const float labelHeight = 22.0f;
+    const Color panelBorder = (uiBackdrop != nullptr)
+        ? uiBackdrop->panelBorderColor()
+        : kPanelBorder;
+    const Color sectionLabel = (uiBackdrop != nullptr)
+        ? uiBackdrop->sectionLabelColor()
+        : kSectionLabel;
 
-    DrawRectangleRounded(buttonBox, 0.04f, 10, kPanelFill);
-    DrawRectangleRoundedLinesEx(buttonBox, 0.04f, 10, 3.0f, kPanelBorder);
+    if (uiBackdrop != nullptr)
+        uiBackdrop->drawPanel(buttonBox, 0.04f, 10);
+    else
+        DrawRectangleRounded(buttonBox, 0.04f, 10, kPanelFill);
+
+    DrawRectangleRoundedLinesEx(buttonBox, 0.04f, 10, 3.0f, panelBorder);
 
     Rectangle accentBar = {
         buttonBox.x + 8.0f,
@@ -438,15 +476,24 @@ void ButtonMgr::draw() const
         buttonBox.width - 16.0f,
         4.0f
     };
-    DrawRectangleRounded(accentBar, 1.0f, 4, kPanelAccent);
+    if (uiBackdrop != nullptr)
+        uiBackdrop->drawAccentBar(accentBar);
+    else
+        DrawRectangleRounded(accentBar, 1.0f, 4, kPanelAccent);
 
-    drawSectionLabel("MOVE", buttonBox.x + pad, buttonBox.y + pad);
-    drawSectionLabel("ACTIONS", buttonBox.x + pad + buttonBox.width * 0.32f, buttonBox.y + pad);
-    drawSectionLabel("STATUS", healthBarBounds.x, buttonBox.y + pad);
+    DrawTextEx(buttonFont, "MOVE", { buttonBox.x + pad, buttonBox.y + pad }, 15.0f, 1, sectionLabel);
+    DrawTextEx(
+        buttonFont,
+        "ACTIONS",
+        { buttonBox.x + pad + buttonBox.width * 0.32f, buttonBox.y + pad },
+        15.0f,
+        1,
+        sectionLabel);
+    DrawTextEx(buttonFont, "STATUS", { healthBarBounds.x, buttonBox.y + pad }, 15.0f, 1, sectionLabel);
 
     const float inventoryHeight = 52.0f;
     const float inventoryY = buttonBox.y + buttonBox.height - pad - inventoryHeight;
-    drawSectionLabel("INVENTORY", buttonBox.x + pad, inventoryY - 24.0f);
+    DrawTextEx(buttonFont, "INVENTORY", { buttonBox.x + pad, inventoryY - 24.0f }, 15.0f, 1, sectionLabel);
 
     drawStatusBar("Health", healthBarBounds, healthPercent);
     drawStatusBar("Energy", energyBarBounds, energyPercent);

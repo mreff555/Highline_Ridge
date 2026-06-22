@@ -17,6 +17,7 @@ set(SOURCES
     src/ImageCompression.cpp
     src/GameConfig.cpp
     src/AudioManager.cpp
+    src/UiBackdrop.cpp
 )
 
 include(FetchContent)

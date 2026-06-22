@@ -3,6 +3,7 @@
 
 #include "Button.h"
 #include <ActionStruct.h>
+#include <UiBackdrop.h>
 #include <MovementStruct.h>
 #include <raylib.h>
 #include <vector>
@@ -19,6 +20,7 @@ namespace testgame
         void draw() const;
         void setAvailability(const MovementStruct& movement, const ActionStruct& actions);
         void setStatus(float healthPercent, float energyPercent, float tenacityPercent, float lucidityPercent);
+        void setUiBackdrop(const UiBackdrop* backdrop);
 
         bool isUpButtonPressed() const { return upButtonPressed; }
         bool isDownButtonPressed() const { return downButtonPressed; }
@@ -49,6 +51,7 @@ namespace testgame
         void updatePressedFlags();
         void registerButtonClick(int buttonIndex);
         int findEnabledButtonUnderMouse(Vector2 mousePos) const;
+        void refreshButtonStyles();
 
         bool upButtonPressed = false;
         bool downButtonPressed = false;
@@ -87,7 +90,9 @@ namespace testgame
         Rectangle tenacityBarBounds;
         Rectangle lucidityBarBounds;
         Font buttonFont;
+        ButtonStyle baseButtonStyle;
         ButtonStyle buttonStyle;
+        const UiBackdrop* uiBackdrop = nullptr;
         std::vector<Button> buttons;
     };
 }

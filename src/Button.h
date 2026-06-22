@@ -37,6 +37,7 @@ class Button
     ButtonState getState() const { return state; }
     void setEnabled(bool enabled);
     bool isEnabled() const { return enabled; }
+    void setStyle(const ButtonStyle& newStyle) { style = newStyle; }
 
     private:
     const char* text;

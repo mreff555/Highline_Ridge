@@ -2,6 +2,7 @@
 #define INVENTORY_MGR_H
 
 #include <InventoryItem.h>
+#include <UiBackdrop.h>
 #include <raylib.h>
 #include <string>
 #include <vector>
@@ -25,6 +26,7 @@ class InventoryMgr
     void setPanelBounds(Rectangle bounds);
     void setFont(Font font);
     void setAssetRoots(const std::string& primaryAssetRoot, const std::string& fallbackAssetRoot);
+    void setUiBackdrop(const UiBackdrop* backdrop);
     bool ensureAssetsLoaded();
 
     bool isOpen() const { return viewState != InventoryViewState::Closed; }
@@ -74,6 +76,7 @@ class InventoryMgr
     mutable std::vector<Rectangle> itemSlotBounds;
     std::string primaryAssetRoot;
     std::string fallbackAssetRoot;
+    const UiBackdrop* uiBackdrop = nullptr;
 
     float inventoryScrollY = 0.0f;
     float inventoryContentHeight = 0.0f;

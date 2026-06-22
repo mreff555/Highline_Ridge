@@ -8,5 +8,8 @@
     "music": 0.7,
     "ambient": 0.5,
     "sfx": 0.8
+  },
+  "ui": {
+    "background": "morris"
   }
 }

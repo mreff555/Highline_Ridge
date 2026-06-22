@@ -55,6 +55,12 @@ bool loadGameConfig(const std::string& configPath, GameConfig& outConfig)
         outConfig.audio.sfx = clampVolume(audio.value("sfx", outConfig.audio.sfx));
     }
 
+    if (config.contains("ui") && config["ui"].is_object())
+    {
+        const std::string background = config["ui"].value("background", "morris");
+        outConfig.ui.background = parseUiBackgroundId(background);
+    }
+
     return outConfig.display.width > 0 && outConfig.display.height > 0;
 }
 

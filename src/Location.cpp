@@ -35,11 +35,13 @@ namespace
         Vector2 screenSize,
         SceneDatabase& sceneDatabase,
         AudioManager& audioManager,
+        const UiBackdrop& uiBackdrop,
         const std::string& sceneId)
     : screenWidth((int)screenSize.x),
       screenHeight((int)screenSize.y),
       sceneDatabase(sceneDatabase),
       audioManager(audioManager),
+      uiBackdrop(uiBackdrop),
       currentSceneId(sceneId),
       locationImage(locationStruct.locationImage),
       ownsLocationImage(locationStruct.ownsLocationImage),
@@ -73,6 +75,8 @@ namespace
         inventoryMgr.setAssetRoots(assetRoot, fallbackRoot);
         if (!inventoryMgr.ensureAssetsLoaded())
             TraceLog(LOG_WARNING, "Some inventory images failed to load at startup");
+        buttonMgr.setUiBackdrop(&uiBackdrop);
+        inventoryMgr.setUiBackdrop(&uiBackdrop);
         trimNarrativeBuffer();
         conversationMgr.onEnterScene(currentSceneId, sceneDatabase.getSpeakConfig(currentSceneId));
         updateInventoryLayout();
@@ -221,8 +225,6 @@ namespace
 
     void Location::drawNotebookBackdrop(const Rectangle& bounds) const
     {
-        ensureNotebookPaperTexture();
-
         const Rectangle shadow = {
             bounds.x + 6.0f,
             bounds.y + 8.0f,
@@ -231,19 +233,29 @@ namespace
         };
         DrawRectangleRec(shadow, kPaperShadow);
 
-        if (notebookPaperTextureReady)
+        if (uiBackdrop.isActive())
         {
-            DrawTexturePro(
-                notebookPaperTexture,
-                { 0.0f, 0.0f, (float)notebookPaperTexture.width, bounds.height },
-                bounds,
-                { 0.0f, 0.0f },
-                0.0f,
-                WHITE);
+            uiBackdrop.drawDialogPanel(bounds);
+            DrawRectangleRec(bounds, {188, 168, 138, 32});
         }
         else
         {
-            DrawRectangleRec(bounds, {208, 182, 132, 255});
+            ensureNotebookPaperTexture();
+
+            if (notebookPaperTextureReady)
+            {
+                DrawTexturePro(
+                    notebookPaperTexture,
+                    { 0.0f, 0.0f, (float)notebookPaperTexture.width, bounds.height },
+                    bounds,
+                    { 0.0f, 0.0f },
+                    0.0f,
+                    WHITE);
+            }
+            else
+            {
+                DrawRectangleRec(bounds, {208, 182, 132, 255});
+            }
         }
 
         const float lineStep = getNarrativeLineHeight();
@@ -302,7 +314,10 @@ namespace
             1.0f,
             kPaperEdge);
 
-        DrawRectangleLinesEx(bounds, 2.0f, kPaperEdge);
+        const Color frameColor = uiBackdrop.isActive()
+            ? uiBackdrop.panelBorderColor()
+            : kPaperEdge;
+        DrawRectangleLinesEx(bounds, 2.0f, frameColor);
 
         const Rectangle scrollbarGutter = {
             bounds.x + bounds.width - kScrollbarWidth,

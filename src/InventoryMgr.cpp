@@ -71,6 +71,11 @@ void InventoryMgr::setAssetRoots(
     fallbackAssetRoot = fallbackRoot;
 }
 
+void InventoryMgr::setUiBackdrop(const UiBackdrop* backdrop)
+{
+    uiBackdrop = backdrop;
+}
+
 bool InventoryMgr::hasLoadedAssets() const
 {
     for (const InventoryItem& item : items)
@@ -426,7 +431,10 @@ void InventoryMgr::drawItemGrid() const
 
         const bool selected = items[i].id == selectedItemId;
         const bool hovered = CheckCollisionPointRec(GetMousePosition(), slot);
-        const Color fill = selected ? kSlotSelected : (hovered ? kSlotHover : kSlotFill);
+        const Color slotFill = (uiBackdrop != nullptr) ? uiBackdrop->slotFillColor() : kSlotFill;
+        const Color slotHover = (uiBackdrop != nullptr) ? uiBackdrop->slotHoverColor() : kSlotHover;
+        const Color slotSelected = (uiBackdrop != nullptr) ? uiBackdrop->slotSelectedColor() : kSlotSelected;
+        const Color fill = selected ? slotSelected : (hovered ? slotHover : slotFill);
 
         DrawRectangleRounded(slot, 0.18f, 8, fill);
 
@@ -460,7 +468,9 @@ void InventoryMgr::drawItemGrid() const
             continue;
 
         const bool selected = items[i].id == selectedItemId;
-        DrawRectangleRoundedLinesEx(slot, 0.18f, 8, 2.0f, selected ? kPanelBorder : kPanelAccent);
+        const Color panelBorder = (uiBackdrop != nullptr) ? uiBackdrop->panelBorderColor() : kPanelBorder;
+        const Color panelAccent = (uiBackdrop != nullptr) ? uiBackdrop->panelAccentColor() : kPanelAccent;
+        DrawRectangleRoundedLinesEx(slot, 0.18f, 8, 2.0f, selected ? panelBorder : panelAccent);
     }
 }
 
@@ -504,8 +514,15 @@ void InventoryMgr::draw() const
     if (viewState == InventoryViewState::Closed)
         return;
 
-    DrawRectangleRounded(panelBounds, 0.04f, 10, kPanelFill);
-    DrawRectangleRoundedLinesEx(panelBounds, 0.04f, 10, 3.0f, kPanelBorder);
+    const Color panelBorder = (uiBackdrop != nullptr) ? uiBackdrop->panelBorderColor() : kPanelBorder;
+    const Color sectionLabel = (uiBackdrop != nullptr) ? uiBackdrop->sectionLabelColor() : kSectionLabel;
+
+    if (uiBackdrop != nullptr)
+        uiBackdrop->drawPanel(panelBounds, 0.04f, 10);
+    else
+        DrawRectangleRounded(panelBounds, 0.04f, 10, kPanelFill);
+
+    DrawRectangleRoundedLinesEx(panelBounds, 0.04f, 10, 3.0f, panelBorder);
 
     Rectangle accentBar = {
         panelBounds.x + 8.0f,
@@ -513,10 +530,13 @@ void InventoryMgr::draw() const
         panelBounds.width - 16.0f,
         4.0f
     };
-    DrawRectangleRounded(accentBar, 1.0f, 4, kPanelAccent);
+    if (uiBackdrop != nullptr)
+        uiBackdrop->drawAccentBar(accentBar);
+    else
+        DrawRectangleRounded(accentBar, 1.0f, 4, kPanelAccent);
 
     const float pad = 14.0f;
-    DrawTextEx(panelFont, "INVENTORY", { panelBounds.x + pad, panelBounds.y + pad }, 15.0f, 1, kSectionLabel);
+    DrawTextEx(panelFont, "INVENTORY", { panelBounds.x + pad, panelBounds.y + pad }, 15.0f, 1, sectionLabel);
 
     drawCloseButton();
     drawItemGrid();

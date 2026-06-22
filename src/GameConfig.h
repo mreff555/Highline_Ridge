@@ -1,6 +1,7 @@
 #ifndef GAME_CONFIG_H
 #define GAME_CONFIG_H
 
+#include <UiBackdrop.h>
 #include <string>
 
 namespace testgame
@@ -24,6 +25,7 @@ struct GameConfig
 {
     DisplayConfig display;
     AudioVolumeConfig audio;
+    UiConfig ui;
 };
 
 bool loadGameConfig(const std::string& configPath, GameConfig& outConfig);

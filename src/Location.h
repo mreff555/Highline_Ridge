@@ -8,6 +8,7 @@
 #include <LocationStruct.h>
 #include <ButtonMgr.h>
 #include <SceneLoader.h>
+#include <UiBackdrop.h>
 #include <raylib.h>
 #include <set>
 #include <string>
@@ -29,6 +30,7 @@ class Location
         Vector2 screenSize,
         SceneDatabase& sceneDatabase,
         AudioManager& audioManager,
+        const UiBackdrop& uiBackdrop,
         const std::string& sceneId);
 
     virtual ~Location();
@@ -109,6 +111,7 @@ class Location
 
     SceneDatabase& sceneDatabase;
     AudioManager& audioManager;
+    const UiBackdrop& uiBackdrop;
     std::string currentSceneId;
     
     Texture2D locationImage;
