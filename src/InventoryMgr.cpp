@@ -1007,7 +1007,7 @@ void InventoryMgr::restoreFromSnapshots(const std::vector<InventoryItem>& savedI
 
     for (const InventoryItem& savedItem : savedItems)
     {
-        if (savedItem.id.empty() || savedItem.id == "wallet")
+        if (savedItem.id.empty() || savedItem.id == "wallet" || savedItem.id == "hand_lantern")
             continue;
 
         InventoryItem restored = savedItem;

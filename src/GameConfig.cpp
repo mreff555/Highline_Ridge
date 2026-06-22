@@ -82,6 +82,16 @@ bool loadGameConfig(const std::string& configPath, GameConfig& outConfig)
         outConfig.tts.bundleDir = tts.value("bundleDir", outConfig.tts.bundleDir);
     }
 
+    if (config.contains("saves") && config["saves"].is_object())
+    {
+        const nlohmann::json& saves = config["saves"];
+        outConfig.saves.maxNamedSaves = saves.value(
+            "maxNamedSaves",
+            saves.value("max_number_of_saves", outConfig.saves.maxNamedSaves));
+        if (outConfig.saves.maxNamedSaves < 0)
+            outConfig.saves.maxNamedSaves = 0;
+    }
+
     return outConfig.display.width > 0 && outConfig.display.height > 0;
 }
 
@@ -118,6 +128,9 @@ bool saveGameConfig(const std::string& configPath, const GameConfig& config)
     root["input"] = {
         {"clickHoldSeconds", config.input.clickHoldSeconds},
         {"skipDropConfirmation", config.input.skipDropConfirmation}
+    };
+    root["saves"] = {
+        {"maxNamedSaves", config.saves.maxNamedSaves}
     };
 
     std::ofstream out(configPath.c_str());

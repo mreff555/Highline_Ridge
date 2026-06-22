@@ -171,7 +171,7 @@
       "start": false,
       "image": "resources/images/cabin_kitchen.png",
       "description": "The rest of the small cabin opens into a humble country kitchen with warm wood cabinetry and copper accents. A heavy wooden door leads outside. On the tiny counter sits an impressive espresso machine that looks far too sophisticated for this rustic retreat.",
-      "examineDetails": "You take your time and study the room properly. The exit door is built from thick, hand-planed planks fitted tight enough to hold out the mountain cold. Its lock is a heavy iron box latch with a blackened steel bolt and worn brass keyhole, quality hardware, recently oiled, not the sort of thing one expects on a backwoods cabin. The espresso machine dominates the counter: polished steel body, twin pressure gauges, two group heads, a chrome steam wand, and a warmed cup rail with two white saucers still holding heat. The portafilter carries the faint bitter scent of a fresh pull. Beneath open shelves, cast iron pans hang in a neat row: a deep skillet, a dutch oven, and a smaller sauce pan, all seasoned to a dark gloss and clearly used often. You open the lower cabinets carefully. Inside are ordinary dry goods: flour in a paper sack, sugar, salt, a tin of crackers, rice in a cloth bag, and canned goods lined along the back. Tucked behind the flour, you find a mason jar filled to the brim with dark roasted coffee beans, their oily surface catching the lamplight. Beside the stove, another mason jar sits heavy with pale rendered lard, its waxed lid sealed tight. On a hook near the stove hangs a small brass hand lantern, chimney smoked at the top, bail turned smooth by carry. Whoever lives here eats simply, but drinks like a connoisseur.",
+      "examineDetails": "You take your time and study the room properly. The exit door is built from thick, hand-planed planks fitted tight enough to hold out the mountain cold. Its lock is a heavy iron box latch with a blackened steel bolt and worn brass keyhole, quality hardware, recently oiled, not the sort of thing one expects on a backwoods cabin. The espresso machine dominates the counter: polished steel body, twin pressure gauges, two group heads, a chrome steam wand, and a warmed cup rail with two white saucers still holding heat. The portafilter carries the faint bitter scent of a fresh pull. Beneath open shelves, cast iron pans hang in a neat row: a deep skillet, a dutch oven, and a smaller sauce pan, all seasoned to a dark gloss and clearly used often. You open the lower cabinets carefully. Inside are ordinary dry goods: flour in a paper sack, sugar, salt, a tin of crackers, rice in a cloth bag, and canned goods lined along the back. Tucked behind the flour, you find a mason jar filled to the brim with dark roasted coffee beans, their oily surface catching the lamplight. Beside the stove, another mason jar sits heavy with pale rendered lard, its waxed lid sealed tight. Whoever lives here eats simply, but drinks like a connoisseur.",
       "takeables": [
         {
           "id": "lard",
@@ -179,12 +179,6 @@
           "icon": "resources/icons/lard_icon.png",
           "examineImage": "resources/images/lard_examine.png",
           "examineText": "A wide-mouth mason jar packed with smooth, ivory-white rendered lard. The waxed lid is screwed down tight, and a faint waxy scent rises when you tilt it toward the light."
-        },
-        {
-          "id": "hand_lantern",
-          "name": "Hand Lantern",
-          "icon": "resources/icons/lamp_oil_icon.png",
-          "examineText": "A small brass hand lantern with a smoked chimney and a turned wooden bail. The reservoir is half full of oil and the wick has been trimmed recently. When you lift the chimney, the flame catches steady and throws a workable pool of light at your feet."
         }
       ],
       "useDetails": "You measure the beans from the mason jar and grind them fine. The espresso machine wakes with a low hum. You lock the portafilter, draw a tight double shot into a warmed cup, and watch the crema rise in a slow amber ribbon. The first sip is sharp and dark, then opens into warmth that spreads through your chest and limbs. The cabin seems less cold afterward, and your thoughts sharpen as the fatigue lifts.",

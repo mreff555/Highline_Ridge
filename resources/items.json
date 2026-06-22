@@ -52,15 +52,6 @@
         "icon": "resources/icons/lamp_oil_icon.png"
       }
     },
-    "hand_lantern": {
-      "name": "Hand Lantern",
-      "description": "A small brass hand lantern with a smoked chimney and a turned wooden bail. The reservoir is half full of oil and the wick has been trimmed recently. When you lift the chimney, the flame catches steady and throws a workable pool of light at your feet.",
-      "weightLb": 1.1,
-      "lightSource": true,
-      "icons": {
-        "icon": "resources/icons/lamp_oil_icon.png"
-      }
-    },
     "hunting_knife": {
       "name": "Hunting Knife",
       "description": "A fixed-blade hunting knife in a dark leather sheath scuffed from carry. The wooden handle is smooth where a palm has worn it. When you ease the blade free, the edge catches the bare bulb's light\u2014recently honed, and kept close at hand.",

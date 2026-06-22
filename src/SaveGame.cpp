@@ -3,8 +3,12 @@
 #include <ItemInstance.h>
 #include <TakeableItemDef.h>
 #include <nlohmann/json.hpp>
-#include <map>
+#include <algorithm>
+#include <cstdio>
+#include <ctime>
+#include <dirent.h>
 #include <fstream>
+#include <map>
 #include <sys/stat.h>
 
 namespace testgame
@@ -302,6 +306,35 @@ void inventoryFromJson(const nlohmann::json& array, std::vector<InventoryItem>& 
     }
 }
 
+nlohmann::json saveMetadataToJson(const SaveSlotMetadata& metadata)
+{
+    return {
+        {"name", metadata.name},
+        {"timestamp", metadata.timestampIso},
+        {"unixTime", metadata.unixTime},
+        {"isQuickSave", metadata.isQuickSave}
+    };
+}
+
+bool saveMetadataFromJson(const nlohmann::json& json, SaveSlotMetadata& outMetadata)
+{
+    if (!json.is_object())
+        return false;
+
+    outMetadata.name = json.value("name", "");
+    outMetadata.timestampIso = json.value("timestamp", "");
+    outMetadata.unixTime = json.value("unixTime", 0LL);
+    outMetadata.isQuickSave = json.value("isQuickSave", false);
+    return !outMetadata.name.empty() && outMetadata.unixTime > 0;
+}
+
+bool isSaveFileName(const std::string& name)
+{
+    if (name.size() < 4)
+        return false;
+    return name.compare(name.size() - 4, 4, ".sav") == 0;
+}
+
 }
 
 const char* defaultSavePath()
@@ -309,18 +342,215 @@ const char* defaultSavePath()
     return "saves/highline_ridge.sav";
 }
 
+const char* savesDirectory()
+{
+    return "saves";
+}
+
+const char* quickSavePath()
+{
+    return "saves/quick.sav";
+}
+
+std::string currentTimestampIso(long long& outUnixTime)
+{
+    const std::time_t now = std::time(nullptr);
+    outUnixTime = static_cast<long long>(now);
+
+    std::tm localTime{};
+#if defined(_WIN32)
+    localtime_s(&localTime, &now);
+#else
+    localtime_r(&now, &localTime);
+#endif
+
+    char buffer[32];
+    std::strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%S", &localTime);
+    return buffer;
+}
+
+std::string formatSaveTimestampForDisplay(const SaveSlotMetadata& metadata)
+{
+    if (metadata.timestampIso.empty())
+        return "";
+
+    int year = 0;
+    int month = 0;
+    int day = 0;
+    int hour = 0;
+    int minute = 0;
+    if (std::sscanf(
+            metadata.timestampIso.c_str(),
+            "%d-%d-%dT%d:%d",
+            &year,
+            &month,
+            &day,
+            &hour,
+            &minute) < 5)
+    {
+        return metadata.timestampIso;
+    }
+
+    static const char* kMonthNames[] = {
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    };
+
+    const char* monthName = "???";
+    if (month >= 1 && month <= 12)
+        monthName = kMonthNames[month - 1];
+
+    char buffer[48];
+    std::snprintf(
+        buffer,
+        sizeof(buffer),
+        "%s %d, %d  %d:%02d",
+        monthName,
+        day,
+        year,
+        hour,
+        minute);
+    return buffer;
+}
+
 bool saveFileExists(const std::string& path)
 {
     return std::ifstream(path.c_str()).good();
 }
 
-bool writeSaveFile(const std::string& path, const SavedGameState& state)
+bool readSaveMetadata(const std::string& path, SaveSlotMetadata& outMetadata)
+{
+    std::ifstream file(path.c_str());
+    if (!file.is_open())
+        return false;
+
+    nlohmann::json root;
+    try
+    {
+        file >> root;
+    }
+    catch (const nlohmann::json::exception&)
+    {
+        return false;
+    }
+
+    const nlohmann::json& saveMeta = root.value("saveMeta", nlohmann::json::object());
+    if (saveMetadataFromJson(saveMeta, outMetadata))
+        return true;
+
+    outMetadata.name = "Saved Game";
+    outMetadata.timestampIso.clear();
+    outMetadata.unixTime = 0;
+    outMetadata.isQuickSave = false;
+    return true;
+}
+
+std::vector<SaveSlotListing> listSaveSlots()
+{
+    std::vector<SaveSlotListing> listings;
+    DIR* directory = opendir(savesDirectory());
+    if (directory == nullptr)
+        return listings;
+
+    struct dirent* entry = nullptr;
+    while ((entry = readdir(directory)) != nullptr)
+    {
+        const std::string fileName = entry->d_name;
+        if (!isSaveFileName(fileName))
+            continue;
+
+        SaveSlotListing listing;
+        listing.filePath = std::string(savesDirectory()) + "/" + fileName;
+        if (!readSaveMetadata(listing.filePath, listing.metadata))
+            continue;
+
+        if (listing.metadata.unixTime <= 0)
+            continue;
+
+        listings.push_back(listing);
+    }
+
+    closedir(directory);
+
+    std::vector<SaveSlotListing> quickSaves;
+    std::vector<SaveSlotListing> namedSaves;
+    quickSaves.reserve(listings.size());
+    namedSaves.reserve(listings.size());
+
+    for (const SaveSlotListing& listing : listings)
+    {
+        if (listing.metadata.isQuickSave)
+            quickSaves.push_back(listing);
+        else
+            namedSaves.push_back(listing);
+    }
+
+    std::sort(
+        namedSaves.begin(),
+        namedSaves.end(),
+        [](const SaveSlotListing& a, const SaveSlotListing& b)
+        {
+            return a.metadata.unixTime > b.metadata.unixTime;
+        });
+
+    std::vector<SaveSlotListing> ordered;
+    ordered.reserve(quickSaves.size() + namedSaves.size());
+    for (const SaveSlotListing& listing : quickSaves)
+        ordered.push_back(listing);
+    for (const SaveSlotListing& listing : namedSaves)
+        ordered.push_back(listing);
+
+    return ordered;
+}
+
+std::string buildNamedSavePath(long long unixTime)
+{
+    char buffer[64];
+    std::snprintf(buffer, sizeof(buffer), "%s/named_%lld.sav", savesDirectory(), unixTime);
+    return buffer;
+}
+
+void enforceNamedSaveLimit(int maxNamedSaves)
+{
+    if (maxNamedSaves < 0)
+        return;
+
+    std::vector<SaveSlotListing> listings = listSaveSlots();
+    std::vector<SaveSlotListing> namedSaves;
+    for (const SaveSlotListing& listing : listings)
+    {
+        if (!listing.metadata.isQuickSave)
+            namedSaves.push_back(listing);
+    }
+
+    std::sort(
+        namedSaves.begin(),
+        namedSaves.end(),
+        [](const SaveSlotListing& a, const SaveSlotListing& b)
+        {
+            return a.metadata.unixTime < b.metadata.unixTime;
+        });
+
+    while ((int)namedSaves.size() >= maxNamedSaves)
+    {
+        deleteSaveFile(namedSaves.front().filePath);
+        namedSaves.erase(namedSaves.begin());
+    }
+}
+
+bool deleteSaveFile(const std::string& path)
+{
+    return std::remove(path.c_str()) == 0;
+}
+
+bool writeSaveFile(const std::string& path, const SavedGameState& state, const SaveSlotMetadata& metadata)
 {
     if (!ensureParentDirectory(path))
         return false;
 
     nlohmann::json root;
-    root["version"] = 3;
+    root["version"] = 4;
+    root["saveMeta"] = saveMetadataToJson(metadata);
     root["sceneId"] = state.sceneId;
     root["previousSceneId"] = state.previousSceneId;
     root["narrativeText"] = state.narrativeText;
@@ -335,6 +565,7 @@ bool writeSaveFile(const std::string& path, const SavedGameState& state)
     root["examinedSceneIds"] = setToJsonArray(state.examinedSceneIds);
     root["usedSceneIds"] = setToJsonArray(state.usedSceneIds);
     root["takenItemKeys"] = setToJsonArray(state.takenItemKeys);
+    root["usedInteractionKeys"] = setToJsonArray(state.usedInteractionKeys);
     root["storyFlags"] = setToJsonArray(state.storyFlags);
     root["consumedStatusActions"] = setToJsonArray(state.consumedStatusActions);
     root["committedPlayerDialogLines"] = setToJsonArray(state.committedPlayerDialogLines);
@@ -353,11 +584,11 @@ bool writeSaveFile(const std::string& path, const SavedGameState& state)
     if (!file.is_open())
         return false;
 
-    file << root.dump(2);
+    file << root.dump();
     return file.good();
 }
 
-bool readSaveFile(const std::string& path, SavedGameState& state)
+bool readSaveFile(const std::string& path, SavedGameState& state, SaveSlotMetadata* outMetadata)
 {
     std::ifstream file(path.c_str());
     if (!file.is_open())
@@ -376,6 +607,18 @@ bool readSaveFile(const std::string& path, SavedGameState& state)
     if (!root.is_object())
         return false;
 
+    if (outMetadata != nullptr)
+    {
+        const nlohmann::json& saveMeta = root.value("saveMeta", nlohmann::json::object());
+        if (!saveMetadataFromJson(saveMeta, *outMetadata))
+        {
+            outMetadata->name = "Saved Game";
+            outMetadata->timestampIso.clear();
+            outMetadata->unixTime = 0;
+            outMetadata->isQuickSave = false;
+        }
+    }
+
     state.sceneId = root.value("sceneId", "");
     state.previousSceneId = root.value("previousSceneId", "");
     state.narrativeText = root.value("narrativeText", "");
@@ -391,6 +634,7 @@ bool readSaveFile(const std::string& path, SavedGameState& state)
     jsonArrayToSet(root.value("examinedSceneIds", nlohmann::json::array()), state.examinedSceneIds);
     jsonArrayToSet(root.value("usedSceneIds", nlohmann::json::array()), state.usedSceneIds);
     jsonArrayToSet(root.value("takenItemKeys", nlohmann::json::array()), state.takenItemKeys);
+    jsonArrayToSet(root.value("usedInteractionKeys", nlohmann::json::array()), state.usedInteractionKeys);
     jsonArrayToSet(root.value("storyFlags", nlohmann::json::array()), state.storyFlags);
     jsonArrayToSet(root.value("consumedStatusActions", nlohmann::json::array()), state.consumedStatusActions);
     jsonArrayToSet(root.value("committedPlayerDialogLines", nlohmann::json::array()), state.committedPlayerDialogLines);

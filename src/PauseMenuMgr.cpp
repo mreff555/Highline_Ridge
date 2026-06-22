@@ -35,6 +35,8 @@ namespace
     const int kAudioSliderCount = 4;
     const int kClickHoldSliderIndex = 4;
     const int kSliderCount = 5;
+    const int kMaxSavePresetCount = 8;
+    const int kMaxSavePresets[kMaxSavePresetCount] = { 5, 10, 15, 20, 25, 30, 40, 50 };
 }
 
 PauseMenuMgr::PauseMenuMgr(int screenWidth_, int screenHeight_, Font uiFont_)
@@ -107,7 +109,9 @@ const std::vector<PauseMenuMgr::ConfigRow>& PauseMenuMgr::getConfigRows() const
         { ConfigRowType::CycleButton, "Resolution", -1 },
         { ConfigRowType::ToggleButton, "Fullscreen", -1 },
         { ConfigRowType::SectionHeader, "INPUT", -1 },
-        { ConfigRowType::Slider, "Click Hold Duration", kClickHoldSliderIndex }
+        { ConfigRowType::Slider, "Click Hold Duration", kClickHoldSliderIndex },
+        { ConfigRowType::SectionHeader, "SAVES", -1 },
+        { ConfigRowType::CycleButton, "Max Number of Saves", -1 }
     };
     return rows;
 }
@@ -268,17 +272,17 @@ bool PauseMenuMgr::consumeQuitRequest()
     return requested;
 }
 
-bool PauseMenuMgr::consumeSaveRequest()
+bool PauseMenuMgr::consumeOpenSaveMenuRequest()
 {
-    const bool requested = saveRequested;
-    saveRequested = false;
+    const bool requested = openSaveMenuRequested;
+    openSaveMenuRequested = false;
     return requested;
 }
 
-bool PauseMenuMgr::consumeLoadRequest()
+bool PauseMenuMgr::consumeOpenLoadMenuRequest()
 {
-    const bool requested = loadRequested;
-    loadRequested = false;
+    const bool requested = openLoadMenuRequested;
+    openLoadMenuRequested = false;
     return requested;
 }
 
@@ -325,6 +329,26 @@ std::string PauseMenuMgr::resolutionLabel() const
         gameConfig->display.width,
         gameConfig->display.height);
     return buffer;
+}
+
+void PauseMenuMgr::cycleMaxNamedSaves()
+{
+    if (gameConfig == nullptr)
+        return;
+
+    int currentIndex = 0;
+    for (int i = 0; i < kMaxSavePresetCount; ++i)
+    {
+        if (kMaxSavePresets[i] == gameConfig->saves.maxNamedSaves)
+        {
+            currentIndex = i;
+            break;
+        }
+    }
+
+    const int nextIndex = (currentIndex + 1) % kMaxSavePresetCount;
+    gameConfig->saves.maxNamedSaves = kMaxSavePresets[nextIndex];
+    persistGameConfig();
 }
 
 void PauseMenuMgr::cycleResolutionPreset()
@@ -507,7 +531,12 @@ void PauseMenuMgr::handleConfigButtonInput()
             continue;
 
         if (row.type == ConfigRowType::CycleButton)
-            cycleResolutionPreset();
+        {
+            if (std::string(row.label) == "Max Number of Saves")
+                cycleMaxNamedSaves();
+            else
+                cycleResolutionPreset();
+        }
         else
             toggleFullscreen();
         break;
@@ -533,10 +562,10 @@ void PauseMenuMgr::handleMainInput()
         switch (i)
         {
             case 0:
-                loadRequested = true;
+                openLoadMenuRequested = true;
                 break;
             case 1:
-                saveRequested = true;
+                openSaveMenuRequested = true;
                 break;
             case 2:
                 showConfigPanel();
@@ -750,12 +779,24 @@ void PauseMenuMgr::drawConfigPanel() const
         char buttonText[96];
         if (row.type == ConfigRowType::CycleButton)
         {
-            snprintf(
-                buttonText,
-                sizeof(buttonText),
-                "%s: %s",
-                row.label,
-                resolutionLabel().c_str());
+            if (std::string(row.label) == "Max Number of Saves")
+            {
+                snprintf(
+                    buttonText,
+                    sizeof(buttonText),
+                    "%s: %d",
+                    row.label,
+                    gameConfig->saves.maxNamedSaves);
+            }
+            else
+            {
+                snprintf(
+                    buttonText,
+                    sizeof(buttonText),
+                    "%s: %s",
+                    row.label,
+                    resolutionLabel().c_str());
+            }
         }
         else
         {

@@ -10,6 +10,7 @@
 #include <ItemCombinationDatabase.h>
 #include <ItemDatabase.h>
 #include <DropConfirmMgr.h>
+#include <SaveLoadMenuMgr.h>
 #include <PauseMenuMgr.h>
 #include <SaveGame.h>
 #include <TakeMgr.h>
@@ -89,11 +90,17 @@ class Location
     void handleSpeak();
     void handleAttack();
     void handlePauseMenuInput();
+    void handleSaveLoadMenuInput();
+    void handleQuickSaveInput();
     void relayoutForScreenSize(int width, int height);
     SavedGameState captureSaveState() const;
     bool applySaveState(const SavedGameState& state);
-    bool saveGameToDisk();
-    bool loadGameFromDisk();
+    bool quickSaveToDisk();
+    bool namedSaveToDisk(const std::string& saveName);
+    bool loadGameFromPath(const std::string& path);
+    void showTransientMessage(const std::string& message, float durationSeconds = 2.5f);
+    void updateTransientMessage(float deltaSeconds);
+    void drawTransientMessage() const;
     void resolveDialogChoice(const std::string& choiceId);
     void resolveCombatEncounter(const std::string& encounterId);
     void processSpeakResult(const SpeakResult& result);
@@ -206,6 +213,7 @@ class Location
     AudioManager& audioManager;
     GameConfig& gameConfig;
     PauseMenuMgr pauseMenu;
+    SaveLoadMenuMgr saveLoadMenu;
     DropConfirmMgr dropConfirmMgr;
     std::string gameConfigPath;
     bool quitRequested = false;
@@ -297,6 +305,8 @@ class Location
 
     bool deferInitialRoomAudio = true;
     bool initialFrameComplete = false;
+    std::string transientMessage;
+    float transientMessageTimer = 0.0f;
 };
 
 }

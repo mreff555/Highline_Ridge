@@ -1,8 +1,10 @@
 #include <Location.h>
 #include <ImageCompression.h>
+#include <RaylibCompat.h>
 #include <raylib.h>
 #include <sstream>
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
@@ -110,6 +112,7 @@ namespace
       audioManager(audioManager),
       gameConfig(gameConfig),
       pauseMenu((int)screenSize.x, (int)screenSize.y, locationStruct.uiFont),
+      saveLoadMenu((int)screenSize.x, (int)screenSize.y, locationStruct.uiFont),
       dropConfirmMgr((int)screenSize.x, (int)screenSize.y, locationStruct.uiFont),
       gameConfigPath(configPath),
       currentSceneId(sceneId),
@@ -184,6 +187,7 @@ namespace
         fullDialogHeight = screenHeight * 2.0f / 3.0f;
         buttonMgr.relayout(buttonBox);
         pauseMenu.setScreenSize(screenWidth, screenHeight);
+        saveLoadMenu.setScreenSize(screenWidth, screenHeight);
         dropConfirmMgr.setScreenSize(screenWidth, screenHeight);
 
         if (notebookPaperTextureReady)
@@ -2479,6 +2483,7 @@ namespace
         state.examinedSceneIds = examinedSceneIds;
         state.usedSceneIds = usedSceneIds;
         state.takenItemKeys = takenItemKeys;
+        state.usedInteractionKeys = usedInteractionKeys;
         state.storyFlags = storyFlags;
         state.consumedStatusActions = consumedStatusActions;
         state.committedPlayerDialogLines = committedPlayerDialogLines;
@@ -2517,6 +2522,7 @@ namespace
         examinedSceneIds = state.examinedSceneIds;
         usedSceneIds = state.usedSceneIds;
         takenItemKeys = state.takenItemKeys;
+        usedInteractionKeys = state.usedInteractionKeys;
         storyFlags = state.storyFlags;
         consumedStatusActions = state.consumedStatusActions;
         committedPlayerDialogLines = state.committedPlayerDialogLines;
@@ -2546,25 +2552,153 @@ namespace
         return true;
     }
 
-    bool Location::saveGameToDisk()
+    namespace
     {
-        return writeSaveFile(defaultSavePath(), captureSaveState());
+        std::string trimSaveName(const std::string& value)
+        {
+            size_t start = 0;
+            size_t end = value.size();
+            while (start < end && std::isspace(static_cast<unsigned char>(value[start])))
+                ++start;
+            while (end > start && std::isspace(static_cast<unsigned char>(value[end - 1])))
+                --end;
+            return value.substr(start, end - start);
+        }
     }
 
-    bool Location::loadGameFromDisk()
+    bool Location::quickSaveToDisk()
+    {
+        SaveSlotMetadata metadata;
+        metadata.name = "Quick Save";
+        metadata.timestampIso = currentTimestampIso(metadata.unixTime);
+        metadata.isQuickSave = true;
+        return writeSaveFile(quickSavePath(), captureSaveState(), metadata);
+    }
+
+    bool Location::namedSaveToDisk(const std::string& saveName)
+    {
+        const std::string trimmedName = trimSaveName(saveName);
+        if (trimmedName.empty())
+            return false;
+
+        enforceNamedSaveLimit(gameConfig.saves.maxNamedSaves);
+
+        SaveSlotMetadata metadata;
+        metadata.name = trimmedName;
+        metadata.timestampIso = currentTimestampIso(metadata.unixTime);
+        metadata.isQuickSave = false;
+        return writeSaveFile(buildNamedSavePath(metadata.unixTime), captureSaveState(), metadata);
+    }
+
+    bool Location::loadGameFromPath(const std::string& path)
     {
         SavedGameState state;
-        if (!readSaveFile(defaultSavePath(), state))
+        if (!readSaveFile(path, state))
             return false;
 
         return applySaveState(state);
+    }
+
+    void Location::showTransientMessage(const std::string& message, float durationSeconds)
+    {
+        transientMessage = message;
+        transientMessageTimer = durationSeconds;
+    }
+
+    void Location::updateTransientMessage(float deltaSeconds)
+    {
+        if (transientMessageTimer <= 0.0f)
+            return;
+
+        transientMessageTimer -= deltaSeconds;
+        if (transientMessageTimer <= 0.0f)
+            transientMessage.clear();
+    }
+
+    void Location::drawTransientMessage() const
+    {
+        if (transientMessage.empty())
+            return;
+
+        const float fontSize = 16.0f;
+        const Vector2 textSize = MeasureTextEx(descriptionFont, transientMessage.c_str(), fontSize, 1);
+        const float padX = 18.0f;
+        const float padY = 10.0f;
+        const Rectangle panel = {
+            (screenWidth - textSize.x) * 0.5f - padX,
+            screenHeight - 72.0f - textSize.y - padY,
+            textSize.x + padX * 2.0f,
+            textSize.y + padY * 2.0f
+        };
+
+        DrawRectangleRounded(panel, 0.2f, 8, {28, 26, 34, 230});
+        DrawRoundedBorder(panel, 0.2f, 8, 2.0f, {168, 138, 72, 255});
+        DrawTextEx(
+            descriptionFont,
+            transientMessage.c_str(),
+            { panel.x + padX, panel.y + padY },
+            fontSize,
+            1,
+            {228, 220, 198, 255});
+    }
+
+    void Location::handleQuickSaveInput()
+    {
+        if (!IsKeyPressed(KEY_F5))
+            return;
+
+        if (saveLoadMenu.isOpen() || pauseMenu.isOpen() || isSidePanelOpen())
+            return;
+
+        if (quickSaveToDisk())
+            showTransientMessage("Quick save created.");
+        else
+            showTransientMessage("Quick save failed.");
+    }
+
+    void Location::handleSaveLoadMenuInput()
+    {
+        if (IsKeyPressed(KEY_ESCAPE))
+            saveLoadMenu.closeMenu();
+
+        if (saveLoadMenu.consumeBackRequest())
+            saveLoadMenu.closeMenu();
+
+        std::string saveName;
+        if (saveLoadMenu.consumeNamedSaveRequest(saveName))
+        {
+            if (namedSaveToDisk(saveName))
+                pauseMenu.setStatusMessage("Game saved.");
+            else
+                pauseMenu.setStatusMessage("Save failed.");
+
+            saveLoadMenu.closeMenu();
+        }
+
+        std::string loadPath;
+        if (saveLoadMenu.consumeLoadSlotRequest(loadPath))
+        {
+            if (loadGameFromPath(loadPath))
+            {
+                pauseMenu.setStatusMessage("Game loaded.");
+                saveLoadMenu.closeMenu();
+                pauseMenu.closeMenu();
+                audioManager.setGameplayPaused(false);
+            }
+            else
+                pauseMenu.setStatusMessage("Load failed.");
+        }
     }
 
     void Location::handlePauseMenuInput()
     {
         if (IsKeyPressed(KEY_ESCAPE))
         {
-            if (pauseMenu.isOpen())
+            if (saveLoadMenu.isOpen())
+            {
+                saveLoadMenu.closeMenu();
+            }
+            else if (pauseMenu.isOpen())
             {
                 if (pauseMenu.isConfigPanel())
                     pauseMenu.showMainPanel();
@@ -2581,25 +2715,14 @@ namespace
             }
         }
 
-        pauseMenu.update(GetFrameTime());
+        if (!saveLoadMenu.isOpen())
+            pauseMenu.update(GetFrameTime());
 
-        if (pauseMenu.consumeSaveRequest())
-        {
-            if (saveGameToDisk())
-                pauseMenu.setStatusMessage("Game saved.");
-            else
-                pauseMenu.setStatusMessage("Save failed.");
-        }
+        if (pauseMenu.consumeOpenSaveMenuRequest())
+            saveLoadMenu.openSaveMenu();
 
-        if (pauseMenu.consumeLoadRequest())
-        {
-            if (loadGameFromDisk())
-                pauseMenu.setStatusMessage("Game loaded.");
-            else if (!saveFileExists(defaultSavePath()))
-                pauseMenu.setStatusMessage("No save file found.");
-            else
-                pauseMenu.setStatusMessage("Load failed.");
-        }
+        if (pauseMenu.consumeOpenLoadMenuRequest())
+            saveLoadMenu.openLoadMenu();
 
         if (pauseMenu.consumeQuitRequest())
             quitRequested = true;
@@ -2618,8 +2741,16 @@ namespace
         }
 
         audioManager.update(GetFrameTime());
-
+        updateTransientMessage(GetFrameTime());
+        handleQuickSaveInput();
         handlePauseMenuInput();
+
+        if (saveLoadMenu.isOpen())
+        {
+            saveLoadMenu.update();
+            handleSaveLoadMenuInput();
+            return;
+        }
 
         if (pauseMenu.isOpen())
             return;
@@ -2653,6 +2784,9 @@ namespace
         handleNotebookNavInput();
 
         buttonMgr.update();
+
+        if (buttonMgr.consumeMoveOrActionButtonClick())
+            audioManager.stopDialog();
 
         if (buttonMgr.consumeInventoryButtonClick())
         {
@@ -2907,6 +3041,8 @@ namespace
 
         buttonMgr.draw();
         pauseMenu.draw();
+        saveLoadMenu.draw();
+        drawTransientMessage();
         dropConfirmMgr.draw();
     }
 

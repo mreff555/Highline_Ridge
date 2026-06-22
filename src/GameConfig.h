@@ -34,12 +34,18 @@ struct TtsConfig
     std::string bundleDir = "resources/audio/tts";
 };
 
+struct SaveConfig
+{
+    int maxNamedSaves = 10;
+};
+
 struct GameConfig
 {
     DisplayConfig display;
     AudioVolumeConfig audio;
     InputConfig input;
     TtsConfig tts;
+    SaveConfig saves;
 };
 
 bool loadGameConfig(const std::string& configPath, GameConfig& outConfig);

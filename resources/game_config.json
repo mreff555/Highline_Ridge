@@ -17,5 +17,8 @@
     "enabled": true,
     "voice": "leo",
     "bundleDir": "resources/audio/tts"
+  },
+  "saves": {
+    "maxNamedSaves": 10
   }
 }

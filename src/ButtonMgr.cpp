@@ -267,6 +267,9 @@ int ButtonMgr::findEnabledButtonUnderMouse(Vector2 mousePos) const
 
 void ButtonMgr::registerButtonClick(int buttonIndex)
 {
+    if (buttonIndex >= 0 && buttonIndex <= 10)
+        moveOrActionButtonClicked = true;
+
     switch (buttonIndex)
     {
         case 0: upButtonClicked = true; break;
@@ -314,6 +317,7 @@ void ButtonMgr::update()
     takeButtonClicked = false;
     hitButtonClicked = false;
     inventoryButtonClicked = false;
+    moveOrActionButtonClicked = false;
 
     Vector2 mousePos = GetMousePosition();
     const bool mouseDown = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
@@ -454,6 +458,13 @@ bool ButtonMgr::consumeInventoryButtonClick()
 {
     const bool clicked = inventoryButtonClicked;
     inventoryButtonClicked = false;
+    return clicked;
+}
+
+bool ButtonMgr::consumeMoveOrActionButtonClick()
+{
+    const bool clicked = moveOrActionButtonClicked;
+    moveOrActionButtonClicked = false;
     return clicked;
 }
 

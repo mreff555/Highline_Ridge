@@ -42,8 +42,8 @@ class PauseMenuMgr
     void draw() const;
 
     bool consumeQuitRequest();
-    bool consumeSaveRequest();
-    bool consumeLoadRequest();
+    bool consumeOpenSaveMenuRequest();
+    bool consumeOpenLoadMenuRequest();
     void setStatusMessage(const std::string& message, float durationSeconds = 2.5f);
     const std::string& getStatusMessage() const { return statusMessage; }
 
@@ -81,6 +81,7 @@ class PauseMenuMgr
     void handleSliderInput();
     void handleConfigButtonInput();
     void cycleResolutionPreset();
+    void cycleMaxNamedSaves();
     void toggleFullscreen();
     void applyAudioConfig() const;
     void persistGameConfig() const;
@@ -111,8 +112,8 @@ class PauseMenuMgr
     std::vector<Button> buttons;
 
     bool quitRequested = false;
-    bool saveRequested = false;
-    bool loadRequested = false;
+    bool openSaveMenuRequested = false;
+    bool openLoadMenuRequested = false;
 
     std::string statusMessage;
     float statusMessageTimer = 0.0f;

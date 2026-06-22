@@ -36,6 +36,7 @@ struct SavedGameState
     std::set<std::string> examinedSceneIds;
     std::set<std::string> usedSceneIds;
     std::set<std::string> takenItemKeys;
+    std::set<std::string> usedInteractionKeys;
     std::set<std::string> storyFlags;
     std::set<std::string> consumedStatusActions;
     std::set<std::string> committedPlayerDialogLines;
@@ -45,11 +46,34 @@ struct SavedGameState
     MilestonePersistState milestones;
 };
 
+struct SaveSlotMetadata
+{
+    std::string name;
+    std::string timestampIso;
+    long long unixTime = 0;
+    bool isQuickSave = false;
+};
+
+struct SaveSlotListing
+{
+    SaveSlotMetadata metadata;
+    std::string filePath;
+};
+
 const char* defaultSavePath();
+const char* savesDirectory();
+const char* quickSavePath();
 
 bool saveFileExists(const std::string& path);
-bool writeSaveFile(const std::string& path, const SavedGameState& state);
-bool readSaveFile(const std::string& path, SavedGameState& state);
+std::string currentTimestampIso(long long& outUnixTime);
+std::string formatSaveTimestampForDisplay(const SaveSlotMetadata& metadata);
+std::vector<SaveSlotListing> listSaveSlots();
+bool readSaveMetadata(const std::string& path, SaveSlotMetadata& outMetadata);
+bool writeSaveFile(const std::string& path, const SavedGameState& state, const SaveSlotMetadata& metadata);
+bool readSaveFile(const std::string& path, SavedGameState& state, SaveSlotMetadata* outMetadata = nullptr);
+bool deleteSaveFile(const std::string& path);
+std::string buildNamedSavePath(long long unixTime);
+void enforceNamedSaveLimit(int maxNamedSaves);
 
 }
 

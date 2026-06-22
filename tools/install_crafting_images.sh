@@ -23,21 +23,17 @@ xz -dc "$ROOT/resources/icons/lamp_oil_icon.png.xz" > /tmp/lamp_oil.png
 magick -size 256x256 canvas:'#121018' \
   \( -size 256x256 xc:none \
      -fill '#2a2218' -draw "rectangle 0,210 256,256" \
-     -fill '#c49a3a' -draw "roundrectangle 84,142 172,206 12,12" \
-     -fill none -stroke '#5a4630' -strokewidth 5 -draw "line 128,66 128,192" \
-     -stroke '#6e5840' -strokewidth 2 -draw "line 124,66 124,192" \
-     -stroke '#4a3828' -strokewidth 2 -draw "line 132,66 132,192" \
-     -fill 'rgba(150,165,180,0.35)' -stroke '#b8c4d0' -strokewidth 3 -draw "roundrectangle 78,70 178,206 16,16" \
-     -fill 'rgba(230,240,255,0.25)' -draw "roundrectangle 88,82 98,180 4,4" \
-     -fill '#8a98a8' -stroke '#c0ccd8' -strokewidth 2 -draw "rectangle 104,52 152,70" \
-     -fill '#9a7048' -stroke '#6e4e2c' -strokewidth 2 -draw "roundrectangle 100,36 156,52 6,6" \
-     -fill '#2a2218' -draw "ellipse 124,40 6,6 0,360" \
-     -stroke '#4a3828' -strokewidth 4 -draw "line 128,36 128,24" \
-     -fill '#ffae42' -draw "ellipse 128,18 10,14 0,360" \
-     -fill '#ffe48a' -draw "ellipse 128,20 5,7 0,360" \
+     -fill '#b8862a' -stroke '#7a5a18' -strokewidth 3 -draw "roundrectangle 88,118 168,198 10,10" \
+     -fill 'rgba(180,200,220,0.45)' -stroke '#d8e4f0' -strokewidth 2 -draw "roundrectangle 96,72 160,126 8,8" \
+     -fill 'rgba(220,235,255,0.35)' -draw "roundrectangle 108,84 118,112 3,3" \
+     -fill '#8a7048' -stroke '#5a4020' -strokewidth 2 -draw "roundrectangle 104,56 152,74 6,6" \
+     -fill '#2a2218' -draw "ellipse 124,64 6,6 0,360" \
+     -stroke '#6a5028' -strokewidth 5 -draw "arc 70,150 186,230 0,180" \
+     -stroke '#4a3828' -strokewidth 4 -draw "line 128,198 128,222" \
+     -fill '#ffae42' -draw "ellipse 128,228 8,10 0,360" \
+     -fill '#ffe48a' -draw "ellipse 128,230 4,5 0,360" \
   \) -composite \
-  \( /tmp/lamp_oil.png -alpha set -channel A -evaluate multiply 0.22 +channel \) -gravity center -compose Overlay -composite \
-  -modulate 105,118,100 \
+  -modulate 105,115,100 \
   "$ROOT/resources/icons/crude_lantern_icon.png"
 
 magick -size 1248x832 canvas:'#241c16' \
