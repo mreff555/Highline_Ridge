@@ -316,9 +316,12 @@
     "independence_hall_locket": {
       "name": "Independence Hall Locket",
       "description": "An oval souvenir locket of tarnished silver plate over brass, the sort sold to travelers who want memory made portable. Independence Hall is worked in relief across the face, with 1776 arched above the cupola. The hinge is stiff with age and the catch holds fast. Whatever was kept inside has not seen daylight in some time.",
-      "alternateDescription": "The locket lies open in your palm, both halves spread wide in a way no chain would permit. Inside the right compartment, an oval scrap of yellowed paper has been cut to fit the cavity. On it, in a child's careful pencil, a mother and a girl of about eight stand hand in hand. The lines are wobbly and earnest, the faces simple circles with happy mouths. Someone loved them enough to carry the drawing where a photograph might have gone.",
+      "alternateDescription": "The locket lies open in your palm, both halves spread wide. Inside the right compartment, an oval scrap of yellowed paper has been cut to fit the cavity. On it, a delicate graphite portrait shows a pretty young mother beside her eight-year-old daughter, both in simple dresses, their faces rendered with tender, lifelike care.",
       "alternateDescriptionFlag": "open",
-      "examineRevealFlag": "open",
+      "examineRevealFlag": "examined",
+      "useRequiresFlag": "examined",
+      "useRevealFlag": "open",
+      "useNarrative": "You work the stiff catch with your thumbnail until the locket gives. Inside, on oval paper yellowed with age, a delicate pencil portrait shows a pretty young mother beside her eight-year-old daughter, both smiling as though they once sat for a keepsake and meant to be remembered that way.\n\nYou have no idea where this locket came from. The depictions seem slightly familiar, but you do not know why.",
       "weightLb": 0.11,
       "visuals": {
         "image": "resources/images/locket_closed_examine.png",

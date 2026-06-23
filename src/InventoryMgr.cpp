@@ -222,10 +222,17 @@ void InventoryMgr::createDefaultItems()
 {
     items.clear();
 
-    if (itemDatabase != nullptr && itemDatabase->hasDef("wallet"))
+    if (itemDatabase != nullptr)
     {
-        items.push_back(itemDatabase->buildInventoryItem(itemDatabase->createInstance("wallet")));
-        return;
+        if (itemDatabase->hasDef("wallet"))
+            items.push_back(itemDatabase->buildInventoryItem(itemDatabase->createInstance("wallet")));
+        if (itemDatabase->hasDef("independence_hall_locket"))
+        {
+            items.push_back(itemDatabase->buildInventoryItem(
+                itemDatabase->createInstance("independence_hall_locket")));
+        }
+        if (!items.empty())
+            return;
     }
 
     InventoryItem wallet;

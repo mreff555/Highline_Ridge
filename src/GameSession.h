@@ -166,6 +166,8 @@ class GameSession
         const std::string& keepLineText = "");
     bool hasExaminedScene(const std::string& sceneId) const;
     bool canUseInCurrentScene() const;
+    bool canUseSelectedInventoryItem() const;
+    void useSelectedInventoryItem();
     void openUiMode(UiMode mode);
     void closeAllUiPanels();
 

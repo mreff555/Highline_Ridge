@@ -202,6 +202,15 @@ bool parseItemDef(const std::string& id, const nlohmann::json& json, ItemDef& ou
     out.examineRevealFlag = json.value(
         "examineRevealFlag",
         json.value("examine_reveal_flag", ""));
+    out.useRequiresFlag = json.value(
+        "useRequiresFlag",
+        json.value("use_requires_flag", ""));
+    out.useRevealFlag = json.value(
+        "useRevealFlag",
+        json.value("use_reveal_flag", ""));
+    out.useNarrative = json.value(
+        "useNarrative",
+        json.value("use_narrative", ""));
 
     return !out.id.empty() && !out.name.empty();
 }

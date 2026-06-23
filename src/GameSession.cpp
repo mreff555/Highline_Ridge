@@ -562,6 +562,60 @@ namespace
             && inventoryMgr.canExtractFromExaminedItem(itemDatabase);
     }
 
+    bool GameSession::canUseSelectedInventoryItem() const
+    {
+        if (!inventoryMgr.isOpen()
+            || inventoryMgr.isExaminingItem()
+            || !inventoryMgr.hasSelectedItem())
+        {
+            return false;
+        }
+
+        const InventoryItem* item = inventoryMgr.getSelectedItem();
+        if (item == nullptr)
+            return false;
+
+        const ItemDef* def = itemDatabase.getDef(item->id);
+        if (def == nullptr || def->useRevealFlag.empty())
+            return false;
+
+        if (hasItemFlag(item->instance.activeFlags, def->useRevealFlag))
+            return false;
+
+        if (!def->useRequiresFlag.empty()
+            && !hasItemFlag(item->instance.activeFlags, def->useRequiresFlag))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    void GameSession::useSelectedInventoryItem()
+    {
+        if (!canUseSelectedInventoryItem())
+            return;
+
+        const std::string itemId = inventoryMgr.getSelectedItemId();
+        const ItemDef* def = itemDatabase.getDef(itemId);
+        if (def == nullptr)
+            return;
+
+        inventoryMgr.applyExamineRevealFlag(itemId, def->useRevealFlag);
+        inventoryMgr.examineSelectedItem();
+
+        const InventoryItem* examinedItem = inventoryMgr.getSelectedItem();
+        if (examinedItem != nullptr)
+            playItemExamineAudio(*examinedItem);
+
+        if (!def->useNarrative.empty())
+            appendNarrativeSection("Using:", def->useNarrative);
+
+        narrativeNotebook.resetInventoryExamineScroll();
+        scrollNarrativeToHeader("Using:");
+        updateActionAvailability();
+    }
+
     void GameSession::takeFromExaminedItem()
     {
         InventoryItem extracted;
@@ -1272,6 +1326,8 @@ namespace
                 if (canTakeFromExaminedItem())
                     actions.take = true;
             }
+            else if (canUseSelectedInventoryItem())
+                actions.use = true;
             else if (inventoryMgr.canExamineSelectedItem())
                 actions.examine = true;
         }
@@ -1787,6 +1843,8 @@ namespace
                 narrativeNotebook.resetInventoryExamineScroll();
                 updateActionAvailability();
             }
+            else if (buttonMgr.consumeUseButtonClick())
+                useSelectedInventoryItem();
             else if (buttonMgr.consumeExamineButtonClick() && inventoryMgr.canExamineSelectedItem())
             {
                 inventoryMgr.examineSelectedItem();
