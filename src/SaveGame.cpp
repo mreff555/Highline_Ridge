@@ -1,15 +1,14 @@
 #include "SaveGame.h"
 
 #include <ItemInstance.h>
+#include <PlatformPath.h>
 #include <TakeableItemDef.h>
 #include <nlohmann/json.hpp>
 #include <algorithm>
 #include <cstdio>
 #include <ctime>
-#include <dirent.h>
 #include <fstream>
 #include <map>
-#include <sys/stat.h>
 
 namespace testgame
 {
@@ -42,19 +41,7 @@ void jsonArrayToSet(const nlohmann::json& array, Set& outValues)
 
 bool ensureParentDirectory(const std::string& path)
 {
-    const size_t slash = path.find_last_of('/');
-    if (slash == std::string::npos)
-        return true;
-
-    const std::string directory = path.substr(0, slash);
-    struct stat info{};
-    if (stat(directory.c_str(), &info) == 0)
-        return S_ISDIR(info.st_mode);
-
-    if (mkdir(directory.c_str(), 0755) != 0)
-        return stat(directory.c_str(), &info) == 0 && S_ISDIR(info.st_mode);
-
-    return true;
+    return ensureParentDirectories(path);
 }
 
 nlohmann::json itemInstanceToJson(const ItemInstance& instance)
@@ -448,19 +435,15 @@ bool readSaveMetadata(const std::string& path, SaveSlotMetadata& outMetadata)
 std::vector<SaveSlotListing> listSaveSlots()
 {
     std::vector<SaveSlotListing> listings;
-    DIR* directory = opendir(savesDirectory());
-    if (directory == nullptr)
-        return listings;
+    ensureDirectory(savesDirectory());
 
-    struct dirent* entry = nullptr;
-    while ((entry = readdir(directory)) != nullptr)
+    for (const std::string& fileName : listDirectoryFileNames(savesDirectory()))
     {
-        const std::string fileName = entry->d_name;
         if (!isSaveFileName(fileName))
             continue;
 
         SaveSlotListing listing;
-        listing.filePath = std::string(savesDirectory()) + "/" + fileName;
+        listing.filePath = pathJoin(savesDirectory(), fileName);
         if (!readSaveMetadata(listing.filePath, listing.metadata))
             continue;
 
@@ -469,8 +452,6 @@ std::vector<SaveSlotListing> listSaveSlots()
 
         listings.push_back(listing);
     }
-
-    closedir(directory);
 
     std::vector<SaveSlotListing> quickSaves;
     std::vector<SaveSlotListing> namedSaves;
@@ -505,9 +486,9 @@ std::vector<SaveSlotListing> listSaveSlots()
 
 std::string buildNamedSavePath(long long unixTime)
 {
-    char buffer[64];
-    std::snprintf(buffer, sizeof(buffer), "%s/named_%lld.sav", savesDirectory(), unixTime);
-    return buffer;
+    char fileName[64];
+    std::snprintf(fileName, sizeof(fileName), "named_%lld.sav", unixTime);
+    return pathJoin(savesDirectory(), fileName);
 }
 
 void enforceNamedSaveLimit(int maxNamedSaves)

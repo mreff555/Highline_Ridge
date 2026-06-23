@@ -1,9 +1,11 @@
 #include "ImageCompression.h"
+#include "PlatformPath.h"
 
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <jpeglib.h>
 #include <lzma.h>
@@ -186,16 +188,14 @@ std::string resolveAssetPath(const std::string& assetRoot, const std::string& pa
     if (path.empty())
         return path;
 
-    if (path[0] == '/')
-        return path;
+    const std::filesystem::path candidate(path);
+    if (candidate.is_absolute())
+        return candidate.lexically_normal().string();
 
     if (assetRoot.empty())
         return path;
 
-    if (assetRoot.back() == '/')
-        return assetRoot + path;
-
-    return assetRoot + "/" + path;
+    return pathJoin(assetRoot, path);
 }
 
 std::vector<std::string> buildAssetSearchPaths(
@@ -313,16 +313,7 @@ bool writeBinaryFile(const std::string& path, const unsigned char* data, size_t 
 
 bool ensureParentDirectoryExists(const std::string& filePath)
 {
-    const size_t slash = filePath.find_last_of('/');
-    if (slash == std::string::npos)
-        return true;
-
-    const std::string directory = filePath.substr(0, slash);
-    if (directory.empty())
-        return true;
-
-    const std::string command = "mkdir -p \"" + directory + "\"";
-    return std::system(command.c_str()) == 0;
+    return ensureParentDirectories(filePath);
 }
 
 bool compressBytesToXzFile(

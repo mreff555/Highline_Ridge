@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.24)
 project(HighlineRidge CXX)
 
-# Set C++ standard
-set(CMAKE_CXX_STANDARD 11)
+# C++17 for std::filesystem (cross-platform paths and save directories).
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -19,6 +19,7 @@ set(SOURCES
     src/TakeMgr.cpp
     src/InteractionMgr.cpp
     src/ImageCompression.cpp
+    src/PlatformPath.cpp
     src/GameConfig.cpp
     src/AudioManager.cpp
     src/UiBackdrop.cpp
@@ -106,7 +107,7 @@ if(PkgConfig_FOUND)
 endif()
 
 if(NOT LIBLZMA_FOUND)
-    find_library(LZMA_LIBRARY NAMES lzma)
+    find_library(LZMA_LIBRARY NAMES lzma liblzma lzma.lib)
     find_path(LZMA_INCLUDE_DIR lzma.h)
     if(LZMA_LIBRARY AND LZMA_INCLUDE_DIR)
         add_library(LZMA::LZMA UNKNOWN IMPORTED)
@@ -123,7 +124,7 @@ if(NOT LIBLZMA_FOUND AND NOT TARGET LZMA::LZMA)
 endif()
 
 if(NOT LIBJPEG_FOUND)
-    find_library(JPEG_LIBRARY NAMES jpeg)
+    find_library(JPEG_LIBRARY NAMES jpeg jpeg.lib turbojpeg turbojpeg.lib)
     find_path(JPEG_INCLUDE_DIR jpeglib.h)
     if(JPEG_LIBRARY AND JPEG_INCLUDE_DIR)
         add_library(JPEG::JPEG UNKNOWN IMPORTED)
@@ -138,8 +139,8 @@ if(NOT LIBJPEG_FOUND)
 endif()
 
 if(NOT OPUSFILE_FOUND)
-    find_library(OPUSFILE_LIBRARY NAMES opusfile)
-    find_library(OPUS_LIBRARY NAMES opus)
+    find_library(OPUSFILE_LIBRARY NAMES opusfile opusfile.lib)
+    find_library(OPUS_LIBRARY NAMES opus opus.lib)
     find_path(OPUSFILE_INCLUDE_DIR opusfile.h)
     if(OPUSFILE_LIBRARY AND OPUS_LIBRARY AND OPUSFILE_INCLUDE_DIR)
         add_library(OPUSFILE::OPUSFILE UNKNOWN IMPORTED)
@@ -182,6 +183,10 @@ else()
 endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE raylib ${_image_deps} ${_audio_deps})
+
+if(MSVC)
+    target_compile_options(${PROJECT_NAME} PRIVATE /W4 /utf-8)
+endif()
 
 # 6. macOS frameworks (required by raylib on Apple platforms)
 if (APPLE)

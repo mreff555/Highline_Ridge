@@ -1,5 +1,6 @@
 #include <AudioManager.h>
 #include <GameConfig.h>
+#include <PlatformPath.h>
 #include <UiBackdrop.h>
 #include <ItemCombinationDatabase.h>
 #include <ItemDatabase.h>
@@ -32,7 +33,7 @@ bool locateGameResources()
         if (directory.empty())
             return false;
 
-        const std::string scenesPath = directory + "/resources/scenes.json";
+        const std::string scenesPath = pathJoin(directory, "resources/scenes.json");
         if (!FileExists(scenesPath.c_str()))
             return false;
 
@@ -48,7 +49,7 @@ bool locateGameResources()
         if (tryDirectory(executableDirectory))
             return true;
 
-        const std::string parentDirectory = executableDirectory + "/..";
+        const std::string parentDirectory = pathJoin(executableDirectory, "..");
         if (tryDirectory(parentDirectory))
             return true;
     }
