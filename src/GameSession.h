@@ -127,6 +127,7 @@ class GameSession
     void transitionToScene(const std::string& sceneId);
     void tryMove(const std::string& direction);
     bool maybeRevealIceHouseInteriorDeparture(const std::string& direction);
+    bool maybeRevealCottonwoodMeadowDeparture(const std::string& direction);
     void appendBlockedMovementMessage(const std::string& details);
     void trimNarrativeBuffer();
     void handleNarrativeScrollInput();

@@ -1999,9 +1999,39 @@ namespace
         return true;
     }
 
+    bool GameSession::maybeRevealCottonwoodMeadowDeparture(const std::string& direction)
+    {
+        if (worldState.currentSceneId != "cottonwood_meadow" || direction != "backward")
+            return false;
+
+        const std::string restKey = interactionKey("rest_by_cottonwood");
+        if (worldState.playerStats.consumedStatusActions.count(restKey) == 0)
+            return false;
+
+        if (worldState.storyFlags.count("cottonwood_meadow:departure_noted") > 0)
+            return false;
+
+        const std::string details =
+            "You push yourself up from the cottonwood's shade, brushing grass from your coat. "
+            "As you stand, one detail catches your eye that the mountains had distracted you from: "
+            "a patch of ground roughly ten feet from the tree's trunk, greener and thicker than "
+            "the grass around it, as though something beneath the soil feeds that spot what the "
+            "rest of the meadow only wishes for.";
+
+        appendNarrativeSection("Examining:", details);
+        worldState.storyFlags.insert("cottonwood_meadow:departure_noted");
+        evaluateMilestones();
+        updateActionAvailability();
+        worldState.recordAction();
+        return true;
+    }
+
     void GameSession::tryMove(const std::string& direction)
     {
         if (maybeRevealIceHouseInteriorDeparture(direction))
+            return;
+
+        if (maybeRevealCottonwoodMeadowDeparture(direction))
             return;
 
         std::string blockedDetails;

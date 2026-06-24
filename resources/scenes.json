@@ -383,7 +383,7 @@
       "start": false,
       "image": "resources/images/ice_house.png",
       "description": "The stakes give way to a dug-out slope where someone cut a root cellar into the mountain itself. Timber frames a low doorway set into the earth, cold air breathing out even in daylight. An ice house, or what remains of one - the kind of structure that kept meat through summer before the railroad brought upcity ice. The door hangs open. Iron hooks are visible in the gloom within. The silence has weight.",
-      "examineDetails": "The structure is half-buried in the slope, earth and stone packed against the outer walls as though the mountain meant to swallow it. Split pine braces the lintel. The door hangs ajar on leather hinges gone stiff with damp.\n\nCold exhales from the interior even at midday - not the clean cold of winter, but the held cold of deep earth and old blood remembered in timber. Meat hooks show against the ceiling beam, dark curves against darker shadow.\n\nTo your left, a narrow passage opens into the ice house proper. Whatever was stored here was meant to stay off the ridge's ledger.",
+      "examineDetails": "The structure is half-buried in the slope, earth and stone packed against the outer walls as though the mountain meant to swallow it. Split pine braces the lintel. The door hangs ajar on leather hinges gone stiff with damp.\n\nCold exhales from the interior even at midday - not the clean cold of winter, but the held cold of deep earth and old blood remembered in timber. Meat hooks show against the ceiling beam, dark curves against darker shadow.\n\nTo your left, a narrow passage opens into the ice house proper. Ahead, a winding track continues along the slope, wide enough for a small wagon. Whatever was stored here was meant to stay off the ridge's ledger.",
       "useDetails": "",
       "movement": {
         "forward": true,
@@ -398,7 +398,7 @@
         "use": false
       },
       "exits": {
-        "forward": "private_overlook",
+        "forward": "winding_alpine_path",
         "backward": "survey_stake_line",
         "left": "ice_house_interior"
       },
@@ -1183,6 +1183,123 @@
           "fade_out": 2.5,
           "loop": true
         }
+      }
+    },
+    "winding_alpine_path": {
+      "start": false,
+      "image": "resources/images/winding_alpine_path.png",
+      "description": "Past the ice house the slope opens onto a winding alpine track cut along the mountainside, barely wide enough for a small wagon or motor car. The dirt is packed hard where tires have passed, softer at the edges where wild grass pushes back. Far to your left, across a shallow draw, an old white Baptist church stands on a rise - plain clapboard, modest steeple, paint gone chalky with sun and winter. A narrower path diverges left toward it. To your right, another fork drops toward a sunlit meadow you can glimpse through scattered pines.",
+      "examineDetails": "The main track bends with the contour of the slope, drainage ditches cut on the uphill side to keep spring melt from washing the road away. Tire ruts and hoof prints overlap in the dust - this route is still used, if lightly.\n\nLeft, the church path is foot-worn and steeper, switchbacking once before it reaches the little white building. No bell rope visible from here. No smoke from a chimney. It looks tended but quiet.\n\nRight, the meadow path follows a gentler grade through young pines and opens on green so vivid it almost hurts the eye after the dust and stone of the ridge road.",
+      "useDetails": "",
+      "movement": {
+        "forward": false,
+        "backward": true,
+        "left": true,
+        "right": true
+      },
+      "actions": {
+        "examine": true,
+        "speak": false,
+        "hit": false,
+        "use": false
+      },
+      "exits": {
+        "backward": "ice_house",
+        "left": "white_baptist_church",
+        "right": "cottonwood_meadow"
+      },
+      "audio": {
+        "ambient": [
+          {
+            "path": "resources/audio/ambient/narrow_path_aspen_grove.mp3",
+            "volume": 0.65,
+            "fade_in": 2.0,
+            "fade_out": 2.0,
+            "loop": true
+          },
+          {
+            "path": "resources/audio/ambient/wind.mp3",
+            "volume": 0.28,
+            "fade_in": 2.5,
+            "fade_out": 2.0,
+            "loop": true
+          }
+        ]
+      }
+    },
+    "cottonwood_meadow": {
+      "start": false,
+      "image": "resources/images/cottonwood_meadow.png",
+      "description": "The path opens into a meadow so green it feels borrowed from another country. Lush grass rolls in a slow swell toward a ravine cut thirty feet from the trunk of an enormous cottonwood. The tree spreads its shade wide, its bark silver-white in the sun, its lowest limb an invitation to sit and stay awhile. Beyond the meadow, mountain after mountain stacks against the sky - blue-gray ridges fading into distance without end.",
+      "examineDetails": "You study the mountains the way a man studies a problem he cannot yet name.\n\nThe nearest peaks are timbered to the line, dark spruce giving way to bare rock and late snow in the highest cols. Farther out, the ranges fold into one another, each ridge stealing depth from the next until the horizon is only atmosphere and silhouette. No city smoke. No rail cut. Only wilderness layered to the edge of sight.\n\nThe ravine beside the cottonwood drops sharply, its walls stitched with willow and chokecherry, a thin thread of water audible below though you cannot see it from here.\n\nThe cottonwood itself is old - trunk thick enough that two men could not span it, roots gripping the meadow edge where the ground begins to fall away. The grass beneath it is trampled flat in a rough circle, as though generations of travelers have paused here and never quite agreed to leave.",
+      "useDetails": "",
+      "interactions": [
+        {
+          "id": "rest_by_cottonwood",
+          "label": "Rest by the cottonwood and stare at the mountains.",
+          "useDetails": "You settle against the cottonwood's trunk, the bark cool through your coat, the grass soft under your boots. The mountains fill your vision - ridge upon ridge, distance made visible. You cannot explain what loosens in your chest as you watch them, only that it does. The air feels easier. Your thoughts grow quiet. For a little while, the ridge stops asking questions you do not know how to answer.",
+          "useEnergyDelta": 10,
+          "useLucidityDelta": 5,
+          "useResolveDelta": -3,
+          "requiresExamine": true,
+          "repeat": false
+        }
+      ],
+      "movement": {
+        "forward": false,
+        "backward": true,
+        "left": false,
+        "right": false
+      },
+      "actions": {
+        "examine": true,
+        "speak": false,
+        "hit": false,
+        "use": true,
+        "take": false
+      },
+      "exits": {
+        "backward": "winding_alpine_path"
+      },
+      "audio": {
+        "ambient": [
+          {
+            "path": "resources/audio/ambient/narrow_path_aspen_grove.mp3",
+            "volume": 0.45,
+            "fade_in": 2.5,
+            "fade_out": 2.0,
+            "loop": true
+          },
+          {
+            "path": "resources/audio/ambient/wind.mp3",
+            "volume": 0.22,
+            "fade_in": 2.0,
+            "fade_out": 2.0,
+            "loop": true
+          }
+        ]
+      }
+    },
+    "white_baptist_church": {
+      "start": false,
+      "image": "resources/images/scene_under_construction.png",
+      "description": "The white Baptist church sits plain and patient on its rise, paint weathered to the color of old bone. The path ends at a low gate. The building has not been fully mapped yet.",
+      "examineDetails": "",
+      "useDetails": "",
+      "movement": {
+        "forward": false,
+        "backward": true,
+        "left": false,
+        "right": false
+      },
+      "actions": {
+        "examine": false,
+        "speak": false,
+        "hit": false,
+        "use": false
+      },
+      "exits": {
+        "backward": "winding_alpine_path"
       }
     },
     "saloon_kitchen": {
