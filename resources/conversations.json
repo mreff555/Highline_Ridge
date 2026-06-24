@@ -1,222 +1,222 @@
 {
-  "saloon_front": {
-    "speakPhases": [
+  "saloon_front" : {
+    "speakPhases" : [
       {
-        "id": "cowboy",
-        "type": "once",
-        "resetOnSceneEnter": false,
-        "text": "You square your shoulders and approach with the careful posture of a man who means to be taken seriously. Professional, unhurried, hard enough at the edges that no one mistakes you for lost. The cowboy still does not look at you until you are close enough to count the ash on his cigarette.\n\n\"Evening,\" you say.\n\nHe exhales through his nose. Not quite a laugh. \"Evening.\"\n\nYou try idle ground first. Weather, the road, the piano bleeding through the saloon walls. He lets you talk. When you mention the cold, he taps ash into the dust. When you mention the view, he says, \"Always there.\" It is the tone of a man answering a question he has already answered too many times. You realize, with a slow cold certainty, that he knows you. There is no warmth in it and no hostility either. Just recognition, flat and complete, as though your face is an old receipt he has been carrying in his pocket.\n\nYou stop circling and ask what you came to ask. \"Where am I?\"\n\nNow he looks at you. Hat brim lifting just enough to show eyes that are tired more than anything else.\n\n\"Highline,\" he says. \"You're on the Highline. Ridge settlement. cabins, shops, fools who think altitude makes them honest.\" He jerks his chin toward the drop where the clouds boil below. \"Graysmill's down there in the valley. Mill town, rail town, always was. They cut timber out of these slopes till the hills went bald, floated it downriver, built their factories, filled their streets. Highline stayed up here 'cause the air kept the timber from rotting and the men with money liked the view. Saloons came next. Then gamblers. Then people like you.\"\n\nHe studies you a moment longer, annoyed in the way of a man whose quiet has been interrupted by something he cannot simply walk away from.\n\n\"We had this same talk two days ago,\" he says. \"Same questions. Same look on your face when I said Graysmill. I'm not sure you heard me then either.\"\n\nThe cigarette glows again. He eyes you the way a man eyes a cracked axle, not angry, just certain something is going to give.\n\n\"You don't look quite right,\" he says. \"Pale. Jumping at nothing. You ought to take it easy on the drink, or whatever it is you've been taking. I'm not telling you twice.\"",
-        "status": {
-          "key": "saloon_front:cowboy",
-          "resolve": 5
+        "id" : "cowboy",
+        "type" : "once",
+        "resetOnSceneEnter" : false,
+        "text" : "You square your shoulders and approach with the careful posture of a man who means to be taken seriously. Professional, unhurried, hard enough at the edges that no one mistakes you for lost. The cowboy still does not look at you until you are close enough to count the ash on his cigarette.\n\n\"Evening,\" you say.\n\nHe exhales through his nose. Not quite a laugh. \"Evening.\"\n\nYou try idle ground first. Weather, the road, the piano bleeding through the saloon walls. He lets you talk. When you mention the cold, he taps ash into the dust. When you mention the view, he says, \"Always there.\" It is the tone of a man answering a question he has already answered too many times. You realize, with a slow cold certainty, that he knows you. There is no warmth in it and no hostility either. Just recognition, flat and complete, as though your face is an old receipt he has been carrying in his pocket.\n\nYou stop circling and ask what you came to ask. \"Where am I?\"\n\nNow he looks at you. Hat brim lifting just enough to show eyes that are tired more than anything else.\n\n\"Highline,\" he says. \"You're on the Highline. Ridge settlement. cabins, shops, fools who think altitude makes them honest.\" He jerks his chin toward the drop where the clouds boil below. \"Graysmill's down there in the valley. Mill town, rail town, always was. They cut timber out of these slopes till the hills went bald, floated it downriver, built their factories, filled their streets. Highline stayed up here 'cause the air kept the timber from rotting and the men with money liked the view. Saloons came next. Then gamblers. Then people like you.\"\n\nHe studies you a moment longer, annoyed in the way of a man whose quiet has been interrupted by something he cannot simply walk away from.\n\n\"We had this same talk two days ago,\" he says. \"Same questions. Same look on your face when I said Graysmill. I'm not sure you heard me then either.\"\n\nThe cigarette glows again. He eyes you the way a man eyes a cracked axle, not angry, just certain something is going to give.\n\n\"You don't look quite right,\" he says. \"Pale. Jumping at nothing. You ought to take it easy on the drink, or whatever it is you've been taking. I'm not telling you twice.\"",
+        "status" : {
+          "key" : "saloon_front:cowboy",
+          "resolve" : 5
         }
       },
       {
-        "id": "cowboy_path",
-        "type": "once",
-        "resetOnSceneEnter": false,
-        "requiresPhase": "cowboy",
-        "requiresFlag": "path_c:overlook",
-        "text": "You tell him about the hanging tree marker, the charcoal ring, the survey stakes, the silk in the ice house. You do not tell him everything. You tell him enough.\n\nFor the first time since you arrived, he looks at you as though you are real.\n\n\"You found the tree,\" he says. The cigarette has gone out. He does not relight it. \"Then you already know why I don't ride anymore.\"\n\nHe turns his gaze back to the batwing doors, jaw working once.\n\n\"Company men,\" he says. \"They measured by the chain and called it justice. I was supposed to hold the rope. I didn't. That's not the same as innocent, but it's why I'm still here and they're still down in Graysmill pretending the fog is weather.\"\n\nHe finally meets your eyes.\n\n\"Don't go back up that path at night. Not until you remember whose name was scratched off that tin.\""
+        "id" : "cowboy_path",
+        "type" : "once",
+        "resetOnSceneEnter" : false,
+        "requiresPhase" : "cowboy",
+        "requiresFlag" : "path_c:overlook",
+        "text" : "You tell him about the hanging tree marker, the charcoal ring, the survey stakes, the silk in the ice house. You do not tell him everything. You tell him enough.\n\nFor the first time since you arrived, he looks at you as though you are real.\n\n\"You found the tree,\" he says. The cigarette has gone out. He does not relight it. \"Then you already know why I don't ride anymore.\"\n\nHe turns his gaze back to the batwing doors, jaw working once.\n\n\"Company men,\" he says. \"They measured by the chain and called it justice. I was supposed to hold the rope. I didn't. That's not the same as innocent, but it's why I'm still here and they're still down in Graysmill pretending the fog is weather.\"\n\nHe finally meets your eyes.\n\n\"Don't go back up that path at night. Not until you remember whose name was scratched off that tin.\""
       }
     ]
   },
-  "saloon_interior": {
-    "speakPhases": [
+  "saloon_interior" : {
+    "speakPhases" : [
       {
-        "id": "bartender",
-        "type": "scripted",
-        "resetOnSceneEnter": true,
-        "tts": true,
-        "ttsVoice": "leo",
-        "ttsAudio": "resources/audio/tts/saloon_interior/bartender_intro.mp3",
-        "ttsText": "You step to the bar. The noise closes around you, then parts. The bartender meets your eyes with a neutral expression that gives away nothing. He knows you. That much is plain. He is not inclined to tell a story about it. You want the usual, he says, rag finally moving again across the wood.",
-        "intro": "You step to the bar. The noise closes around you, then parts. The bartender meets your eyes with a neutral expression that gives away nothing. He knows you. That much is plain. He is not inclined to tell a story about it.\n\n\"You want the usual?\" he says, rag finally moving again across the wood.",
-        "choices": [
+        "id" : "bartender",
+        "type" : "scripted",
+        "resetOnSceneEnter" : true,
+        "tts" : true,
+        "ttsVoice" : "leo",
+        "ttsAudio" : "resources/audio/tts/saloon_interior/bartender_intro.mp3",
+        "ttsText" : "You step to the bar. The noise closes around you, then parts. The bartender meets your eyes with a neutral expression that gives away nothing. He knows you. That much is clear. He is not inclined to tell a story about it. You want the usual, he says, rag finally moving again across the wood.",
+        "intro" : "You step to the bar. The noise closes around you, then parts. The bartender meets your eyes with a neutral expression that gives away nothing. He knows you. That much is plain. He is not inclined to tell a story about it.\n\n\"You want the usual?\" he says, rag finally moving again across the wood.",
+        "choices" : [
           {
-            "id": "water",
-            "label": "> No, just a water",
-            "sketch": "resources/sketches/bartender_glass.png",
-            "tts": true,
-            "ttsVoice": "leo",
-            "ttsAudio": "resources/audio/tts/saloon_interior/water.mp3",
-            "ttsText": "The bartender holds your gaze a beat longer than necessary, then turns away for a glass. He sets it on the bar without ceremony. Water, clear and cold. Under his breath, barely audible above the piano, he mutters that he is perfectly all right with you not drinking in his establishment. The words are flat. Not cruel. Not kind. Simply settled.",
-            "ttsAfter": true,
-            "ttsAfterVoice": "leo",
-            "ttsAfterAudio": "resources/audio/tts/saloon_interior/water_after.mp3",
-            "ttsAfterText": "You lift the glass and drink. The water cuts clean through the smoke in your throat and the ash at the back of your tongue. Your head steadies. The room feels a fraction less unreal, as though someone has wiped a smear from a window you did not know was dirty.",
-            "response": "The bartender holds your gaze a beat longer than necessary, then turns away for a glass. He sets it on the bar without ceremony. Water, clear and cold. Under his breath, barely audible above the piano, he mutters that he is perfectly all right with you not drinking in his establishment. The words are flat. Not cruel. Not kind. Simply settled.\n\nYou lift the glass and drink. The water cuts clean through the smoke in your throat and the ash at the back of your tongue. Your head steadies. The room feels a fraction less unreal, as though someone has wiped a smear from a window you did not know was dirty.\n\nThe bartender sets the rag aside and looks at you again. \"Need anything else?\"",
-            "closePhase": false,
-            "status": {
-              "key": "saloon_interior:water",
-              "health": 5,
-              "lucidity": 10
+            "id" : "water",
+            "label" : "> No, just a water",
+            "sketch" : "resources/sketches/bartender_glass.png",
+            "tts" : true,
+            "ttsVoice" : "leo",
+            "ttsAudio" : "resources/audio/tts/saloon_interior/water.mp3",
+            "ttsText" : "The bartender holds your gaze a beat longer than necessary, then turns away for a glass. He sets it on the bar without ceremony. Water, clear and cold. Under his breath, barely audible above the piano, he mutters that he is perfectly all right with you not drinking in his establishment. The words are flat. Not cruel. Not kind. Simply settled.",
+            "ttsAfter" : true,
+            "ttsAfterVoice" : "leo",
+            "ttsAfterAudio" : "resources/audio/tts/saloon_interior/water_after.mp3",
+            "ttsAfterText" : "You lift the glass and drink. The water cuts clean through the smoke in your throat and the ash at the back of your tongue. Your head steadies. The room feels a fraction less unreal, as though someone has wiped a smear from a window you did not know was dirty.",
+            "response" : "The bartender holds your gaze a beat longer than necessary, then turns away for a glass. He sets it on the bar without ceremony. Water, clear and cold. Under his breath, barely audible above the piano, he mutters that he is perfectly all right with you not drinking in his establishment. The words are flat. Not cruel. Not kind. Simply settled.\n\nYou lift the glass and drink. The water cuts clean through the smoke in your throat and the ash at the back of your tongue. Your head steadies. The room feels a fraction less unreal, as though someone has wiped a smear from a window you did not know was dirty.\n\nThe bartender sets the rag aside and looks at you again. \"Need anything else?\"",
+            "closePhase" : false,
+            "status" : {
+              "key" : "saloon_interior:water",
+              "health" : 5,
+              "lucidity" : 10
             },
-            "choices": [
+            "choices" : [
               {
-                "id": "get_room",
-                "label": "> Can I get a room?",
-                "closePhase": false,
-                "response": "\"Sure,\" the bartender says, without looking up from the glass he is polishing. \"First on the right.\"\n\nYou reach for your wallet and come up with nothing useful - a few bent coins, a scrap of paper, the feeling that money belonged to someone who used to live in your skin. Your fingers fumble at the lining as though the act of searching might summon cash by embarrassment alone.\n\nThe bartender's expression settles somewhere between pity and frustration, the look of a man who has watched too many drifters arrive broke and leave owing.\n\nHe raises one hand and stops you before you can finish the apology forming in your throat.\n\n\"Don't worry about it,\" he says. \"I can run a tab. You don't look like you will be going anywhere soon.\"",
-                "choices": [
+                "id" : "get_room",
+                "label" : "> Can I get a room?",
+                "closePhase" : false,
+                "response" : "\"Sure,\" the bartender says, without looking up from the glass he is polishing. \"First on the right.\"\n\nYou reach for your wallet and come up with nothing useful - a few bent coins, a scrap of paper, the feeling that money belonged to someone who used to live in your skin. Your fingers fumble at the lining as though the act of searching might summon cash by embarrassment alone.\n\nThe bartender's expression settles somewhere between pity and frustration, the look of a man who has watched too many drifters arrive broke and leave owing.\n\nHe raises one hand and stops you before you can finish the apology forming in your throat.\n\n\"Don't worry about it,\" he says. \"I can run a tab. You don't look like you will be going anywhere soon.\"",
+                "choices" : [
                   {
-                    "id": "thank_you",
-                    "label": "> Thank you",
-                    "response": "You manage a quiet thanks. The bartender gives a short nod and turns back to his work, as though the matter is already closed on his ledger.",
-                    "grantStoryFlag": "saloon_interior:room_tab",
-                    "startPhase": "burgundy_woman"
+                    "id" : "thank_you",
+                    "label" : "> Thank you",
+                    "response" : "You manage a quiet thanks. The bartender gives a short nod and turns back to his work, as though the matter is already closed on his ledger.",
+                    "grantStoryFlag" : "saloon_interior:room_tab",
+                    "startPhase" : "burgundy_woman"
                   }
                 ]
               },
               {
-                "id": "thanks",
-                "label": "> Thanks.",
-                "closePhase": true,
-                "response": "You give a short nod. The bartender turns back to the room with the flat efficiency of a man who has already filed you under handled."
+                "id" : "thanks",
+                "label" : "> Thanks.",
+                "closePhase" : true,
+                "response" : "You give a short nod. The bartender turns back to the room with the flat efficiency of a man who has already filed you under handled."
               }
             ]
           },
           {
-            "id": "usual",
-            "label": "> Sure",
-            "tts": true,
-            "ttsVoice": "leo",
-            "ttsAudio": "resources/audio/tts/saloon_interior/usual.mp3",
-            "ttsText": "The bartender's jaw tightens almost imperceptibly. He reaches high above the backbar, to a shelf you would need a ladder to trust, and brings down a bottle of bourbon with an artistic label and a wax seal dark as blood. He pours a single shot without measuring, slides it across the pine, and watches you with a look that could crush stone.",
-            "ttsAfter": true,
-            "ttsAfterVoice": "leo",
-            "ttsAfterAudio": "resources/audio/tts/saloon_interior/usual_after.mp3",
-            "ttsAfterText": "You down it anyway. Fire and oak. The room tilts half a degree and rights itself. Your resolve hardens even as your thoughts go slippery at the edges.",
-            "response": "The bartender's jaw tightens almost imperceptibly. He reaches high above the backbar, to a shelf you would need a ladder to trust, and brings down a bottle of bourbon with an artistic label and a wax seal dark as blood. He pours a single shot without measuring, slides it across the pine, and watches you with a look that could crush stone.\n\nYou down it anyway. Fire and oak. The room tilts half a degree and rights itself. Your resolve hardens even as your thoughts go slippery at the edges.\n\nThe bartender sets the rag aside and looks at you again. \"Need anything else?\"",
-            "closePhase": false,
-            "status": {
-              "key": "saloon_interior:usual",
-              "resolve": 20,
-              "lucidity": -10,
-              "onZeroLucidity": "restart_cabin"
+            "id" : "usual",
+            "label" : "> Sure",
+            "tts" : true,
+            "ttsVoice" : "leo",
+            "ttsAudio" : "resources/audio/tts/saloon_interior/usual.mp3",
+            "ttsText" : "The bartender's jaw tightens almost imperceptibly. He reaches high above the backbar, to a shelf you would need a ladder to trust, and brings down a bottle of bourbon with an artistic label and a wax seal dark as blood. He pours a single shot without measuring, slides it across the pine, and watches you with a look that could crush stone.",
+            "ttsAfter" : true,
+            "ttsAfterVoice" : "leo",
+            "ttsAfterAudio" : "resources/audio/tts/saloon_interior/usual_after.mp3",
+            "ttsAfterText" : "You down it anyway. Fire and oak. The room tilts half a degree and rights itself. Your resolve hardens even as your thoughts go slippery at the edges.",
+            "response" : "The bartender's jaw tightens almost imperceptibly. He reaches high above the backbar, to a shelf you would need a ladder to trust, and brings down a bottle of bourbon with an artistic label and a wax seal dark as blood. He pours a single shot without measuring, slides it across the pine, and watches you with a look that could crush stone.\n\nYou down it anyway. Fire and oak. The room tilts half a degree and rights itself. Your resolve hardens even as your thoughts go slippery at the edges.\n\nThe bartender sets the rag aside and looks at you again. \"Need anything else?\"",
+            "closePhase" : false,
+            "status" : {
+              "key" : "saloon_interior:usual",
+              "resolve" : 20,
+              "lucidity" : -10,
+              "onZeroLucidity" : "restart_cabin"
             },
-            "choices": [
+            "choices" : [
               {
-                "id": "get_room",
-                "label": "> Can I get a room?",
-                "closePhase": false,
-                "response": "\"Sure,\" the bartender says, without looking up from the glass he is polishing. \"First on the right.\"\n\nYou reach for your wallet and come up with nothing useful - a few bent coins, a scrap of paper, the feeling that money belonged to someone who used to live in your skin. Your fingers fumble at the lining as though the act of searching might summon cash by embarrassment alone.\n\nThe bartender's expression settles somewhere between pity and frustration, the look of a man who has watched too many drifters arrive broke and leave owing.\n\nHe raises one hand and stops you before you can finish the apology forming in your throat.\n\n\"Don't worry about it,\" he says. \"I can run a tab. You don't look like you will be going anywhere soon.\"",
-                "choices": [
+                "id" : "get_room",
+                "label" : "> Can I get a room?",
+                "closePhase" : false,
+                "response" : "\"Sure,\" the bartender says, without looking up from the glass he is polishing. \"First on the right.\"\n\nYou reach for your wallet and come up with nothing useful - a few bent coins, a scrap of paper, the feeling that money belonged to someone who used to live in your skin. Your fingers fumble at the lining as though the act of searching might summon cash by embarrassment alone.\n\nThe bartender's expression settles somewhere between pity and frustration, the look of a man who has watched too many drifters arrive broke and leave owing.\n\nHe raises one hand and stops you before you can finish the apology forming in your throat.\n\n\"Don't worry about it,\" he says. \"I can run a tab. You don't look like you will be going anywhere soon.\"",
+                "choices" : [
                   {
-                    "id": "thank_you",
-                    "label": "> Thank you",
-                    "response": "You manage a quiet thanks. The bartender gives a short nod and turns back to his work, as though the matter is already closed on his ledger.",
-                    "grantStoryFlag": "saloon_interior:room_tab",
-                    "startPhase": "burgundy_woman"
+                    "id" : "thank_you",
+                    "label" : "> Thank you",
+                    "response" : "You manage a quiet thanks. The bartender gives a short nod and turns back to his work, as though the matter is already closed on his ledger.",
+                    "grantStoryFlag" : "saloon_interior:room_tab",
+                    "startPhase" : "burgundy_woman"
                   }
                 ]
               },
               {
-                "id": "thanks",
-                "label": "> Thanks.",
-                "closePhase": true,
-                "response": "You give a short nod. The bartender turns back to the room with the flat efficiency of a man who has already filed you under handled."
+                "id" : "thanks",
+                "label" : "> Thanks.",
+                "closePhase" : true,
+                "response" : "You give a short nod. The bartender turns back to the room with the flat efficiency of a man who has already filed you under handled."
               }
             ]
           }
         ]
       },
       {
-        "id": "burgundy_woman",
-        "type": "scripted",
-        "resetOnSceneEnter": false,
-        "requiresPhase": "bartender",
-        "requiresFlag": "saloon_interior:room_tab",
-        "intro": "You are still gathering yourself when she appears.\n\nAn aging but beautiful woman in a burgundy dress saunters up to the bar and leans against the scarred pine beside you. Up close she smells of rosewater and lamp smoke. She smiles - not the manufactured smile of the floor, but something quieter, almost private.\n\n\"Need anything else tonight?\" she asks.\n\nHer hand comes to your shoulder in a tender, unhurried way, as though for one moment she is trying to comfort a man who has forgotten how to be comforted.\n\n\"Carrie has been watching you all night.\"\n\nYou follow her glance upward. On the balcony rail, the woman in blue stares down at you through the tobacco haze. She is beautiful in a way that has nothing to do with rouge or feathered fans, and when your eyes meet she offers an inviting smile that does not reach the rest of her face.\n\nThe piano keeps playing its broken phrase. The room does not stop. Only you do.",
-        "choices": [
+        "id" : "burgundy_woman",
+        "type" : "scripted",
+        "resetOnSceneEnter" : false,
+        "requiresPhase" : "bartender",
+        "requiresFlag" : "saloon_interior:room_tab",
+        "intro" : "You are still gathering yourself when she appears.\n\nAn aging but beautiful woman in a burgundy dress saunters up to the bar and leans against the scarred pine beside you. Up close she smells of rosewater and lamp smoke. She smiles.\n\n\"Need anything else tonight?\" she asks.\n\nHer hand comes to your shoulder in a tender, unhurried way, as though for one moment she is trying to comfort a man who has forgotten how to be comforted.\n\n\"Carrie has been watching you all night.\"\n\nYou follow her glance upward. On the balcony rail, the woman in blue stares down at you through the tobacco haze. She is beautiful in a way that has nothing to do with rouge or feathered fans, and when your eyes meet she offers an inviting smile.\n\nThe piano keeps playing its broken phrase. The room does not stop. Only you do.",
+        "choices" : [
           {
-            "id": "accept_company",
-            "label": "> Sure",
-            "response": "The woman in burgundy follows your answer with a small, knowing smile.\n\n\"I thought you might say that.\"\n\nShe lifts her chin toward the balcony and makes a subtle motion with two fingers - not a summons, exactly, but an introduction. The woman in blue sees it. Her smile deepens by half a degree. She touches the rail once, as though marking the spot where you are expected to find her, and lets the crowd swallow the rest of the message.\n\nThe woman beside you releases your shoulder and melts back into the press of bodies, job done.",
-            "grantStoryFlag": "saloon_interior:blue_woman_hired"
+            "id" : "accept_company",
+            "label" : "> Sure",
+            "response" : "The woman in burgundy follows your answer with a small, knowing smile.\n\n\"I thought you might say that.\"\n\nShe lifts her chin toward the balcony and makes a subtle motion with two fingers - not a summons, exactly, but an introduction. The woman in blue sees it. Her smile deepens by half a degree. She touches the rail once, as though marking the spot where you are expected to find her, and lets the crowd swallow the rest of the message.\n\nThe woman beside you releases your shoulder and melts back into the press of bodies, job done.",
+            "grantStoryFlag" : "saloon_interior:blue_woman_hired"
           },
           {
-            "id": "alone_with_thoughts",
-            "label": "> Thanks. I'd rather be alone with my thoughts.",
-            "response": "Her hand leaves your shoulder gently, without offense.\n\n\"Alright,\" she says, and there is real concern in her voice now. \"Take care of yourself.\"\n\nShe turns and disappears into the crowd the way professionals disappear - without hurry, without looking back, as though she was never there at all."
+            "id" : "alone_with_thoughts",
+            "label" : "> Thanks. I'd rather be alone with my thoughts.",
+            "response" : "Her hand leaves your shoulder gently, without offense.\n\n\"Alright,\" she says, with a touch of concern in her voice. \"Take care of yourself.\"\n\nShe turns and disappears into the crowd."
           }
         ]
       },
       {
-        "id": "bartender_path",
-        "type": "once",
-        "resetOnSceneEnter": false,
-        "requiresPhase": "bartender",
-        "requiresFlag": "path_c:overlook",
-        "tts": true,
-        "ttsVoice": "leo",
-        "ttsAudio": "resources/audio/tts/saloon_interior/bartender_path.mp3",
-        "ttsText": "You lean on the bar and tell him what you found on the narrow path, the stakes, the ice house, the bench carved for a name you cannot finish. The piano does not stop, but the bartender does. He sets a glass of bourbon on the pine in front of you. Some stories you drink to forget on purpose, he says. You always did. You lift the glass. Fire and oak hit the back of your throat and the bench on the ridge flashes behind your eyes. The room steadies again, but the drink stays with you, heavy and certain.",
-        "ttsAfter": true,
-        "ttsAfterVoice": "leo",
-        "ttsAfterAudio": "resources/audio/tts/saloon_interior/bartender_path_after.mp3",
-        "ttsAfterText": "He turns away without watching to see whether you finished it. The sawdust takes a single fallen drop, as though the bar itself has marked the account paid.",
-        "text": "You lean on the bar and tell him what you found on the narrow path - the stakes, the ice house, the bench carved for a name you cannot finish. You keep your voice low. The piano does not stop, but the bartender does.\n\nHe reaches high above the backbar without asking what you want and sets a glass of bourbon on the pine in front of you. No measure. No ceremony.\n\n\"Some stories you drink to forget on purpose,\" he says. \"You always did.\"\n\nYou lift the glass. You do not remember deciding to. Fire and oak hit the back of your throat and the bench on the ridge flashes behind your eyes - fog, carved wood, a name stopped mid-letter. The room steadies again, but the drink stays with you, heavy and certain.\n\nHe turns away without watching to see whether you finished it. The sawdust takes a single fallen drop, as though the bar itself has marked the account paid.",
-        "status": {
-          "key": "saloon_interior:bartender_path",
-          "resolve": 10,
-          "lucidity": -15
+        "id" : "bartender_path",
+        "type" : "once",
+        "resetOnSceneEnter" : false,
+        "requiresPhase" : "bartender",
+        "requiresFlag" : "path_c:overlook",
+        "tts" : true,
+        "ttsVoice" : "leo",
+        "ttsAudio" : "resources/audio/tts/saloon_interior/bartender_path.mp3",
+        "ttsText" : "You lean on the bar and tell him what you found on the narrow path, the stakes, the ice house, the bench carved for a name you cannot finish. The piano does not stop, but the bartender does. He sets a glass of bourbon on the pine in front of you. Some stories you drink to forget on purpose, he says. You always did. You lift the glass. Fire and oak hit the back of your throat and the bench on the ridge flashes behind your eyes. The room steadies again, but the drink stays with you, heavy and certain.",
+        "ttsAfter" : true,
+        "ttsAfterVoice" : "leo",
+        "ttsAfterAudio" : "resources/audio/tts/saloon_interior/bartender_path_after.mp3",
+        "ttsAfterText" : "He turns away without watching to see whether you finished it. The sawdust takes a single fallen drop, as though the bar itself has marked the account paid.",
+        "text" : "You lean on the bar and tell him what you found on the narrow path - the stakes, the ice house, the bench carved for a name you cannot finish. You keep your voice low. The piano does not stop, but the bartender does.\n\nHe reaches high above the backbar without asking what you want and sets a glass of bourbon on the pine in front of you. No measure. No ceremony.\n\n\"Some stories you drink to forget on purpose,\" he says. \"You always did.\"\n\nYou lift the glass. You do not remember deciding to. Fire and oak hit the back of your throat and the bench on the ridge flashes behind your eyes - fog, carved wood, a name stopped mid-letter. The room steadies again, but the drink stays with you, heavy and certain.\n\nHe turns away without watching to see whether you finished it. The sawdust takes a single fallen drop, as though the bar itself has marked the account paid.",
+        "status" : {
+          "key" : "saloon_interior:bartender_path",
+          "resolve" : 10,
+          "lucidity" : -15
         }
       },
       {
-        "id": "patrons",
-        "type": "random",
-        "requiresPhase": "bartender",
-        "poolId": "patrons",
-        "avoidRepeat": true,
-        "resetOnSceneEnter": true,
-        "lines": [
+        "id" : "patrons",
+        "type" : "random",
+        "requiresPhase" : "bartender",
+        "poolId" : "patrons",
+        "avoidRepeat" : true,
+        "resetOnSceneEnter" : true,
+        "lines" : [
           {
-            "id": "faro_player",
-            "text": "A faro player at the stove table looks up long enough to fan his cards. \"House always remembers,\" he says, and returns to his stack as though you are part of the furniture."
+            "id" : "faro_player",
+            "text" : "A faro player at the stove table looks up long enough to fan his cards. \"House always remembers,\" he says, and returns to his stack as though you are part of the furniture."
           },
           {
-            "id": "burgundy_woman",
-            "text": "On the balcony, a woman in burgundy silk follows your movement with professional interest. \"Back early,\" she murmurs, and the words are not quite a question."
+            "id" : "burgundy_woman",
+            "text" : "On the balcony, a woman in burgundy silk follows your movement with professional interest. \"Back early,\" she murmurs, and the words are not quite a question."
           },
           {
-            "id": "piano_player",
-            "text": "The piano player cuts a glance your way mid-phrase, fingers never stopping. \"Easy now,\" he says to the keys, but you suspect the advice is meant for you."
+            "id" : "piano_player",
+            "text" : "The piano player cuts a glance your way mid-phrase, fingers never stopping. \"Easy now,\" he says to the keys, but you suspect the advice is meant for you."
           },
           {
-            "id": "miner",
-            "text": "A miner at the poker table rubs a thumb over a chipped ace. \"Luck ain't a debt you can outrun,\" he mutters, and the table laughs without warmth."
+            "id" : "miner",
+            "text" : "A miner at the poker table rubs a thumb over a chipped ace. \"Luck ain't a debt you can outrun,\" he mutters, and the table laughs without warmth."
           },
           {
-            "id": "barmaid",
-            "text": "A barmaid passes with an empty tray, eyes flicking over you once. \"Mind the stairs,\" she says, already gone into the crowd."
+            "id" : "barmaid",
+            "text" : "A barmaid passes with an empty tray, eyes flicking over you once. \"Mind the stairs,\" she says, already gone into the crowd."
           },
           {
-            "id": "drunk_patron",
-            "once": true,
-            "weight": 3,
-            "allowAttack": true,
-            "attackEncounterId": "drunk_patron",
-            "sketch": "resources/sketches/drunk_patron.png",
-            "text": "You shoulder through the press near the bar, looking for a clear patch of pine to think. A miner in a stained duster is half-turned on his stool, elbow high, telling the room a story it has already heard. You brush his arm reaching for the rail. It is nothing. A half-second contact in a crowded room.\n\nHe comes off the stool like you struck him on purpose.\n\n\"The hell you think you're doing?\" he roars, breath hot with rye and spite. Spittle catches the lamplight. He shoves you hard in the chest with both hands. Your heel skids in sawdust. Glasses stop halfway to mouths. The piano player misses a note, then grins and keeps playing because this is better than music.\n\n\"I'll kill you,\" the drunk says, loud enough for the balcony to hear. \"I'll kill you right here and pay for the mess.\" He is not convincing as a killer. He is very convincing as entertainment. The room turns toward you the way a crowd turns toward a stage: not afraid, not helpful, only interested in what happens next.\n\nThe bartender does not intervene yet. He wipes the same glass and watches to see what kind of trouble you are.",
-            "choices": [
+            "id" : "drunk_patron",
+            "once" : true,
+            "weight" : 3,
+            "allowAttack" : true,
+            "attackEncounterId" : "drunk_patron",
+            "sketch" : "resources/sketches/drunk_patron.png",
+            "text" : "You shoulder through the press near the bar, looking for a clear patch of pine to think. A miner in a stained duster is half-turned on his stool, elbow high, telling the room a story it has already heard. You brush his arm reaching for the rail. It is nothing. A half-second contact in a crowded room.\n\nHe comes off the stool like you struck him on purpose.\n\n\"The hell you think you're doing?\" he roars, breath hot with rye and spite. Spittle catches the lamplight. He shoves you hard in the chest with both hands. Your heel skids in sawdust. Glasses stop halfway to mouths. The piano player misses a note, then grins and keeps playing because this is better than music.\n\n\"I'll kill you,\" the drunk says, loud enough for the balcony to hear. \"I'll kill you right here and pay for the mess.\" He is not convincing as a killer. He is very convincing as entertainment. The room turns toward you the way a crowd turns toward a stage: not afraid, not helpful, only interested in what happens next.\n\nThe bartender does not intervene yet. He wipes the same glass and watches to see what kind of trouble you are.",
+            "choices" : [
               {
-                "id": "buy_drink",
-                "label": "Relax, it was an accident. Bartender, get this man another drink on me.",
-                "response": "You raise both hands, palms out, the way men do when they want a dog to sit. Your voice stays level.\n\n\"Relax. It was an accident. Bartender, get this man another drink on me.\"\n\nFor a moment the drunk man stares at you as though you spoke in a foreign tongue. Then the fight drains out of him in a sour wave. He blinks, looks at your hands, looks at the room that is still watching, and decides he has won enough.\n\n\"Damn right it was an accident,\" he mutters, but he takes the stool again. The bartender pours without comment and sets the glass in front of him. You slide five dollars across the scarred pine. The bartender sweeps the notes away with two fingers.\n\nThe crowd loses interest almost at once. Laughter loosens back into ordinary noise. The piano finds its broken phrase again. A woman on the balcony fans herself and says something you cannot hear. The moment passes, filed under free show averted by money.\n\nThe drunk man drinks. He does not thank you. He does not need to. The room has already decided you knew how to handle him.",
-                "status": {
-                  "key": "saloon_interior:drunk_patron_buy_drink",
-                  "money": -0.5,
-                  "charisma": 5
+                "id" : "buy_drink",
+                "label" : "Relax, it was an accident. Bartender, get this man another drink on me.",
+                "response" : "You raise both hands, palms out, the way men do when they want a dog to sit. Your voice stays level.\n\n\"Relax. It was an accident. Bartender, get this man another drink on me.\"\n\nFor a moment the drunk man stares at you as though you spoke in a foreign tongue. Then the fight drains out of him in a sour wave. He blinks, looks at your hands, looks at the room that is still watching, and decides he has won enough.\n\n\"Damn right it was an accident,\" he mutters, but he takes the stool again. The bartender pours without comment and sets the glass in front of him. You slide five dollars across the scarred pine. The bartender sweeps the notes away with two fingers.\n\nThe crowd loses interest almost at once. Laughter loosens back into ordinary noise. The piano finds its broken phrase again. A woman on the balcony fans herself and says something you cannot hear. The moment passes, filed under free show averted by money.\n\nThe drunk man drinks. He does not thank you. He does not need to. The room has already decided you knew how to handle him.",
+                "status" : {
+                  "key" : "saloon_interior:drunk_patron_buy_drink",
+                  "money" : -0.5,
+                  "charisma" : 5
                 }
               },
               {
-                "id": "back_down",
-                "label": "Look, I don't want any trouble!",
-                "response": "Your voice comes out tighter than you meant.\n\n\"Look, I don't want any trouble!\"\n\nThe drunk man's face brightens as though you handed him a gift. He spreads his arms wide, inviting the room to witness.\n\n\"Don't want trouble,\" he repeats, pitching it for the balcony. \"Greenhorn don't want trouble. He bumped me and then he begged like a church mouse.\"\n\nLaughter rolls through the saloon, mean and delighted. Someone at the faro table claps once. The piano player leans into the keys with renewed appetite. Even the bartender's mouth twitches, not quite a smile, not quite sympathy.\n\nThe drunk man shoves you again, lighter this time, a punctuation mark. \"Next time you walk, you walk around me.\" He settles back onto his stool victorious. You stand in the sawdust with the room's amusement settling on your shoulders like ash.\n\nYou said the right words for peace and got the wrong kind of it.",
-                "status": {
-                  "key": "saloon_interior:drunk_patron_back_down",
-                  "charisma": -10
+                "id" : "back_down",
+                "label" : "Look, I don't want any trouble!",
+                "response" : "Your voice comes out tighter than you meant.\n\n\"Look, I don't want any trouble!\"\n\nThe drunk man's face brightens as though you handed him a gift. He spreads his arms wide, inviting the room to witness.\n\n\"Don't want trouble,\" he repeats, pitching it for the balcony. \"Greenhorn don't want trouble. He bumped me and then he begged like a church mouse.\"\n\nLaughter rolls through the saloon, mean and delighted. Someone at the faro table claps once. The piano player leans into the keys with renewed appetite. Even the bartender's mouth twitches, not quite a smile, not quite sympathy.\n\nThe drunk man shoves you again, lighter this time, a punctuation mark. \"Next time you walk, you walk around me.\" He settles back onto his stool victorious. You stand in the sawdust with the room's amusement settling on your shoulders like ash.\n\nYou said the right words for peace and got the wrong kind of it.",
+                "status" : {
+                  "key" : "saloon_interior:drunk_patron_back_down",
+                  "charisma" : -10
                 }
               }
             ]
@@ -225,830 +225,830 @@
       }
     ]
   },
-  "saloon_balcony": {
-    "speakPhases": [
+  "saloon_balcony" : {
+    "speakPhases" : [
       {
-        "id": "blue_woman",
-        "type": "scripted",
-        "resetOnSceneEnter": true,
-        "tts": true,
-        "ttsVoice": "leo",
-        "ttsAudio": "resources/audio/tts/saloon_balcony/blue_woman_intro.mp3",
-        "ttsText": "The woman in blue does not startle when you approach. She finishes her thought with the two at the rail, lets them laugh without her, and turns as though you were expected. She takes a slow drag from her cigarette, exhales through the side of her mouth, and studies you with that same focused calm. You disappeared this morning, she says. Not accusation. Inventory.",
-        "intro": "The woman in blue does not startle when you approach. She finishes her thought with the two at the rail, lets them laugh without her, and turns as though you were expected.\n\nShe takes a slow drag from her cigarette, exhales through the side of her mouth, and studies you with that same focused calm.\n\n\"You disappeared this morning,\" she says. Not accusation. Inventory.",
-        "resumeTts": true,
-        "resumeTtsVoice": "leo",
-        "resumeTtsAudio": "resources/audio/tts/saloon_balcony/blue_woman_resume.mp3",
-        "resumeTtsText": "The woman in blue waits without impatience, cigarette held loose between two fingers. When you meet her eyes again, she inclines her head as though the earlier thread were still hanging.",
-        "resumeIntro": "The woman in blue waits without impatience, cigarette held loose between two fingers. When you meet her eyes again, she inclines her head as though the earlier thread were still hanging.",
-        "choices": [
+        "id" : "blue_woman",
+        "type" : "scripted",
+        "resetOnSceneEnter" : true,
+        "tts" : true,
+        "ttsVoice" : "leo",
+        "ttsAudio" : "resources/audio/tts/saloon_balcony/blue_woman_intro.mp3",
+        "ttsText" : "The woman in blue does not startle when you approach. She finishes her thought with the two at the rail, lets them laugh without her, and turns as though you were expected. She takes a slow drag from her cigarette, exhales through the side of her mouth, and studies you with that same focused calm. You disappeared this morning, she says. Not accusation. Inventory.",
+        "intro" : "The woman in blue does not startle when you approach. She finishes her thought with the two at the rail, lets them laugh without her, and turns as though you were expected.\n\nShe takes a slow drag from her cigarette, exhales through the side of her mouth, and studies you with that same focused calm.\n\n\"You disappeared this morning,\" she says. Not accusation. Inventory.",
+        "resumeTts" : true,
+        "resumeTtsVoice" : "leo",
+        "resumeTtsAudio" : "resources/audio/tts/saloon_balcony/blue_woman_resume.mp3",
+        "resumeTtsText" : "The woman in blue waits without impatience, cigarette held loose between two fingers. When you meet her eyes again, she inclines her head as though the earlier thread were still hanging.",
+        "resumeIntro" : "The woman in blue waits without impatience, cigarette held loose between two fingers. When you meet her eyes again, she inclines her head as though the earlier thread were still hanging.",
+        "choices" : [
           {
-            "id": "stay_last_night",
-            "label": "> Did I stay with you last night?",
-            "tts": true,
-            "ttsVoice": "leo",
-            "ttsAudio": "resources/audio/tts/saloon_balcony/stay_last_night.mp3",
-            "ttsText": "Her smile returns for half a heartbeat, then goes still. You stayed, she says. You always do, until you don't. She taps ash into the rail groove. You asked questions in your sleep. The same ones. Where you are. Who brought you. Whether the fog was weather. She holds your gaze without blinking. I answered none of them. I am not sure you heard me when you woke either.",
-            "response": "Her smile returns for half a heartbeat, then goes still.\n\n\"You stayed,\" she says. \"You always do, until you don't.\" She taps ash into the rail groove with a neat flick of her wrist. \"You asked questions in your sleep. The same ones. Where you are. Who brought you. Whether the fog was weather.\" She holds your gaze without blinking. \"I answered none of them. I am not sure you heard me when you woke either.\"",
-            "choices": [
+            "id" : "stay_last_night",
+            "label" : "> Did I stay with you last night?",
+            "tts" : true,
+            "ttsVoice" : "leo",
+            "ttsAudio" : "resources/audio/tts/saloon_balcony/stay_last_night.mp3",
+            "ttsText" : "Her smile returns for half a heartbeat, then goes still. You stayed, she says. for a few hours at least. She taps ash into the rail groove.  You know, cuddling is included in the fee, and I have woke up to worse smells before.  She gentilly grabs your wrist for a moment and smiles.  ",
+            "response" : "Her smile returns for half a heartbeat, then goes still. You stayed, she says. for a few hours at least. She taps ash into the rail groove.  You know, cuddling is included in the fee, and I have woke up to worse smells before.  She gentilly grabs your wrist for a moment and smiles.  ",
+            "choices" : [
               {
-                "id": "what_did_you_say",
-                "label": "What did you say?",
-                "tts": true,
-                "ttsVoice": "leo",
-                "ttsAudio": "resources/audio/tts/saloon_balcony/what_did_you_say.mp3",
-                "ttsText": "She studies you a moment, as though deciding how much truth the room can afford. I told you to stop apologizing to men who weren't in the room, she says. I told you the fog wasn't weather. I told you Graysmill was still down there whether you believed it or not. You mumbled something about a bench and a name you couldn't finish. Then you went quiet and slept like a man who had finally run out of places to run.",
-                "ttsAfter": true,
-                "ttsAfterVoice": "leo",
-                "ttsAfterAudio": "resources/audio/tts/saloon_balcony/what_did_you_say_after.mp3",
-                "ttsAfterText": "The words settle with uncomfortable clarity. You are not sure whether you remember any of it. You are sure she does.",
-                "response": "She studies you a moment, as though deciding how much truth the room can afford.\n\n\"I told you to stop apologizing to men who weren't in the room,\" she says. \"I told you the fog wasn't weather. I told you Graysmill was still down there whether you believed it or not.\" She exhales smoke toward the balusters. \"You mumbled something about a bench and a name you couldn't finish. Then you went quiet and slept like a man who had finally run out of places to run.\"\n\nThe words settle with uncomfortable clarity. You are not sure whether you remember any of it. You are sure she does.",
-                "status": {
-                  "key": "saloon_balcony:what_did_you_say",
-                  "lucidity": 5,
-                  "resolve": -5
+                "id" : "what_did_you_say",
+                "label" : "What did you say?",
+                "tts" : true,
+                "ttsVoice" : "leo",
+                "ttsAudio" : "resources/audio/tts/saloon_balcony/what_did_you_say.mp3",
+                "ttsText" : "She studies you a moment, as though deciding how much truth the room can afford. I told you to stop apologizing to men who weren't in the room, she says. I told you the fog wasn't weather. I told you Graysmill was still down there whether you believed it or not. You mumbled something about a bench and a name you couldn't finish. Then you went quiet and slept like a man who had finally run out of places to run.",
+                "ttsAfter" : true,
+                "ttsAfterVoice" : "leo",
+                "ttsAfterAudio" : "resources/audio/tts/saloon_balcony/what_did_you_say_after.mp3",
+                "ttsAfterText" : "The words settle with uncomfortable clarity. You are not sure whether you remember any of it. You are sure she does.",
+                "response" : "She studies you a moment, as though deciding how much truth the room can afford.\n\n\"I told you to stop apologizing to men who weren't in the room,\" she says. \"I told you the fog wasn't weather. I told you Graysmill was still down there whether you believed it or not.\" She exhales smoke toward the balusters. \"You mumbled something about a bench and a name you couldn't finish. Then you went quiet and slept like a man who had finally run out of places to run.\"\n\nThe words settle with uncomfortable clarity. You are not sure whether you remember any of it. You are sure she does.",
+                "status" : {
+                  "key" : "saloon_balcony:what_did_you_say",
+                  "lucidity" : 5,
+                  "resolve" : -5
                 }
               },
               {
-                "id": "tell_me_now",
-                "label": "If it was that important, you would tell me now.",
-                "tts": true,
-                "ttsVoice": "leo",
-                "ttsAudio": "resources/audio/tts/saloon_balcony/tell_me_now.mp3",
-                "ttsText": "Her mouth curves, not quite amusement, not quite warning. Would I, she says. Perhaps I would, if you were ready to hear it without flinching. You were brought here. Not rescued. Not invited. Brought. Someone wanted you on this ridge while the town below kept its accounts. That is all you get for pressing. The rest you earn, or you drink until you stop asking.",
-                "ttsAfter": true,
-                "ttsAfterVoice": "leo",
-                "ttsAfterAudio": "resources/audio/tts/saloon_balcony/tell_me_now_after.mp3",
-                "ttsAfterText": "Below, the piano stumbles and recovers. The two women at the rail glance back once, decide you are not their business, and return to their gossip.",
-                "response": "Her mouth curves, not quite amusement, not quite warning.\n\n\"Would I?\" she says. \"Perhaps I would, if you were ready to hear it without flinching.\" She leans one shoulder against the stair post, voice dropping beneath the piano. \"You were brought here. Not rescued. Not invited. Brought. Someone wanted you on this ridge while the town below kept its accounts.\" She holds your gaze. \"That is all you get for pressing. The rest you earn, or you drink until you stop asking.\"\n\nBelow, the piano stumbles and recovers. The two women at the rail glance back once, decide you are not their business, and return to their gossip.",
-                "status": {
-                  "key": "saloon_balcony:tell_me_now",
-                  "resolve": 5,
-                  "charisma": 5
+                "id" : "tell_me_now",
+                "label" : "If it was that important, you would tell me now.",
+                "tts" : true,
+                "ttsVoice" : "leo",
+                "ttsAudio" : "resources/audio/tts/saloon_balcony/tell_me_now.mp3",
+                "ttsText" : "Her mouth curves, not quite amusement, not quite warning. Would I, she says. Perhaps I would, if you were ready to hear it without flinching. You were brought here. Not rescued. Not invited. Brought. Someone wanted you on this ridge while the town below kept its accounts. That is all you get for pressing. The rest you earn, or you drink until you stop asking.",
+                "ttsAfter" : true,
+                "ttsAfterVoice" : "leo",
+                "ttsAfterAudio" : "resources/audio/tts/saloon_balcony/tell_me_now_after.mp3",
+                "ttsAfterText" : "Below, the piano stumbles and recovers. The two women at the rail glance back once, decide you are not their business, and return to their gossip.",
+                "response" : "Her mouth curves, not quite amusement, not quite warning.\n\n\"Would I?\" she says. \"Perhaps I would, if you were ready to hear it without flinching.\" She leans one shoulder against the stair post, voice dropping beneath the piano. \"You were brought here. Not rescued. Not invited. Brought. Someone wanted you on this ridge while the town below kept its accounts.\" She holds your gaze. \"That is all you get for pressing. The rest you earn, or you drink until you stop asking.\"\n\nBelow, the piano stumbles and recovers. The two women at the rail glance back once, decide you are not their business, and return to their gossip.",
+                "status" : {
+                  "key" : "saloon_balcony:tell_me_now",
+                  "resolve" : 5,
+                  "charisma" : 5
                 }
               },
               {
-                "id": "dont_care",
-                "label": "I honestly don't care.",
-                "tts": true,
-                "ttsVoice": "leo",
-                "ttsAudio": "resources/audio/tts/saloon_balcony/dont_care.mp3",
-                "ttsText": "For the first time since you approached, something like respect crosses her face. Good, she says. Pretending to care is worse than indifference. It makes men reckless in the wrong direction. Stay careless in public and careful in private. That is how you survive a place like this.",
-                "ttsAfter": true,
-                "ttsAfterVoice": "leo",
-                "ttsAfterAudio": "resources/audio/tts/saloon_balcony/dont_care_after.mp3",
-                "ttsAfterText": "She turns back to the room below as though the conversation is closed on her terms, not yours. The choice remains yours anyway.",
-                "response": "For the first time since you approached, something like respect crosses her face.\n\n\"Good,\" she says. \"Pretending to care is worse than indifference. It makes men reckless in the wrong direction.\" She flicks ash over the rail and watches it fall toward the main floor. \"Stay careless in public and careful in private. That is how you survive a place like this.\"\n\nShe turns back to the room below as though the conversation is closed on her terms, not yours. The choice remains yours anyway.",
-                "status": {
-                  "key": "saloon_balcony:dont_care",
-                  "resolve": 10
+                "id" : "dont_care",
+                "label" : "I honestly don't care.",
+                "tts" : true,
+                "ttsVoice" : "leo",
+                "ttsAudio" : "resources/audio/tts/saloon_balcony/dont_care.mp3",
+                "ttsText" : "For the first time since you approached, something like respect crosses her face. Good, she says. Pretending to care is worse than indifference. It makes men reckless in the wrong direction. Stay careless in public and careful in private. That is how you survive a place like this.",
+                "ttsAfter" : true,
+                "ttsAfterVoice" : "leo",
+                "ttsAfterAudio" : "resources/audio/tts/saloon_balcony/dont_care_after.mp3",
+                "ttsAfterText" : "She turns back to the room below as though the conversation is closed on her terms, not yours. The choice remains yours anyway.",
+                "response" : "For the first time since you approached, something like respect crosses her face.\n\n\"Good,\" she says. \"Pretending to care is worse than indifference. It makes men reckless in the wrong direction.\" She flicks ash over the rail and watches it fall toward the main floor. \"Stay careless in public and careful in private. That is how you survive a place like this.\"\n\nShe turns back to the room below as though the conversation is closed on her terms, not yours. The choice remains yours anyway.",
+                "status" : {
+                  "key" : "saloon_balcony:dont_care",
+                  "resolve" : 10
                 }
               }
             ]
           },
           {
-            "id": "ignore_comment",
-            "label": "> Ignore the comment",
-            "tts": true,
-            "ttsVoice": "leo",
-            "ttsAudio": "resources/audio/tts/saloon_balcony/ignore_comment.mp3",
-            "ttsText": "You let the words hang and look out over the room instead. Suit yourself, she says, voice mild. Not offended. Accustomed. After a moment she adds, quietly, You will ask eventually. You always do.",
-            "response": "You let the words hang and look out over the room instead. Patrons, cards, smoke, the machinery of appetite running on schedule.\n\n\"Suit yourself,\" she says, voice mild. Not offended. Accustomed. She takes another drag and watches the main floor the way the other women do, as though you have chosen a role she already priced.\n\nAfter a moment she adds, quietly, \"You will ask eventually. You always do.\"",
-            "status": {
-              "key": "saloon_balcony:ignore_comment",
-              "resolve": 5
+            "id" : "ignore_comment",
+            "label" : "> Ignore the comment",
+            "tts" : true,
+            "ttsVoice" : "leo",
+            "ttsAudio" : "resources/audio/tts/saloon_balcony/ignore_comment.mp3",
+            "ttsText" : "You let the words hang and look out over the room instead. Suit yourself, she says, voice mild. Not offended. Accustomed.",
+            "response" : "You let the words hang and look out over the room instead. Patrons, cards, smoke, the machinery of appetite running on schedule.\n\n\"Suit yourself,\" she says, voice mild. Not offended. Accustomed. She takes another drag and watches the main floor the way the other women do, as though you have chosen a role she already priced.",
+            "status" : {
+              "key" : "saloon_balcony:ignore_comment",
+              "resolve" : 5
             }
           }
         ]
       },
       {
-        "id": "blue_woman_fedora",
-        "type": "once",
-        "resetOnSceneEnter": false,
-        "requiresPhase": "blue_woman",
-        "tts": true,
-        "ttsVoice": "leo",
-        "ttsAudio": "resources/audio/tts/saloon_balcony/blue_woman_fedora.mp3",
-        "ttsText": "The woman in blue catches your sleeve as you start to turn away. Oh, by the way, she says, mild as an afterthought. You left this in my room this morning. She draws a weathered felt fedora from behind her back and holds it out to you. It looks better on you than me, she says. You might as well keep it.",
-        "ttsAfter": true,
-        "ttsAfterVoice": "leo",
-        "ttsAfterAudio": "resources/audio/tts/saloon_balcony/blue_woman_fedora_after.mp3",
-        "ttsAfterText": "The hat settles into your grip with the weight of something that has already been yours.",
-        "text": "The woman in blue catches your sleeve as you start to turn away.\n\n\"Oh, by the way,\" she says, mild as an afterthought. \"You left this in my room this morning.\"\n\nShe draws a weathered felt fedora from behind her back - dark, brim-softened, ribbon stained where rain and smoke have worked the same habit. She turns it once in her hands and holds it out to you.\n\n\"It looks better on you than me,\" she says. \"You might as well keep it.\"\n\nThe hat settles into your grip with the weight of something that has already been yours.",
-        "grantItem": {
-          "id": "fedora",
-          "name": "Fedora",
-          "icon": "resources/icons/fedora_icon.png",
-          "examineText": "A weathered felt fedora, dark charcoal gone dusty at the brim. The grosgrain ribbon is stained where smoke and rain have worked the same habit. The crown is dented from carry and sleep. It smells faintly of cigarettes and another room."
+        "id" : "blue_woman_fedora",
+        "type" : "once",
+        "resetOnSceneEnter" : false,
+        "requiresPhase" : "blue_woman",
+        "tts" : true,
+        "ttsVoice" : "leo",
+        "ttsAudio" : "resources/audio/tts/saloon_balcony/blue_woman_fedora.mp3",
+        "ttsText" : "The woman in blue catches your sleeve as you start to turn away. Oh, by the way, she says, mild as an afterthought. You left this in my room this morning. She draws a weathered felt fedora from behind her back and holds it out to you. It looks better on you than me, she says. You might as well keep it.",
+        "ttsAfter" : true,
+        "ttsAfterVoice" : "leo",
+        "ttsAfterAudio" : "resources/audio/tts/saloon_balcony/blue_woman_fedora_after.mp3",
+        "ttsAfterText" : "The hat settles into your grip with the weight of something that has already been yours.",
+        "text" : "The woman in blue catches your sleeve as you start to turn away.\n\n\"Oh, by the way,\" she says, mild as an afterthought. \"You left this in my room this morning.\"\n\nShe draws a weathered felt fedora from behind her back - dark, brim-softened, ribbon stained where rain and smoke have worked the same habit. She turns it once in her hands and holds it out to you.\n\n\"It looks better on you than me,\" she says. \"You might as well keep it.\"\n\nThe hat settles into your grip with the weight of something that has already been yours.",
+        "grantItem" : {
+          "id" : "fedora",
+          "name" : "Fedora",
+          "icon" : "resources/icons/fedora_icon.png",
+          "examineText" : "A weathered felt fedora, dark charcoal gone dusty at the brim. The grosgrain ribbon is stained where smoke and rain have worked the same habit. The crown is dented from carry and sleep. It smells faintly of cigarettes and another room."
         }
       },
       {
-        "id": "burgundy_path",
-        "type": "once",
-        "resetOnSceneEnter": false,
-        "requiresPhase": "blue_woman",
-        "requiresFlag": "path_c:hanging_tree",
-        "tts": true,
-        "ttsVoice": "leo",
-        "ttsAudio": "resources/audio/tts/saloon_balcony/burgundy_path.mp3",
-        "ttsText": "The woman in blue listens while you tell her about the hanging tree marker, the charcoal ring, the stakes, the silk in the ice house. When you finish, she nods once. You went up the path, she says. It is not a question. You always do, and you always come back with that look, like the mountain showed you a face you refused to wear. They hung the wrong man. He was still breathing when they cut him down. He still is.",
-        "ttsAfter": true,
-        "ttsAfterVoice": "leo",
-        "ttsAfterAudio": "resources/audio/tts/saloon_balcony/burgundy_path_after.mp3",
-        "ttsAfterText": "Then the room reclaims her. She leans over the rail and laughs for a patron below as though nothing happened, leaving you with the words like a splinter under the nail.",
-        "text": "The woman in blue listens while you tell her about the hanging tree marker, the charcoal ring, the stakes, the silk in the ice house. She does not interrupt.\n\nWhen you finish, she nods once, as though a column in her ledger has finally balanced.\n\n\"You went up the path,\" she says. It is not a question. \"You always do, and you always come back with that look - like the mountain showed you a face you refused to wear.\"\n\nHer voice drops beneath the piano.\n\n\"They hung the wrong man. He was still breathing when they cut him down.\" She holds your gaze without blinking. \"He still is.\"\n\nThen the room reclaims her. She leans over the rail and laughs for a patron below as though nothing happened, leaving you with the words like a splinter under the nail."
+        "id" : "burgundy_path",
+        "type" : "once",
+        "resetOnSceneEnter" : false,
+        "requiresPhase" : "blue_woman",
+        "requiresFlag" : "path_c:hanging_tree",
+        "tts" : true,
+        "ttsVoice" : "leo",
+        "ttsAudio" : "resources/audio/tts/saloon_balcony/burgundy_path.mp3",
+        "ttsText" : "The woman in blue listens while you tell her about the hanging tree marker, the charcoal ring, the stakes, the silk in the ice house. When you finish, she nods once. You went up the path, she says. It is not a question. You always do, and you always come back with that look, like the mountain showed you a face you refused to wear. They hung the wrong man. He was still breathing when they cut him down. He still is.",
+        "ttsAfter" : true,
+        "ttsAfterVoice" : "leo",
+        "ttsAfterAudio" : "resources/audio/tts/saloon_balcony/burgundy_path_after.mp3",
+        "ttsAfterText" : "Then the room reclaims her. She leans over the rail and laughs for a patron below as though nothing happened, leaving you with the words like a splinter under the nail.",
+        "text" : "The woman in blue listens while you tell her about the hanging tree marker, the charcoal ring, the stakes, the silk in the ice house. She does not interrupt.\n\nWhen you finish, she nods once, as though a column in her ledger has finally balanced.\n\n\"You went up the path,\" she says. It is not a question. \"You always do, and you always come back with that look - like the mountain showed you a face you refused to wear.\"\n\nHer voice drops beneath the piano.\n\n\"They hung the wrong man. He was still breathing when they cut him down.\" She holds your gaze without blinking. \"He still is.\"\n\nThen the room reclaims her. She leans over the rail and laughs for a patron below as though nothing happened, leaving you with the words like a splinter under the nail."
       }
     ]
   },
-  "ridge_haberdashery": {
-    "speakPhases": [
+  "ridge_haberdashery" : {
+    "speakPhases" : [
       {
-        "id": "shopkeeper",
-        "type": "scripted",
-        "resetOnSceneEnter": true,
-        "intro": "The gentleman behind the counter sets down his pen and regards you with practiced courtesy. His vest is pressed, his collar crisp, his hands clean in the manner of a man who sells refinement at altitude.\n\n\"Good day, sir. Is there anything I can help you find?\"",
-        "resumeIntro": "\"Now then, sir,\" he says, settling his hands on the counter. \"What else may I help you find?\"",
-        "choices": [
+        "id" : "shopkeeper",
+        "type" : "scripted",
+        "resetOnSceneEnter" : true,
+        "intro" : "The gentleman behind the counter sets down his pen and regards you with practiced courtesy. His vest is pressed, his collar crisp, his hands clean in the manner of a man who sells refinement at altitude.\n\n\"Good day, sir. Is there anything I can help you find?\"",
+        "resumeIntro" : "\"Now then, sir,\" he says, settling his hands on the counter. \"What else may I help you find?\"",
+        "choices" : [
           {
-            "id": "what_on_offer",
-            "label": "Yes, what do you have on offer?",
-            "response": "\"Well... anything you see here.\" He sweeps one hand across the shelves and counter with the easy pride of a man who knows his stock by heart. \"We also do custom jackets, shirts, vests, and trousers.\"",
-            "choices": [
+            "id" : "what_on_offer",
+            "label" : "Yes, what do you have on offer?",
+            "response" : "\"Well... anything you see here.\" He sweeps one hand across the shelves and counter with the easy pride of a man who knows his stock by heart. \"We also do custom jackets, shirts, vests, and trousers.\"",
+            "choices" : [
               {
-                "id": "browse_mens_cologne",
-                "label": "Men's Cologne - $4.50",
-                "response": "\"Excellent choice, sir,\" he says. \"That will be four dollars and fifty cents.\"",
-                "choices": [
+                "id" : "browse_mens_cologne",
+                "label" : "Men's Cologne - $4.50",
+                "response" : "\"Excellent choice, sir,\" he says. \"That will be four dollars and fifty cents.\"",
+                "choices" : [
                   {
-                    "id": "buy_mens_cologne",
-                    "label": "I'll take it.",
-                    "requiresMoney": 4.5,
-                    "response": "He wraps the men's cologne with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"",
-                    "grantItem": {
-                      "id": "mens_cologne",
-                      "name": "Men's Cologne",
-                      "icon": "resources/icons/mens_cologne_icon.png",
-                      "examineImage": "resources/images/mens_cologne_examine.png",
-                      "examineText": "A heavy glass bottle of men's cologne with a ground stopper and a label printed in restrained copperplate. The scent is cedar, bergamot, and something drier beneath\u2014tobacco leaf, perhaps, or the memory of it. The Ridge Haberdashery wraps its goods as though altitude might bruise them."
+                    "id" : "buy_mens_cologne",
+                    "label" : "I'll take it.",
+                    "requiresMoney" : 4.5,
+                    "response" : "He wraps the men's cologne with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"",
+                    "grantItem" : {
+                      "id" : "mens_cologne",
+                      "name" : "Men's Cologne",
+                      "icon" : "resources/icons/mens_cologne_icon.png",
+                      "examineImage" : "resources/images/mens_cologne_examine.png",
+                      "examineText" : "A heavy glass bottle of men's cologne with a ground stopper and a label printed in restrained copperplate. The scent is cedar, bergamot, and something drier beneath—tobacco leaf, perhaps, or the memory of it. The Ridge Haberdashery wraps its goods as though altitude might bruise them."
                     },
-                    "status": {
-                      "money": -4.5
+                    "status" : {
+                      "money" : -4.5
                     }
                   },
                   {
-                    "id": "decline_mens_cologne",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\""
+                    "id" : "decline_mens_cologne",
+                    "label" : "Thanks, maybe next time.",
+                    "response" : "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\""
                   }
                 ]
               },
               {
-                "id": "browse_straight_razor",
-                "label": "Straight Razor - $12",
-                "response": "\"Excellent choice, sir,\" he says. \"That will be twelve dollars.\"",
-                "choices": [
+                "id" : "browse_straight_razor",
+                "label" : "Straight Razor - $12",
+                "response" : "\"Excellent choice, sir,\" he says. \"That will be twelve dollars.\"",
+                "choices" : [
                   {
-                    "id": "buy_straight_razor",
-                    "label": "I'll take it.",
-                    "requiresMoney": 12.0,
-                    "response": "He wraps the straight razor with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"",
-                    "grantItem": {
-                      "id": "straight_razor",
-                      "name": "Straight Razor",
-                      "icon": "resources/icons/straight_razor_icon.png",
-                      "examineImage": "resources/images/straight_razor_examine.png",
-                      "examineText": "A straight razor in a fitted leather sheath, the blade hollow-ground and polished to a mirror that shows your face in fragments. The handle is horn, warm from the maker's bench, pinned with a brass tang. The edge is sharp enough to part a hair without complaint."
+                    "id" : "buy_straight_razor",
+                    "label" : "I'll take it.",
+                    "requiresMoney" : 12,
+                    "response" : "He wraps the straight razor with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"",
+                    "grantItem" : {
+                      "id" : "straight_razor",
+                      "name" : "Straight Razor",
+                      "icon" : "resources/icons/straight_razor_icon.png",
+                      "examineImage" : "resources/images/straight_razor_examine.png",
+                      "examineText" : "A straight razor in a fitted leather sheath, the blade hollow-ground and polished to a mirror that shows your face in fragments. The handle is horn, warm from the maker's bench, pinned with a brass tang. The edge is sharp enough to part a hair without complaint."
                     },
-                    "status": {
-                      "money": -12.0
+                    "status" : {
+                      "money" : -12
                     }
                   },
                   {
-                    "id": "decline_straight_razor",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\""
+                    "id" : "decline_straight_razor",
+                    "label" : "Thanks, maybe next time.",
+                    "response" : "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\""
                   }
                 ]
               },
               {
-                "id": "browse_hair_tonic",
-                "label": "Hair Tonic - $0.75",
-                "response": "\"Excellent choice, sir,\" he says. \"That will be seventy-five cents.\"",
-                "choices": [
+                "id" : "browse_hair_tonic",
+                "label" : "Hair Tonic - $0.75",
+                "response" : "\"Excellent choice, sir,\" he says. \"That will be seventy-five cents.\"",
+                "choices" : [
                   {
-                    "id": "buy_hair_tonic",
-                    "label": "I'll take it.",
-                    "requiresMoney": 0.75,
-                    "response": "He wraps the hair tonic with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"",
-                    "grantItem": {
-                      "id": "hair_tonic",
-                      "name": "Hair Tonic",
-                      "icon": "resources/icons/hair_tonic_icon.png",
-                      "examineImage": "resources/images/hair_tonic_examine.png",
-                      "examineText": "A cobalt bottle of hair tonic with a cork sealed in red wax. The label promises restorative virtue in language more medical than honest. The liquid smells of bay rum and barber soap. A man's vanity in a bottle small enough to hide in a coat pocket."
+                    "id" : "buy_hair_tonic",
+                    "label" : "I'll take it.",
+                    "requiresMoney" : 0.75,
+                    "response" : "He wraps the hair tonic with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"",
+                    "grantItem" : {
+                      "id" : "hair_tonic",
+                      "name" : "Hair Tonic",
+                      "icon" : "resources/icons/hair_tonic_icon.png",
+                      "examineImage" : "resources/images/hair_tonic_examine.png",
+                      "examineText" : "A cobalt bottle of hair tonic with a cork sealed in red wax. The label promises restorative virtue in language more medical than honest. The liquid smells of bay rum and barber soap. A man's vanity in a bottle small enough to hide in a coat pocket."
                     },
-                    "status": {
-                      "money": -0.75
+                    "status" : {
+                      "money" : -0.75
                     }
                   },
                   {
-                    "id": "decline_hair_tonic",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\""
+                    "id" : "decline_hair_tonic",
+                    "label" : "Thanks, maybe next time.",
+                    "response" : "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\""
                   }
                 ]
               },
               {
-                "id": "browse_shaving_brush",
-                "label": "Shaving Brush - $2.50",
-                "response": "\"Excellent choice, sir,\" he says. \"That will be two dollars and fifty cents.\"",
-                "choices": [
+                "id" : "browse_shaving_brush",
+                "label" : "Shaving Brush - $2.50",
+                "response" : "\"Excellent choice, sir,\" he says. \"That will be two dollars and fifty cents.\"",
+                "choices" : [
                   {
-                    "id": "buy_shaving_brush",
-                    "label": "I'll take it.",
-                    "requiresMoney": 2.5,
-                    "response": "He wraps the shaving brush with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"",
-                    "grantItem": {
-                      "id": "shaving_brush",
-                      "name": "Shaving Brush",
-                      "icon": "resources/icons/shaving_brush_icon.png",
-                      "examineImage": "resources/images/shaving_brush_examine.png",
-                      "examineText": "A shaving brush with a turned handle of pale boxwood and a knot of badger hair dense enough to hold a proper lather. The ferrule is nickel silver, stamped with a London maker's mark worn thin at the edge. Used with care, it would last longer than most resolutions on the High Line."
+                    "id" : "buy_shaving_brush",
+                    "label" : "I'll take it.",
+                    "requiresMoney" : 2.5,
+                    "response" : "He wraps the shaving brush with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"",
+                    "grantItem" : {
+                      "id" : "shaving_brush",
+                      "name" : "Shaving Brush",
+                      "icon" : "resources/icons/shaving_brush_icon.png",
+                      "examineImage" : "resources/images/shaving_brush_examine.png",
+                      "examineText" : "A shaving brush with a turned handle of pale boxwood and a knot of badger hair dense enough to hold a proper lather. The ferrule is nickel silver, stamped with a London maker's mark worn thin at the edge. Used with care, it would last longer than most resolutions on the High Line."
                     },
-                    "status": {
-                      "money": -2.5
+                    "status" : {
+                      "money" : -2.5
                     }
                   },
                   {
-                    "id": "decline_shaving_brush",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\""
+                    "id" : "decline_shaving_brush",
+                    "label" : "Thanks, maybe next time.",
+                    "response" : "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\""
                   }
                 ]
               },
               {
-                "id": "browse_cuff_links",
-                "label": "Cuff Links - $14",
-                "response": "\"Excellent choice, sir,\" he says. \"That will be fourteen dollars.\"",
-                "choices": [
+                "id" : "browse_cuff_links",
+                "label" : "Cuff Links - $14",
+                "response" : "\"Excellent choice, sir,\" he says. \"That will be fourteen dollars.\"",
+                "choices" : [
                   {
-                    "id": "buy_cuff_links",
-                    "label": "I'll take it.",
-                    "requiresMoney": 14.0,
-                    "response": "He wraps the cuff links with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"",
-                    "grantItem": {
-                      "id": "cuff_links",
-                      "name": "Cuff Links",
-                      "icon": "resources/icons/cuff_links_icon.png",
-                      "examineImage": "resources/images/cuff_links_examine.png",
-                      "examineText": "A pair of cuff links in a small velvet tray: onyx faces set in sterling, engine-turned at the border so they catch lamplight without shouting. The posts click shut with the satisfying precision of good mechanism. The sort of detail a man buys when he wants a room to revise its estimate of him."
+                    "id" : "buy_cuff_links",
+                    "label" : "I'll take it.",
+                    "requiresMoney" : 14,
+                    "response" : "He wraps the cuff links with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"",
+                    "grantItem" : {
+                      "id" : "cuff_links",
+                      "name" : "Cuff Links",
+                      "icon" : "resources/icons/cuff_links_icon.png",
+                      "examineImage" : "resources/images/cuff_links_examine.png",
+                      "examineText" : "A pair of cuff links in a small velvet tray: onyx faces set in sterling, engine-turned at the border so they catch lamplight without shouting. The posts click shut with the satisfying precision of good mechanism. The sort of detail a man buys when he wants a room to revise its estimate of him."
                     },
-                    "status": {
-                      "money": -14.0
+                    "status" : {
+                      "money" : -14
                     }
                   },
                   {
-                    "id": "decline_cuff_links",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\""
+                    "id" : "decline_cuff_links",
+                    "label" : "Thanks, maybe next time.",
+                    "response" : "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\""
                   }
                 ]
               },
               {
-                "id": "browse_bow_tie",
-                "label": "Bow Tie - $2.75",
-                "response": "\"Excellent choice, sir,\" he says. \"That will be two dollars and seventy-five cents.\"",
-                "choices": [
+                "id" : "browse_bow_tie",
+                "label" : "Bow Tie - $2.75",
+                "response" : "\"Excellent choice, sir,\" he says. \"That will be two dollars and seventy-five cents.\"",
+                "choices" : [
                   {
-                    "id": "buy_bow_tie",
-                    "label": "I'll take it.",
-                    "requiresMoney": 2.75,
-                    "response": "He wraps the bow tie with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"",
-                    "grantItem": {
-                      "id": "bow_tie",
-                      "name": "Bow Tie",
-                      "icon": "resources/icons/bow_tie_icon.png",
-                      "examineImage": "resources/images/bow_tie_examine.png",
-                      "examineText": "A bow tie of black silk grosgrain, pre-tied on a band but finished well enough that the deception would pass at a distance. The fabric has a dry hand and a subtle rib that speaks of formal rooms and better lighting than the ridge usually affords."
+                    "id" : "buy_bow_tie",
+                    "label" : "I'll take it.",
+                    "requiresMoney" : 2.75,
+                    "response" : "He wraps the bow tie with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"",
+                    "grantItem" : {
+                      "id" : "bow_tie",
+                      "name" : "Bow Tie",
+                      "icon" : "resources/icons/bow_tie_icon.png",
+                      "examineImage" : "resources/images/bow_tie_examine.png",
+                      "examineText" : "A bow tie of black silk grosgrain, pre-tied on a band but finished well enough that the deception would pass at a distance. The fabric has a dry hand and a subtle rib that speaks of formal rooms and better lighting than the ridge usually affords."
                     },
-                    "status": {
-                      "money": -2.75
+                    "status" : {
+                      "money" : -2.75
                     }
                   },
                   {
-                    "id": "decline_bow_tie",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\""
+                    "id" : "decline_bow_tie",
+                    "label" : "Thanks, maybe next time.",
+                    "response" : "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\""
                   }
                 ]
               },
               {
-                "id": "browse_custom_shirt",
-                "label": "Custom Men's Shirt - $18",
-                "response": "\"Excellent, sir. If you have the funds today I can begin taking measurements, and it should be about six weeks' lead time.\" He straightens slightly, pride entering his voice like a pressed crease. \"All of my custom clothes are designed and constructed on Savile Row in London.\"",
-                "choices": [
+                "id" : "browse_custom_shirt",
+                "label" : "Custom Men's Shirt - $18",
+                "response" : "\"Excellent, sir. If you have the funds today I can begin taking measurements, and it should be about six weeks' lead time.\" He straightens slightly, pride entering his voice like a pressed crease. \"All of my custom clothes are designed and constructed on Savile Row in London.\"",
+                "choices" : [
                   {
-                    "id": "buy_custom_shirt",
-                    "label": "Let's do this",
-                    "requiresMoney": 18.0,
-                    "response": "He produces his measuring tape without another word and begins the ritual of numbers and posture, writing each measure as though recording scripture. \"Very good, sir. Six weeks. I will send word when it arrives from London.\"",
-                    "grantItem": {
-                      "id": "custom_shirt",
-                      "name": "Custom Men's Shirt",
-                      "icon": "resources/icons/custom_shirt_icon.png",
-                      "examineImage": "resources/images/custom_shirt_examine.png",
-                      "examineText": "A measurement card and fabric swatch pinned to a tailor's ticket for a custom shirt: long-grain cotton, mother-of-pearl buttons, collar cut to your measure. The haberdasher notes a six-week lead time and, with quiet pride, Savile Row construction. The garment itself is not here yet. The promise is."
+                    "id" : "buy_custom_shirt",
+                    "label" : "Let's do this",
+                    "requiresMoney" : 18,
+                    "response" : "He produces his measuring tape without another word and begins the ritual of numbers and posture, writing each measure as though recording scripture. \"Very good, sir. Six weeks. I will send word when it arrives from London.\"",
+                    "grantItem" : {
+                      "id" : "custom_shirt",
+                      "name" : "Custom Men's Shirt",
+                      "icon" : "resources/icons/custom_shirt_icon.png",
+                      "examineImage" : "resources/images/custom_shirt_examine.png",
+                      "examineText" : "A measurement card and fabric swatch pinned to a tailor's ticket for a custom shirt: long-grain cotton, mother-of-pearl buttons, collar cut to your measure. The haberdasher notes a six-week lead time and, with quiet pride, Savile Row construction. The garment itself is not here yet. The promise is."
                     },
-                    "status": {
-                      "money": -18.0
+                    "status" : {
+                      "money" : -18
                     }
                   },
                   {
-                    "id": "fabric_custom_shirt",
-                    "label": "I don't have the funds today, just browsing. I do really like that fabric though.",
-                    "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric\u2014one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\"",
-                    "choices": [
+                    "id" : "fabric_custom_shirt",
+                    "label" : "I don't have the funds today, just browsing. I do really like that fabric though.",
+                    "response" : "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric—one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\"",
+                    "choices" : [
                       {
-                        "id": "buy_fabric_from_custom_shirt",
-                        "label": "I'll take it.",
-                        "requiresMoney": 0.25,
-                        "response": "He cuts a small square from the bolt with scissors that barely whisper, folds it into a card, and ties it with twine. \"For consideration, sir.\"",
-                        "grantItem": {
-                          "id": "wool_fabric_sample",
-                          "name": "Wool Fabric Sample",
-                          "icon": "resources/icons/wool_fabric_sample_icon.png",
-                          "examineImage": "resources/images/wool_fabric_sample_examine.png",
-                          "examineText": "A small cut of premium long-grain wool, one hundred percent, folded into a card and tied with twine. The hand is dense and cool, the weave tight enough that light passes reluctantly. The haberdasher's note on the card reads simply: for consideration."
+                        "id" : "buy_fabric_from_custom_shirt",
+                        "label" : "I'll take it.",
+                        "requiresMoney" : 0.25,
+                        "response" : "He cuts a small square from the bolt with scissors that barely whisper, folds it into a card, and ties it with twine. \"For consideration, sir.\"",
+                        "grantItem" : {
+                          "id" : "wool_fabric_sample",
+                          "name" : "Wool Fabric Sample",
+                          "icon" : "resources/icons/wool_fabric_sample_icon.png",
+                          "examineImage" : "resources/images/wool_fabric_sample_examine.png",
+                          "examineText" : "A small cut of premium long-grain wool, one hundred percent, folded into a card and tied with twine. The hand is dense and cool, the weave tight enough that light passes reluctantly. The haberdasher's note on the card reads simply: for consideration."
                         },
-                        "status": {
-                          "money": -0.25
+                        "status" : {
+                          "money" : -0.25
                         }
                       },
                       {
-                        "id": "decline_fabric_from_custom_shirt",
-                        "label": "Thanks, maybe next time.",
-                        "response": "\"No trouble at all, sir,\" he says. \"The cloth isn't going anywhere.\""
+                        "id" : "decline_fabric_from_custom_shirt",
+                        "label" : "Thanks, maybe next time.",
+                        "response" : "\"No trouble at all, sir,\" he says. \"The cloth isn't going anywhere.\""
                       }
                     ]
                   },
                   {
-                    "id": "decline_custom_shirt",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"Of course, sir,\" he says. \"Custom work requires patience on both sides.\""
+                    "id" : "decline_custom_shirt",
+                    "label" : "Thanks, maybe next time.",
+                    "response" : "\"Of course, sir,\" he says. \"Custom work requires patience on both sides.\""
                   }
                 ]
               },
               {
-                "id": "browse_custom_trousers",
-                "label": "Custom Men's Trousers - $22",
-                "response": "\"Excellent, sir. If you have the funds today I can begin taking measurements, and it should be about six weeks' lead time.\" He straightens slightly, pride entering his voice like a pressed crease. \"All of my custom clothes are designed and constructed on Savile Row in London.\"",
-                "choices": [
+                "id" : "browse_custom_trousers",
+                "label" : "Custom Men's Trousers - $22",
+                "response" : "\"Excellent, sir. If you have the funds today I can begin taking measurements, and it should be about six weeks' lead time.\" He straightens slightly, pride entering his voice like a pressed crease. \"All of my custom clothes are designed and constructed on Savile Row in London.\"",
+                "choices" : [
                   {
-                    "id": "buy_custom_trousers",
-                    "label": "Let's do this",
-                    "requiresMoney": 22.0,
-                    "response": "He produces his measuring tape without another word and begins the ritual of numbers and posture, writing each measure as though recording scripture. \"Very good, sir. Six weeks. I will send word when it arrives from London.\"",
-                    "grantItem": {
-                      "id": "custom_trousers",
-                      "name": "Custom Men's Trousers",
-                      "icon": "resources/icons/custom_trousers_icon.png",
-                      "examineImage": "resources/images/custom_trousers_examine.png",
-                      "examineText": "A tailor's order for custom trousers: waist, inseam, and rise recorded in ink that does not smudge. The cloth sample is worsted wool, dark enough for church and boardrooms that do not exist on the High Line but might in Graysmill. Six weeks, the card says. Made on Savile Row in London."
+                    "id" : "buy_custom_trousers",
+                    "label" : "Let's do this",
+                    "requiresMoney" : 22,
+                    "response" : "He produces his measuring tape without another word and begins the ritual of numbers and posture, writing each measure as though recording scripture. \"Very good, sir. Six weeks. I will send word when it arrives from London.\"",
+                    "grantItem" : {
+                      "id" : "custom_trousers",
+                      "name" : "Custom Men's Trousers",
+                      "icon" : "resources/icons/custom_trousers_icon.png",
+                      "examineImage" : "resources/images/custom_trousers_examine.png",
+                      "examineText" : "A tailor's order for custom trousers: waist, inseam, and rise recorded in ink that does not smudge. The cloth sample is worsted wool, dark enough for church and boardrooms that do not exist on the High Line but might in Graysmill. Six weeks, the card says. Made on Savile Row in London."
                     },
-                    "status": {
-                      "money": -22.0
+                    "status" : {
+                      "money" : -22
                     }
                   },
                   {
-                    "id": "fabric_custom_trousers",
-                    "label": "I don't have the funds today, just browsing. I do really like that fabric though.",
-                    "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric\u2014one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\"",
-                    "choices": [
+                    "id" : "fabric_custom_trousers",
+                    "label" : "I don't have the funds today, just browsing. I do really like that fabric though.",
+                    "response" : "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric—one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\"",
+                    "choices" : [
                       {
-                        "id": "buy_fabric_from_custom_trousers",
-                        "label": "I'll take it.",
-                        "requiresMoney": 0.25,
-                        "response": "He cuts a small square from the bolt with scissors that barely whisper, folds it into a card, and ties it with twine. \"For consideration, sir.\"",
-                        "grantItem": {
-                          "id": "wool_fabric_sample",
-                          "name": "Wool Fabric Sample",
-                          "icon": "resources/icons/wool_fabric_sample_icon.png",
-                          "examineImage": "resources/images/wool_fabric_sample_examine.png",
-                          "examineText": "A small cut of premium long-grain wool, one hundred percent, folded into a card and tied with twine. The hand is dense and cool, the weave tight enough that light passes reluctantly. The haberdasher's note on the card reads simply: for consideration."
+                        "id" : "buy_fabric_from_custom_trousers",
+                        "label" : "I'll take it.",
+                        "requiresMoney" : 0.25,
+                        "response" : "He cuts a small square from the bolt with scissors that barely whisper, folds it into a card, and ties it with twine. \"For consideration, sir.\"",
+                        "grantItem" : {
+                          "id" : "wool_fabric_sample",
+                          "name" : "Wool Fabric Sample",
+                          "icon" : "resources/icons/wool_fabric_sample_icon.png",
+                          "examineImage" : "resources/images/wool_fabric_sample_examine.png",
+                          "examineText" : "A small cut of premium long-grain wool, one hundred percent, folded into a card and tied with twine. The hand is dense and cool, the weave tight enough that light passes reluctantly. The haberdasher's note on the card reads simply: for consideration."
                         },
-                        "status": {
-                          "money": -0.25
+                        "status" : {
+                          "money" : -0.25
                         }
                       },
                       {
-                        "id": "decline_fabric_from_custom_trousers",
-                        "label": "Thanks, maybe next time.",
-                        "response": "\"No trouble at all, sir,\" he says. \"The cloth isn't going anywhere.\""
+                        "id" : "decline_fabric_from_custom_trousers",
+                        "label" : "Thanks, maybe next time.",
+                        "response" : "\"No trouble at all, sir,\" he says. \"The cloth isn't going anywhere.\""
                       }
                     ]
                   },
                   {
-                    "id": "decline_custom_trousers",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"Of course, sir,\" he says. \"Custom work requires patience on both sides.\""
+                    "id" : "decline_custom_trousers",
+                    "label" : "Thanks, maybe next time.",
+                    "response" : "\"Of course, sir,\" he says. \"Custom work requires patience on both sides.\""
                   }
                 ]
               },
               {
-                "id": "browse_custom_jacket",
-                "label": "Custom Men's Jacket - $45",
-                "response": "\"Excellent, sir. If you have the funds today I can begin taking measurements, and it should be about six weeks' lead time.\" He straightens slightly, pride entering his voice like a pressed crease. \"All of my custom clothes are designed and constructed on Savile Row in London.\"",
-                "choices": [
+                "id" : "browse_custom_jacket",
+                "label" : "Custom Men's Jacket - $45",
+                "response" : "\"Excellent, sir. If you have the funds today I can begin taking measurements, and it should be about six weeks' lead time.\" He straightens slightly, pride entering his voice like a pressed crease. \"All of my custom clothes are designed and constructed on Savile Row in London.\"",
+                "choices" : [
                   {
-                    "id": "buy_custom_jacket",
-                    "label": "Let's do this",
-                    "requiresMoney": 45.0,
-                    "response": "He produces his measuring tape without another word and begins the ritual of numbers and posture, writing each measure as though recording scripture. \"Very good, sir. Six weeks. I will send word when it arrives from London.\"",
-                    "grantItem": {
-                      "id": "custom_jacket",
-                      "name": "Custom Men's Jacket",
-                      "icon": "resources/icons/custom_jacket_icon.png",
-                      "examineImage": "resources/images/custom_jacket_examine.png",
-                      "examineText": "A commission card for a custom jacket: shoulder width, chest, and lapel style noted with the care of a man who believes fit is morality. The fabric sample is long-grain wool in charcoal, substantial enough to hold a ridge wind at bay. Six weeks' lead. Designed and constructed on Savile Row in London, as though the address itself were a kind of guarantee."
+                    "id" : "buy_custom_jacket",
+                    "label" : "Let's do this",
+                    "requiresMoney" : 45,
+                    "response" : "He produces his measuring tape without another word and begins the ritual of numbers and posture, writing each measure as though recording scripture. \"Very good, sir. Six weeks. I will send word when it arrives from London.\"",
+                    "grantItem" : {
+                      "id" : "custom_jacket",
+                      "name" : "Custom Men's Jacket",
+                      "icon" : "resources/icons/custom_jacket_icon.png",
+                      "examineImage" : "resources/images/custom_jacket_examine.png",
+                      "examineText" : "A commission card for a custom jacket: shoulder width, chest, and lapel style noted with the care of a man who believes fit is morality. The fabric sample is long-grain wool in charcoal, substantial enough to hold a ridge wind at bay. Six weeks' lead. Designed and constructed on Savile Row in London, as though the address itself were a kind of guarantee."
                     },
-                    "status": {
-                      "money": -45.0
+                    "status" : {
+                      "money" : -45
                     }
                   },
                   {
-                    "id": "fabric_custom_jacket",
-                    "label": "I don't have the funds today, just browsing. I do really like that fabric though.",
-                    "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric\u2014one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\"",
-                    "choices": [
+                    "id" : "fabric_custom_jacket",
+                    "label" : "I don't have the funds today, just browsing. I do really like that fabric though.",
+                    "response" : "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric—one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\"",
+                    "choices" : [
                       {
-                        "id": "buy_fabric_from_custom_jacket",
-                        "label": "I'll take it.",
-                        "requiresMoney": 0.25,
-                        "response": "He cuts a small square from the bolt with scissors that barely whisper, folds it into a card, and ties it with twine. \"For consideration, sir.\"",
-                        "grantItem": {
-                          "id": "wool_fabric_sample",
-                          "name": "Wool Fabric Sample",
-                          "icon": "resources/icons/wool_fabric_sample_icon.png",
-                          "examineImage": "resources/images/wool_fabric_sample_examine.png",
-                          "examineText": "A small cut of premium long-grain wool, one hundred percent, folded into a card and tied with twine. The hand is dense and cool, the weave tight enough that light passes reluctantly. The haberdasher's note on the card reads simply: for consideration."
+                        "id" : "buy_fabric_from_custom_jacket",
+                        "label" : "I'll take it.",
+                        "requiresMoney" : 0.25,
+                        "response" : "He cuts a small square from the bolt with scissors that barely whisper, folds it into a card, and ties it with twine. \"For consideration, sir.\"",
+                        "grantItem" : {
+                          "id" : "wool_fabric_sample",
+                          "name" : "Wool Fabric Sample",
+                          "icon" : "resources/icons/wool_fabric_sample_icon.png",
+                          "examineImage" : "resources/images/wool_fabric_sample_examine.png",
+                          "examineText" : "A small cut of premium long-grain wool, one hundred percent, folded into a card and tied with twine. The hand is dense and cool, the weave tight enough that light passes reluctantly. The haberdasher's note on the card reads simply: for consideration."
                         },
-                        "status": {
-                          "money": -0.25
+                        "status" : {
+                          "money" : -0.25
                         }
                       },
                       {
-                        "id": "decline_fabric_from_custom_jacket",
-                        "label": "Thanks, maybe next time.",
-                        "response": "\"No trouble at all, sir,\" he says. \"The cloth isn't going anywhere.\""
+                        "id" : "decline_fabric_from_custom_jacket",
+                        "label" : "Thanks, maybe next time.",
+                        "response" : "\"No trouble at all, sir,\" he says. \"The cloth isn't going anywhere.\""
                       }
                     ]
                   },
                   {
-                    "id": "decline_custom_jacket",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"Of course, sir,\" he says. \"Custom work requires patience on both sides.\""
+                    "id" : "decline_custom_jacket",
+                    "label" : "Thanks, maybe next time.",
+                    "response" : "\"Of course, sir,\" he says. \"Custom work requires patience on both sides.\""
                   }
                 ]
               },
               {
-                "id": "browse_mens_pea_coat",
-                "label": "Men's Pea Coat - $32",
-                "response": "\"Excellent choice, sir,\" he says. \"That will be thirty-two dollars.\"",
-                "choices": [
+                "id" : "browse_mens_pea_coat",
+                "label" : "Men's Pea Coat - $32",
+                "response" : "\"Excellent choice, sir,\" he says. \"That will be thirty-two dollars.\"",
+                "choices" : [
                   {
-                    "id": "buy_mens_pea_coat",
-                    "label": "I'll take it.",
-                    "requiresMoney": 32.0,
-                    "response": "He wraps the men's pea coat with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"",
-                    "grantItem": {
-                      "id": "mens_pea_coat",
-                      "name": "Men's Pea Coat",
-                      "icon": "resources/icons/mens_pea_coat_icon.png",
-                      "examineImage": "resources/images/mens_pea_coat_examine.png",
-                      "examineText": "A men's pea coat of heavy navy melton wool, double-breasted with anchor buttons and a collar that can be turned against wind that has never learned manners. The lining is quilted. The shoulders are broad. It smells of new cloth and cold air, as though it has been waiting for a ship that docks at altitude."
+                    "id" : "buy_mens_pea_coat",
+                    "label" : "I'll take it.",
+                    "requiresMoney" : 32,
+                    "response" : "He wraps the men's pea coat with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"",
+                    "grantItem" : {
+                      "id" : "mens_pea_coat",
+                      "name" : "Men's Pea Coat",
+                      "icon" : "resources/icons/mens_pea_coat_icon.png",
+                      "examineImage" : "resources/images/mens_pea_coat_examine.png",
+                      "examineText" : "A men's pea coat of heavy navy melton wool, double-breasted with anchor buttons and a collar that can be turned against wind that has never learned manners. The lining is quilted. The shoulders are broad. It smells of new cloth and cold air, as though it has been waiting for a ship that docks at altitude."
                     },
-                    "status": {
-                      "money": -32.0
+                    "status" : {
+                      "money" : -32
                     }
                   },
                   {
-                    "id": "decline_mens_pea_coat",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\""
+                    "id" : "decline_mens_pea_coat",
+                    "label" : "Thanks, maybe next time.",
+                    "response" : "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\""
                   }
                 ]
               },
               {
-                "id": "browse_mens_duster",
-                "label": "Men's Duster - $24",
-                "response": "\"Excellent choice, sir,\" he says. \"That will be twenty-four dollars.\"",
-                "choices": [
+                "id" : "browse_mens_duster",
+                "label" : "Men's Duster - $24",
+                "response" : "\"Excellent choice, sir,\" he says. \"That will be twenty-four dollars.\"",
+                "choices" : [
                   {
-                    "id": "buy_mens_duster",
-                    "label": "I'll take it.",
-                    "requiresMoney": 24.0,
-                    "response": "He wraps the men's duster with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"",
-                    "grantItem": {
-                      "id": "mens_duster",
-                      "name": "Men's Duster",
-                      "icon": "resources/icons/mens_duster_icon.png",
-                      "examineImage": "resources/images/mens_duster_examine.png",
-                      "examineText": "A full-length men's duster in oiled canvas the color of winter road dust, with a split back for riding and pockets deep enough to lose a man's intentions. The metal buttons are darkened against tarnish. It is less garment than declaration: a man who expects distance, weather, and the kind of work that keeps his hands dirty."
+                    "id" : "buy_mens_duster",
+                    "label" : "I'll take it.",
+                    "requiresMoney" : 24,
+                    "response" : "He wraps the men's duster with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"",
+                    "grantItem" : {
+                      "id" : "mens_duster",
+                      "name" : "Men's Duster",
+                      "icon" : "resources/icons/mens_duster_icon.png",
+                      "examineImage" : "resources/images/mens_duster_examine.png",
+                      "examineText" : "A full-length men's duster in oiled canvas the color of winter road dust, with a split back for riding and pockets deep enough to lose a man's intentions. The metal buttons are darkened against tarnish. It is less garment than declaration: a man who expects distance, weather, and the kind of work that keeps his hands dirty."
                     },
-                    "status": {
-                      "money": -24.0
+                    "status" : {
+                      "money" : -24
                     }
                   },
                   {
-                    "id": "decline_mens_duster",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\""
+                    "id" : "decline_mens_duster",
+                    "label" : "Thanks, maybe next time.",
+                    "response" : "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\""
                   }
                 ]
               },
               {
-                "id": "catalog_done",
-                "label": "Thanks, just browsing.",
-                "response": "\"Very well, sir,\" he says pleasantly. \"Take your time with the room. I am here if you change your mind.\""
+                "id" : "catalog_done",
+                "label" : "Thanks, just browsing.",
+                "response" : "\"Very well, sir,\" he says pleasantly. \"Take your time with the room. I am here if you change your mind.\""
               }
             ]
           },
           {
-            "id": "compliment_store",
-            "label": "This is an impressive store.",
-            "response": "You let your gaze travel the shelves, the bolt rolls, the glass cases, the iron rack of ready-made coats, taking it in the way you would a room that has been assembled with intention.\n\n\"This is an impressive store,\" you say.\n\nA modest smile crosses his face, pleased but not surprised\u2014he has heard the compliment before and still believes it.\n\n\"You are kind to say so, sir.\" He rests his fingertips on the counter. \"I trained on Savile Row before the mountains called. My uncle kept a dry goods post on this ridge when the High Line was only timber camps and prayer. I came up to visit, saw what men lacked at altitude, and stayed. That was eighteen ninety-one. Everything here is chosen so a man need not descend to Graysmill merely to look as though he belongs in a room with money.\"",
-            "consumeOnSelect": true,
-            "persistConsumed": true,
-            "resumeTopLevel": true,
-            "closePhase": false
+            "id" : "compliment_store",
+            "label" : "This is an impressive store.",
+            "response" : "You let your gaze travel the shelves, the bolt rolls, the glass cases, the iron rack of ready-made coats, taking it in the way you would a room that has been assembled with intention.\n\n\"This is an impressive store,\" you say.\n\nA modest smile crosses his face, pleased but not surprised—he has heard the compliment before and still believes it.\n\n\"You are kind to say so, sir.\" He rests his fingertips on the counter. \"I trained on Savile Row before the mountains called. My uncle kept a dry goods post on this ridge when the High Line was only timber camps and prayer. I came up to visit, saw what men lacked at altitude, and stayed. That was eighteen ninety-one. Everything here is chosen so a man need not descend to Graysmill merely to look as though he belongs in a room with money.\"",
+            "consumeOnSelect" : true,
+            "persistConsumed" : true,
+            "resumeTopLevel" : true,
+            "closePhase" : false
           },
           {
-            "id": "just_browsing",
-            "label": "Just browsing at the moment.",
-            "response": "\"Of course, sir,\" he says warmly. \"Take your time. I will be here if you need anything.\""
+            "id" : "just_browsing",
+            "label" : "Just browsing at the moment.",
+            "response" : "\"Of course, sir,\" he says warmly. \"Take your time. I will be here if you need anything.\""
           }
         ]
       }
     ]
   },
-  "alpine_hardware": {
-    "speakPhases": [
+  "alpine_hardware" : {
+    "speakPhases" : [
       {
-        "id": "merchant",
-        "type": "scripted",
-        "resetOnSceneEnter": true,
-        "intro": "The merchant straightens from a ledger behind the counter and meets your eyes without hurry. He is tall, broad through the chest and shoulders, built like a man who has lifted iron all his life and meant to keep doing it. His shirt is clean, his suspenders straight, his beard trimmed with the same discipline he brings to stock and shelf.\n\n\"Afternoon. What can I help you find?\"",
-        "resumeIntro": "He rests both hands on the counter, patient and square-shouldered. \"What else do you need?\"",
-        "choices": [
+        "id" : "merchant",
+        "type" : "scripted",
+        "resetOnSceneEnter" : true,
+        "intro" : "The merchant straightens from a ledger behind the counter and meets your eyes without hurry. He is tall, broad through the chest and shoulders, built like a man who has lifted iron all his life and meant to keep doing it. His shirt is clean, his suspenders straight, his beard trimmed with the same discipline he brings to stock and shelf.\n\n\"Afternoon. What can I help you find?\"",
+        "resumeIntro" : "He rests both hands on the counter, patient and square-shouldered. \"What else do you need?\"",
+        "choices" : [
           {
-            "id": "what_on_offer",
-            "label": "Yes, what do you have on offer?",
-            "response": "\"Everything you see and most of what you don't.\" He jerks his chin toward the floor stock and wall tools. \"Picks, shovels, rakes, drills, hammers, anvils, nails, wire, rope, lanterns, mining goods. If a man means to build or dig at altitude, I stock for it.\"",
-            "choices": [
+            "id" : "what_on_offer",
+            "label" : "Yes, what do you have on offer?",
+            "response" : "\"Everything you see and most of what you don't.\" He jerks his chin toward the floor stock and wall tools. \"Picks, shovels, rakes, drills, hammers, anvils, nails, wire, rope, lanterns, mining goods. If a man means to build or dig at altitude, I stock for it.\"",
+            "choices" : [
               {
-                "id": "browse_mining_pick",
-                "label": "Mining Pick - $4.50",
-                "response": "\"Solid choice,\" he says. \"That'll be four dollars and fifty cents.\"",
-                "choices": [
+                "id" : "browse_mining_pick",
+                "label" : "Mining Pick - $4.50",
+                "response" : "\"Solid choice,\" he says. \"That'll be four dollars and fifty cents.\"",
+                "choices" : [
                   {
-                    "id": "buy_mining_pick",
-                    "label": "I'll take it.",
-                    "requiresMoney": 4.5,
-                    "response": "He sets the mining pick on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"",
-                    "grantItem": {
-                      "id": "mining_pick",
-                      "name": "Mining Pick",
-                      "icon": "resources/icons/mining_pick_icon.png",
-                      "examineImage": "resources/images/mining_pick_examine.png",
-                      "examineText": "A prospector's pick with a hickory handle darkened by pitch and honest sweat. The head is forged steel, double-bit, with an edge that has been dressed recently on a wheel. Weighted for mountain ground: quartz, shale, and the stubborn ribs of ore that men chase above the timberline."
+                    "id" : "buy_mining_pick",
+                    "label" : "I'll take it.",
+                    "requiresMoney" : 4.5,
+                    "response" : "He sets the mining pick on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"",
+                    "grantItem" : {
+                      "id" : "mining_pick",
+                      "name" : "Mining Pick",
+                      "icon" : "resources/icons/mining_pick_icon.png",
+                      "examineImage" : "resources/images/mining_pick_examine.png",
+                      "examineText" : "A prospector's pick with a hickory handle darkened by pitch and honest sweat. The head is forged steel, double-bit, with an edge that has been dressed recently on a wheel. Weighted for mountain ground: quartz, shale, and the stubborn ribs of ore that men chase above the timberline."
                     },
-                    "status": {
-                      "money": -4.5
+                    "status" : {
+                      "money" : -4.5
                     }
                   },
                   {
-                    "id": "decline_mining_pick",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"No trouble,\" he says. \"Stock's not going anywhere.\""
+                    "id" : "decline_mining_pick",
+                    "label" : "Thanks, maybe next time.",
+                    "response" : "\"No trouble,\" he says. \"Stock's not going anywhere.\""
                   }
                 ]
               },
               {
-                "id": "browse_shovel",
-                "label": "Shovel - $1.75",
-                "response": "\"Solid choice,\" he says. \"That'll be one dollar and seventy-five cents.\"",
-                "choices": [
+                "id" : "browse_shovel",
+                "label" : "Shovel - $1.75",
+                "response" : "\"Solid choice,\" he says. \"That'll be one dollar and seventy-five cents.\"",
+                "choices" : [
                   {
-                    "id": "buy_shovel",
-                    "label": "I'll take it.",
-                    "requiresMoney": 1.75,
-                    "response": "He sets the shovel on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"",
-                    "grantItem": {
-                      "id": "shovel",
-                      "name": "Shovel",
-                      "icon": "resources/icons/shovel_icon.png",
-                      "examineImage": "resources/images/shovel_examine.png",
-                      "examineText": "A round-point shovel with a long ash handle and a steel blade rolled at the edge. The socket is riveted true, the grip worn smooth where working hands have found the balance. Built for snow, gravel, and the endless digging that altitude demands."
+                    "id" : "buy_shovel",
+                    "label" : "I'll take it.",
+                    "requiresMoney" : 1.75,
+                    "response" : "He sets the shovel on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"",
+                    "grantItem" : {
+                      "id" : "shovel",
+                      "name" : "Shovel",
+                      "icon" : "resources/icons/shovel_icon.png",
+                      "examineImage" : "resources/images/shovel_examine.png",
+                      "examineText" : "A round-point shovel with a long ash handle and a steel blade rolled at the edge. The socket is riveted true, the grip worn smooth where working hands have found the balance. Built for snow, gravel, and the endless digging that altitude demands."
                     },
-                    "status": {
-                      "money": -1.75
+                    "status" : {
+                      "money" : -1.75
                     }
                   },
                   {
-                    "id": "decline_shovel",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"No trouble,\" he says. \"Stock's not going anywhere.\""
+                    "id" : "decline_shovel",
+                    "label" : "Thanks, maybe next time.",
+                    "response" : "\"No trouble,\" he says. \"Stock's not going anywhere.\""
                   }
                 ]
               },
               {
-                "id": "browse_garden_rake",
-                "label": "Garden Rake - $1.25",
-                "response": "\"Solid choice,\" he says. \"That'll be one dollar and twenty-five cents.\"",
-                "choices": [
+                "id" : "browse_garden_rake",
+                "label" : "Garden Rake - $1.25",
+                "response" : "\"Solid choice,\" he says. \"That'll be one dollar and twenty-five cents.\"",
+                "choices" : [
                   {
-                    "id": "buy_garden_rake",
-                    "label": "I'll take it.",
-                    "requiresMoney": 1.25,
-                    "response": "He sets the garden rake on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"",
-                    "grantItem": {
-                      "id": "garden_rake",
-                      "name": "Garden Rake",
-                      "icon": "resources/icons/garden_rake_icon.png",
-                      "examineImage": "resources/images/garden_rake_examine.png",
-                      "examineText": "A bow rake with sixteen forged tines and a handle cut from straight-grained ash. The head is pinned, not merely nailed, the way tools were made when men expected to keep them through more than one hard season."
+                    "id" : "buy_garden_rake",
+                    "label" : "I'll take it.",
+                    "requiresMoney" : 1.25,
+                    "response" : "He sets the garden rake on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"",
+                    "grantItem" : {
+                      "id" : "garden_rake",
+                      "name" : "Garden Rake",
+                      "icon" : "resources/icons/garden_rake_icon.png",
+                      "examineImage" : "resources/images/garden_rake_examine.png",
+                      "examineText" : "A bow rake with sixteen forged tines and a handle cut from straight-grained ash. The head is pinned, not merely nailed, the way tools were made when men expected to keep them through more than one hard season."
                     },
-                    "status": {
-                      "money": -1.25
+                    "status" : {
+                      "money" : -1.25
                     }
                   },
                   {
-                    "id": "decline_garden_rake",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"No trouble,\" he says. \"Stock's not going anywhere.\""
+                    "id" : "decline_garden_rake",
+                    "label" : "Thanks, maybe next time.",
+                    "response" : "\"No trouble,\" he says. \"Stock's not going anywhere.\""
                   }
                 ]
               },
               {
-                "id": "browse_hand_drill",
-                "label": "Hand Drill - $2.50",
-                "response": "\"Solid choice,\" he says. \"That'll be two dollars and fifty cents.\"",
-                "choices": [
+                "id" : "browse_hand_drill",
+                "label" : "Hand Drill - $2.50",
+                "response" : "\"Solid choice,\" he says. \"That'll be two dollars and fifty cents.\"",
+                "choices" : [
                   {
-                    "id": "buy_hand_drill",
-                    "label": "I'll take it.",
-                    "requiresMoney": 2.5,
-                    "response": "He sets the hand drill on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"",
-                    "grantItem": {
-                      "id": "hand_drill",
-                      "name": "Hand Drill",
-                      "icon": "resources/icons/hand_drill_icon.png",
-                      "examineImage": "resources/images/hand_drill_examine.png",
-                      "examineText": "A carpenter's brace-and-bit hand drill in beech and steel, the chuck tight, the crank worn bright at the palm. Three interchangeable bits ride in a cloth wrap: steel made for timber, cabinet work, and the small precise holes hardware men trust more than luck."
+                    "id" : "buy_hand_drill",
+                    "label" : "I'll take it.",
+                    "requiresMoney" : 2.5,
+                    "response" : "He sets the hand drill on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"",
+                    "grantItem" : {
+                      "id" : "hand_drill",
+                      "name" : "Hand Drill",
+                      "icon" : "resources/icons/hand_drill_icon.png",
+                      "examineImage" : "resources/images/hand_drill_examine.png",
+                      "examineText" : "A carpenter's brace-and-bit hand drill in beech and steel, the chuck tight, the crank worn bright at the palm. Three interchangeable bits ride in a cloth wrap: steel made for timber, cabinet work, and the small precise holes hardware men trust more than luck."
                     },
-                    "status": {
-                      "money": -2.5
+                    "status" : {
+                      "money" : -2.5
                     }
                   },
                   {
-                    "id": "decline_hand_drill",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"No trouble,\" he says. \"Stock's not going anywhere.\""
+                    "id" : "decline_hand_drill",
+                    "label" : "Thanks, maybe next time.",
+                    "response" : "\"No trouble,\" he says. \"Stock's not going anywhere.\""
                   }
                 ]
               },
               {
-                "id": "browse_blacksmith_hammer",
-                "label": "Blacksmith's Hammer - $2",
-                "response": "\"Solid choice,\" he says. \"That'll be two dollars.\"",
-                "choices": [
+                "id" : "browse_blacksmith_hammer",
+                "label" : "Blacksmith's Hammer - $2",
+                "response" : "\"Solid choice,\" he says. \"That'll be two dollars.\"",
+                "choices" : [
                   {
-                    "id": "buy_blacksmith_hammer",
-                    "label": "I'll take it.",
-                    "requiresMoney": 2.0,
-                    "response": "He sets the blacksmith's hammer on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"",
-                    "grantItem": {
-                      "id": "blacksmith_hammer",
-                      "name": "Blacksmith's Hammer",
-                      "icon": "resources/icons/blacksmith_hammer_icon.png",
-                      "examineImage": "resources/images/blacksmith_hammer_examine.png",
-                      "examineText": "A cross-peen blacksmith's hammer with a hickory handle shaped to the swing. The head carries the honest scars of work, peened and polished where countless blows have landed true. Not a wall decoration. A tool meant to move hot iron."
+                    "id" : "buy_blacksmith_hammer",
+                    "label" : "I'll take it.",
+                    "requiresMoney" : 2,
+                    "response" : "He sets the blacksmith's hammer on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"",
+                    "grantItem" : {
+                      "id" : "blacksmith_hammer",
+                      "name" : "Blacksmith's Hammer",
+                      "icon" : "resources/icons/blacksmith_hammer_icon.png",
+                      "examineImage" : "resources/images/blacksmith_hammer_examine.png",
+                      "examineText" : "A cross-peen blacksmith's hammer with a hickory handle shaped to the swing. The head carries the honest scars of work, peened and polished where countless blows have landed true. Not a wall decoration. A tool meant to move hot iron."
                     },
-                    "status": {
-                      "money": -2.0
+                    "status" : {
+                      "money" : -2
                     }
                   },
                   {
-                    "id": "decline_blacksmith_hammer",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"No trouble,\" he says. \"Stock's not going anywhere.\""
+                    "id" : "decline_blacksmith_hammer",
+                    "label" : "Thanks, maybe next time.",
+                    "response" : "\"No trouble,\" he says. \"Stock's not going anywhere.\""
                   }
                 ]
               },
               {
-                "id": "browse_mid_anvil",
-                "label": "Mid-Sized Anvil - $28",
-                "response": "\"Solid choice,\" he says. \"That'll be twenty-eight dollars.\"",
-                "choices": [
+                "id" : "browse_mid_anvil",
+                "label" : "Mid-Sized Anvil - $28",
+                "response" : "\"Solid choice,\" he says. \"That'll be twenty-eight dollars.\"",
+                "choices" : [
                   {
-                    "id": "buy_mid_anvil",
-                    "label": "I'll take it.",
-                    "requiresMoney": 28.0,
-                    "response": "He sets the mid-sized anvil on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"",
-                    "grantItem": {
-                      "id": "mid_anvil",
-                      "name": "Mid-Sized Anvil",
-                      "icon": "resources/icons/mid_anvil_icon.png",
-                      "examineImage": "resources/images/mid_anvil_examine.png",
-                      "examineText": "A mid-sized cast-steel anvil, roughly eighty pounds, with a clean face, hard horn, and a hardy hole dark from use. The waist is stamped with a Pittsburgh maker's mark. It rings when you tap it, a bright note that says the steel was tempered by someone who understood the trade."
+                    "id" : "buy_mid_anvil",
+                    "label" : "I'll take it.",
+                    "requiresMoney" : 28,
+                    "response" : "He sets the mid-sized anvil on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"",
+                    "grantItem" : {
+                      "id" : "mid_anvil",
+                      "name" : "Mid-Sized Anvil",
+                      "icon" : "resources/icons/mid_anvil_icon.png",
+                      "examineImage" : "resources/images/mid_anvil_examine.png",
+                      "examineText" : "A mid-sized cast-steel anvil, roughly eighty pounds, with a clean face, hard horn, and a hardy hole dark from use. The waist is stamped with a Pittsburgh maker's mark. It rings when you tap it, a bright note that says the steel was tempered by someone who understood the trade."
                     },
-                    "status": {
-                      "money": -28.0
+                    "status" : {
+                      "money" : -28
                     }
                   },
                   {
-                    "id": "decline_mid_anvil",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"No trouble,\" he says. \"Stock's not going anywhere.\""
+                    "id" : "decline_mid_anvil",
+                    "label" : "Thanks, maybe next time.",
+                    "response" : "\"No trouble,\" he says. \"Stock's not going anywhere.\""
                   }
                 ]
               },
               {
-                "id": "browse_box_of_nails",
-                "label": "Box of Nails - $0.45",
-                "response": "\"Solid choice,\" he says. \"That'll be forty-five cents.\"",
-                "choices": [
+                "id" : "browse_box_of_nails",
+                "label" : "Box of Nails - $0.45",
+                "response" : "\"Solid choice,\" he says. \"That'll be forty-five cents.\"",
+                "choices" : [
                   {
-                    "id": "buy_box_of_nails",
-                    "label": "I'll take it.",
-                    "requiresMoney": 0.45,
-                    "response": "He sets the box of nails on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"",
-                    "grantItem": {
-                      "id": "box_of_nails",
-                      "name": "Box of Nails",
-                      "icon": "resources/icons/box_of_nails_icon.png",
-                      "examineImage": "resources/images/box_of_nails_examine.png",
-                      "examineText": "A pine box of cut common nails, four-penny weight, the heads slightly proud, the points sharp enough to bite on first strike. The lid is chalk-marked with the count and the date received. The small arithmetic of every cabin, fence, and mine brace on the ridge."
+                    "id" : "buy_box_of_nails",
+                    "label" : "I'll take it.",
+                    "requiresMoney" : 0.45,
+                    "response" : "He sets the box of nails on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"",
+                    "grantItem" : {
+                      "id" : "box_of_nails",
+                      "name" : "Box of Nails",
+                      "icon" : "resources/icons/box_of_nails_icon.png",
+                      "examineImage" : "resources/images/box_of_nails_examine.png",
+                      "examineText" : "A pine box of cut common nails, four-penny weight, the heads slightly proud, the points sharp enough to bite on first strike. The lid is chalk-marked with the count and the date received. The small arithmetic of every cabin, fence, and mine brace on the ridge."
                     },
-                    "status": {
-                      "money": -0.45
+                    "status" : {
+                      "money" : -0.45
                     }
                   },
                   {
-                    "id": "decline_box_of_nails",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"No trouble,\" he says. \"Stock's not going anywhere.\""
+                    "id" : "decline_box_of_nails",
+                    "label" : "Thanks, maybe next time.",
+                    "response" : "\"No trouble,\" he says. \"Stock's not going anywhere.\""
                   }
                 ]
               },
               {
-                "id": "browse_copper_wire_spool",
-                "label": "Spool of Copper Wire - $1.60",
-                "response": "\"Solid choice,\" he says. \"That'll be one dollar and sixty cents.\"",
-                "choices": [
+                "id" : "browse_copper_wire_spool",
+                "label" : "Spool of Copper Wire - $1.60",
+                "response" : "\"Solid choice,\" he says. \"That'll be one dollar and sixty cents.\"",
+                "choices" : [
                   {
-                    "id": "buy_copper_wire_spool",
-                    "label": "I'll take it.",
-                    "requiresMoney": 1.6,
-                    "response": "He sets the spool of copper wire on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"",
-                    "grantItem": {
-                      "id": "copper_wire_spool",
-                      "name": "Spool of Copper Wire",
-                      "icon": "resources/icons/copper_wire_spool_icon.png",
-                      "examineImage": "resources/images/copper_wire_spool_examine.png",
-                      "examineText": "A small spool of bare eighteen-gauge copper wire wound tight on a turned wooden core. The strand is fine as a pencil lead, rose-bright and springy, the sort of wire used for lantern leads, telegraph repairs, and the small electrical improvisations men make when the valley is too far below. The spool is light in the hand and the coils sit close, kept dry against mountain damp."
+                    "id" : "buy_copper_wire_spool",
+                    "label" : "I'll take it.",
+                    "requiresMoney" : 1.6,
+                    "response" : "He sets the spool of copper wire on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"",
+                    "grantItem" : {
+                      "id" : "copper_wire_spool",
+                      "name" : "Spool of Copper Wire",
+                      "icon" : "resources/icons/copper_wire_spool_icon.png",
+                      "examineImage" : "resources/images/copper_wire_spool_examine.png",
+                      "examineText" : "A small spool of bare eighteen-gauge copper wire wound tight on a turned wooden core. The strand is fine as a pencil lead, rose-bright and springy, the sort of wire used for lantern leads, telegraph repairs, and the small electrical improvisations men make when the valley is too far below. The spool is light in the hand and the coils sit close, kept dry against mountain damp."
                     },
-                    "status": {
-                      "money": -1.6
+                    "status" : {
+                      "money" : -1.6
                     }
                   },
                   {
-                    "id": "decline_copper_wire_spool",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"No trouble,\" he says. \"Stock's not going anywhere.\""
+                    "id" : "decline_copper_wire_spool",
+                    "label" : "Thanks, maybe next time.",
+                    "response" : "\"No trouble,\" he says. \"Stock's not going anywhere.\""
                   }
                 ]
               },
               {
-                "id": "catalog_done",
-                "label": "Thanks, just browsing.",
-                "response": "\"Suit yourself,\" he says, not unkindly. \"Walk the aisles. Holler if you need a hand.\""
+                "id" : "catalog_done",
+                "label" : "Thanks, just browsing.",
+                "response" : "\"Suit yourself,\" he says, not unkindly. \"Walk the aisles. Holler if you need a hand.\""
               }
             ]
           },
           {
-            "id": "compliment_building",
-            "label": "Impressive building (looking around a bit)",
-            "response": "You take in the post-and-beam bones of the room: timbers joined with a joiner's patience, braces cut true, the whole frame standing with the quiet confidence of work done by someone who did not need to hurry.\n\n\"Impressive building,\" you say.\n\nFor the first time, something like pleasure enters his face.\n\n\"I built it myself,\" he says. \"Every beam, every brace, every peg. My father ran a mill in Pennsylvania. I learned timber before I learned trade. Came up here in eighty-one when the High Line decided it was going to stay, not just camp. There was no proper hardware north of Graysmill that would make the climb worth a mule's temper, so I opened this room and stocked it for men who break ground in weather that kills carelessness.\" He taps the nearest post with his knuckle. \"She'll stand longer than most of the claims on this ridge.\"",
-            "consumeOnSelect": true,
-            "persistConsumed": true,
-            "resumeTopLevel": true,
-            "closePhase": false
+            "id" : "compliment_building",
+            "label" : "Impressive building (looking around a bit)",
+            "response" : "You take in the post-and-beam bones of the room: timbers joined with a joiner's patience, braces cut true, the whole frame standing with the quiet confidence of work done by someone who did not need to hurry.\n\n\"Impressive building,\" you say.\n\nFor the first time, something like pleasure enters his face.\n\n\"I built it myself,\" he says. \"Every beam, every brace, every peg. My father ran a mill in Pennsylvania. I learned timber before I learned trade. Came up here in eighty-one when the High Line decided it was going to stay, not just camp. There was no proper hardware north of Graysmill that would make the climb worth a mule's temper, so I opened this room and stocked it for men who break ground in weather that kills carelessness.\" He taps the nearest post with his knuckle. \"She'll stand longer than most of the claims on this ridge.\"",
+            "consumeOnSelect" : true,
+            "persistConsumed" : true,
+            "resumeTopLevel" : true,
+            "closePhase" : false
           },
           {
-            "id": "just_browsing",
-            "label": "Just browsing at the moment.",
-            "response": "\"Then browse,\" he says. \"Mind the barrels and the low lantern hooks. Holler if you want something down from the wall.\""
+            "id" : "just_browsing",
+            "label" : "Just browsing at the moment.",
+            "response" : "\"Then browse,\" he says. \"Mind the barrels and the low lantern hooks. Holler if you want something down from the wall.\""
           }
         ]
       }
