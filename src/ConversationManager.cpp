@@ -1,5 +1,6 @@
 #include <ConversationManager.h>
 #include <ProgressionService.h>
+#include <cstring>
 #include <cstdlib>
 
 namespace testgame
@@ -7,6 +8,23 @@ namespace testgame
 
 namespace
 {
+
+std::string normalizeActorId(const std::string& rawId)
+{
+    if (rawId.empty())
+        return "";
+
+    static const char* kSuffixes[] = { "_path", "_fedora" };
+    for (const char* suffix : kSuffixes)
+    {
+        const size_t suffixLength = std::strlen(suffix);
+        if (rawId.size() > suffixLength
+            && rawId.compare(rawId.size() - suffixLength, suffixLength, suffix) == 0)
+            return rawId.substr(0, rawId.size() - suffixLength);
+    }
+
+    return rawId;
+}
 
 void applyTtsFields(
     SpeakResult& result,
@@ -56,6 +74,13 @@ void ConversationManager::onEnterScene(const std::string& sceneId, const SceneSp
             clearConsumedScriptedChoices(phase.id);
             lastRandomLineIndex.erase(randomPoolKey(sceneId, phase));
         }
+
+        if (phase.repeatable
+            && phase.type == ConversationPhaseType::Scripted
+            && allTopLevelChoicesConsumed(phase))
+        {
+            resetRepeatablePhase(phase.id);
+        }
     }
 
     awaitingChoice = false;
@@ -89,12 +114,67 @@ void ConversationManager::markPhaseComplete(const std::string& phaseId)
     completedPhaseIds.insert(phaseId);
 }
 
+void ConversationManager::resetRepeatablePhase(const std::string& phaseId)
+{
+    completedPhaseIds.erase(phaseId);
+    clearConsumedScriptedChoices(phaseId);
+}
+
+int ConversationManager::phaseStartPriority(
+    const ConversationPhase& phase,
+    size_t phaseIndex) const
+{
+    int priority = static_cast<int>(phaseIndex);
+    if (!phase.requiresFlag.empty())
+        priority += 1000;
+    if (!phase.requiresPhaseId.empty())
+        priority += 500;
+    if (phase.repeatable)
+        priority += 250;
+    return priority;
+}
+
 bool ConversationManager::isPhaseRequirementMet(
     const ConversationPhase& phase,
     const std::set<std::string>& storyFlags) const
 {
     if (!phase.requiresPhaseId.empty() && !isPhaseComplete(phase.requiresPhaseId))
         return false;
+
+    if (phase.id == "bartender_return_water")
+    {
+        if (storyFlags.count("saloon_interior:bartender_return_done") > 0
+            && storyFlags.count("saloon_interior:blue_woman_hired") > 0)
+            return false;
+
+        if (storyFlags.count("saloon_interior:chose_water") > 0)
+            return true;
+        return storyFlags.count("saloon_interior:room_tab") > 0
+            && storyFlags.count("saloon_interior:chose_usual") == 0;
+    }
+
+    if (phase.id == "bartender_return_usual")
+    {
+        if (storyFlags.count("saloon_interior:bartender_return_done") > 0
+            && storyFlags.count("saloon_interior:blue_woman_hired") > 0)
+            return false;
+
+        return storyFlags.count("saloon_interior:chose_usual") > 0;
+    }
+
+    if (phase.id == "bartender_carrie_nudge")
+    {
+        return storyFlags.count("saloon_interior:bartender_return_done") > 0
+            && storyFlags.count("saloon_interior:blue_woman_hired") > 0;
+    }
+
+    if (phase.id == "burgundy_woman_after_blue")
+    {
+        if (storyFlags.count("saloon_interior:blue_woman_hired") == 0)
+            return false;
+
+        return isPhaseComplete("burgundy_woman");
+    }
 
     if (!phase.requiresFlag.empty())
     {
@@ -128,22 +208,124 @@ const ConversationPhase* ConversationManager::findActivePhase(
 {
     (void)sceneId;
 
-    for (const ConversationPhase& phase : config.phases)
+    const ConversationPhase* active = nullptr;
+    int bestPriority = -1;
+    for (size_t i = 0; i < config.phases.size(); ++i)
     {
+        const ConversationPhase& phase = config.phases[i];
         if (!isPhaseRequirementMet(phase, storyFlags))
             continue;
 
-        if (phase.type == ConversationPhaseType::Once && !isPhaseComplete(phase.id))
-            return &phase;
+        if (phase.type == ConversationPhaseType::Once
+            || phase.type == ConversationPhaseType::Scripted)
+        {
+            if (!canStartPhase(phase, storyFlags))
+                continue;
 
-        if (phase.type == ConversationPhaseType::Scripted && !isPhaseComplete(phase.id))
-            return &phase;
+            const int priority = phaseStartPriority(phase, i);
+            if (priority > bestPriority)
+            {
+                bestPriority = priority;
+                active = &phase;
+            }
+            continue;
+        }
 
         if (phase.type == ConversationPhaseType::Random && !phase.lines.empty())
-            return &phase;
+        {
+            const int priority = phaseStartPriority(phase, i);
+            if (priority > bestPriority)
+            {
+                bestPriority = priority;
+                active = &phase;
+            }
+        }
     }
 
-    return nullptr;
+    return active;
+}
+
+std::string ConversationManager::phaseActorId(const ConversationPhase& phase) const
+{
+    return normalizeActorId(!phase.actorId.empty() ? phase.actorId : phase.id);
+}
+
+std::string ConversationManager::lineActorId(const RandomConversationLine& line) const
+{
+    return normalizeActorId(!line.actorId.empty() ? line.actorId : line.id);
+}
+
+bool ConversationManager::canStartPhase(
+    const ConversationPhase& phase,
+    const std::set<std::string>& storyFlags) const
+{
+    if (!isPhaseRequirementMet(phase, storyFlags))
+        return false;
+
+    if (!phase.repeatable && isPhaseComplete(phase.id))
+        return false;
+
+    if (phase.type == ConversationPhaseType::Once)
+        return true;
+
+    if (phase.type == ConversationPhaseType::Scripted)
+        return !remainingTopLevelChoices(phase).empty();
+
+    return false;
+}
+
+std::string ConversationManager::bestStartablePhaseIdForActor(
+    const SceneSpeakConfig& config,
+    const std::string& actorId,
+    const std::set<std::string>& storyFlags) const
+{
+    std::string bestPhaseId;
+    int bestPriority = -1;
+    for (size_t i = 0; i < config.phases.size(); ++i)
+    {
+        const ConversationPhase& phase = config.phases[i];
+        if (phase.type == ConversationPhaseType::Random)
+            continue;
+        if (phaseActorId(phase) != actorId)
+            continue;
+        if (!canStartPhase(phase, storyFlags))
+            continue;
+
+        const int priority = phaseStartPriority(phase, i);
+        if (priority > bestPriority)
+        {
+            bestPriority = priority;
+            bestPhaseId = phase.id;
+        }
+    }
+
+    return bestPhaseId;
+}
+
+bool ConversationManager::canPickRandomLine(const RandomConversationLine& line) const
+{
+    return !(line.once && !line.id.empty() && completedRandomLineIds.count(line.id) > 0);
+}
+
+bool ConversationManager::canWorkTheRoom(
+    const SceneSpeakConfig& config,
+    const std::set<std::string>& storyFlags) const
+{
+    for (const ConversationPhase& phase : config.phases)
+    {
+        if (phase.type != ConversationPhaseType::Random)
+            continue;
+        if (!isPhaseRequirementMet(phase, storyFlags) || phase.lines.empty())
+            continue;
+
+        for (const RandomConversationLine& line : phase.lines)
+        {
+            if (canPickRandomLine(line))
+                return true;
+        }
+    }
+
+    return false;
 }
 
 bool ConversationManager::canSpeak(
@@ -375,6 +557,83 @@ std::string ConversationManager::randomPoolKey(
     return sceneId + ":" + (phase.poolId.empty() ? phase.id : phase.poolId);
 }
 
+SpeakResult ConversationManager::pickSpecificRandomLine(
+    const std::string& sceneId,
+    const ConversationPhase& phase,
+    const std::string& lineId)
+{
+    if (phase.lines.empty() || lineId.empty())
+        return SpeakResult();
+
+    const RandomConversationLine* line = nullptr;
+    for (const RandomConversationLine& candidate : phase.lines)
+    {
+        if (candidate.id == lineId)
+        {
+            line = &candidate;
+            break;
+        }
+    }
+
+    if (line == nullptr || !canPickRandomLine(*line))
+        return SpeakResult();
+
+    if (line->once && !line->id.empty())
+        completedRandomLineIds.insert(line->id);
+
+    if (!line->choices.empty())
+    {
+        SpeakResult result;
+        result.action = SpeakResult::Action::ShowChoices;
+        result.narrative = line->text;
+        result.sketchPath = line->sketchPath;
+        result.choices = line->choices;
+        appendDialogAudioTrack(result, line->audio);
+        applyTtsFields(
+            result,
+            line->tts,
+            line->ttsText,
+            line->ttsVoice,
+            line->ttsAudio,
+            line->text);
+        applyTtsAfterFields(
+            result,
+            line->ttsAfter,
+            line->ttsAfterText,
+            line->ttsAfterVoice,
+            line->ttsAfterAudio,
+            line->text);
+        awaitingChoice = true;
+        activeScriptPhaseId = phase.id;
+        pendingChoices = line->choices;
+        combatAttackAllowed = line->allowAttack;
+        combatEncounterId = line->attackEncounterId;
+        result.spokenActorId = lineActorId(*line);
+        return result;
+    }
+
+    std::vector<std::string> audioTracks;
+    if (!line->audio.empty())
+        audioTracks.push_back(line->audio);
+    SpeakResult result = buildNarrativeResult(line->text, line->status, {}, audioTracks);
+    applyTtsFields(
+        result,
+        line->tts,
+        line->ttsText,
+        line->ttsVoice,
+        line->ttsAudio,
+        line->text);
+    applyTtsAfterFields(
+        result,
+        line->ttsAfter,
+        line->ttsAfterText,
+        line->ttsAfterVoice,
+        line->ttsAfterAudio,
+        line->text);
+    result.spokenActorId = lineActorId(*line);
+    return result;
+}
+
 SpeakResult ConversationManager::pickRandomLine(
     const std::string& sceneId,
     const ConversationPhase& phase)
@@ -480,6 +739,7 @@ SpeakResult ConversationManager::pickRandomLine(
         pendingChoices = line.choices;
         combatAttackAllowed = line.allowAttack;
         combatEncounterId = line.attackEncounterId;
+        result.spokenActorId = lineActorId(line);
         return result;
     }
 
@@ -501,7 +761,80 @@ SpeakResult ConversationManager::pickRandomLine(
         line.ttsAfterVoice,
         line.ttsAfterAudio,
         line.text);
+    result.spokenActorId = lineActorId(line);
     return result;
+}
+
+SpeakResult ConversationManager::handleSpeakTarget(
+    const std::string& sceneId,
+    const SceneSpeakConfig& config,
+    const std::set<std::string>& storyFlags,
+    const std::string& phaseId,
+    const std::string& randomLineId)
+{
+    if (awaitingChoice || phaseId.empty())
+        return SpeakResult();
+
+    const ConversationPhase* phase = findPhase(config, phaseId);
+    if (phase == nullptr)
+        return SpeakResult();
+
+    if (phase->type == ConversationPhaseType::Once)
+    {
+        if (!canStartPhase(*phase, storyFlags))
+            return SpeakResult();
+
+        markPhaseComplete(phase->id);
+        std::vector<std::string> audioTracks;
+        if (!phase->audio.empty())
+            audioTracks.push_back(phase->audio);
+        SpeakResult result = buildNarrativeResult(phase->text, phase->status, phase->grantItem, audioTracks);
+        applyTtsFields(
+            result,
+            phase->tts,
+            phase->ttsText,
+            phase->ttsVoice,
+            phase->ttsAudio,
+            phase->text);
+        applyTtsAfterFields(
+            result,
+            phase->ttsAfter,
+            phase->ttsAfterText,
+            phase->ttsAfterVoice,
+            phase->ttsAfterAudio,
+            "");
+        result.spokenActorId = phaseActorId(*phase);
+        return result;
+    }
+
+    if (phase->type == ConversationPhaseType::Scripted)
+        return startScriptedPhase(config, phaseId, storyFlags);
+
+    if (phase->type == ConversationPhaseType::Random && !randomLineId.empty())
+        return pickSpecificRandomLine(sceneId, *phase, randomLineId);
+
+    return SpeakResult();
+}
+
+SpeakResult ConversationManager::handleSpeakWorkTheRoom(
+    const std::string& sceneId,
+    const SceneSpeakConfig& config,
+    const std::set<std::string>& storyFlags)
+{
+    if (awaitingChoice || config.phases.empty())
+        return SpeakResult();
+
+    for (const ConversationPhase& phase : config.phases)
+    {
+        if (phase.type != ConversationPhaseType::Random)
+            continue;
+        if (!isPhaseRequirementMet(phase, storyFlags) || phase.lines.empty())
+            continue;
+
+        return pickRandomLine(sceneId, phase);
+    }
+
+    return SpeakResult();
 }
 
 SpeakResult ConversationManager::handleSpeak(
@@ -537,6 +870,7 @@ SpeakResult ConversationManager::handleSpeak(
             phase->ttsAfterVoice,
             phase->ttsAfterAudio,
             "");
+        result.spokenActorId = phaseActorId(*phase);
         return result;
     }
 
@@ -561,7 +895,7 @@ SpeakResult ConversationManager::startScriptedPhase(
     if (phase == nullptr || phase->type != ConversationPhaseType::Scripted)
         return SpeakResult();
 
-    if (!isPhaseRequirementMet(*phase, storyFlags) || isPhaseComplete(phaseId))
+    if (!canStartPhase(*phase, storyFlags))
         return SpeakResult();
 
     const std::vector<ConversationChoiceDef> available = remainingTopLevelChoices(*phase);
@@ -587,6 +921,7 @@ SpeakResult ConversationManager::startScriptedPhase(
     awaitingChoice = true;
     activeScriptPhaseId = phase->id;
     pendingChoices = available;
+    result.spokenActorId = phaseActorId(*phase);
     return result;
 }
 
@@ -647,6 +982,7 @@ SpeakResult ConversationManager::resolveScriptedChoice(
             result.statusEffects.push_back(choice.status);
         if (choice.grantItem.isValid())
             result.grantItem = choice.grantItem;
+        result.grantStoryFlag = choice.grantStoryFlag;
         appendDialogAudioTrack(result, responseAudio);
         applyTtsFields(
             result,
@@ -665,6 +1001,7 @@ SpeakResult ConversationManager::resolveScriptedChoice(
         awaitingChoice = true;
         activeScriptPhaseId = phase.id;
         pendingChoices = nextChoices;
+        result.spokenActorId = phaseActorId(phase);
         return result;
     }
 
@@ -686,12 +1023,19 @@ SpeakResult ConversationManager::resolveScriptedChoice(
     awaitingChoice = false;
     activeScriptPhaseId.clear();
     if (choice.closePhase)
-        markPhaseComplete(phase.id);
+    {
+        if (phase.repeatable)
+            resetRepeatablePhase(phase.id);
+        else
+            markPhaseComplete(phase.id);
+    }
 
     std::vector<std::string> audioTracks;
     if (!choice.responseAudio.empty())
         audioTracks.push_back(choice.responseAudio);
     SpeakResult result = buildNarrativeResult(choice.response, choice.status, choice.grantItem, audioTracks);
+    if (result.action == SpeakResult::Action::None && choice.closePhase)
+        result.action = SpeakResult::Action::ShowNarrative;
     result.grantStoryFlag = choice.grantStoryFlag;
     result.startPhaseId = choice.startPhase;
     result.overlaySequence = choice.overlaySequence;
@@ -711,6 +1055,7 @@ SpeakResult ConversationManager::resolveScriptedChoice(
         "");
     if (!choice.status.onZeroLucidity.empty())
         result.action = SpeakResult::Action::ShowNarrative;
+    result.spokenActorId = phaseActorId(phase);
     return result;
 }
 

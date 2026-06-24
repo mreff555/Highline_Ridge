@@ -25,8 +25,10 @@
     "speakPhases" : [
       {
         "id" : "bartender",
+        "actorId" : "bartender",
+        "actorName" : "Bartender",
         "type" : "scripted",
-        "resetOnSceneEnter" : true,
+        "resetOnSceneEnter" : false,
         "tts" : true,
         "ttsVoice" : "leo",
         "ttsAudio" : "resources/audio/tts/saloon_interior/bartender_intro.mp3",
@@ -47,6 +49,7 @@
             "ttsAfterText" : "You lift the glass and drink. The water cuts clean through the smoke in your throat and the ash at the back of your tongue. Your head steadies. The room feels a fraction less unreal, as though someone has wiped a smear from a window you did not know was dirty. The bartender sets the rag aside and looks at you again. Need anything else, he asks.",
             "response" : "The bartender holds your gaze a beat longer than necessary, then turns away for a glass. He sets it on the bar without ceremony. Water, clear and cold. Under his breath, barely audible above the piano, he mutters that he is perfectly all right with you not drinking in his establishment. The words are flat. Not cruel. Not kind. Simply settled.\n\nYou lift the glass and drink. The water cuts clean through the smoke in your throat and the ash at the back of your tongue. Your head steadies. The room feels a fraction less unreal, as though someone has wiped a smear from a window you did not know was dirty.\n\nThe bartender sets the rag aside and looks at you again. \"Need anything else?\"",
             "closePhase" : false,
+            "grantStoryFlag" : "saloon_interior:chose_water",
             "status" : {
               "key" : "saloon_interior:water",
               "health" : 5,
@@ -105,6 +108,7 @@
             "ttsAfterText" : "You down it anyway. Fire and oak. The room tilts half a degree and rights itself. Your resolve hardens even as your thoughts go slippery at the edges. The bartender sets the rag aside and looks at you again. Need anything else, he asks.",
             "response" : "The bartender's jaw tightens almost imperceptibly. He reaches high above the backbar, to a shelf you would need a ladder to trust, and brings down a bottle of bourbon with an artistic label and a wax seal dark as blood. He pours a single shot without measuring, slides it across the pine, and watches you with a look that could crush stone.\n\nYou down it anyway. Fire and oak. The room tilts half a degree and rights itself. Your resolve hardens even as your thoughts go slippery at the edges.\n\nThe bartender sets the rag aside and looks at you again. \"Need anything else?\"",
             "closePhase" : false,
+            "grantStoryFlag" : "saloon_interior:chose_usual",
             "status" : {
               "key" : "saloon_interior:usual",
               "resolve" : 20,
@@ -154,7 +158,114 @@
         ]
       },
       {
+        "id" : "bartender_return_water",
+        "actorId" : "bartender",
+        "actorName" : "Bartender",
+        "type" : "scripted",
+        "resetOnSceneEnter" : false,
+        "repeatable" : true,
+        "requiresFlag" : "saloon_interior:chose_water",
+        "intro" : "You step back to the bar. The bartender glances up from the glass he is polishing, rag pausing mid-circle.\n\n\"Another water?\" he says. Not quite a question. More like a man confirming what he already wrote down.",
+        "choices" : [
+          {
+            "id" : "stick_with_water",
+            "label" : "> No, just a water",
+            "closePhase" : true,
+            "grantStoryFlag" : "saloon_interior:bartender_return_done",
+            "response" : "He turns without comment, fills a fresh glass from the pitcher under the bar, and sets it in front of you. Cold again. Clean again. The room steadies the same way it did the first time - smoke thinning at the edges, the piano a fraction less frantic.\n\nHe gives a short nod and moves on.",
+            "status" : {
+              "key" : "saloon_interior:bartender_return_water",
+              "health" : 5,
+              "lucidity" : 10,
+              "actor" : "bartender",
+              "actorOpinion" : 1
+            }
+          },
+          {
+            "id" : "one_more",
+            "label" : "> One more",
+            "closePhase" : true,
+            "grantStoryFlag" : "saloon_interior:bartender_return_done",
+            "response" : "He fills another glass without comment and sets it on the pine. Cold. Clear. The room steadies again - smoke thinning at the edges, the piano a fraction less frantic.\n\nHe gives a short nod and moves on.",
+            "status" : {
+              "key" : "saloon_interior:bartender_return_water_repeat",
+              "health" : 5,
+              "lucidity" : 10,
+              "actor" : "bartender",
+              "actorOpinion" : 1
+            }
+          },
+          {
+            "id" : "im_good",
+            "label" : "> I'm good, thanks.",
+            "closePhase" : true,
+            "grantStoryFlag" : "saloon_interior:bartender_return_done",
+            "response" : "He holds your gaze a beat, then gives a single nod.\n\n\"Suit yourself.\"\n\nThe rag resumes its circuit across the pine. Nothing lost. Nothing gained. He seems quietly pleased you are not asking for whiskey.",
+            "status" : {
+              "key" : "saloon_interior:bartender_return_decline",
+              "actor" : "bartender",
+              "actorOpinion" : 1
+            }
+          }
+        ]
+      },
+      {
+        "id" : "bartender_return_usual",
+        "actorId" : "bartender",
+        "actorName" : "Bartender",
+        "type" : "scripted",
+        "resetOnSceneEnter" : false,
+        "repeatable" : true,
+        "requiresFlag" : "saloon_interior:chose_usual",
+        "intro" : "You find the bartender between customers. He meets your eyes and reaches for the high shelf without being asked.\n\n\"Another pour?\" The bottle is already in his hand.",
+        "choices" : [
+          {
+            "id" : "one_more",
+            "label" : "> One more",
+            "closePhase" : true,
+            "grantStoryFlag" : "saloon_interior:bartender_return_done",
+            "response" : "Same bottle. Same measure. Same fire sliding down your throat. Your resolve knots itself a little tighter; your thoughts go slightly loose at the seams. He watches your face the way a man watches a bar tab - not judging, only noting.\n\nThe glass lands empty. He turns away.",
+            "status" : {
+              "key" : "saloon_interior:bartender_return_usual",
+              "resolve" : 20,
+              "lucidity" : -10,
+              "onZeroLucidity" : "restart_cabin",
+              "actor" : "bartender",
+              "actorOpinion" : -1
+            }
+          },
+          {
+            "id" : "im_good",
+            "label" : "> I'm good, thanks.",
+            "closePhase" : true,
+            "grantStoryFlag" : "saloon_interior:bartender_return_done",
+            "response" : "He pauses with the bottle in hand, then sets it back on the shelf without pouring.\n\n\"Suit yourself.\" A beat. \"Probably wise.\"\n\nHe goes back to his glasses. You get the sense he approves, quietly.",
+            "status" : {
+              "key" : "saloon_interior:bartender_return_decline",
+              "actor" : "bartender",
+              "actorOpinion" : 1
+            }
+          }
+        ]
+      },
+      {
+        "id" : "bartender_carrie_nudge",
+        "actorId" : "bartender",
+        "actorName" : "Bartender",
+        "type" : "once",
+        "resetOnSceneEnter" : false,
+        "requiresFlag" : "saloon_interior:bartender_return_done",
+        "text" : "You step toward the bar again. The bartender sees you coming and raises one hand, palm out - not rude, but final.\n\n\"Carrie's giving me hard looks,\" he says, jerking his chin toward the balcony without breaking eye contact with you. \"You should get up there.\"\n\nThe rag resumes its circuit across the pine. Conversation over.",
+        "status" : {
+          "key" : "saloon_interior:bartender_carrie_nudge",
+          "actor" : "bartender",
+          "actorOpinion" : 1
+        }
+      },
+      {
         "id" : "burgundy_woman",
+        "actorId" : "burgundy_woman",
+        "actorName" : "Woman in Burgundy",
         "type" : "scripted",
         "resetOnSceneEnter" : false,
         "requiresPhase" : "bartender",
@@ -183,6 +294,38 @@
             "ttsAudio" : "resources/audio/tts/saloon_interior/alone_with_thoughts.mp3",
             "ttsText" : "Her hand leaves your shoulder gently, without offense. Alright, she says, with a touch of concern in her voice. Take care of yourself. She turns and disappears into the crowd.",
             "response" : "Her hand leaves your shoulder gently, without offense.\n\n\"Alright,\" she says, with a touch of concern in her voice. \"Take care of yourself.\"\n\nShe turns and disappears into the crowd."
+          }
+        ]
+      },
+      {
+        "id" : "burgundy_woman_after_blue",
+        "actorId" : "burgundy_woman",
+        "actorName" : "Woman in Burgundy",
+        "type" : "scripted",
+        "resetOnSceneEnter" : false,
+        "requiresPhase" : "burgundy_woman",
+        "requiresFlag" : "saloon_interior:blue_woman_hired",
+        "tts" : true,
+        "ttsVoice" : "leo",
+        "ttsAudio" : "resources/audio/tts/saloon_interior/burgundy_woman_after_blue_intro.mp3",
+        "ttsText" : "Ah, the wanderer. What are you still doing down here? Carrie is waiting for you upstairs. What's wrong? She's not enough? Do you need another?",
+        "intro" : "Ah, the wanderer...\n\n\"What are you still doing down here?\" she says. \"Carrie is waiting for you upstairs. What's wrong? She's not enough? Do you need another?\"",
+        "choices" : [
+          {
+            "id" : "mention_it",
+            "label" : "Well, now that you mention it.",
+            "tts" : true,
+            "ttsVoice" : "leo",
+            "ttsAudio" : "resources/audio/tts/saloon_interior/burgundy_woman_mention_it.mp3",
+            "ttsText" : "She laughs and smiles. Carrie is on the house tonight, she says. My treat. Trust me, you can't afford her, or any of my other girls. She promptly turns her attention to other patrons.",
+            "response" : "She laughs and smiles.\n\n\"Carrie is on the house tonight,\" she says. \"My treat. Trust me, you can't afford her, or any of my other girls.\"\n\nShe promptly turns her attention to other patrons.",
+            "closePhase" : true
+          },
+          {
+            "id" : "heading_up",
+            "label" : "No, I was heading up now.",
+            "closePhase" : true,
+            "response" : ""
           }
         ]
       },
@@ -217,19 +360,13 @@
         "lines" : [
           {
             "id" : "faro_player",
+            "actorId" : "faro_player",
+            "actorName" : "Faro Player",
             "tts" : true,
             "ttsVoice" : "leo",
             "ttsAudio" : "resources/audio/tts/saloon_interior/faro_player.mp3",
             "ttsText" : "A faro player at the stove table looks up long enough to fan his cards. House always remembers, he says, and returns to his stack as though you are part of the furniture.",
             "text" : "A faro player at the stove table looks up long enough to fan his cards. \"House always remembers,\" he says, and returns to his stack as though you are part of the furniture."
-          },
-          {
-            "id" : "burgundy_woman",
-            "tts" : true,
-            "ttsVoice" : "leo",
-            "ttsAudio" : "resources/audio/tts/saloon_interior/patron_burgundy_woman.mp3",
-            "ttsText" : "On the balcony, a woman in burgundy silk follows your movement with professional interest. Back early, she murmurs, and the words are not quite a question.",
-            "text" : "On the balcony, a woman in burgundy silk follows your movement with professional interest. \"Back early,\" she murmurs, and the words are not quite a question."
           },
           {
             "id" : "piano_player",
@@ -257,6 +394,8 @@
           },
           {
             "id" : "drunk_patron",
+            "actorId" : "drunk_patron",
+            "actorName" : "Drunk Patron",
             "once" : true,
             "weight" : 3,
             "allowAttack" : true,
@@ -316,7 +455,7 @@
       {
         "id" : "blue_woman",
         "type" : "scripted",
-        "resetOnSceneEnter" : true,
+        "resetOnSceneEnter" : false,
         "tts" : true,
         "ttsVoice" : "leo",
         "ttsAudio" : "resources/audio/tts/saloon_balcony/blue_woman_intro.mp3",

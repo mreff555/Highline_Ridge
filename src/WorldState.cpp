@@ -34,6 +34,7 @@ SavedGameState WorldState::snapshot(
     state.actionCount = actionCount;
     state.saloonRoomPurchasedDay = saloonRoomPurchasedDay;
     state.actorOpinions = actorOpinions;
+    state.knownActorIds = knownActorIds;
     conversationMgr.exportPersistState(state.conversation);
     milestoneMgr.exportPersistState(state.milestones);
     return state;
@@ -68,11 +69,23 @@ bool WorldState::restore(
     actionCount = state.actionCount;
     saloonRoomPurchasedDay = state.saloonRoomPurchasedDay;
     actorOpinions = state.actorOpinions;
+    knownActorIds = state.knownActorIds;
 
     inventoryMgr.restoreFromSnapshots(state.inventoryItems);
     conversationMgr.importPersistState(state.conversation);
     milestoneMgr.importPersistState(state.milestones);
     return !currentSceneId.empty();
+}
+
+bool WorldState::isActorKnown(const std::string& actorId) const
+{
+    return !actorId.empty() && knownActorIds.count(actorId) > 0;
+}
+
+void WorldState::markActorKnown(const std::string& actorId)
+{
+    if (!actorId.empty())
+        knownActorIds.insert(actorId);
 }
 
 int WorldState::actorOpinionOf(const std::string& actorId) const

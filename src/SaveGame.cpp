@@ -554,7 +554,7 @@ bool writeSaveFile(const std::string& path, const SavedGameState& state, const S
         return false;
 
     nlohmann::json root;
-    root["version"] = 7;
+    root["version"] = 8;
     root["saveMeta"] = saveMetadataToJson(metadata);
     root["sceneId"] = state.sceneId;
     root["previousSceneId"] = state.previousSceneId;
@@ -600,6 +600,7 @@ bool writeSaveFile(const std::string& path, const SavedGameState& state, const S
     root["actionCount"] = state.actionCount;
     root["saloonRoomPurchasedDay"] = state.saloonRoomPurchasedDay;
     root["actorOpinions"] = actorOpinionsToJson(state.actorOpinions);
+    root["knownActorIds"] = setToJsonArray(state.knownActorIds);
 
     std::ofstream file(path.c_str());
     if (!file.is_open())
@@ -665,6 +666,8 @@ bool readSaveFile(const std::string& path, SavedGameState& state, SaveSlotMetada
     actorOpinionsFromJson(root.value("actorOpinions", nlohmann::json::object()), state.actorOpinions);
 
     const int saveVersion = root.value("version", 4);
+    if (saveVersion >= 8)
+        jsonArrayToSet(root.value("knownActorIds", nlohmann::json::array()), state.knownActorIds);
     if (saveVersion >= 5)
     {
         const nlohmann::json& itemInstances = root.value("itemInstances", nlohmann::json::array());

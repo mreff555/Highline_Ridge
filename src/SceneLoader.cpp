@@ -322,7 +322,8 @@ bool parseConversationChoice(const nlohmann::json& choice, ConversationChoiceDef
         out.followUpChoices.push_back(parsed);
     }
 
-    return !out.id.empty() && !out.label.empty() && !out.response.empty();
+    return !out.id.empty() && !out.label.empty()
+        && (!out.response.empty() || out.closePhase);
 }
 
 bool parseRandomLine(const nlohmann::json& line, RandomConversationLine& out)
@@ -379,6 +380,7 @@ bool parseConversationPhase(const nlohmann::json& phase, ConversationPhase& out)
     out.requiresPhaseId = phase.value("requiresPhase", "");
     out.requiresFlag = phase.value("requiresFlag", "");
     out.resetOnSceneEnter = phase.value("resetOnSceneEnter", true);
+    out.repeatable = phase.value("repeatable", false);
     out.text = phase.value("text", "");
     out.audio = parseOptionalAudioField(phase, "audio");
     out.intro = phase.value("intro", "");

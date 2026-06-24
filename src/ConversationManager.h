@@ -31,6 +31,32 @@ class ConversationManager
         const std::string& sceneId,
         const SceneSpeakConfig& config,
         const std::set<std::string>& storyFlags);
+    SpeakResult handleSpeakTarget(
+        const std::string& sceneId,
+        const SceneSpeakConfig& config,
+        const std::set<std::string>& storyFlags,
+        const std::string& phaseId,
+        const std::string& randomLineId = "");
+    SpeakResult handleSpeakWorkTheRoom(
+        const std::string& sceneId,
+        const SceneSpeakConfig& config,
+        const std::set<std::string>& storyFlags);
+    bool canStartPhase(
+        const ConversationPhase& phase,
+        const std::set<std::string>& storyFlags) const;
+    bool canPickRandomLine(const RandomConversationLine& line) const;
+    bool canWorkTheRoom(
+        const SceneSpeakConfig& config,
+        const std::set<std::string>& storyFlags) const;
+    bool isPhaseRequirementMet(
+        const ConversationPhase& phase,
+        const std::set<std::string>& storyFlags) const;
+    std::string phaseActorId(const ConversationPhase& phase) const;
+    std::string lineActorId(const RandomConversationLine& line) const;
+    std::string bestStartablePhaseIdForActor(
+        const SceneSpeakConfig& config,
+        const std::string& actorId,
+        const std::set<std::string>& storyFlags) const;
     SpeakResult startScriptedPhase(
         const SceneSpeakConfig& config,
         const std::string& phaseId,
@@ -42,10 +68,9 @@ class ConversationManager
     bool isPhaseComplete(const std::string& phaseId) const;
 
     private:
+    int phaseStartPriority(const ConversationPhase& phase, size_t phaseIndex) const;
     void markPhaseComplete(const std::string& phaseId);
-    bool isPhaseRequirementMet(
-        const ConversationPhase& phase,
-        const std::set<std::string>& storyFlags) const;
+    void resetRepeatablePhase(const std::string& phaseId);
     const ConversationPhase* findPhase(const SceneSpeakConfig& config, const std::string& phaseId) const;
     const ConversationPhase* findActivePhase(
         const std::string& sceneId,
@@ -58,6 +83,10 @@ class ConversationManager
         const std::vector<std::string>& dialogAudioTracks = {}) const;
     void appendDialogAudioTrack(SpeakResult& result, const std::string& path) const;
     SpeakResult pickRandomLine(const std::string& sceneId, const ConversationPhase& phase);
+    SpeakResult pickSpecificRandomLine(
+        const std::string& sceneId,
+        const ConversationPhase& phase,
+        const std::string& lineId);
     std::string randomPoolKey(const std::string& sceneId, const ConversationPhase& phase) const;
     std::string scriptedChoiceKey(const std::string& phaseId, const std::string& choiceId) const;
     bool isScriptedChoiceConsumed(const std::string& phaseId, const std::string& choiceId) const;

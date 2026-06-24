@@ -35,6 +35,93 @@ namespace
     const Color kQuestComplete = {52, 92, 58, 255};
     const Color kQuestFailed = {108, 72, 72, 255};
 
+    struct ResolvedActorSpeakTarget
+    {
+        std::string phaseId;
+        std::string randomLineId;
+    };
+
+    bool hasSaloonBartenderProgress(
+        const WorldState& worldState,
+        const ConversationManager& conversationMgr)
+    {
+        return worldState.storyFlags.count("saloon_interior:chose_water") > 0
+            || worldState.storyFlags.count("saloon_interior:chose_usual") > 0
+            || worldState.storyFlags.count("saloon_interior:room_tab") > 0
+            || conversationMgr.isPhaseComplete("bartender");
+    }
+
+    bool hasSaloonBurgundyProgress(
+        const WorldState& worldState,
+        const ConversationManager& conversationMgr)
+    {
+        return worldState.storyFlags.count("saloon_interior:room_tab") > 0
+            || worldState.storyFlags.count("saloon_interior:blue_woman_hired") > 0
+            || conversationMgr.isPhaseComplete("burgundy_woman");
+    }
+
+    bool hasSaloonConversationProgress(
+        const WorldState& worldState,
+        const ConversationManager& conversationMgr)
+    {
+        if (worldState.currentSceneId != "saloon_interior")
+            return false;
+
+        return hasSaloonBartenderProgress(worldState, conversationMgr)
+            || hasSaloonBurgundyProgress(worldState, conversationMgr);
+    }
+
+    bool isActorIntroOnlySpeakPhase(
+        const std::string& actorId,
+        const std::string& phaseId,
+        const WorldState& worldState,
+        const ConversationManager& conversationMgr)
+    {
+        if (actorId == "bartender" && phaseId == "bartender")
+            return !hasSaloonBartenderProgress(worldState, conversationMgr);
+        if (actorId == "burgundy_woman" && phaseId == "burgundy_woman")
+            return !hasSaloonBurgundyProgress(worldState, conversationMgr);
+        return false;
+    }
+
+    ResolvedActorSpeakTarget resolveActorSpeakTarget(
+        const ConversationManager& conversationMgr,
+        const SceneSpeakConfig& config,
+        const std::string& actorId,
+        const std::set<std::string>& storyFlags)
+    {
+        ResolvedActorSpeakTarget resolved;
+        resolved.phaseId = conversationMgr.bestStartablePhaseIdForActor(
+            config,
+            actorId,
+            storyFlags);
+
+        if (!resolved.phaseId.empty())
+            return resolved;
+
+        for (const ConversationPhase& phase : config.phases)
+        {
+            if (phase.type != ConversationPhaseType::Random)
+                continue;
+            if (!conversationMgr.isPhaseRequirementMet(phase, storyFlags))
+                continue;
+
+            for (const RandomConversationLine& line : phase.lines)
+            {
+                if (conversationMgr.lineActorId(line) != actorId)
+                    continue;
+                if (!conversationMgr.canPickRandomLine(line))
+                    continue;
+
+                resolved.phaseId = phase.id;
+                resolved.randomLineId = line.id;
+                return resolved;
+            }
+        }
+
+        return resolved;
+    }
+
     Rectangle getNotebookHeaderBand(const Rectangle& bounds)
     {
         return {
@@ -148,6 +235,7 @@ namespace
         inventoryMgr.setFont(locationStruct.uiFont);
         takeMgr.setFont(locationStruct.uiFont);
         interactionMgr.setFont(locationStruct.uiFont);
+        speakTargetMgr.setFont(locationStruct.uiFont);
         const std::string& assetRoot = sceneDatabase.getAssetRoot();
         const std::string fallbackRoot = (assetRoot == ".") ? ".." : ".";
         inventoryMgr.setAssetRoots(assetRoot, fallbackRoot);
@@ -158,6 +246,7 @@ namespace
         inventoryMgr.setUiBackdrop(&uiBackdrop);
         takeMgr.setUiBackdrop(&uiBackdrop);
         interactionMgr.setUiBackdrop(&uiBackdrop);
+        speakTargetMgr.setUiBackdrop(&uiBackdrop);
         pauseMenu.setUiBackdrop(&uiBackdrop);
         saveLoadMenu.setUiBackdrop(&uiBackdrop);
         dropConfirmMgr.setUiBackdrop(&uiBackdrop);
@@ -355,7 +444,7 @@ namespace
 
     bool GameSession::isSidePanelOpen() const
     {
-        return uiCoordinator.isSidePanelOpen(inventoryMgr, takeMgr, interactionMgr);
+        return uiCoordinator.isSidePanelOpen(inventoryMgr, takeMgr, interactionMgr, speakTargetMgr);
     }
 
     std::string GameSession::takenItemKey(const std::string& itemId) const
@@ -712,7 +801,7 @@ namespace
 
     void GameSession::updateInventoryLayout()
     {
-        if (inventoryMgr.isOpen() || takeMgr.isOpen() || interactionMgr.isOpen())
+        if (inventoryMgr.isOpen() || takeMgr.isOpen() || interactionMgr.isOpen() || speakTargetMgr.isOpen())
         {
             const Rectangle panelBounds = getInventoryPanelBounds();
             if (inventoryMgr.isOpen())
@@ -721,6 +810,8 @@ namespace
                 takeMgr.setPanelBounds(panelBounds);
             if (interactionMgr.isOpen())
                 interactionMgr.setPanelBounds(panelBounds);
+            if (speakTargetMgr.isOpen())
+                speakTargetMgr.setPanelBounds(panelBounds);
         }
     }
 
@@ -969,6 +1060,8 @@ namespace
             appendChoiceLinesToNarrative(!pending.empty() ? pending : result.choices);
             evaluateMilestones();
             refreshSceneImage();
+            if (!result.spokenActorId.empty())
+                worldState.markActorKnown(result.spokenActorId);
             updateActionAvailability();
             return;
         }
@@ -978,6 +1071,9 @@ namespace
         playDialogAudio(result);
         evaluateMilestones();
         refreshSceneImage();
+
+        if (!result.spokenActorId.empty())
+            worldState.markActorKnown(result.spokenActorId);
     }
 
     void GameSession::resolveDialogChoice(const std::string& choiceId)
@@ -1043,6 +1139,8 @@ namespace
             appendChoiceLinesToNarrative(
                 !pending.empty() ? pending : result.choices,
                 selectedLineText);
+            if (!result.grantStoryFlag.empty())
+                applyGrantedStoryFlag(result.grantStoryFlag);
             updateActionAvailability();
             evaluateMilestones();
             refreshSceneImage();
@@ -1083,6 +1181,12 @@ namespace
             processSpeakResult(chained);
             updateActionAvailability();
         }
+
+        if (!result.spokenActorId.empty())
+            worldState.markActorKnown(result.spokenActorId);
+
+        if (conversationMgr.isPhaseComplete("blue_woman"))
+            worldState.storyFlags.insert("saloon_balcony:blue_woman_done");
     }
 
     void GameSession::resolveCombatEncounter(const std::string& encounterId)
@@ -1189,11 +1293,54 @@ namespace
         resolveCombatEncounter(conversationMgr.getCombatEncounterId());
     }
 
+    void GameSession::syncKnownActorsFromProgress()
+    {
+        if (worldState.currentSceneId != "saloon_interior")
+            return;
+
+        if (hasSaloonBartenderProgress(worldState, conversationMgr))
+            worldState.markActorKnown("bartender");
+        if (hasSaloonBurgundyProgress(worldState, conversationMgr))
+            worldState.markActorKnown("burgundy_woman");
+    }
+
+    bool GameSession::shouldOpenSpeakPicker() const
+    {
+        const SceneSpeakConfig& config = sceneDatabase.getSpeakConfig(worldState.currentSceneId);
+        const std::vector<SceneActorDef> actors = sceneDatabase.getSceneActors(worldState.currentSceneId);
+        if (actors.size() < 2 || !config.hasPhases())
+            return false;
+
+        for (const SceneActorDef& actor : actors)
+        {
+            if (worldState.isActorKnown(actor.id))
+                return true;
+        }
+
+        return hasSaloonConversationProgress(worldState, conversationMgr);
+    }
+
     void GameSession::handleSpeak()
     {
+        syncKnownActorsFromProgress();
+
         const SceneSpeakConfig& speakConfig = sceneDatabase.getSpeakConfig(worldState.currentSceneId);
         if (speakConfig.hasPhases())
         {
+            if (shouldOpenSpeakPicker())
+            {
+                if (speakTargetMgr.isOpen())
+                    closeAllUiPanels();
+                else
+                {
+                    refreshSpeakTargets();
+                    openUiMode(UiMode::Speak);
+                    updateInventoryLayout();
+                }
+                updateActionAvailability();
+                return;
+            }
+
             SpeakResult result = conversationMgr.handleSpeak(
                 worldState.currentSceneId,
                 speakConfig,
@@ -1231,6 +1378,7 @@ namespace
         worldState.storyFlags.clear();
         worldState.committedPlayerDialogLines.clear();
         worldState.droppedItemsByScene.clear();
+        worldState.knownActorIds.clear();
         closeAllUiPanels();
         applyLocationStruct(cabinLocation);
 
@@ -1532,6 +1680,110 @@ namespace
         interactionMgr.setAvailableInteractions(getAvailableInteractions());
     }
 
+    std::vector<SpeakTargetDef> GameSession::getAvailableSpeakTargets() const
+    {
+        const SceneSpeakConfig& config = sceneDatabase.getSpeakConfig(worldState.currentSceneId);
+        const std::vector<SceneActorDef> actors = sceneDatabase.getSceneActors(worldState.currentSceneId);
+        if (actors.size() < 2 || !config.hasPhases())
+            return {};
+
+        std::vector<SpeakTargetDef> targets;
+        for (const SceneActorDef& actor : actors)
+        {
+            const ResolvedActorSpeakTarget resolved = resolveActorSpeakTarget(
+                conversationMgr,
+                config,
+                actor.id,
+                worldState.storyFlags);
+
+            if (resolved.phaseId.empty() && resolved.randomLineId.empty())
+                continue;
+
+            if (!resolved.randomLineId.empty())
+            {
+                if (!worldState.isActorKnown(actor.id))
+                    continue;
+            }
+            else if (isActorIntroOnlySpeakPhase(
+                         actor.id,
+                         resolved.phaseId,
+                         worldState,
+                         conversationMgr))
+            {
+                continue;
+            }
+
+            SpeakTargetDef target;
+            target.id = actor.id;
+            target.label = actor.name;
+            target.phaseId = resolved.phaseId;
+            target.randomLineId = resolved.randomLineId;
+            targets.push_back(target);
+        }
+
+        if (conversationMgr.canWorkTheRoom(config, worldState.storyFlags))
+        {
+            SpeakTargetDef workTheRoom;
+            workTheRoom.id = "__work_the_room__";
+            workTheRoom.label = "Work the room";
+            workTheRoom.isWorkTheRoom = true;
+            targets.push_back(workTheRoom);
+        }
+
+        return targets;
+    }
+
+    void GameSession::refreshSpeakTargets()
+    {
+        syncKnownActorsFromProgress();
+        speakTargetMgr.setAvailableTargets(getAvailableSpeakTargets());
+    }
+
+    void GameSession::processPendingSpeakTargets()
+    {
+        const SpeakTargetDef target = speakTargetMgr.consumePendingTarget();
+        if (target.id.empty())
+            return;
+
+        closeAllUiPanels();
+        updateInventoryLayout();
+
+        const SceneSpeakConfig& speakConfig = sceneDatabase.getSpeakConfig(worldState.currentSceneId);
+        SpeakResult result;
+        if (target.isWorkTheRoom)
+        {
+            result = conversationMgr.handleSpeakWorkTheRoom(
+                worldState.currentSceneId,
+                speakConfig,
+                worldState.storyFlags);
+        }
+        else
+        {
+            const ResolvedActorSpeakTarget resolved = resolveActorSpeakTarget(
+                conversationMgr,
+                speakConfig,
+                target.id,
+                worldState.storyFlags);
+
+            result = conversationMgr.handleSpeakTarget(
+                worldState.currentSceneId,
+                speakConfig,
+                worldState.storyFlags,
+                resolved.phaseId,
+                resolved.randomLineId);
+        }
+
+        if (result.action != SpeakResult::Action::None
+            || !result.narrative.empty()
+            || !result.sketchPath.empty())
+        {
+            worldState.recordAction();
+            processSpeakResult(result);
+        }
+
+        updateActionAvailability();
+    }
+
     void GameSession::processPendingInteractions()
     {
         const std::string interactionId = interactionMgr.consumePendingInteractionId();
@@ -1556,6 +1808,8 @@ namespace
 
     void GameSession::updateActionAvailability()
     {
+        syncKnownActorsFromProgress();
+
         MovementStruct movement{};
         ActionStruct actions{};
 
@@ -1588,6 +1842,16 @@ namespace
             movement.right = false;
             movement.backward = false;
             actions.use = true;
+        }
+        else if (speakTargetMgr.isOpen())
+        {
+            movement.up = false;
+            movement.down = false;
+            movement.forward = false;
+            movement.left = false;
+            movement.right = false;
+            movement.backward = false;
+            actions.speak = true;
         }
         else if (inventoryMgr.isOpen())
         {
@@ -1643,10 +1907,13 @@ namespace
             actions = baseActionFilter;
             const SceneSpeakConfig& speakConfig = sceneDatabase.getSpeakConfig(worldState.currentSceneId);
             if (speakConfig.hasPhases())
+            {
                 actions.speak = conversationMgr.canSpeak(
                     speakConfig,
                     baseActionFilter.speak,
-                    worldState.storyFlags);
+                    worldState.storyFlags)
+                    || shouldOpenSpeakPicker();
+            }
             else if (!speakDetails.empty())
                 actions.speak = !worldState.sceneVisits.hasSpokenInCurrentScene;
             else
@@ -1945,8 +2212,29 @@ namespace
             return;
 
         worldState.storyFlags.insert(flag);
+        if (flag == "saloon_interior:chose_water"
+            || flag == "saloon_interior:chose_usual"
+            || flag == "saloon_interior:room_tab")
+        {
+            worldState.markActorKnown("bartender");
+        }
+        if (flag == "saloon_interior:room_tab"
+            || flag == "saloon_interior:blue_woman_hired")
+        {
+            worldState.markActorKnown("burgundy_woman");
+        }
         if (flag == "saloon_interior:room_tab")
+        {
             worldState.saloonRoomPurchasedDay = worldState.day;
+            if (worldState.storyFlags.count("saloon_interior:chose_usual") == 0
+                && worldState.storyFlags.count("saloon_interior:chose_water") == 0)
+            {
+                worldState.storyFlags.insert("saloon_interior:chose_water");
+            }
+        }
+
+        if (conversationMgr.isPhaseComplete("blue_woman"))
+            worldState.storyFlags.insert("saloon_balcony:blue_woman_done");
     }
 
     void GameSession::handleDevOverlayInput()
@@ -2224,6 +2512,15 @@ namespace
             return;
         }
 
+        if (speakTargetMgr.isOpen())
+        {
+            speakTargetMgr.update();
+            processPendingSpeakTargets();
+            handleNarrativeScrollInput();
+            updateActionAvailability();
+            return;
+        }
+
         if (inventoryMgr.isOpen())
         {
             inventoryMgr.update();
@@ -2361,6 +2658,8 @@ namespace
             takeMgr.draw();
         else if (interactionMgr.isOpen())
             interactionMgr.draw();
+        else if (speakTargetMgr.isOpen())
+            speakTargetMgr.draw();
 
         buttonMgr.draw();
         pauseMenu.draw();
@@ -2376,6 +2675,7 @@ namespace
             inventoryMgr,
             takeMgr,
             interactionMgr,
+            speakTargetMgr,
             dropConfirmMgr,
             pauseMenu,
             saveLoadMenu);
@@ -2387,6 +2687,7 @@ namespace
             inventoryMgr,
             takeMgr,
             interactionMgr,
+            speakTargetMgr,
             dropConfirmMgr,
             pauseMenu,
             saveLoadMenu);

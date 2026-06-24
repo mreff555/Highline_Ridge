@@ -129,6 +129,7 @@ struct ConversationPhase
     std::string requiresPhaseId;
     std::string requiresFlag;
     bool resetOnSceneEnter = true;
+    bool repeatable = false;
 
     std::string text;
     std::string audio;
@@ -190,6 +191,7 @@ struct SpeakResult
     std::string grantStoryFlag;
     std::string startPhaseId;
     std::vector<OverlaySequenceStep> overlaySequence;
+    std::string spokenActorId;
 };
 
 }

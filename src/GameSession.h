@@ -16,6 +16,8 @@
 #include <TakeMgr.h>
 #include <TakeableItemDef.h>
 #include <InteractionMgr.h>
+#include <SpeakTargetDef.h>
+#include <SpeakTargetMgr.h>
 #include <SceneInteractionDef.h>
 #include <UiBackdrop.h>
 
@@ -85,6 +87,7 @@ class GameSession
     void handleDevOverlayInput();
     void drawDevOverlay() const;
     void applyGrantedStoryFlag(const std::string& flag);
+    void syncKnownActorsFromProgress();
     void relayoutForScreenSize(int width, int height);
     void syncNarrativeContext();
     void syncFromActiveScene();
@@ -130,6 +133,10 @@ class GameSession
     void updateInventoryLayout();
     void refreshTakeItems();
     void refreshInteractions();
+    void refreshSpeakTargets();
+    void processPendingSpeakTargets();
+    std::vector<SpeakTargetDef> getAvailableSpeakTargets() const;
+    bool shouldOpenSpeakPicker() const;
     void addTakenItemToInventory(const TakeableItemDef& taken);
     void processPendingTakes();
     void processPendingInteractions();
@@ -237,6 +244,7 @@ class GameSession
     InventoryMgr inventoryMgr;
     TakeMgr takeMgr;
     InteractionMgr interactionMgr;
+    SpeakTargetMgr speakTargetMgr;
 
     bool deferInitialRoomAudio = true;
     bool initialFrameComplete = false;

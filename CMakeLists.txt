@@ -34,6 +34,7 @@ set(SOURCES
     src/InventoryMgr.cpp
     src/TakeMgr.cpp
     src/InteractionMgr.cpp
+    src/SpeakTargetMgr.cpp
     src/ImageCompression.cpp
     src/PlatformPath.cpp
     src/GameConfig.cpp

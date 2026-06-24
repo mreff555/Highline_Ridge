@@ -31,6 +31,7 @@ class WorldState
     std::set<std::string> usedInteractionKeys;
     std::set<std::string> storyFlags;
     std::set<std::string> committedPlayerDialogLines;
+    std::set<std::string> knownActorIds;
     std::map<std::string, std::vector<TakeableItemDef>> droppedItemsByScene;
     int day = 1;
     int actionCount = 0;
@@ -38,6 +39,8 @@ class WorldState
     std::map<std::string, int> actorOpinions;
 
     void recordAction() { ++actionCount; }
+    bool isActorKnown(const std::string& actorId) const;
+    void markActorKnown(const std::string& actorId);
     int actorOpinionOf(const std::string& actorId) const;
     void applyActorOpinionDelta(const std::string& actorId, int delta);
     void advanceDay() { ++day; }

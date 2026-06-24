@@ -618,7 +618,19 @@ std::vector<ConversationChoiceDef> NarrativeNotebook::filterChoices(
     }
     bool NarrativeNotebook::isDialogChoiceLine(const std::string& line) const
     {
-        return line.size() > 2 && line.compare(0, 2, "> ") == 0;
+        if (line.size() > 2 && line.compare(0, 2, "> ") == 0)
+            return true;
+
+        if (!conversationMgr->isAwaitingChoice())
+            return false;
+
+        for (const ConversationChoiceDef& choice : conversationMgr->getPendingChoices())
+        {
+            if (line == choice.label)
+                return true;
+        }
+
+        return false;
     }
     bool NarrativeNotebook::isNarrativeSketchLine(const std::string& line) const
     {

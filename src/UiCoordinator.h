@@ -6,6 +6,7 @@ namespace testgame
 
 class DropConfirmMgr;
 class InteractionMgr;
+class SpeakTargetMgr;
 class InventoryMgr;
 class PauseMenuMgr;
 class SaveLoadMenuMgr;
@@ -17,6 +18,7 @@ enum class UiMode
     Inventory,
     Take,
     Interact,
+    Speak,
     DropConfirm,
     Pause,
     SaveLoad
@@ -32,6 +34,7 @@ class UiCoordinator
         InventoryMgr& inventoryMgr,
         TakeMgr& takeMgr,
         InteractionMgr& interactionMgr,
+        SpeakTargetMgr& speakTargetMgr,
         DropConfirmMgr& dropConfirmMgr,
         PauseMenuMgr& pauseMenu,
         SaveLoadMenuMgr& saveLoadMenu);
@@ -47,6 +50,7 @@ class UiCoordinator
         InventoryMgr& inventoryMgr,
         TakeMgr& takeMgr,
         InteractionMgr& interactionMgr,
+        SpeakTargetMgr& speakTargetMgr,
         DropConfirmMgr& dropConfirmMgr,
         PauseMenuMgr& pauseMenu,
         SaveLoadMenuMgr& saveLoadMenu);
@@ -54,7 +58,8 @@ class UiCoordinator
     bool isSidePanelOpen(
         const InventoryMgr& inventoryMgr,
         const TakeMgr& takeMgr,
-        const InteractionMgr& interactionMgr) const;
+        const InteractionMgr& interactionMgr,
+        const SpeakTargetMgr& speakTargetMgr) const;
 
     private:
     UiMode mode = UiMode::Gameplay;
