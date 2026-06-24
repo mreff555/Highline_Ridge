@@ -828,7 +828,7 @@
       "exitRequirements": {
         "right": {
           "requiresRoomPurchasedToday": true,
-          "blockedDetails": "The first door on the right is locked. The brass tag is turned to vacant, but the bolt holds fast. Whoever runs the tab upstairs only opens rooms for guests who paid today - and you have not, or not anymore."
+          "blockedDetails": "The first door on the right is locked. The brass tag is turned to vacant, but the bolt holds fast. Whoever runs the tab upstairs only opens rooms for guests who paid for their room."
         }
       },
       "audio": {
@@ -869,7 +869,11 @@
           "useDetails": "You pour from the house bourbon into the heavy glass and drink it standing at the dresser. Fire and oak hit the back of your throat, then spread in a slow, honest warmth. The room does not improve, but your nerves stop arguing with the plaster cracks for a moment.",
           "useResolveDelta": 5,
           "useLucidityDelta": -5,
-          "repeat": true
+          "repeat": true,
+          "tts": true,
+          "ttsVoice": "leo",
+          "ttsAudio": "resources/audio/tts/saloon_bedroom/whiskey_shot.mp3",
+          "ttsText": "You pour from the house bourbon into the heavy glass and drink it standing at the dresser. Fire and oak hit the back of your throat, then spread in a slow, honest warmth. The room does not improve, but your nerves stop arguing with the plaster cracks for a moment."
         },
         {
           "id": "wash_basin",
@@ -877,13 +881,21 @@
           "useDetails": "You work the soap into a thin lather and wash your face and hands over the basin, rinsing with water from the pitcher. The chill wakes your skin. You dry off with the rough towel on the stand and feel, for a few minutes, like a man who belongs in a room with a door that locks.",
           "useLucidityDelta": 5,
           "useCharismaDelta": 5,
-          "repeat": true
+          "repeat": true,
+          "tts": true,
+          "ttsVoice": "leo",
+          "ttsAudio": "resources/audio/tts/saloon_bedroom/wash_basin.mp3",
+          "ttsText": "You work the soap into a thin lather and wash your face and hands over the basin, rinsing with water from the pitcher. The chill wakes your skin. You dry off with the rough towel on the stand and feel, for a few minutes, like a man who belongs in a room with a door that locks."
         },
         {
           "id": "read_newspaper",
           "label": "Read the newspaper.",
           "useLucidityDelta": 2,
-          "repeat": true
+          "repeat": true,
+          "tts": true,
+          "ttsVoice": "leo",
+          "ttsAudio": "resources/audio/tts/saloon_bedroom/read_newspaper.mp3",
+          "ttsText": "You unfold the newspaper on the chair and smooth the creased mining briefs flat with your thumb. The masthead is printed in sober type above the fold. The date sits there without apology, as though the ridge and the valley below agreed on the same calendar for once. You read a line about ore shipments and weather over Graysmill, then fold the paper back the way you found it."
         },
         {
           "id": "sleep_bed",
@@ -892,6 +904,17 @@
           "useHealthDelta": 10,
           "useLucidityDelta": 10,
           "repeat": true,
+          "tts": true,
+          "ttsVoice": "leo",
+          "ttsAudio": "resources/audio/tts/saloon_bedroom/sleep_bed.mp3",
+          "ttsText": "You lie down in the iron bed and begin to collect your thoughts while staring at the cracked plaster ceiling. The cracks branch like slow lightning frozen above you, map lines with no legend. The saloon's muffled pulse travels through the floorboards, piano, laughter, a glass breaking somewhere far from your door. Sleep takes you the way it takes men who have been awake too long in the wrong country: without permission and without dreams you trust.",
+          "ttsVariantFlag": "saloon_interior:blue_woman_hired",
+          "ttsVariantAudio": "resources/audio/tts/saloon_bedroom/sleep_bed_blue_woman.mp3",
+          "ttsVariantText": "You lie down in the iron bed and begin to collect your thoughts while staring at the cracked plaster ceiling. The cracks branch like slow lightning frozen above you, map lines with no legend. The saloon's muffled pulse travels through the floorboards, piano, laughter, a glass breaking somewhere far from your door. Just then the door quietly cracks open. The woman in blue peers in, smiling, one hand still on the knob as though she might vanish if you looked away too long. She waits for permission to enter. You motion for her to come. She steps in and closes the door behind her with care, the latch settling soft as a held breath. Sleep takes you the way it takes men who have been awake too long in the wrong country: without permission and without dreams you trust.",
+          "ttsAfter": true,
+          "ttsAfterVoice": "leo",
+          "ttsAfterAudio": "resources/audio/tts/saloon_bedroom/sleep_wake.mp3",
+          "ttsAfterText": "When you wake, gray light sits at the window and the bourbon bottle throws a darker shadow on the dresser. Your mouth tastes of smoke and iron. The newspaper has not moved. The room remembers you, but only barely.",
           "overlaySequence": [
             {
               "action": "fadeTo",

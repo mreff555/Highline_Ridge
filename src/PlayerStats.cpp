@@ -7,7 +7,7 @@ namespace testgame
 
 bool PlayerStats::apply(const StatusEffect& effect, bool allowRepeat)
 {
-    if (!effect.hasDelta())
+    if (!effect.hasPlayerDelta())
         return false;
 
     if (!allowRepeat && !effect.key.empty() && consumedStatusActions.count(effect.key) > 0)

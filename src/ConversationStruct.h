@@ -17,13 +17,25 @@ struct StatusEffect
     float lucidity = 0.0f;
     float charisma = 0.0f;
     float money = 0.0f;
+    std::string actor;
+    int actorOpinion = 0;
     bool repeat = false;
     std::string onZeroLucidity;
 
-    bool hasDelta() const
+    bool hasPlayerDelta() const
     {
         return health != 0.0f || energy != 0.0f || resolve != 0.0f || lucidity != 0.0f
             || charisma != 0.0f || money != 0.0f;
+    }
+
+    bool hasActorOpinionDelta() const
+    {
+        return !actor.empty() && actorOpinion != 0;
+    }
+
+    bool hasDelta() const
+    {
+        return hasPlayerDelta() || hasActorOpinionDelta();
     }
 };
 
@@ -71,12 +83,28 @@ struct ConversationChoiceDef
     }
 };
 
+struct SceneActorDef
+{
+    std::string id;
+    std::string name;
+};
+
 struct RandomConversationLine
 {
     std::string id;
+    std::string actorId;
+    std::string actorName;
     std::string text;
     std::string sketchPath;
     std::string audio;
+    bool tts = false;
+    std::string ttsVoice;
+    std::string ttsText;
+    std::string ttsAudio;
+    bool ttsAfter = false;
+    std::string ttsAfterVoice;
+    std::string ttsAfterText;
+    std::string ttsAfterAudio;
     StatusEffect status;
     int weight = 1;
     bool once = false;
@@ -95,6 +123,8 @@ enum class ConversationPhaseType
 struct ConversationPhase
 {
     std::string id;
+    std::string actorId;
+    std::string actorName;
     ConversationPhaseType type = ConversationPhaseType::Once;
     std::string requiresPhaseId;
     std::string requiresFlag;

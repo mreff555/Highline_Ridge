@@ -164,10 +164,12 @@ int GameApplication::run(int argc, char* argv[])
     if (!commandLine.refreshVoicesApiKey.empty())
     {
         const std::string conversationsPath = "resources/conversations.json";
+        const std::string scenesPath = "resources/scenes.json";
         return XaiTtsClient::refreshBundledVoices(
             commandLine.refreshVoicesApiKey,
             ".",
             conversationsPath,
+            scenesPath,
             gameConfig.tts.voiceId);
     }
 

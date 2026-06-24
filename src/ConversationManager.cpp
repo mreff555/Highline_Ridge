@@ -461,6 +461,20 @@ SpeakResult ConversationManager::pickRandomLine(
         result.sketchPath = line.sketchPath;
         result.choices = line.choices;
         appendDialogAudioTrack(result, line.audio);
+        applyTtsFields(
+            result,
+            line.tts,
+            line.ttsText,
+            line.ttsVoice,
+            line.ttsAudio,
+            line.text);
+        applyTtsAfterFields(
+            result,
+            line.ttsAfter,
+            line.ttsAfterText,
+            line.ttsAfterVoice,
+            line.ttsAfterAudio,
+            line.text);
         awaitingChoice = true;
         activeScriptPhaseId = phase.id;
         pendingChoices = line.choices;
@@ -472,7 +486,22 @@ SpeakResult ConversationManager::pickRandomLine(
     std::vector<std::string> audioTracks;
     if (!line.audio.empty())
         audioTracks.push_back(line.audio);
-    return buildNarrativeResult(line.text, line.status, {}, audioTracks);
+    SpeakResult result = buildNarrativeResult(line.text, line.status, {}, audioTracks);
+    applyTtsFields(
+        result,
+        line.tts,
+        line.ttsText,
+        line.ttsVoice,
+        line.ttsAudio,
+        line.text);
+    applyTtsAfterFields(
+        result,
+        line.ttsAfter,
+        line.ttsAfterText,
+        line.ttsAfterVoice,
+        line.ttsAfterAudio,
+        line.text);
+    return result;
 }
 
 SpeakResult ConversationManager::handleSpeak(

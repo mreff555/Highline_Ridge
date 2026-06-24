@@ -25,6 +25,30 @@ nlohmann::json setToJsonArray(const Set& values)
     return array;
 }
 
+nlohmann::json actorOpinionsToJson(const std::map<std::string, int>& actorOpinions)
+{
+    nlohmann::json object = nlohmann::json::object();
+    for (std::map<std::string, int>::const_iterator it = actorOpinions.begin();
+         it != actorOpinions.end();
+         ++it)
+        object[it->first] = it->second;
+    return object;
+}
+
+void actorOpinionsFromJson(const nlohmann::json& object, std::map<std::string, int>& outActorOpinions)
+{
+    outActorOpinions.clear();
+    if (!object.is_object())
+        return;
+
+    for (auto it = object.begin(); it != object.end(); ++it)
+    {
+        if (!it.value().is_number_integer())
+            continue;
+        outActorOpinions[it.key()] = it.value().get<int>();
+    }
+}
+
 template<typename Set>
 void jsonArrayToSet(const nlohmann::json& array, Set& outValues)
 {
@@ -530,7 +554,7 @@ bool writeSaveFile(const std::string& path, const SavedGameState& state, const S
         return false;
 
     nlohmann::json root;
-    root["version"] = 6;
+    root["version"] = 7;
     root["saveMeta"] = saveMetadataToJson(metadata);
     root["sceneId"] = state.sceneId;
     root["previousSceneId"] = state.previousSceneId;
@@ -575,6 +599,7 @@ bool writeSaveFile(const std::string& path, const SavedGameState& state, const S
     root["day"] = state.day;
     root["actionCount"] = state.actionCount;
     root["saloonRoomPurchasedDay"] = state.saloonRoomPurchasedDay;
+    root["actorOpinions"] = actorOpinionsToJson(state.actorOpinions);
 
     std::ofstream file(path.c_str());
     if (!file.is_open())
@@ -637,6 +662,7 @@ bool readSaveFile(const std::string& path, SavedGameState& state, SaveSlotMetada
     state.day = root.value("day", state.day);
     state.actionCount = root.value("actionCount", state.actionCount);
     state.saloonRoomPurchasedDay = root.value("saloonRoomPurchasedDay", state.saloonRoomPurchasedDay);
+    actorOpinionsFromJson(root.value("actorOpinions", nlohmann::json::object()), state.actorOpinions);
 
     const int saveVersion = root.value("version", 4);
     if (saveVersion >= 5)

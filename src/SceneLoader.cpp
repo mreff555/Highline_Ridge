@@ -1,7 +1,10 @@
 #include "SceneLoader.h"
 #include "SceneOverlayDef.h"
 #include "ImageCompression.h"
+#include <PlatformPath.h>
 #include <algorithm>
+#include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <raylib.h>
@@ -81,6 +84,134 @@ bool parseActions(const nlohmann::json& actions, ActionStruct& out)
     return true;
 }
 
+std::string formatActorDisplayName(const std::string& actorId)
+{
+    if (actorId.empty())
+        return "";
+
+    std::string formatted;
+    formatted.reserve(actorId.size());
+    bool capitalizeNext = true;
+
+    for (char character : actorId)
+    {
+        if (character == '_')
+        {
+            formatted.push_back(' ');
+            capitalizeNext = true;
+            continue;
+        }
+
+        if (capitalizeNext)
+        {
+            formatted.push_back((char)std::toupper((unsigned char)character));
+            capitalizeNext = false;
+        }
+        else
+            formatted.push_back(character);
+    }
+
+    return formatted;
+}
+
+std::string normalizeActorId(const std::string& rawId)
+{
+    if (rawId.empty())
+        return "";
+
+    static const char* kSuffixes[] = { "_path", "_fedora" };
+    for (const char* suffix : kSuffixes)
+    {
+        const size_t suffixLength = std::strlen(suffix);
+        if (rawId.size() > suffixLength
+            && rawId.compare(rawId.size() - suffixLength, suffixLength, suffix) == 0)
+            return rawId.substr(0, rawId.size() - suffixLength);
+    }
+
+    return rawId;
+}
+
+bool parseActorFields(const nlohmann::json& node, std::string& actorId, std::string& actorName)
+{
+    actorId.clear();
+    actorName.clear();
+
+    if (!node.is_object())
+        return true;
+
+    const nlohmann::json& actorNode = node.value("actor", nlohmann::json());
+    if (actorNode.is_string())
+        actorId = actorNode.get<std::string>();
+    else if (actorNode.is_object())
+    {
+        actorId = actorNode.value("id", "");
+        actorName = actorNode.value("name", "");
+    }
+
+    if (actorName.empty())
+        actorName = node.value("actorName", "");
+
+    return true;
+}
+
+void registerSceneActor(
+    std::map<std::string, SceneActorDef>& actors,
+    const std::string& rawId,
+    const std::string& explicitName)
+{
+    const std::string actorId = normalizeActorId(rawId);
+    if (actorId.empty())
+        return;
+
+    const std::string displayName = !explicitName.empty()
+        ? explicitName
+        : formatActorDisplayName(actorId);
+
+    std::map<std::string, SceneActorDef>::iterator existing = actors.find(actorId);
+    if (existing == actors.end())
+        actors[actorId] = { actorId, displayName };
+    else if (!explicitName.empty())
+        existing->second.name = explicitName;
+}
+
+void collectSceneActorsFromConfig(
+    const SceneSpeakConfig& config,
+    std::vector<SceneActorDef>& out)
+{
+    std::map<std::string, SceneActorDef> actors;
+
+    for (const ConversationPhase& phase : config.phases)
+    {
+        if (phase.type == ConversationPhaseType::Random)
+        {
+            for (const RandomConversationLine& line : phase.lines)
+            {
+                const std::string rawId = !line.actorId.empty() ? line.actorId : line.id;
+                registerSceneActor(actors, rawId, line.actorName);
+            }
+            continue;
+        }
+
+        const std::string rawId = !phase.actorId.empty() ? phase.actorId : phase.id;
+        registerSceneActor(actors, rawId, phase.actorName);
+    }
+
+    out.clear();
+    out.reserve(actors.size());
+    for (std::map<std::string, SceneActorDef>::const_iterator it = actors.begin();
+         it != actors.end();
+         ++it)
+        out.push_back(it->second);
+
+    std::sort(
+        out.begin(),
+        out.end(),
+        [](const SceneActorDef& a, const SceneActorDef& b)
+        {
+            return a.name < b.name;
+        });
+}
+
 bool parseStatusEffect(const nlohmann::json& status, StatusEffect& out)
 {
     if (!status.is_object())
@@ -93,8 +224,16 @@ bool parseStatusEffect(const nlohmann::json& status, StatusEffect& out)
     out.lucidity = status.value("lucidity", 0.0f);
     out.charisma = status.value("charisma", 0.0f);
     out.money = status.value("money", 0.0f);
+    out.actorOpinion = status.value("actorOpinion", 0);
     out.repeat = status.value("repeat", false);
     out.onZeroLucidity = status.value("onZeroLucidity", "");
+
+    const nlohmann::json& actorNode = status.value("actor", nlohmann::json());
+    if (actorNode.is_string())
+        out.actor = actorNode.get<std::string>();
+    else if (actorNode.is_object())
+        out.actor = actorNode.value("id", "");
+
     return true;
 }
 
@@ -192,9 +331,19 @@ bool parseRandomLine(const nlohmann::json& line, RandomConversationLine& out)
         return false;
 
     out.id = line.value("id", "");
+    if (!parseActorFields(line, out.actorId, out.actorName))
+        return false;
     out.text = line.value("text", "");
     out.sketchPath = line.value("sketch", "");
     out.audio = parseOptionalAudioField(line, "audio");
+    out.tts = line.value("tts", false);
+    out.ttsVoice = line.value("ttsVoice", "");
+    out.ttsText = line.value("ttsText", "");
+    out.ttsAudio = line.value("ttsAudio", "");
+    out.ttsAfter = line.value("ttsAfter", false);
+    out.ttsAfterVoice = line.value("ttsAfterVoice", "");
+    out.ttsAfterText = line.value("ttsAfterText", "");
+    out.ttsAfterAudio = line.value("ttsAfterAudio", "");
     out.weight = line.value("weight", 1);
     out.once = line.value("once", false);
     out.allowAttack = line.value("allowAttack", false);
@@ -224,6 +373,8 @@ bool parseConversationPhase(const nlohmann::json& phase, ConversationPhase& out)
         return false;
 
     out.id = phase.value("id", "");
+    if (!parseActorFields(phase, out.actorId, out.actorName))
+        return false;
     out.type = parsePhaseType(phase.value("type", "once"));
     out.requiresPhaseId = phase.value("requiresPhase", "");
     out.requiresFlag = phase.value("requiresFlag", "");
@@ -370,6 +521,48 @@ std::string siblingConfigPath(const std::string& configPath, const std::string& 
     if (slash == std::string::npos)
         return filename;
     return configPath.substr(0, slash + 1) + filename;
+}
+
+std::string resolveConversationsPath(const std::string& configPath, const std::string& assetRoot)
+{
+    std::vector<std::string> candidates;
+    auto addCandidate = [&](const std::string& path)
+    {
+        if (path.empty())
+            return;
+
+        if (std::find(candidates.begin(), candidates.end(), path) == candidates.end())
+            candidates.push_back(path);
+    };
+
+    addCandidate(siblingConfigPath(configPath, "conversations.json"));
+    addCandidate(pathJoin(assetRoot, "resources/conversations.json"));
+    addCandidate(pathJoin(assetRoot, "../resources/conversations.json"));
+
+    std::string newestPath;
+    std::filesystem::file_time_type newestTime{};
+    bool found = false;
+
+    for (const std::string& candidate : candidates)
+    {
+        if (!FileExists(candidate.c_str()))
+            continue;
+
+        std::error_code error;
+        const std::filesystem::file_time_type writeTime =
+            std::filesystem::last_write_time(candidate, error);
+        if (error)
+            continue;
+
+        if (!found || writeTime > newestTime)
+        {
+            found = true;
+            newestTime = writeTime;
+            newestPath = candidate;
+        }
+    }
+
+    return newestPath;
 }
 
 bool parseAudioClipDef(
@@ -563,6 +756,18 @@ bool parseInteraction(const nlohmann::json& interaction, SceneInteractionDef& ou
 
     if (!parseOverlaySequence(interaction.value("overlaySequence", nlohmann::json::array()), out.overlaySequence))
         return false;
+
+    out.tts = interaction.value("tts", false);
+    out.ttsVoice = interaction.value("ttsVoice", "");
+    out.ttsText = interaction.value("ttsText", "");
+    out.ttsAudio = interaction.value("ttsAudio", "");
+    out.ttsAfter = interaction.value("ttsAfter", false);
+    out.ttsAfterVoice = interaction.value("ttsAfterVoice", "");
+    out.ttsAfterText = interaction.value("ttsAfterText", "");
+    out.ttsAfterAudio = interaction.value("ttsAfterAudio", "");
+    out.ttsVariantFlag = interaction.value("ttsVariantFlag", "");
+    out.ttsVariantText = interaction.value("ttsVariantText", "");
+    out.ttsVariantAudio = interaction.value("ttsVariantAudio", "");
 
     return !out.id.empty() && !out.label.empty();
 }
@@ -779,9 +984,9 @@ bool SceneDatabase::load(const std::string& configPath, const std::string& asset
     }
     else
     {
-        const std::string conversationsPath = siblingConfigPath(configPath, "conversations.json");
+        const std::string conversationsPath = resolveConversationsPath(configPath, assetRoot);
         std::ifstream conversationsFile(conversationsPath.c_str());
-        if (conversationsFile.is_open())
+        if (!conversationsPath.empty() && conversationsFile.is_open())
         {
             nlohmann::json conversationsConfig;
             try
@@ -964,6 +1169,17 @@ const SceneSpeakConfig& SceneDatabase::getSpeakConfig(const std::string& sceneId
         return kEmptyConfig;
 
     return it->second.speakConfig;
+}
+
+std::vector<SceneActorDef> SceneDatabase::getSceneActors(const std::string& sceneId) const
+{
+    std::vector<SceneActorDef> actors;
+    std::map<std::string, SceneData>::const_iterator it = scenes.find(sceneId);
+    if (it == scenes.end())
+        return actors;
+
+    collectSceneActorsFromConfig(it->second.speakConfig, actors);
+    return actors;
 }
 
 const RoomAudioConfig& SceneDatabase::getSceneAudio(const std::string& sceneId) const

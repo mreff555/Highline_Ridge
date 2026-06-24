@@ -22,6 +22,17 @@ struct SceneInteractionDef
     bool requiresExamine = true;
     bool advancesDay = false;
     std::vector<OverlaySequenceStep> overlaySequence;
+    bool tts = false;
+    std::string ttsVoice;
+    std::string ttsText;
+    std::string ttsAudio;
+    bool ttsAfter = false;
+    std::string ttsAfterVoice;
+    std::string ttsAfterText;
+    std::string ttsAfterAudio;
+    std::string ttsVariantFlag;
+    std::string ttsVariantText;
+    std::string ttsVariantAudio;
 };
 
 }

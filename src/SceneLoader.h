@@ -64,6 +64,7 @@ class SceneDatabase
         const std::string& direction,
         ExitRequirementDef& outRequirement) const;
     const SceneSpeakConfig& getSpeakConfig(const std::string& sceneId) const;
+    std::vector<SceneActorDef> getSceneActors(const std::string& sceneId) const;
     const RoomAudioConfig& getSceneAudio(const std::string& sceneId) const;
     const std::vector<TakeableItemDef>& getTakeables(const std::string& sceneId) const;
     const std::vector<SceneInteractionDef>& getInteractions(const std::string& sceneId) const;

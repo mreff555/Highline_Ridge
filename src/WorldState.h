@@ -35,8 +35,11 @@ class WorldState
     int day = 1;
     int actionCount = 0;
     int saloonRoomPurchasedDay = 0;
+    std::map<std::string, int> actorOpinions;
 
     void recordAction() { ++actionCount; }
+    int actorOpinionOf(const std::string& actorId) const;
+    void applyActorOpinionDelta(const std::string& actorId, int delta);
     void advanceDay() { ++day; }
 
     SavedGameState snapshot(

@@ -20,12 +20,14 @@ class XaiTtsClient
     public:
     static std::vector<TtsVoiceEntry> collectVoiceEntries(
         const std::string& conversationsPath,
+        const std::string& scenesPath,
         const std::string& defaultVoiceId);
 
     static int refreshBundledVoices(
         const std::string& apiKey,
         const std::string& assetRoot,
         const std::string& conversationsPath,
+        const std::string& scenesPath,
         const std::string& defaultVoiceId);
 
     private:

@@ -159,6 +159,80 @@ void collectChoiceEntries(
     }
 }
 
+void collectRandomLineEntries(
+    std::vector<TtsVoiceEntry>& entries,
+    const nlohmann::json& lines,
+    const std::string& defaultVoiceId)
+{
+    if (!lines.is_array())
+        return;
+
+    for (const nlohmann::json& line : lines)
+    {
+        addPrimaryTtsEntry(entries, line, defaultVoiceId, line.value("text", ""));
+        addAfterTtsEntry(entries, line, defaultVoiceId);
+        collectChoiceEntries(entries, line.value("choices", nlohmann::json::array()), defaultVoiceId);
+    }
+}
+
+void collectSceneInteractionEntries(
+    std::vector<TtsVoiceEntry>& entries,
+    const std::string& scenesPath,
+    const std::string& defaultVoiceId)
+{
+    std::ifstream file(scenesPath.c_str());
+    if (!file.is_open())
+        return;
+
+    nlohmann::json config;
+    try
+    {
+        file >> config;
+    }
+    catch (const nlohmann::json::exception&)
+    {
+        return;
+    }
+
+    const nlohmann::json& scenes = config.value("scenes", nlohmann::json::object());
+    if (!scenes.is_object())
+        return;
+
+    for (auto sceneIt = scenes.begin(); sceneIt != scenes.end(); ++sceneIt)
+    {
+        if (!sceneIt.value().is_object())
+            continue;
+
+        const nlohmann::json& interactions = sceneIt.value().value("interactions", nlohmann::json::array());
+        if (!interactions.is_array())
+            continue;
+
+        for (const nlohmann::json& interaction : interactions)
+        {
+            addPrimaryTtsEntry(
+                entries,
+                interaction,
+                defaultVoiceId,
+                interaction.value("useDetails", ""));
+            addAfterTtsEntry(entries, interaction, defaultVoiceId);
+
+            if (interaction.value("tts", false) && !interaction.value("ttsVariantAudio", "").empty())
+            {
+                nlohmann::json variantNode = nlohmann::json::object();
+                variantNode["tts"] = true;
+                variantNode["ttsAudio"] = interaction.value("ttsVariantAudio", "");
+                variantNode["ttsText"] = interaction.value("ttsVariantText", "");
+                variantNode["ttsVoice"] = interaction.value("ttsVoice", defaultVoiceId);
+                addPrimaryTtsEntry(
+                    entries,
+                    variantNode,
+                    defaultVoiceId,
+                    interaction.value("ttsVariantText", ""));
+            }
+        }
+    }
+}
+
 }
 
 void printGameHelp(const char* executableName)
@@ -181,62 +255,67 @@ void printGameHelp(const char* executableName)
 
 std::vector<TtsVoiceEntry> XaiTtsClient::collectVoiceEntries(
     const std::string& conversationsPath,
+    const std::string& scenesPath,
     const std::string& defaultVoiceId)
 {
     std::vector<TtsVoiceEntry> entries;
 
     std::ifstream file(conversationsPath.c_str());
-    if (!file.is_open())
-        return entries;
-
-    nlohmann::json conversations;
-    try
+    if (file.is_open())
     {
-        file >> conversations;
-    }
-    catch (const nlohmann::json::exception&)
-    {
-        return entries;
-    }
-
-    if (!conversations.is_object())
-        return entries;
-
-    for (auto sceneIt = conversations.begin(); sceneIt != conversations.end(); ++sceneIt)
-    {
-        if (!sceneIt.value().is_object())
-            continue;
-
-        const nlohmann::json& phases = sceneIt.value().value("speakPhases", nlohmann::json::array());
-        if (!phases.is_array())
-            continue;
-
-        for (const nlohmann::json& phase : phases)
+        nlohmann::json conversations;
+        try
         {
-            addPrimaryTtsEntry(
-                entries,
-                phase,
-                defaultVoiceId,
-                phase.value("intro", phase.value("text", "")));
-            addAfterTtsEntry(entries, phase, defaultVoiceId);
+            file >> conversations;
+        }
+        catch (const nlohmann::json::exception&)
+        {
+            conversations = nlohmann::json::object();
+        }
 
-            if (phase.value("resumeTts", false))
+        if (conversations.is_object())
+        {
+            for (auto sceneIt = conversations.begin(); sceneIt != conversations.end(); ++sceneIt)
             {
-                nlohmann::json resumeNode = nlohmann::json::object();
-                resumeNode["tts"] = true;
-                resumeNode["ttsAudio"] = phase.value("resumeTtsAudio", "");
-                resumeNode["ttsText"] = phase.value("resumeTtsText", "");
-                resumeNode["ttsVoice"] = phase.value("resumeTtsVoice", defaultVoiceId);
-                addPrimaryTtsEntry(
-                    entries,
-                    resumeNode,
-                    defaultVoiceId,
-                    phase.value("resumeIntro", ""));
-            }
+                if (!sceneIt.value().is_object())
+                    continue;
 
-            collectChoiceEntries(entries, phase.value("choices", nlohmann::json::array()), defaultVoiceId);
+                const nlohmann::json& phases = sceneIt.value().value("speakPhases", nlohmann::json::array());
+                if (!phases.is_array())
+                    continue;
+
+                for (const nlohmann::json& phase : phases)
+                {
+                    addPrimaryTtsEntry(
+                        entries,
+                        phase,
+                        defaultVoiceId,
+                        phase.value("intro", phase.value("text", "")));
+                    addAfterTtsEntry(entries, phase, defaultVoiceId);
+
+                    if (phase.value("resumeTts", false))
+                    {
+                        nlohmann::json resumeNode = nlohmann::json::object();
+                        resumeNode["tts"] = true;
+                        resumeNode["ttsAudio"] = phase.value("resumeTtsAudio", "");
+                        resumeNode["ttsText"] = phase.value("resumeTtsText", "");
+                        resumeNode["ttsVoice"] = phase.value("resumeTtsVoice", defaultVoiceId);
+                        addPrimaryTtsEntry(
+                            entries,
+                            resumeNode,
+                            defaultVoiceId,
+                            phase.value("resumeIntro", ""));
+                    }
+
+                    collectChoiceEntries(entries, phase.value("choices", nlohmann::json::array()), defaultVoiceId);
+                    collectRandomLineEntries(entries, phase.value("lines", nlohmann::json::array()), defaultVoiceId);
+                }
+            }
         }
     }
+
+    if (!scenesPath.empty())
+        collectSceneInteractionEntries(entries, scenesPath, defaultVoiceId);
 
     return entries;
 }
@@ -342,6 +421,7 @@ int XaiTtsClient::refreshBundledVoices(
     const std::string& apiKey,
     const std::string& assetRoot,
     const std::string& conversationsPath,
+    const std::string& scenesPath,
     const std::string& defaultVoiceId)
 {
     const std::string trimmedKey = trimWhitespace(apiKey);
@@ -351,7 +431,8 @@ int XaiTtsClient::refreshBundledVoices(
         return 1;
     }
 
-    const std::vector<TtsVoiceEntry> entries = collectVoiceEntries(conversationsPath, defaultVoiceId);
+    const std::vector<TtsVoiceEntry> entries =
+        collectVoiceEntries(conversationsPath, scenesPath, defaultVoiceId);
     if (entries.empty())
     {
         std::cerr << "No TTS entries found in " << conversationsPath << "\n";

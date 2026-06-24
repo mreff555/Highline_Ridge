@@ -918,6 +918,36 @@ namespace
             audioManager.playDialogSequence(result.dialogAudioTracks);
     }
 
+    void GameSession::playInteractionTts(const SceneInteractionDef& interaction, bool includeAfter)
+    {
+        if (!interaction.tts || !gameConfig.tts.enabled)
+            return;
+
+        const bool useVariant =
+            !interaction.ttsVariantFlag.empty()
+            && worldState.storyFlags.count(interaction.ttsVariantFlag) > 0
+            && !interaction.ttsVariantAudio.empty();
+
+        std::vector<std::string> audioPaths;
+        if (useVariant)
+            audioPaths.push_back(interaction.ttsVariantAudio);
+        else if (!interaction.ttsAudio.empty())
+            audioPaths.push_back(interaction.ttsAudio);
+
+        if (includeAfter && interaction.ttsAfter && !interaction.ttsAfterAudio.empty())
+            audioPaths.push_back(interaction.ttsAfterAudio);
+
+        if (audioPaths.empty())
+            return;
+
+        if (audioManager.playDialogAssetSequence(audioPaths))
+            return;
+
+        TraceLog(
+            LOG_WARNING,
+            "Missing bundled TTS audio (run with --refresh-voices=API_KEY)");
+    }
+
     void GameSession::processSpeakResult(const SpeakResult& result)
     {
         if (result.action == SpeakResult::Action::None
@@ -1094,6 +1124,8 @@ namespace
                 effect.energy = -10.0f;
                 effect.lucidity = 10.0f;
                 effect.charisma = 10.0f;
+                effect.actor = "drunk_patron";
+                effect.actorOpinion = -3;
             }
             else
             {
@@ -1116,6 +1148,8 @@ namespace
                 effect.health = -30.0f;
                 effect.energy = -20.0f;
                 effect.charisma = -5.0f;
+                effect.actor = "drunk_patron";
+                effect.actorOpinion = -3;
             }
         }
         else
@@ -1221,7 +1255,28 @@ namespace
 
     bool GameSession::tryApplyStatusEffect(const StatusEffect& effect, bool allowRepeat)
     {
-        return worldState.playerStats.apply(effect, allowRepeat);
+        if (!effect.hasDelta())
+            return false;
+
+        if (!allowRepeat && !effect.key.empty()
+            && worldState.playerStats.consumedStatusActions.count(effect.key) > 0)
+            return false;
+
+        bool applied = false;
+        if (effect.hasPlayerDelta())
+            applied = worldState.playerStats.apply(effect, allowRepeat);
+
+        if (effect.hasActorOpinionDelta())
+        {
+            worldState.applyActorOpinionDelta(effect.actor, effect.actorOpinion);
+            applied = true;
+        }
+
+        if (applied && !allowRepeat && !effect.key.empty()
+            && worldState.playerStats.consumedStatusActions.count(effect.key) == 0)
+            worldState.playerStats.consumedStatusActions.insert(effect.key);
+
+        return applied;
     }
 
     void GameSession::transitionToScene(const std::string& nextSceneId)
@@ -1287,6 +1342,7 @@ namespace
             "way you found it.";
 
         appendNarrativeSection("Using:", details);
+        playInteractionTts(interaction);
 
         StatusEffect useEffect;
         useEffect.key = interactionKey(interaction.id);
@@ -1306,6 +1362,7 @@ namespace
             "dresser. Your mouth tastes of smoke and iron. The newspaper has not moved. The room remembers you, "
             "but only barely.";
         appendNarrativeSection("Using:", wakeDetails);
+        playInteractionTts(interaction, true);
 
         StatusEffect sleepEffect;
         sleepEffect.key = interactionKey(interaction.id);
@@ -1353,6 +1410,7 @@ namespace
             "permission and without dreams you trust.";
 
         appendNarrativeSection("Using:", details);
+        playInteractionTts(interaction);
 
         closeAllUiPanels();
         updateInventoryLayout();
@@ -1408,6 +1466,8 @@ namespace
 
         if (!interaction.useDetails.empty())
             appendNarrativeSection("Using:", interaction.useDetails);
+
+        playInteractionTts(interaction);
 
         StatusEffect useEffect;
         useEffect.key = interactionKey(interaction.id);
@@ -1909,15 +1969,39 @@ namespace
 
         const std::string dayText = "Day: " + std::to_string(worldState.day);
         const std::string countText = "Count: " + std::to_string(worldState.actionCount);
+        const std::vector<SceneActorDef> sceneActors =
+            sceneDatabase.getSceneActors(worldState.currentSceneId);
+
+        std::vector<std::string> overlayLines;
+        overlayLines.push_back(dayText);
+        overlayLines.push_back(countText);
+        for (const SceneActorDef& actor : sceneActors)
+        {
+            overlayLines.push_back(
+                actor.name + ": " + std::to_string(worldState.actorOpinionOf(actor.id)));
+        }
+
         const float fontSize = 22.0f;
         const int spacing = 2;
         const float padX = 14.0f;
         const float padY = 10.0f;
         const float lineGap = 6.0f;
-        const Vector2 daySize = MeasureTextEx(descriptionFont, dayText.c_str(), fontSize, spacing);
-        const Vector2 countSize = MeasureTextEx(descriptionFont, countText.c_str(), fontSize, spacing);
-        const float contentWidth = std::max(daySize.x, countSize.x);
-        const float contentHeight = daySize.y + lineGap + countSize.y;
+        float contentWidth = 0.0f;
+        float contentHeight = 0.0f;
+        std::vector<Vector2> lineSizes;
+        lineSizes.reserve(overlayLines.size());
+
+        for (const std::string& line : overlayLines)
+        {
+            const Vector2 lineSize = MeasureTextEx(descriptionFont, line.c_str(), fontSize, spacing);
+            lineSizes.push_back(lineSize);
+            contentWidth = std::max(contentWidth, lineSize.x);
+            contentHeight += lineSize.y;
+        }
+
+        if (overlayLines.size() > 1)
+            contentHeight += lineGap * (float)(overlayLines.size() - 1);
+
         const float panelWidth = contentWidth + padX * 2.0f;
         const float panelHeight = contentHeight + padY * 2.0f;
         const float margin = 12.0f;
@@ -1939,9 +2023,17 @@ namespace
 
         const float textX = panel.x + padX;
         float textY = panel.y + padY;
-        DrawTextEx(descriptionFont, dayText.c_str(), { textX, textY }, fontSize, spacing, WHITE);
-        textY += daySize.y + lineGap;
-        DrawTextEx(descriptionFont, countText.c_str(), { textX, textY }, fontSize, spacing, WHITE);
+        for (size_t lineIndex = 0; lineIndex < overlayLines.size(); ++lineIndex)
+        {
+            DrawTextEx(
+                descriptionFont,
+                overlayLines[lineIndex].c_str(),
+                { textX, textY },
+                fontSize,
+                spacing,
+                WHITE);
+            textY += lineSizes[lineIndex].y + lineGap;
+        }
     }
 
     void GameSession::handleSaveLoadMenuInput()

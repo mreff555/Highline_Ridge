@@ -109,6 +109,7 @@ class GameSession
     bool canTakeFromExaminedItem() const;
     void takeFromExaminedItem();
     void playDialogAudio(const SpeakResult& result);
+    void playInteractionTts(const SceneInteractionDef& interaction, bool includeAfter = false);
     void applyStatusEffects(const std::vector<StatusEffect>& effects);
     void handleNarrativeChoiceInput();
     void appendChoiceLinesToNarrative(

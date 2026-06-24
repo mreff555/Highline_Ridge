@@ -47,6 +47,7 @@ struct SavedGameState
     int day = 1;
     int actionCount = 0;
     int saloonRoomPurchasedDay = 0;
+    std::map<std::string, int> actorOpinions;
 };
 
 struct SaveSlotMetadata
