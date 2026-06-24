@@ -305,6 +305,7 @@ bool parseConversationChoice(const nlohmann::json& choice, ConversationChoiceDef
     out.resumeTopLevel = choice.value("resumeTopLevel", false);
     out.grantStoryFlag = choice.value("grantStoryFlag", "");
     out.startPhase = choice.value("startPhase", "");
+    out.skipIntroOnStartPhase = choice.value("skipIntroOnStartPhase", false);
 
     if (!parseOverlaySequence(choice.value("overlaySequence", nlohmann::json::array()), out.overlaySequence))
         return false;

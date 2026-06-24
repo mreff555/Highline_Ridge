@@ -60,7 +60,8 @@ class ConversationManager
     SpeakResult startScriptedPhase(
         const SceneSpeakConfig& config,
         const std::string& phaseId,
-        const std::set<std::string>& storyFlags);
+        const std::set<std::string>& storyFlags,
+        bool skipIntro = false);
     SpeakResult resolveChoice(const SceneSpeakConfig& config, const std::string& choiceId);
     SpeakResult resolveChoiceFromConfig(const SceneSpeakConfig& config, const std::string& choiceId);
     void exportPersistState(ConversationPersistState& out) const;

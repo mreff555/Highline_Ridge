@@ -1194,7 +1194,8 @@ namespace
             SpeakResult chained = conversationMgr.startScriptedPhase(
                 speakConfig,
                 result.startPhaseId,
-                worldState.storyFlags);
+                worldState.storyFlags,
+                result.skipIntroOnStartPhase);
             processSpeakResult(chained);
             updateActionAvailability();
         }

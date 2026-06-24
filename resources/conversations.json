@@ -632,8 +632,35 @@
   "ridge_haberdashery" : {
     "speakPhases" : [
       {
+        "id" : "shopkeeper_wallet",
+        "type" : "scripted",
+        "resetOnSceneEnter" : false,
+        "intro" : "The gentleman behind the counter sets down his pen and regards you with practiced courtesy. His vest is pressed, his collar crisp, his hands clean in the manner of a man who sells refinement at altitude.\n\nHe pauses, studying your face as though sorting you into a ledger already written.\n\n\"Good day, Sir. How are you enjoying the new wallet?\"",
+        "choices" : [
+          {
+            "id" : "wallet_confused",
+            "label" : "Um, I don't follow. What wallet.",
+            "response" : "\"My apologies, sir. You resemble another customer that visited my shop a few days ago.\"\n\nHe recovers his composure with a small inclination of the head.\n\n\"Apologies for the confusion. Is there anything I can help you find?\"",
+            "grantStoryFlag" : "ridge_haberdashery:greeting_done",
+            "startPhase" : "shopkeeper",
+            "skipIntroOnStartPhase" : true,
+            "closePhase" : true
+          },
+          {
+            "id" : "wallet_great",
+            "label" : "Oh, uh. It's great...",
+            "response" : "He studies you a moment longer than courtesy requires, confusion working behind his eyes.\n\n\"Hmmm... Let's move on. Is there anything I can help you find?\"",
+            "grantStoryFlag" : "ridge_haberdashery:greeting_done",
+            "startPhase" : "shopkeeper",
+            "skipIntroOnStartPhase" : true,
+            "closePhase" : true
+          }
+        ]
+      },
+      {
         "id" : "shopkeeper",
         "type" : "scripted",
+        "requiresFlag" : "ridge_haberdashery:greeting_done",
         "resetOnSceneEnter" : true,
         "intro" : "The gentleman behind the counter sets down his pen and regards you with practiced courtesy. His vest is pressed, his collar crisp, his hands clean in the manner of a man who sells refinement at altitude.\n\n\"Good day, sir. Is there anything I can help you find?\"",
         "resumeIntro" : "\"Now then, sir,\" he says, settling his hands on the counter. \"What else may I help you find?\"",

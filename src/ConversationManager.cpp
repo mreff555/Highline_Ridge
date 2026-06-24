@@ -886,7 +886,8 @@ SpeakResult ConversationManager::handleSpeak(
 SpeakResult ConversationManager::startScriptedPhase(
     const SceneSpeakConfig& config,
     const std::string& phaseId,
-    const std::set<std::string>& storyFlags)
+    const std::set<std::string>& storyFlags,
+    bool skipIntro)
 {
     if (awaitingChoice)
         return SpeakResult();
@@ -907,17 +908,20 @@ SpeakResult ConversationManager::startScriptedPhase(
 
     SpeakResult result;
     result.action = SpeakResult::Action::ShowChoices;
-    result.narrative = phase->intro;
+    if (!skipIntro)
+    {
+        result.narrative = phase->intro;
+        applyTtsFields(
+            result,
+            phase->tts,
+            phase->ttsText,
+            phase->ttsVoice,
+            phase->ttsAudio,
+            phase->intro);
+        appendDialogAudioTrack(result, phase->introAudio);
+    }
     result.sketchPath = phase->sketchPath;
     result.choices = available;
-    applyTtsFields(
-        result,
-        phase->tts,
-        phase->ttsText,
-        phase->ttsVoice,
-        phase->ttsAudio,
-        phase->intro);
-    appendDialogAudioTrack(result, phase->introAudio);
     awaitingChoice = true;
     activeScriptPhaseId = phase->id;
     pendingChoices = available;
@@ -1038,6 +1042,7 @@ SpeakResult ConversationManager::resolveScriptedChoice(
         result.action = SpeakResult::Action::ShowNarrative;
     result.grantStoryFlag = choice.grantStoryFlag;
     result.startPhaseId = choice.startPhase;
+    result.skipIntroOnStartPhase = choice.skipIntroOnStartPhase;
     result.overlaySequence = choice.overlaySequence;
     applyTtsFields(
         result,

@@ -74,6 +74,7 @@ struct ConversationChoiceDef
     bool resumeTopLevel = false;
     std::string grantStoryFlag;
     std::string startPhase;
+    bool skipIntroOnStartPhase = false;
     std::vector<OverlaySequenceStep> overlaySequence;
     std::vector<ConversationChoiceDef> followUpChoices;
 
@@ -190,6 +191,7 @@ struct SpeakResult
     std::vector<std::string> ttsAudioPaths;
     std::string grantStoryFlag;
     std::string startPhaseId;
+    bool skipIntroOnStartPhase = false;
     std::vector<OverlaySequenceStep> overlaySequence;
     std::string spokenActorId;
 };
