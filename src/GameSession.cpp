@@ -127,6 +127,7 @@ namespace
       useEnergyDelta(locationStruct.useEnergyDelta),
       useRepeatStatus(locationStruct.useRepeatStatus),
       useRequiresExamine(locationStruct.useRequiresExamine),
+      useAdvancesDay(locationStruct.useAdvancesDay),
       useExit(locationStruct.useExit),
       descriptionFont(locationStruct.descriptionFont),
       boldFont(locationStruct.boldFont),
@@ -615,8 +616,8 @@ namespace
             appendNarrativeSection("Using:", def->useNarrative);
 
         narrativeNotebook.resetInventoryExamineScroll();
-        scrollNarrativeToHeader("Using:");
         updateActionAvailability();
+        worldState.recordAction();
     }
 
     void GameSession::takeFromExaminedItem()
@@ -833,6 +834,7 @@ namespace
         worldState.sceneVisits.examinedSceneIds.insert(worldState.currentSceneId);
         evaluateMilestones();
         updateActionAvailability();
+        worldState.recordAction();
     }
 
     void GameSession::appendSpeakDetails()
@@ -843,6 +845,7 @@ namespace
         appendNarrativeSection("Speaking:", speakDetails);
         worldState.sceneVisits.hasSpokenInCurrentScene = true;
         updateActionAvailability();
+        worldState.recordAction();
     }
 
 
@@ -935,6 +938,8 @@ namespace
             const std::vector<ConversationChoiceDef>& pending = conversationMgr.getPendingChoices();
             appendChoiceLinesToNarrative(!pending.empty() ? pending : result.choices);
             evaluateMilestones();
+            refreshSceneImage();
+            updateActionAvailability();
             return;
         }
 
@@ -942,6 +947,7 @@ namespace
         grantConversationItem(result.grantItem);
         playDialogAudio(result);
         evaluateMilestones();
+        refreshSceneImage();
     }
 
     void GameSession::resolveDialogChoice(const std::string& choiceId)
@@ -976,6 +982,8 @@ namespace
         if (result.action == SpeakResult::Action::None && result.narrative.empty())
             return;
 
+        worldState.recordAction();
+
         const std::string responseText = result.narrative;
         const std::vector<StatusEffect> effects = result.statusEffects;
 
@@ -1002,9 +1010,12 @@ namespace
             applyStatusEffects(effects);
             playDialogAudio(result);
             const std::vector<ConversationChoiceDef>& pending = conversationMgr.getPendingChoices();
-            appendChoiceLinesToNarrative(!pending.empty() ? pending : result.choices);
+            appendChoiceLinesToNarrative(
+                !pending.empty() ? pending : result.choices,
+                selectedLineText);
             updateActionAvailability();
             evaluateMilestones();
+            refreshSceneImage();
             return;
         }
 
@@ -1012,7 +1023,9 @@ namespace
         grantConversationItem(result.grantItem);
         playDialogAudio(result);
 
-        if (!responseText.empty())
+        if (!selectedLineText.empty())
+            scrollNarrativeToLine(selectedLineText, true);
+        else if (!responseText.empty())
         {
             rebuildNarrativeLayout();
             std::istringstream responseStream(responseText);
@@ -1021,8 +1034,22 @@ namespace
                 scrollNarrativeToLine(firstLine, true);
         }
 
+        if (!result.grantStoryFlag.empty())
+            applyGrantedStoryFlag(result.grantStoryFlag);
+
         updateActionAvailability();
         evaluateMilestones();
+        refreshSceneImage();
+
+        if (!result.startPhaseId.empty())
+        {
+            SpeakResult chained = conversationMgr.startScriptedPhase(
+                speakConfig,
+                result.startPhaseId,
+                worldState.storyFlags);
+            processSpeakResult(chained);
+            updateActionAvailability();
+        }
     }
 
     void GameSession::resolveCombatEncounter(const std::string& encounterId)
@@ -1134,6 +1161,12 @@ namespace
                 worldState.currentSceneId,
                 speakConfig,
                 worldState.storyFlags);
+            if (result.action != SpeakResult::Action::None
+                || !result.narrative.empty()
+                || !result.sketchPath.empty())
+            {
+                worldState.recordAction();
+            }
             processSpeakResult(result);
             return;
         }
@@ -1177,6 +1210,7 @@ namespace
         narrativeNotebook.resetNarrativeScroll();
         narrativeNotebook.invalidateLayout();
         trimNarrativeBuffer();
+        worldState.advanceDay();
         updateActionAvailability();
     }
 
@@ -1203,8 +1237,131 @@ namespace
         updateActionAvailability();
     }
 
+    std::string GameSession::formatNewspaperDate(int day)
+    {
+        int year = 1891;
+        int month = 4;
+        int date = 3 + std::max(0, day - 1);
+
+        auto daysInMonth = [](int monthIndex, int yearValue)
+        {
+            static const int kDaysPerMonth[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+            int days = kDaysPerMonth[(size_t)(monthIndex - 1)];
+            if (monthIndex == 2 && yearValue % 4 == 0 && (yearValue % 100 != 0 || yearValue % 400 == 0))
+                ++days;
+            return days;
+        };
+
+        static const char* kMonthNames[] = {
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        };
+
+        while (date > daysInMonth(month, year))
+        {
+            date -= daysInMonth(month, year);
+            ++month;
+            if (month > 12)
+            {
+                month = 1;
+                ++year;
+            }
+        }
+
+        return std::string(kMonthNames[(size_t)(month - 1)]) + " " + std::to_string(date)
+            + ", " + std::to_string(year);
+    }
+
+    void GameSession::applyBedroomReadNewspaper(const SceneInteractionDef& interaction)
+    {
+        const std::string dateText = formatNewspaperDate(worldState.day);
+        const std::string details =
+            "You unfold the newspaper on the chair and smooth the creased mining briefs flat with your thumb. "
+            "The masthead is printed in sober type above the fold:\n\n"
+            + dateText + ".\n\n"
+            "The date sits there without apology, as though the ridge and the valley below agreed on the same calendar "
+            "for once. You read a line about ore shipments and weather over Graysmill, then fold the paper back the "
+            "way you found it.";
+
+        appendNarrativeSection("Using:", details);
+
+        StatusEffect useEffect;
+        useEffect.key = interactionKey(interaction.id);
+        useEffect.lucidity = interaction.useLucidityDelta;
+        tryApplyStatusEffect(useEffect, interaction.repeat);
+
+        closeAllUiPanels();
+        updateInventoryLayout();
+        worldState.recordAction();
+        updateActionAvailability();
+    }
+
+    void GameSession::applyBedroomSleep(const SceneInteractionDef& interaction)
+    {
+        std::string details =
+            "You lie down in the iron bed and begin to collect your thoughts while staring at the cracked plaster "
+            "ceiling. The cracks branch like slow lightning frozen above you, map lines with no legend. The saloon's "
+            "muffled pulse travels through the floorboards - piano, laughter, a glass breaking somewhere far from "
+            "your door.";
+
+        const bool blueWomanHired =
+            worldState.storyFlags.count("saloon_interior:blue_woman_hired") > 0;
+        if (blueWomanHired)
+        {
+            details +=
+                "\n\nJust then the door quietly cracks open. The woman in blue peers in, smiling, one hand still on "
+                "the knob as though she might vanish if you looked away too long. She waits for permission to enter.\n\n"
+                "You motion for her to come.\n\n"
+                "She steps in and closes the door behind her with care, the latch settling soft as a held breath.";
+        }
+
+        details +=
+            "\n\nSleep takes you the way it takes men who have been awake too long in the wrong country: without "
+            "permission and without dreams you trust.\n\n"
+            "When you wake, gray light sits at the window and the bourbon bottle throws a darker shadow on the dresser. "
+            "Your mouth tastes of smoke and iron. The newspaper has not moved. The room remembers you, but only barely.";
+
+        appendNarrativeSection("Using:", details);
+
+        StatusEffect sleepEffect;
+        sleepEffect.key = interactionKey(interaction.id);
+        sleepEffect.health = interaction.useHealthDelta;
+        sleepEffect.energy = interaction.useEnergyDelta;
+        sleepEffect.lucidity = interaction.useLucidityDelta;
+        tryApplyStatusEffect(sleepEffect, interaction.repeat);
+
+        if (blueWomanHired)
+        {
+            StatusEffect hiredEffect;
+            hiredEffect.key = interactionKey("sleep_bed:blue_woman");
+            hiredEffect.energy = 10.0f;
+            hiredEffect.health = 5.0f;
+            hiredEffect.lucidity = 10.0f;
+            hiredEffect.charisma = 2.0f;
+            tryApplyStatusEffect(hiredEffect, interaction.repeat);
+        }
+
+        closeAllUiPanels();
+        updateInventoryLayout();
+        worldState.advanceDay();
+        worldState.recordAction();
+        updateActionAvailability();
+    }
+
     void GameSession::applyInteraction(const SceneInteractionDef& interaction)
     {
+        if (interaction.id == "read_newspaper")
+        {
+            applyBedroomReadNewspaper(interaction);
+            return;
+        }
+
+        if (interaction.id == "sleep_bed")
+        {
+            applyBedroomSleep(interaction);
+            return;
+        }
+
         if (!interaction.useDetails.empty())
             appendNarrativeSection("Using:", interaction.useDetails);
 
@@ -1212,6 +1369,9 @@ namespace
         useEffect.key = interactionKey(interaction.id);
         useEffect.health = interaction.useHealthDelta;
         useEffect.energy = interaction.useEnergyDelta;
+        useEffect.resolve = interaction.useResolveDelta;
+        useEffect.lucidity = interaction.useLucidityDelta;
+        useEffect.charisma = interaction.useCharismaDelta;
         tryApplyStatusEffect(useEffect, interaction.repeat);
 
         if (!interaction.repeat)
@@ -1219,6 +1379,11 @@ namespace
 
         closeAllUiPanels();
         updateInventoryLayout();
+
+        if (interaction.advancesDay)
+            worldState.advanceDay();
+
+        worldState.recordAction();
 
         if (!interaction.exitSceneId.empty())
             transitionToScene(interaction.exitSceneId);
@@ -1242,6 +1407,11 @@ namespace
         worldState.sceneVisits.hasUsedInCurrentScene = true;
         if (!useRepeatStatus)
             worldState.sceneVisits.usedSceneIds.insert(worldState.currentSceneId);
+
+        if (useAdvancesDay)
+            worldState.advanceDay();
+
+        worldState.recordAction();
 
         const std::string exitSceneId = useExit;
         if (!exitSceneId.empty())
@@ -1268,7 +1438,6 @@ namespace
                 continue;
 
             applyInteraction(interaction);
-            scrollNarrativeToHeader("Using:");
             return;
         }
     }
@@ -1276,7 +1445,6 @@ namespace
     void GameSession::appendUseDetails()
     {
         applyDirectUse();
-        scrollNarrativeToHeader("Using:");
     }
 
     void GameSession::updateActionAvailability()
@@ -1405,6 +1573,7 @@ namespace
         narrativeNotebook.getNarrativeText() += details;
         trimNarrativeBuffer();
         narrativeNotebook.invalidateLayout();
+        scrollNarrativeToLine(details, true);
     }
 
     void GameSession::tryMove(const std::string& direction)
@@ -1420,10 +1589,7 @@ namespace
                 blockedDetails))
         {
             if (!blockedDetails.empty())
-            {
                 appendBlockedMovementMessage(blockedDetails);
-                scrollNarrativeToLine(blockedDetails, true);
-            }
             return;
         }
 
@@ -1436,6 +1602,27 @@ namespace
         trimNarrativeBuffer();
         evaluateMilestones();
         updateActionAvailability();
+        worldState.recordAction();
+    }
+
+    void GameSession::refreshSceneImage()
+    {
+        const SceneData* scene = sceneDatabase.getScene(worldState.currentSceneId);
+        if (scene == nullptr)
+            return;
+
+        const std::string imagePath = sceneDatabase.resolveSceneImagePath(
+            *scene,
+            worldState.storyFlags,
+            [this](const std::string& phaseId)
+            {
+                return conversationMgr.isPhaseComplete(phaseId);
+            });
+
+        if (!sceneController.getActiveScene().replaceLocationImage(sceneDatabase, imagePath))
+            return;
+
+        syncFromActiveScene();
     }
 
     void GameSession::syncFromActiveScene()
@@ -1453,6 +1640,7 @@ namespace
         useEnergyDelta = locationStruct.useEnergyDelta;
         useRepeatStatus = locationStruct.useRepeatStatus;
         useRequiresExamine = locationStruct.useRequiresExamine;
+        useAdvancesDay = locationStruct.useAdvancesDay;
         useExit = locationStruct.useExit;
         baseActionFilter = locationStruct.actionFilter;
         descriptionFont = locationStruct.descriptionFont;
@@ -1482,12 +1670,9 @@ namespace
         narrativeNotebook.invalidateLayout();
         trimNarrativeBuffer();
         evaluateMilestones();
+        refreshSceneImage();
         updateActionAvailability();
     }
-
-
-
-
 
     SavedGameState GameSession::captureSaveState() const
     {
@@ -1529,6 +1714,7 @@ namespace
 
         audioManager.onRoomEnter(sceneDatabase.getSceneAudio(worldState.currentSceneId), fromSceneId);
         trimNarrativeBuffer();
+        refreshSceneImage();
         updateInventoryLayout();
         updateActionAvailability();
         return true;
@@ -1645,6 +1831,71 @@ namespace
             showTransientMessage("Quick save failed.");
     }
 
+    void GameSession::applyGrantedStoryFlag(const std::string& flag)
+    {
+        if (flag.empty())
+            return;
+
+        worldState.storyFlags.insert(flag);
+        if (flag == "saloon_interior:room_tab")
+            worldState.saloonRoomPurchasedDay = worldState.day;
+    }
+
+    void GameSession::handleDevOverlayInput()
+    {
+        if (!IsKeyPressed(KEY_S))
+            return;
+
+        const bool ctrlHeld = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
+        const bool shiftHeld = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
+        if (!ctrlHeld || !shiftHeld)
+            return;
+
+        devOverlayVisible = !devOverlayVisible;
+    }
+
+    void GameSession::drawDevOverlay() const
+    {
+        if (!devOverlayVisible)
+            return;
+
+        const std::string dayText = "Day: " + std::to_string(worldState.day);
+        const std::string countText = "Count: " + std::to_string(worldState.actionCount);
+        const float fontSize = 22.0f;
+        const int spacing = 2;
+        const float padX = 14.0f;
+        const float padY = 10.0f;
+        const float lineGap = 6.0f;
+        const Vector2 daySize = MeasureTextEx(descriptionFont, dayText.c_str(), fontSize, spacing);
+        const Vector2 countSize = MeasureTextEx(descriptionFont, countText.c_str(), fontSize, spacing);
+        const float contentWidth = std::max(daySize.x, countSize.x);
+        const float contentHeight = daySize.y + lineGap + countSize.y;
+        const float panelWidth = contentWidth + padX * 2.0f;
+        const float panelHeight = contentHeight + padY * 2.0f;
+        const float margin = 12.0f;
+        const Rectangle panel = {
+            margin,
+            (float)screenHeight - panelHeight - margin,
+            panelWidth,
+            panelHeight
+        };
+
+        const Color panelBorder = uiBackdrop.isActive()
+            ? uiBackdrop.panelBorderColor()
+            : Color{168, 138, 72, 255};
+        if (uiBackdrop.isActive())
+            uiBackdrop.drawPanel(panel, 0.2f, 8);
+        else
+            DrawRectangleRounded(panel, 0.2f, 8, {28, 26, 34, 51});
+        DrawRoundedBorder(panel, 0.2f, 8, 2.0f, panelBorder);
+
+        const float textX = panel.x + padX;
+        float textY = panel.y + padY;
+        DrawTextEx(descriptionFont, dayText.c_str(), { textX, textY }, fontSize, spacing, WHITE);
+        textY += daySize.y + lineGap;
+        DrawTextEx(descriptionFont, countText.c_str(), { textX, textY }, fontSize, spacing, WHITE);
+    }
+
     void GameSession::handleSaveLoadMenuInput()
     {
         if (IsKeyPressed(KEY_ESCAPE))
@@ -1731,6 +1982,7 @@ namespace
         audioManager.update(GetFrameTime());
         updateTransientMessage(GetFrameTime());
         handleQuickSaveInput();
+        handleDevOverlayInput();
         handlePauseMenuInput();
 
         if (saveLoadMenu.isOpen())
@@ -1828,6 +2080,8 @@ namespace
         if (inventoryMgr.isOpen())
         {
             inventoryMgr.update();
+            if (inventoryMgr.consumeItemCombinationApplied())
+                worldState.recordAction();
             handleInventoryDropInput();
 
             if (buttonMgr.consumeBackwardButtonClick() && inventoryMgr.isExaminingItem())
@@ -1858,6 +2112,7 @@ namespace
                     playItemExamineAudio(*examinedItem);
                 narrativeNotebook.resetInventoryExamineScroll();
                 updateActionAvailability();
+                worldState.recordAction();
             }
             if (inventoryMgr.isExaminingItem())
                 handleInventoryExamineScrollInput();
@@ -1890,17 +2145,10 @@ namespace
         }
 
         if (!conversationMgr.isAwaitingChoice() && buttonMgr.consumeExamineButtonClick())
-        {
             appendExamineDetails();
-            scrollNarrativeToHeader("Examining:");
-        }
 
         if (!conversationMgr.isAwaitingChoice() && buttonMgr.consumeSpeakButtonClick())
-        {
             handleSpeak();
-            if (!conversationMgr.isAwaitingChoice())
-                scrollNarrativeToHeader("Speaking:");
-        }
 
         if (!conversationMgr.isAwaitingChoice() && buttonMgr.consumeUseButtonClick())
         {
@@ -1971,6 +2219,7 @@ namespace
         saveLoadMenu.draw();
         drawTransientMessage();
         dropConfirmMgr.draw();
+        drawDevOverlay();
     }
     void GameSession::openUiMode(UiMode mode)
     {
@@ -2016,9 +2265,11 @@ namespace
     {
         narrativeNotebook.appendSketch(sketchPath);
     }
-    void GameSession::appendChoiceLinesToNarrative(const std::vector<ConversationChoiceDef>& choices)
+    void GameSession::appendChoiceLinesToNarrative(
+        const std::vector<ConversationChoiceDef>& choices,
+        const std::string& scrollAnchorLine)
     {
-        narrativeNotebook.appendChoiceLines(choices);
+        narrativeNotebook.appendChoiceLines(choices, scrollAnchorLine);
     }
     void GameSession::stripDialogChoiceLinesFromNarrative(
         const std::vector<ConversationChoiceDef>& choices,

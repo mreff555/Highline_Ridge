@@ -23,6 +23,7 @@ struct LocationStruct
     float useEnergyDelta = 0.0f;
     bool useRepeatStatus = false;
     bool useRequiresExamine = true;
+    bool useAdvancesDay = false;
     std::string useExit;
     Font descriptionFont;
     Font boldFont;

@@ -1,5 +1,7 @@
 #include "ActiveScene.h"
 
+#include <SceneLoader.h>
+
 namespace testgame
 {
 
@@ -22,6 +24,19 @@ void ActiveScene::unloadOwnedImage()
         view.locationImage = Texture2D{};
         view.ownsLocationImage = false;
     }
+}
+
+bool ActiveScene::replaceLocationImage(const SceneDatabase& database, const std::string& imagePath)
+{
+    Texture2D sceneTexture{};
+    if (!database.loadSceneTexture(imagePath, sceneTexture))
+        return false;
+
+    unloadOwnedImage();
+    view.locationImage = sceneTexture;
+    view.ownsLocationImage = true;
+    view.isUnderConstruction = false;
+    return true;
 }
 
 }

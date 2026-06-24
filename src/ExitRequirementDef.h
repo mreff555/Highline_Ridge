@@ -9,6 +9,7 @@ namespace testgame
 struct ExitRequirementDef
 {
     bool requiresLightSource = false;
+    bool requiresRoomPurchasedToday = false;
     std::string blockedDetails;
 };
 

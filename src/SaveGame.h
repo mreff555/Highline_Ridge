@@ -44,6 +44,9 @@ struct SavedGameState
     std::map<std::string, std::vector<TakeableItemDef>> droppedItemsByScene;
     ConversationPersistState conversation;
     MilestonePersistState milestones;
+    int day = 1;
+    int actionCount = 0;
+    int saloonRoomPurchasedDay = 0;
 };
 
 struct SaveSlotMetadata

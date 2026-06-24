@@ -791,8 +791,11 @@ std::vector<ConversationChoiceDef> NarrativeNotebook::filterChoices(
         narrativeText += details;
         trimBuffer();
         narrativeLayoutDirty = true;
+        scrollToHeader(header);
     }
-    void NarrativeNotebook::appendChoiceLines(const std::vector<ConversationChoiceDef>& choices)
+    void NarrativeNotebook::appendChoiceLines(
+        const std::vector<ConversationChoiceDef>& choices,
+        const std::string& scrollAnchorLine)
     {
         const std::vector<ConversationChoiceDef> available = filterChoices(choices);
         for (const ConversationChoiceDef& choice : available)
@@ -805,9 +808,9 @@ std::vector<ConversationChoiceDef> NarrativeNotebook::filterChoices(
         narrativeLayoutDirty = true;
 
         if (!available.empty())
-            scrollToPendingChoices();
+            scrollToPendingChoices(scrollAnchorLine);
     }
-    void NarrativeNotebook::scrollToPendingChoices()
+    void NarrativeNotebook::scrollToPendingChoices(const std::string& preferredLine)
     {
         const std::vector<ConversationChoiceDef>& choices = conversationMgr->getPendingChoices();
         if (choices.empty())
@@ -815,12 +818,22 @@ std::vector<ConversationChoiceDef> NarrativeNotebook::filterChoices(
 
         rebuildNarrativeLayout();
 
-        if (!narrativeSketchPlacements.empty())
+        if (!preferredLine.empty())
         {
-            const NarrativeSketchPlacement& placement = narrativeSketchPlacements.back();
-            const float maxScroll = std::max(0.0f, narrativeContentHeight - getNarrativeVisibleHeight());
-            narrativeScroll.setScrollY(std::max(0.0f, std::min(placement.yOffset, maxScroll)));
+            scrollToLine(preferredLine, true);
             return;
+        }
+
+        static const char* kEventHeaders[] = { "Speaking:", "Examining:", "Using:" };
+        for (const char* header : kEventHeaders)
+        {
+            const float headerOffset = getNarrativeLineOffsetY(header, true);
+            if (headerOffset >= 0.0f)
+            {
+                const float maxScroll = std::max(0.0f, narrativeContentHeight - getNarrativeVisibleHeight());
+                narrativeScroll.setScrollY(std::max(0.0f, std::min(headerOffset, maxScroll)));
+                return;
+            }
         }
 
         scrollToLine(choices.front().label, true);

@@ -64,6 +64,7 @@ class InventoryMgr
     void restoreFromSnapshots(const std::vector<InventoryItem>& savedItems);
 
     std::string consumePendingDropItemId();
+    bool consumeItemCombinationApplied();
 
     private:
     void createDefaultItems();
@@ -115,6 +116,7 @@ class InventoryMgr
     std::string pendingPressItemId;
     Vector2 pressStartPos{};
     bool isDraggingItem = false;
+    bool pendingItemCombinationApplied = false;
 
     ScrollPanel inventoryScroll;
     mutable float inventoryContentHeight = 0.0f;

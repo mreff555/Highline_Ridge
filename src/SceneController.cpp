@@ -85,6 +85,7 @@ bool SceneController::hasLightSourceInInventory(
 
 bool SceneController::canUseExit(
     const std::string& direction,
+    const WorldState& worldState,
     const InventoryMgr& inventoryMgr,
     const ItemDatabase& itemDatabase,
     std::string& outBlockedDetails) const
@@ -97,6 +98,17 @@ bool SceneController::canUseExit(
     {
         outBlockedDetails = requirement.blockedDetails;
         return false;
+    }
+
+    if (requirement.requiresRoomPurchasedToday)
+    {
+        const bool roomValidToday = worldState.saloonRoomPurchasedDay > 0
+            && worldState.saloonRoomPurchasedDay == worldState.day;
+        if (!roomValidToday)
+        {
+            outBlockedDetails = requirement.blockedDetails;
+            return false;
+        }
     }
 
     return true;
@@ -137,7 +149,7 @@ bool SceneController::tryMove(
     if (nextSceneId.empty())
         return false;
 
-    if (!canUseExit(direction, inventoryMgr, itemDatabase, outBlockedDetails))
+    if (!canUseExit(direction, worldState, inventoryMgr, itemDatabase, outBlockedDetails))
         return false;
 
     return transitionToScene(nextSceneId, worldState, takeMgr, interactionMgr);

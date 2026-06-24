@@ -80,9 +80,13 @@ class GameSession
     void handlePauseMenuInput();
     void handleSaveLoadMenuInput();
     void handleQuickSaveInput();
+    void handleDevOverlayInput();
+    void drawDevOverlay() const;
+    void applyGrantedStoryFlag(const std::string& flag);
     void relayoutForScreenSize(int width, int height);
     void syncNarrativeContext();
     void syncFromActiveScene();
+    void refreshSceneImage();
     SavedGameState captureSaveState() const;
     bool applySaveState(const SavedGameState& state);
     bool quickSaveToDisk();
@@ -105,7 +109,9 @@ class GameSession
     void playDialogAudio(const SpeakResult& result);
     void applyStatusEffects(const std::vector<StatusEffect>& effects);
     void handleNarrativeChoiceInput();
-    void appendChoiceLinesToNarrative(const std::vector<ConversationChoiceDef>& choices);
+    void appendChoiceLinesToNarrative(
+        const std::vector<ConversationChoiceDef>& choices,
+        const std::string& scrollAnchorLine = "");
     std::vector<ConversationChoiceDef> filterAvailableChoices(
         const std::vector<ConversationChoiceDef>& choices) const;
     void appendNarrativeSketch(const std::string& sketchPath);
@@ -125,6 +131,9 @@ class GameSession
     void processPendingTakes();
     void processPendingInteractions();
     void applyInteraction(const SceneInteractionDef& interaction);
+    void applyBedroomReadNewspaper(const SceneInteractionDef& interaction);
+    void applyBedroomSleep(const SceneInteractionDef& interaction);
+    static std::string formatNewspaperDate(int day);
     void applyDirectUse();
     std::vector<SceneInteractionDef> getAvailableInteractions() const;
     std::string interactionKey(const std::string& interactionId) const;
@@ -199,6 +208,7 @@ class GameSession
     float useEnergyDelta = 0.0f;
     bool useRepeatStatus = false;
     bool useRequiresExamine = true;
+    bool useAdvancesDay = false;
     std::string useExit;
     Font descriptionFont;
     Font boldFont;
@@ -224,6 +234,7 @@ class GameSession
     bool initialFrameComplete = false;
     std::string transientMessage;
     float transientMessageTimer = 0.0f;
+    bool devOverlayVisible = false;
 
     mutable WorldState worldState;
     SceneController sceneController;

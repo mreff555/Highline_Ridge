@@ -69,13 +69,14 @@ class NarrativeNotebook
     void appendSection(const char* header, const std::string& details);
     void appendSketch(const std::string& sketchPath);
     void appendChoiceLines(
-        const std::vector<ConversationChoiceDef>& choices);
+        const std::vector<ConversationChoiceDef>& choices,
+        const std::string& scrollAnchorLine = "");
     void stripChoiceLines(
         const std::vector<ConversationChoiceDef>& choices,
         const std::string& keepLineText = "");
     void scrollToHeader(const char* header);
     void scrollToLine(const std::string& lineText, bool lastOccurrence);
-    void scrollToPendingChoices();
+    void scrollToPendingChoices(const std::string& preferredLine = "");
     void resetNarrativeScroll();
     void resetInventoryExamineScroll();
     void invalidateLayout() const { narrativeLayoutDirty = true; }

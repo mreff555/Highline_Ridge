@@ -163,6 +163,8 @@ bool parseConversationChoice(const nlohmann::json& choice, ConversationChoiceDef
     out.consumeOnSelect = choice.value("consumeOnSelect", false);
     out.persistConsumed = choice.value("persistConsumed", false);
     out.resumeTopLevel = choice.value("resumeTopLevel", false);
+    out.grantStoryFlag = choice.value("grantStoryFlag", "");
+    out.startPhase = choice.value("startPhase", "");
 
     out.followUpChoices.clear();
     const nlohmann::json& followUps = choice.value("choices", nlohmann::json::array());
@@ -475,10 +477,15 @@ bool parseExitRequirement(const nlohmann::json& requirement, ExitRequirementDef&
     out.requiresLightSource = requirement.value(
         "requiresLightSource",
         requirement.value("requires_light_source", false));
+    out.requiresRoomPurchasedToday = requirement.value(
+        "requiresRoomPurchasedToday",
+        requirement.value("requires_room_purchased_today", false));
     out.blockedDetails = requirement.value(
         "blockedDetails",
         requirement.value("blocked_details", ""));
-    return out.requiresLightSource || !out.blockedDetails.empty();
+    return out.requiresLightSource
+        || out.requiresRoomPurchasedToday
+        || !out.blockedDetails.empty();
 }
 
 bool parseExitRequirements(
@@ -543,8 +550,12 @@ bool parseInteraction(const nlohmann::json& interaction, SceneInteractionDef& ou
     out.exitSceneId = interaction.value("exitSceneId", "");
     out.useHealthDelta = interaction.value("useHealthDelta", 0.0f);
     out.useEnergyDelta = interaction.value("useEnergyDelta", 0.0f);
+    out.useResolveDelta = interaction.value("useResolveDelta", 0.0f);
+    out.useLucidityDelta = interaction.value("useLucidityDelta", 0.0f);
+    out.useCharismaDelta = interaction.value("useCharismaDelta", 0.0f);
     out.repeat = interaction.value("repeat", false);
     out.requiresExamine = interaction.value("requiresExamine", true);
+    out.advancesDay = interaction.value("advancesDay", false);
 
     return !out.id.empty() && !out.label.empty();
 }
@@ -574,6 +585,9 @@ bool parseScene(const std::string& id, const nlohmann::json& sceneJson, SceneDat
     out.id = id;
     out.isStart = sceneJson.value("start", false);
     out.imagePath = sceneJson.value("image", "");
+    out.alternateImagePath = sceneJson.value("alternateImage", "");
+    out.alternateImageFlag = sceneJson.value("alternateImageFlag", "");
+    out.alternateImageUntilPhase = sceneJson.value("alternateImageUntilPhase", "");
     out.description = sceneJson.value("description", "");
     out.examineDetails = sceneJson.value("examineDetails", "");
     out.examineFlag = sceneJson.value("examineFlag", "");
@@ -583,6 +597,7 @@ bool parseScene(const std::string& id, const nlohmann::json& sceneJson, SceneDat
     out.useEnergyDelta = sceneJson.value("useEnergyDelta", 0.0f);
     out.useRepeatStatus = sceneJson.value("useRepeatStatus", false);
     out.useRequiresExamine = sceneJson.value("useRequiresExamine", true);
+    out.useAdvancesDay = sceneJson.value("advancesDay", false);
     out.useExit = sceneJson.value("useExit", "");
 
     if (out.description.empty())
@@ -880,6 +895,7 @@ bool SceneDatabase::buildLocationStruct(const SceneData& scene, LocationStruct& 
     outLocation.useEnergyDelta = scene.useEnergyDelta;
     outLocation.useRepeatStatus = scene.useRepeatStatus;
     outLocation.useRequiresExamine = scene.useRequiresExamine;
+    outLocation.useAdvancesDay = scene.useAdvancesDay;
     outLocation.useExit = scene.useExit;
     outLocation.descriptionFont = descriptionFont;
     outLocation.boldFont = boldFont;
@@ -999,6 +1015,39 @@ bool SceneDatabase::getExitRequirement(
 
     outRequirement = requirementIt->second;
     return true;
+}
+
+const SceneData* SceneDatabase::getScene(const std::string& sceneId) const
+{
+    std::map<std::string, SceneData>::const_iterator it = scenes.find(sceneId);
+    if (it == scenes.end())
+        return nullptr;
+
+    return &it->second;
+}
+
+std::string SceneDatabase::resolveSceneImagePath(
+    const SceneData& scene,
+    const std::set<std::string>& storyFlags,
+    const std::function<bool(const std::string& phaseId)>& isPhaseComplete) const
+{
+    if (!scene.alternateImagePath.empty()
+        && !scene.alternateImageFlag.empty()
+        && storyFlags.count(scene.alternateImageFlag) > 0)
+    {
+        if (scene.alternateImageUntilPhase.empty()
+            || !isPhaseComplete(scene.alternateImageUntilPhase))
+        {
+            return scene.alternateImagePath;
+        }
+    }
+
+    return scene.imagePath;
+}
+
+bool SceneDatabase::loadSceneTexture(const std::string& imagePath, Texture2D& outTexture) const
+{
+    return tryLoadSceneImage(imagePath, outTexture);
 }
 
 bool loadStartLocation(

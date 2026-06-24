@@ -7,6 +7,8 @@
 namespace testgame
 {
 
+class SceneDatabase;
+
 class ActiveScene
 {
     public:
@@ -18,6 +20,7 @@ class ActiveScene
 
     void loadFromStruct(const std::string& id, const LocationStruct& locationStruct);
     void unloadOwnedImage();
+    bool replaceLocationImage(const SceneDatabase& database, const std::string& imagePath);
 
     private:
     std::string sceneId;

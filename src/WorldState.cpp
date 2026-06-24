@@ -30,6 +30,9 @@ SavedGameState WorldState::snapshot(
     state.committedPlayerDialogLines = committedPlayerDialogLines;
     state.inventoryItems = inventoryMgr.exportItemSnapshots();
     state.droppedItemsByScene = droppedItemsByScene;
+    state.day = day;
+    state.actionCount = actionCount;
+    state.saloonRoomPurchasedDay = saloonRoomPurchasedDay;
     conversationMgr.exportPersistState(state.conversation);
     milestoneMgr.exportPersistState(state.milestones);
     return state;
@@ -60,6 +63,9 @@ bool WorldState::restore(
     playerStats.consumedStatusActions = state.consumedStatusActions;
     committedPlayerDialogLines = state.committedPlayerDialogLines;
     droppedItemsByScene = state.droppedItemsByScene;
+    day = state.day;
+    actionCount = state.actionCount;
+    saloonRoomPurchasedDay = state.saloonRoomPurchasedDay;
 
     inventoryMgr.restoreFromSnapshots(state.inventoryItems);
     conversationMgr.importPersistState(state.conversation);

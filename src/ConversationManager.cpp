@@ -312,20 +312,60 @@ const ConversationChoiceDef* ConversationManager::findChoiceInList(
     return nullptr;
 }
 
+const ConversationChoiceDef* ConversationManager::findChoiceInTree(
+    const std::vector<ConversationChoiceDef>& choices,
+    const std::string& choiceId) const
+{
+    for (const ConversationChoiceDef& choice : choices)
+    {
+        if (choice.id == choiceId)
+            return &choice;
+
+        if (!choice.followUpChoices.empty())
+        {
+            if (const ConversationChoiceDef* nested = findChoiceInTree(choice.followUpChoices, choiceId))
+                return nested;
+        }
+    }
+
+    return nullptr;
+}
+
+const ConversationChoiceDef* ConversationManager::findChoiceInPhase(
+    const ConversationPhase& phase,
+    const std::string& choiceId,
+    const ConversationChoiceDef** outTopLevelParent) const
+{
+    for (const ConversationChoiceDef& topLevel : phase.choices)
+    {
+        if (topLevel.id == choiceId)
+        {
+            if (outTopLevelParent != nullptr)
+                *outTopLevelParent = &topLevel;
+            return &topLevel;
+        }
+
+        if (const ConversationChoiceDef* nested = findChoiceInTree(topLevel.followUpChoices, choiceId))
+        {
+            if (outTopLevelParent != nullptr)
+                *outTopLevelParent = &topLevel;
+            return nested;
+        }
+    }
+
+    return nullptr;
+}
+
 const ConversationChoiceDef* ConversationManager::findTopLevelChoiceForId(
     const ConversationPhase& phase,
     const std::string& choiceId) const
 {
-    if (const ConversationChoiceDef* topLevel = findChoiceInList(phase.choices, choiceId))
-        return topLevel;
+    const ConversationChoiceDef* topLevelParent = nullptr;
+    const ConversationChoiceDef* found = findChoiceInPhase(phase, choiceId, &topLevelParent);
+    if (found == nullptr)
+        return nullptr;
 
-    for (const ConversationChoiceDef& topLevel : phase.choices)
-    {
-        if (findChoiceInList(topLevel.followUpChoices, choiceId))
-            return &topLevel;
-    }
-
-    return nullptr;
+    return topLevelParent;
 }
 
 std::string ConversationManager::randomPoolKey(
@@ -472,37 +512,53 @@ SpeakResult ConversationManager::handleSpeak(
     }
 
     if (phase->type == ConversationPhaseType::Scripted)
-    {
-        const std::vector<ConversationChoiceDef> available = remainingTopLevelChoices(*phase);
-        if (available.empty())
-        {
-            markPhaseComplete(phase->id);
-            return SpeakResult();
-        }
-
-        SpeakResult result;
-        result.action = SpeakResult::Action::ShowChoices;
-        result.narrative = phase->intro;
-        result.sketchPath = phase->sketchPath;
-        result.choices = available;
-        applyTtsFields(
-            result,
-            phase->tts,
-            phase->ttsText,
-            phase->ttsVoice,
-            phase->ttsAudio,
-            phase->intro);
-        appendDialogAudioTrack(result, phase->introAudio);
-        awaitingChoice = true;
-        activeScriptPhaseId = phase->id;
-        pendingChoices = available;
-        return result;
-    }
+        return startScriptedPhase(config, phase->id, storyFlags);
 
     if (phase->type == ConversationPhaseType::Random)
         return pickRandomLine(sceneId, *phase);
 
     return SpeakResult();
+}
+
+SpeakResult ConversationManager::startScriptedPhase(
+    const SceneSpeakConfig& config,
+    const std::string& phaseId,
+    const std::set<std::string>& storyFlags)
+{
+    if (awaitingChoice)
+        return SpeakResult();
+
+    const ConversationPhase* phase = findPhase(config, phaseId);
+    if (phase == nullptr || phase->type != ConversationPhaseType::Scripted)
+        return SpeakResult();
+
+    if (!isPhaseRequirementMet(*phase, storyFlags) || isPhaseComplete(phaseId))
+        return SpeakResult();
+
+    const std::vector<ConversationChoiceDef> available = remainingTopLevelChoices(*phase);
+    if (available.empty())
+    {
+        markPhaseComplete(phaseId);
+        return SpeakResult();
+    }
+
+    SpeakResult result;
+    result.action = SpeakResult::Action::ShowChoices;
+    result.narrative = phase->intro;
+    result.sketchPath = phase->sketchPath;
+    result.choices = available;
+    applyTtsFields(
+        result,
+        phase->tts,
+        phase->ttsText,
+        phase->ttsVoice,
+        phase->ttsAudio,
+        phase->intro);
+    appendDialogAudioTrack(result, phase->introAudio);
+    awaitingChoice = true;
+    activeScriptPhaseId = phase->id;
+    pendingChoices = available;
+    return result;
 }
 
 SpeakResult ConversationManager::resolveScriptedChoice(
@@ -552,13 +608,16 @@ SpeakResult ConversationManager::resolveScriptedChoice(
         const std::string responseText = choice.response;
         const std::string responseAudio = choice.responseAudio;
 
-        if (fromTopLevel)
-            activeParentChoiceId = choice.id;
+        activeParentChoiceId = choice.id;
 
         SpeakResult result;
         result.action = SpeakResult::Action::ShowChoices;
         result.narrative = responseText;
         result.choices = nextChoices;
+        if (choice.status.hasDelta())
+            result.statusEffects.push_back(choice.status);
+        if (choice.grantItem.isValid())
+            result.grantItem = choice.grantItem;
         appendDialogAudioTrack(result, responseAudio);
         applyTtsFields(
             result,
@@ -583,9 +642,12 @@ SpeakResult ConversationManager::resolveScriptedChoice(
     const std::string consumedChoiceId = fromTopLevel ? choice.id : activeParentChoiceId;
     if (!consumedChoiceId.empty())
     {
-        const ConversationChoiceDef* consumedChoice = findTopLevelChoiceForId(phase, consumedChoiceId);
-        const bool persist = consumedChoice != nullptr && consumedChoice->persistConsumed;
+        const ConversationChoiceDef* topLevelChoice = findTopLevelChoiceForId(phase, consumedChoiceId);
+        const bool persist = topLevelChoice != nullptr && topLevelChoice->persistConsumed;
         markScriptedChoiceConsumed(phase.id, consumedChoiceId, persist);
+
+        if (topLevelChoice != nullptr && consumedChoiceId != topLevelChoice->id)
+            markScriptedChoiceConsumed(phase.id, topLevelChoice->id, topLevelChoice->persistConsumed);
     }
 
     activeParentChoiceId.clear();
@@ -601,6 +663,8 @@ SpeakResult ConversationManager::resolveScriptedChoice(
     if (!choice.responseAudio.empty())
         audioTracks.push_back(choice.responseAudio);
     SpeakResult result = buildNarrativeResult(choice.response, choice.status, choice.grantItem, audioTracks);
+    result.grantStoryFlag = choice.grantStoryFlag;
+    result.startPhaseId = choice.startPhase;
     applyTtsFields(
         result,
         choice.tts,
@@ -668,17 +732,12 @@ SpeakResult ConversationManager::resolveChoiceFromConfig(
         if (phase.type != ConversationPhaseType::Scripted)
             continue;
 
-        const ConversationChoiceDef* topLevel = findTopLevelChoiceForId(phase, choiceId);
-        if (!topLevel)
+        const ConversationChoiceDef* topLevelParent = nullptr;
+        const ConversationChoiceDef* chosen = findChoiceInPhase(phase, choiceId, &topLevelParent);
+        if (!chosen || !topLevelParent)
             continue;
 
-        const bool fromTopLevel = topLevel->id == choiceId;
-        const ConversationChoiceDef* chosen = fromTopLevel
-            ? topLevel
-            : findChoiceInList(topLevel->followUpChoices, choiceId);
-        if (!chosen)
-            continue;
-
+        const bool fromTopLevel = chosen == topLevelParent;
         const ConversationChoiceDef chosenCopy = *chosen;
         return resolveScriptedChoice(config, phase, chosenCopy, fromTopLevel);
     }

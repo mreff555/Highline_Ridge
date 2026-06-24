@@ -59,6 +59,8 @@ struct ConversationChoiceDef
     bool consumeOnSelect = false;
     bool persistConsumed = false;
     bool resumeTopLevel = false;
+    std::string grantStoryFlag;
+    std::string startPhase;
     std::vector<ConversationChoiceDef> followUpChoices;
 
     bool isAvailable(float walletCash) const
@@ -153,6 +155,8 @@ struct SpeakResult
     std::string ttsText;
     std::string ttsVoice;
     std::vector<std::string> ttsAudioPaths;
+    std::string grantStoryFlag;
+    std::string startPhaseId;
 };
 
 }

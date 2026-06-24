@@ -42,6 +42,7 @@ class SceneController
         std::string& outBlockedDetails);
     bool canUseExit(
         const std::string& direction,
+        const WorldState& worldState,
         const InventoryMgr& inventoryMgr,
         const ItemDatabase& itemDatabase,
         std::string& outBlockedDetails) const;

@@ -32,6 +32,12 @@ class WorldState
     std::set<std::string> storyFlags;
     std::set<std::string> committedPlayerDialogLines;
     std::map<std::string, std::vector<TakeableItemDef>> droppedItemsByScene;
+    int day = 1;
+    int actionCount = 0;
+    int saloonRoomPurchasedDay = 0;
+
+    void recordAction() { ++actionCount; }
+    void advanceDay() { ++day; }
 
     SavedGameState snapshot(
         const ConversationManager& conversationMgr,

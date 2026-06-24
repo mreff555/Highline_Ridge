@@ -31,13 +31,17 @@ class ConversationManager
         const std::string& sceneId,
         const SceneSpeakConfig& config,
         const std::set<std::string>& storyFlags);
+    SpeakResult startScriptedPhase(
+        const SceneSpeakConfig& config,
+        const std::string& phaseId,
+        const std::set<std::string>& storyFlags);
     SpeakResult resolveChoice(const SceneSpeakConfig& config, const std::string& choiceId);
     SpeakResult resolveChoiceFromConfig(const SceneSpeakConfig& config, const std::string& choiceId);
     void exportPersistState(ConversationPersistState& out) const;
     void importPersistState(const ConversationPersistState& state);
+    bool isPhaseComplete(const std::string& phaseId) const;
 
     private:
-    bool isPhaseComplete(const std::string& phaseId) const;
     void markPhaseComplete(const std::string& phaseId);
     bool isPhaseRequirementMet(
         const ConversationPhase& phase,
@@ -72,6 +76,13 @@ class ConversationManager
     const ConversationChoiceDef* findChoiceInList(
         const std::vector<ConversationChoiceDef>& choices,
         const std::string& choiceId) const;
+    const ConversationChoiceDef* findChoiceInTree(
+        const std::vector<ConversationChoiceDef>& choices,
+        const std::string& choiceId) const;
+    const ConversationChoiceDef* findChoiceInPhase(
+        const ConversationPhase& phase,
+        const std::string& choiceId,
+        const ConversationChoiceDef** outTopLevelParent = nullptr) const;
     const ConversationChoiceDef* findTopLevelChoiceForId(
         const ConversationPhase& phase,
         const std::string& choiceId) const;

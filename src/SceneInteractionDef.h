@@ -14,8 +14,12 @@ struct SceneInteractionDef
     std::string exitSceneId;
     float useHealthDelta = 0.0f;
     float useEnergyDelta = 0.0f;
+    float useResolveDelta = 0.0f;
+    float useLucidityDelta = 0.0f;
+    float useCharismaDelta = 0.0f;
     bool repeat = false;
     bool requiresExamine = true;
+    bool advancesDay = false;
 };
 
 }

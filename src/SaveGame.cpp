@@ -530,7 +530,7 @@ bool writeSaveFile(const std::string& path, const SavedGameState& state, const S
         return false;
 
     nlohmann::json root;
-    root["version"] = 5;
+    root["version"] = 6;
     root["saveMeta"] = saveMetadataToJson(metadata);
     root["sceneId"] = state.sceneId;
     root["previousSceneId"] = state.previousSceneId;
@@ -572,6 +572,9 @@ bool writeSaveFile(const std::string& path, const SavedGameState& state, const S
             setToJsonArray(state.conversation.persistedConsumedScriptedChoiceIds)}
     };
     root["milestones"] = milestonesToJson(state.milestones);
+    root["day"] = state.day;
+    root["actionCount"] = state.actionCount;
+    root["saloonRoomPurchasedDay"] = state.saloonRoomPurchasedDay;
 
     std::ofstream file(path.c_str());
     if (!file.is_open())
@@ -631,6 +634,10 @@ bool readSaveFile(const std::string& path, SavedGameState& state, SaveSlotMetada
     jsonArrayToSet(root.value("storyFlags", nlohmann::json::array()), state.storyFlags);
     jsonArrayToSet(root.value("consumedStatusActions", nlohmann::json::array()), state.consumedStatusActions);
     jsonArrayToSet(root.value("committedPlayerDialogLines", nlohmann::json::array()), state.committedPlayerDialogLines);
+    state.day = root.value("day", state.day);
+    state.actionCount = root.value("actionCount", state.actionCount);
+    state.saloonRoomPurchasedDay = root.value("saloonRoomPurchasedDay", state.saloonRoomPurchasedDay);
+
     const int saveVersion = root.value("version", 4);
     if (saveVersion >= 5)
     {

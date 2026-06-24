@@ -45,12 +45,36 @@
             "ttsAfterVoice": "leo",
             "ttsAfterAudio": "resources/audio/tts/saloon_interior/water_after.mp3",
             "ttsAfterText": "You lift the glass and drink. The water cuts clean through the smoke in your throat and the ash at the back of your tongue. Your head steadies. The room feels a fraction less unreal, as though someone has wiped a smear from a window you did not know was dirty.",
-            "response": "The bartender holds your gaze a beat longer than necessary, then turns away for a glass. He sets it on the bar without ceremony. Water, clear and cold. Under his breath, barely audible above the piano, he mutters that he is perfectly all right with you not drinking in his establishment. The words are flat. Not cruel. Not kind. Simply settled.\n\nYou lift the glass and drink. The water cuts clean through the smoke in your throat and the ash at the back of your tongue. Your head steadies. The room feels a fraction less unreal, as though someone has wiped a smear from a window you did not know was dirty.",
+            "response": "The bartender holds your gaze a beat longer than necessary, then turns away for a glass. He sets it on the bar without ceremony. Water, clear and cold. Under his breath, barely audible above the piano, he mutters that he is perfectly all right with you not drinking in his establishment. The words are flat. Not cruel. Not kind. Simply settled.\n\nYou lift the glass and drink. The water cuts clean through the smoke in your throat and the ash at the back of your tongue. Your head steadies. The room feels a fraction less unreal, as though someone has wiped a smear from a window you did not know was dirty.\n\nThe bartender sets the rag aside and looks at you again. \"Need anything else?\"",
+            "closePhase": false,
             "status": {
               "key": "saloon_interior:water",
               "health": 5,
               "lucidity": 10
-            }
+            },
+            "choices": [
+              {
+                "id": "get_room",
+                "label": "> Can I get a room?",
+                "closePhase": false,
+                "response": "\"Sure,\" the bartender says, without looking up from the glass he is polishing. \"First on the right.\"\n\nYou reach for your wallet and come up with nothing useful - a few bent coins, a scrap of paper, the feeling that money belonged to someone who used to live in your skin. Your fingers fumble at the lining as though the act of searching might summon cash by embarrassment alone.\n\nThe bartender's expression settles somewhere between pity and frustration, the look of a man who has watched too many drifters arrive broke and leave owing.\n\nHe raises one hand and stops you before you can finish the apology forming in your throat.\n\n\"Don't worry about it,\" he says. \"I can run a tab. You don't look like you will be going anywhere soon.\"",
+                "choices": [
+                  {
+                    "id": "thank_you",
+                    "label": "> Thank you",
+                    "response": "You manage a quiet thanks. The bartender gives a short nod and turns back to his work, as though the matter is already closed on his ledger.",
+                    "grantStoryFlag": "saloon_interior:room_tab",
+                    "startPhase": "burgundy_woman"
+                  }
+                ]
+              },
+              {
+                "id": "thanks",
+                "label": "> Thanks.",
+                "closePhase": true,
+                "response": "You give a short nod. The bartender turns back to the room with the flat efficiency of a man who has already filed you under handled."
+              }
+            ]
           },
           {
             "id": "usual",
@@ -63,13 +87,58 @@
             "ttsAfterVoice": "leo",
             "ttsAfterAudio": "resources/audio/tts/saloon_interior/usual_after.mp3",
             "ttsAfterText": "You down it anyway. Fire and oak. The room tilts half a degree and rights itself. Your resolve hardens even as your thoughts go slippery at the edges.",
-            "response": "The bartender's jaw tightens almost imperceptibly. He reaches high above the backbar, to a shelf you would need a ladder to trust, and brings down a bottle of bourbon with an artistic label and a wax seal dark as blood. He pours a single shot without measuring, slides it across the pine, and watches you with a look that could crush stone.\n\nYou down it anyway. Fire and oak. The room tilts half a degree and rights itself. Your resolve hardens even as your thoughts go slippery at the edges.",
+            "response": "The bartender's jaw tightens almost imperceptibly. He reaches high above the backbar, to a shelf you would need a ladder to trust, and brings down a bottle of bourbon with an artistic label and a wax seal dark as blood. He pours a single shot without measuring, slides it across the pine, and watches you with a look that could crush stone.\n\nYou down it anyway. Fire and oak. The room tilts half a degree and rights itself. Your resolve hardens even as your thoughts go slippery at the edges.\n\nThe bartender sets the rag aside and looks at you again. \"Need anything else?\"",
+            "closePhase": false,
             "status": {
               "key": "saloon_interior:usual",
               "resolve": 20,
               "lucidity": -10,
               "onZeroLucidity": "restart_cabin"
-            }
+            },
+            "choices": [
+              {
+                "id": "get_room",
+                "label": "> Can I get a room?",
+                "closePhase": false,
+                "response": "\"Sure,\" the bartender says, without looking up from the glass he is polishing. \"First on the right.\"\n\nYou reach for your wallet and come up with nothing useful - a few bent coins, a scrap of paper, the feeling that money belonged to someone who used to live in your skin. Your fingers fumble at the lining as though the act of searching might summon cash by embarrassment alone.\n\nThe bartender's expression settles somewhere between pity and frustration, the look of a man who has watched too many drifters arrive broke and leave owing.\n\nHe raises one hand and stops you before you can finish the apology forming in your throat.\n\n\"Don't worry about it,\" he says. \"I can run a tab. You don't look like you will be going anywhere soon.\"",
+                "choices": [
+                  {
+                    "id": "thank_you",
+                    "label": "> Thank you",
+                    "response": "You manage a quiet thanks. The bartender gives a short nod and turns back to his work, as though the matter is already closed on his ledger.",
+                    "grantStoryFlag": "saloon_interior:room_tab",
+                    "startPhase": "burgundy_woman"
+                  }
+                ]
+              },
+              {
+                "id": "thanks",
+                "label": "> Thanks.",
+                "closePhase": true,
+                "response": "You give a short nod. The bartender turns back to the room with the flat efficiency of a man who has already filed you under handled."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "burgundy_woman",
+        "type": "scripted",
+        "resetOnSceneEnter": false,
+        "requiresPhase": "bartender",
+        "requiresFlag": "saloon_interior:room_tab",
+        "intro": "You are still gathering yourself when she appears.\n\nAn aging but beautiful woman in a burgundy dress saunters up to the bar and leans against the scarred pine beside you. Up close she smells of rosewater and lamp smoke. She smiles - not the manufactured smile of the floor, but something quieter, almost private.\n\n\"Need anything else tonight?\" she asks.\n\nHer hand comes to your shoulder in a tender, unhurried way, as though for one moment she is trying to comfort a man who has forgotten how to be comforted.\n\n\"Carrie has been watching you all night.\"\n\nYou follow her glance upward. On the balcony rail, the woman in blue stares down at you through the tobacco haze. She is beautiful in a way that has nothing to do with rouge or feathered fans, and when your eyes meet she offers an inviting smile that does not reach the rest of her face.\n\nThe piano keeps playing its broken phrase. The room does not stop. Only you do.",
+        "choices": [
+          {
+            "id": "accept_company",
+            "label": "> Sure",
+            "response": "The woman in burgundy follows your answer with a small, knowing smile.\n\n\"I thought you might say that.\"\n\nShe lifts her chin toward the balcony and makes a subtle motion with two fingers - not a summons, exactly, but an introduction. The woman in blue sees it. Her smile deepens by half a degree. She touches the rail once, as though marking the spot where you are expected to find her, and lets the crowd swallow the rest of the message.\n\nThe woman beside you releases your shoulder and melts back into the press of bodies, job done.",
+            "grantStoryFlag": "saloon_interior:blue_woman_hired"
+          },
+          {
+            "id": "alone_with_thoughts",
+            "label": "> Thanks. I'd rather be alone with my thoughts.",
+            "response": "Her hand leaves your shoulder gently, without offense.\n\n\"Alright,\" she says, and there is real concern in her voice now. \"Take care of yourself.\"\n\nShe turns and disappears into the crowd the way professionals disappear - without hurry, without looking back, as though she was never there at all."
           }
         ]
       },

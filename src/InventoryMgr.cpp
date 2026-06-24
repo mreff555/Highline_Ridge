@@ -624,6 +624,7 @@ bool InventoryMgr::applyItemCombination(const ItemCombineApplication& applicatio
         addItem(granted);
     }
 
+    pendingItemCombinationApplied = true;
     return true;
 }
 
@@ -918,6 +919,13 @@ std::string InventoryMgr::consumePendingDropItemId()
     const std::string itemId = pendingDropItemId;
     pendingDropItemId.clear();
     return itemId;
+}
+
+bool InventoryMgr::consumeItemCombinationApplied()
+{
+    const bool applied = pendingItemCombinationApplied;
+    pendingItemCombinationApplied = false;
+    return applied;
 }
 
 std::vector<InventoryItem> InventoryMgr::exportItemSnapshots() const

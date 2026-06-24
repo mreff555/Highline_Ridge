@@ -734,6 +734,9 @@
     "saloon_interior": {
       "start": false,
       "image": "resources/images/saloon_interior.png",
+      "alternateImage": "resources/images/saloon_interior_carrie_encounter.png",
+      "alternateImageFlag": "saloon_interior:room_tab",
+      "alternateImageUntilPhase": "burgundy_woman",
       "description": "You push through the batwing doors and the air drops out of your lungs. Just for a moment. The room seems to hold its breath with you. Tobacco smoke, spilled whiskey, lamp soot, and something sweeter beneath it all. Then the saloon exhales and life resumes as though you are merely a draft through the doorway. Glasses rise. Cards slap wood. A piano finds the same broken phrase it was playing before you entered. The bartender does not resume. He stands planted behind the long bar, rag frozen on a tumbler, and glares at you with the flat disapproval of a man who has already decided you are trouble. Above the clatter and the low male laughter, you catch movement on the second floor. A balcony rail runs the length of the hall, and behind it women look down in provocative dress. Corsets cinched tight, throats and wrists bare, feathers and cheap jewels catching the lamplight. A few of their colleagues move among the patrons below, hands on shoulders, laughter manufactured and precise. You feel their attention settle on you the way a match settles on kindling. They recognize you. Or they recognize something about you. And you realize, with equal certainty, that you have caught their eye.",
       "examineDetails": "The main floor is built for throughput and temptation. Sawdust covers the boards between tables. A faro table near the stove holds three players and a dealer whose eyes never quite meet yours. Poker in the corner runs quieter and meaner. The bar itself is a slab of polished pine scarred with initials and burns, brass foot rail bolted through, backbar stacked with bottles labeled in handwriting you cannot read from here. The bartender is broad through the shoulders, sleeves rolled, jaw set. His glare is not surprise. It is inventory.\n\nThe staircase to the balcony is carved with turned balusters and wear-polished treads. Upstairs, the women are not merely decorative. They watch the room the way lookouts watch a road. One in burgundy silk leans far enough over the rail that a patron below thinks the view is for him; her gaze, however, tracks you. Another in emerald green speaks softly to a miner whose stack of chips has grown too tall for comfort. Near the piano, a third woman passes close enough that you catch perfume, rouge, and the metallic edge of nerves held under control. They are working. All of them. And still you have interrupted something by entering. The recognition in their eyes is not warmth. It is calculation.\n\nYou note exits: the doors behind you, a side passage curtained with faded velvet near the stairs, the bar's service hatch snapped shut. Whatever this place is selling tonight, it is selling it on multiple floors. And you are already part of the ledger.",
       "speakDetails": "",
@@ -808,7 +811,7 @@
         "forward": false,
         "backward": false,
         "left": false,
-        "right": false,
+        "right": true,
         "up": false,
         "down": true
       },
@@ -819,7 +822,14 @@
         "use": false
       },
       "exits": {
-        "down": "saloon_interior"
+        "down": "saloon_interior",
+        "right": "saloon_bedroom"
+      },
+      "exitRequirements": {
+        "right": {
+          "requiresRoomPurchasedToday": true,
+          "blockedDetails": "The first door on the right is locked. The brass tag is turned to vacant, but the bolt holds fast. Whoever runs the tab upstairs only opens rooms for guests who paid today - and you have not, or not anymore."
+        }
       },
       "audio": {
         "music": {
@@ -840,6 +850,80 @@
           {
             "path": "resources/audio/ambient/saloon_restaurant_crowd.mp3",
             "volume": 0.5,
+            "fade_in": 1.5,
+            "fade_out": 1.0,
+            "loop": true
+          }
+        ]
+      }
+    },
+    "saloon_bedroom": {
+      "start": false,
+      "image": "resources/images/saloon_bedroom.png",
+      "description": "The door opens on a small rented room that matches the saloon's upstairs promise: modest, clean enough, and not quite honest about the price. An iron twin bed stands against the inner wall, white quilt tucked with boardinghouse precision, brass frame blackened where hands have gripped the rail on bad nights. A wooden chair waits beside it, a folded newspaper left on the seat as though the last guest stepped out mid-article. A narrow dresser holds a bottle of bourbon and a single whiskey glass turned mouth-down, the glass ring still wet on the wood. The window commands the street below - plank sidewalks, hitching rails, lamplight beginning to prick through dusk - the High Line laid out like a problem you might solve if you stared long enough.",
+      "examineDetails": "The room is frontier hotel in its bones: painted plank walls, low ceiling, iron bedstead with a thin mattress and a quilt that smells of lye soap and old wool. The bed frame is stamped with a foundry mark half-rubbed away by polish and time. Victorian, but the practical kind ordered by the crate for railroad towns, not the carved walnut kind downstairs in the private office.\n\nThe chair is plain pine, one splinter catching at the seat edge. The newspaper is yesterday's issue folded to the mining briefs and weather line. The ink is smudged where a thumb held the page open. You do not read the headline yet. You note only that someone was here recently and did not take the paper when they left.\n\nThe dresser is small, two drawers, a chip in the corner veneer. On top sits a bourbon bottle with a plain paper label and a heavy-bottomed whiskey glass. The bourbon is not the artistic sealed bottle the bartender keeps on the high shelf. This is house stock, poured for guests who want to drink alone after the floor goes quiet. The glass is clean. The bottle is half empty.\n\nIn the corner by the door, a porcelain wash basin sits on a battered stand with a matching pitcher, both nicked at the rims from years of hurried guests. The water in the pitcher has gone room-warm, but the soap cake beside the basin still smells faintly of lye.\n\nThe window is the room's real luxury. Good glass, not saloon glazing. Below, the mountain street runs narrow between false-front shops and cabin porches, the valley lost in deepening blue. Your room is high enough that voices from the walk below arrive as texture, not words. The latch is iron. The curtain is thin muslin, tied back with twine.",
+      "interactions": [
+        {
+          "id": "whiskey_shot",
+          "label": "Take a shot of whiskey.",
+          "useDetails": "You pour from the house bourbon into the heavy glass and drink it standing at the dresser. Fire and oak hit the back of your throat, then spread in a slow, honest warmth. The room does not improve, but your nerves stop arguing with the plaster cracks for a moment.",
+          "useResolveDelta": 5,
+          "useLucidityDelta": -5,
+          "repeat": true
+        },
+        {
+          "id": "wash_basin",
+          "label": "Use the wash basin.",
+          "useDetails": "You work the soap into a thin lather and wash your face and hands over the basin, rinsing with water from the pitcher. The chill wakes your skin. You dry off with the rough towel on the stand and feel, for a few minutes, like a man who belongs in a room with a door that locks.",
+          "useLucidityDelta": 5,
+          "useCharismaDelta": 5,
+          "repeat": true
+        },
+        {
+          "id": "read_newspaper",
+          "label": "Read the newspaper.",
+          "useLucidityDelta": 2,
+          "repeat": true
+        },
+        {
+          "id": "sleep_bed",
+          "label": "Sleep in the iron bed.",
+          "useEnergyDelta": 20,
+          "useHealthDelta": 10,
+          "useLucidityDelta": 10,
+          "advancesDay": true,
+          "repeat": true
+        }
+      ],
+      "movement": {
+        "forward": false,
+        "backward": false,
+        "left": true,
+        "right": false,
+        "up": false,
+        "down": false
+      },
+      "actions": {
+        "examine": true,
+        "speak": false,
+        "hit": false,
+        "use": true
+      },
+      "exits": {
+        "left": "saloon_balcony"
+      },
+      "audio": {
+        "music": {
+          "path": "resources/audio/music/saloon_noir_jazz.mp3",
+          "volume": 0.12,
+          "fade_in": 2.0,
+          "fade_out": 2.0,
+          "loop": true
+        },
+        "ambient": [
+          {
+            "path": "resources/audio/ambient/saloon_pub_crowd.mp3",
+            "volume": 0.2,
             "fade_in": 1.5,
             "fade_out": 1.0,
             "loop": true

@@ -8,7 +8,9 @@
 #include <SceneInteractionDef.h>
 #include <TakeableItemDef.h>
 #include <raylib.h>
+#include <functional>
 #include <map>
+#include <set>
 #include <string>
 
 namespace testgame
@@ -20,6 +22,9 @@ struct SceneData
 {
     std::string id;
     std::string imagePath;
+    std::string alternateImagePath;
+    std::string alternateImageFlag;
+    std::string alternateImageUntilPhase;
     std::string description;
     std::string examineDetails;
     std::string examineFlag;
@@ -29,6 +34,7 @@ struct SceneData
     float useEnergyDelta = 0.0f;
     bool useRepeatStatus = false;
     bool useRequiresExamine = true;
+    bool useAdvancesDay = false;
     std::string useExit;
     MovementStruct movement;
     ActionStruct actions;
@@ -60,6 +66,12 @@ class SceneDatabase
     const std::vector<TakeableItemDef>& getTakeables(const std::string& sceneId) const;
     const std::vector<SceneInteractionDef>& getInteractions(const std::string& sceneId) const;
     const std::string& getAssetRoot() const { return assetRoot; }
+    const SceneData* getScene(const std::string& sceneId) const;
+    std::string resolveSceneImagePath(
+        const SceneData& scene,
+        const std::set<std::string>& storyFlags,
+        const std::function<bool(const std::string& phaseId)>& isPhaseComplete) const;
+    bool loadSceneTexture(const std::string& imagePath, Texture2D& outTexture) const;
 
     private:
     bool buildLocationStruct(const SceneData& scene, LocationStruct& outLocation) const;
