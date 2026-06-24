@@ -665,6 +665,7 @@ SpeakResult ConversationManager::resolveScriptedChoice(
     SpeakResult result = buildNarrativeResult(choice.response, choice.status, choice.grantItem, audioTracks);
     result.grantStoryFlag = choice.grantStoryFlag;
     result.startPhaseId = choice.startPhase;
+    result.overlaySequence = choice.overlaySequence;
     applyTtsFields(
         result,
         choice.tts,

@@ -1,6 +1,7 @@
 #ifndef CONVERSATION_STRUCT_H
 #define CONVERSATION_STRUCT_H
 
+#include <SceneOverlayDef.h>
 #include <string>
 #include <vector>
 
@@ -61,6 +62,7 @@ struct ConversationChoiceDef
     bool resumeTopLevel = false;
     std::string grantStoryFlag;
     std::string startPhase;
+    std::vector<OverlaySequenceStep> overlaySequence;
     std::vector<ConversationChoiceDef> followUpChoices;
 
     bool isAvailable(float walletCash) const
@@ -157,6 +159,7 @@ struct SpeakResult
     std::vector<std::string> ttsAudioPaths;
     std::string grantStoryFlag;
     std::string startPhaseId;
+    std::vector<OverlaySequenceStep> overlaySequence;
 };
 
 }

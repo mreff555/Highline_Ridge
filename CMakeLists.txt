@@ -26,6 +26,8 @@ set(SOURCES
     src/Button.cpp
     src/ButtonMgr.cpp
     src/SceneLoader.cpp
+    src/SceneOverlayDef.cpp
+    src/SceneOverlayMgr.cpp
     src/ConversationManager.cpp
     src/MilestoneDatabase.cpp
     src/MilestoneManager.cpp

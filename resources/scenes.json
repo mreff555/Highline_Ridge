@@ -891,8 +891,25 @@
           "useEnergyDelta": 20,
           "useHealthDelta": 10,
           "useLucidityDelta": 10,
-          "advancesDay": true,
-          "repeat": true
+          "repeat": true,
+          "overlaySequence": [
+            {
+              "action": "fadeTo",
+              "opacity": 1.0,
+              "durationSeconds": 5.0,
+              "color": "#000000"
+            },
+            {
+              "action": "hold",
+              "durationSeconds": 2.0
+            },
+            {
+              "action": "fadeTo",
+              "opacity": 0.0,
+              "durationSeconds": 3.0,
+              "color": "#000000"
+            }
+          ]
         }
       ],
       "movement": {

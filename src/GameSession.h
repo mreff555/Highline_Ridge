@@ -22,6 +22,7 @@
 #include <LocationStruct.h>
 #include <ButtonMgr.h>
 #include <SceneLoader.h>
+#include <SceneOverlayMgr.h>
 #include <NarrativeNotebook.h>
 #include <ProgressionService.h>
 #include <SaveGameService.h>
@@ -29,6 +30,7 @@
 #include <UiCoordinator.h>
 #include <WorldState.h>
 #include <raylib.h>
+#include <functional>
 #include <map>
 #include <set>
 #include <string>
@@ -133,6 +135,11 @@ class GameSession
     void applyInteraction(const SceneInteractionDef& interaction);
     void applyBedroomReadNewspaper(const SceneInteractionDef& interaction);
     void applyBedroomSleep(const SceneInteractionDef& interaction);
+    void finishBedroomSleep(const SceneInteractionDef& interaction, bool blueWomanHired);
+    void applySceneOverlays();
+    void triggerOverlaySequence(
+        const std::vector<OverlaySequenceStep>& sequence,
+        std::function<void()> onComplete = nullptr);
     static std::string formatNewspaperDate(int day);
     void applyDirectUse();
     std::vector<SceneInteractionDef> getAvailableInteractions() const;
@@ -242,6 +249,7 @@ class GameSession
     ProgressionService progressionService;
     UiCoordinator uiCoordinator;
     NarrativeNotebook narrativeNotebook;
+    SceneOverlayMgr overlayMgr;
 };
 
 }

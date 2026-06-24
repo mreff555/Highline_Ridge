@@ -1,4 +1,5 @@
 #include "SceneLoader.h"
+#include "SceneOverlayDef.h"
 #include "ImageCompression.h"
 #include <algorithm>
 #include <fstream>
@@ -165,6 +166,9 @@ bool parseConversationChoice(const nlohmann::json& choice, ConversationChoiceDef
     out.resumeTopLevel = choice.value("resumeTopLevel", false);
     out.grantStoryFlag = choice.value("grantStoryFlag", "");
     out.startPhase = choice.value("startPhase", "");
+
+    if (!parseOverlaySequence(choice.value("overlaySequence", nlohmann::json::array()), out.overlaySequence))
+        return false;
 
     out.followUpChoices.clear();
     const nlohmann::json& followUps = choice.value("choices", nlohmann::json::array());
@@ -557,6 +561,9 @@ bool parseInteraction(const nlohmann::json& interaction, SceneInteractionDef& ou
     out.requiresExamine = interaction.value("requiresExamine", true);
     out.advancesDay = interaction.value("advancesDay", false);
 
+    if (!parseOverlaySequence(interaction.value("overlaySequence", nlohmann::json::array()), out.overlaySequence))
+        return false;
+
     return !out.id.empty() && !out.label.empty();
 }
 
@@ -629,6 +636,9 @@ bool parseScene(const std::string& id, const nlohmann::json& sceneJson, SceneDat
         return false;
 
     if (!parseInteractions(sceneJson.value("interactions", nlohmann::json::array()), out.interactions))
+        return false;
+
+    if (!parseSceneOverlays(sceneJson.value("overlays", nlohmann::json::array()), out.overlays))
         return false;
 
     return true;
@@ -984,6 +994,16 @@ const std::vector<SceneInteractionDef>& SceneDatabase::getInteractions(const std
         return kEmptyInteractions;
 
     return it->second.interactions;
+}
+
+const std::vector<SceneOverlayDef>& SceneDatabase::getOverlays(const std::string& sceneId) const
+{
+    static const std::vector<SceneOverlayDef> kEmptyOverlays;
+    std::map<std::string, SceneData>::const_iterator it = scenes.find(sceneId);
+    if (it == scenes.end())
+        return kEmptyOverlays;
+
+    return it->second.overlays;
 }
 
 std::string SceneDatabase::getExitSceneId(const std::string& sceneId, const std::string& direction) const

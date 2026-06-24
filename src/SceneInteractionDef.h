@@ -1,6 +1,7 @@
 #ifndef SCENE_INTERACTION_DEF_H
 #define SCENE_INTERACTION_DEF_H
 
+#include <SceneOverlayDef.h>
 #include <string>
 
 namespace testgame
@@ -20,6 +21,7 @@ struct SceneInteractionDef
     bool repeat = false;
     bool requiresExamine = true;
     bool advancesDay = false;
+    std::vector<OverlaySequenceStep> overlaySequence;
 };
 
 }

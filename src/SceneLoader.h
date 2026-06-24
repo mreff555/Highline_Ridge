@@ -6,6 +6,7 @@
 #include <LocationStruct.h>
 #include <ExitRequirementDef.h>
 #include <SceneInteractionDef.h>
+#include <SceneOverlayDef.h>
 #include <TakeableItemDef.h>
 #include <raylib.h>
 #include <functional>
@@ -45,6 +46,7 @@ struct SceneData
     RoomAudioConfig audio;
     std::vector<TakeableItemDef> takeables;
     std::vector<SceneInteractionDef> interactions;
+    std::vector<SceneOverlayDef> overlays;
 };
 
 class SceneDatabase
@@ -65,6 +67,7 @@ class SceneDatabase
     const RoomAudioConfig& getSceneAudio(const std::string& sceneId) const;
     const std::vector<TakeableItemDef>& getTakeables(const std::string& sceneId) const;
     const std::vector<SceneInteractionDef>& getInteractions(const std::string& sceneId) const;
+    const std::vector<SceneOverlayDef>& getOverlays(const std::string& sceneId) const;
     const std::string& getAssetRoot() const { return assetRoot; }
     const SceneData* getScene(const std::string& sceneId) const;
     std::string resolveSceneImagePath(

@@ -1037,6 +1037,9 @@ namespace
         if (!result.grantStoryFlag.empty())
             applyGrantedStoryFlag(result.grantStoryFlag);
 
+        if (!result.overlaySequence.empty())
+            triggerOverlaySequence(result.overlaySequence);
+
         updateActionAvailability();
         evaluateMilestones();
         refreshSceneImage();
@@ -1296,6 +1299,36 @@ namespace
         updateActionAvailability();
     }
 
+    void GameSession::finishBedroomSleep(const SceneInteractionDef& interaction, bool blueWomanHired)
+    {
+        const std::string wakeDetails =
+            "When you wake, gray light sits at the window and the bourbon bottle throws a darker shadow on the "
+            "dresser. Your mouth tastes of smoke and iron. The newspaper has not moved. The room remembers you, "
+            "but only barely.";
+        appendNarrativeSection("Using:", wakeDetails);
+
+        StatusEffect sleepEffect;
+        sleepEffect.key = interactionKey(interaction.id);
+        sleepEffect.health = interaction.useHealthDelta;
+        sleepEffect.energy = interaction.useEnergyDelta;
+        sleepEffect.lucidity = interaction.useLucidityDelta;
+        tryApplyStatusEffect(sleepEffect, interaction.repeat);
+
+        if (blueWomanHired)
+        {
+            StatusEffect hiredEffect;
+            hiredEffect.key = interactionKey("sleep_bed:blue_woman");
+            hiredEffect.energy = 10.0f;
+            hiredEffect.health = 5.0f;
+            hiredEffect.lucidity = 10.0f;
+            hiredEffect.charisma = 2.0f;
+            tryApplyStatusEffect(hiredEffect, interaction.repeat);
+        }
+
+        worldState.advanceDay();
+        updateActionAvailability();
+    }
+
     void GameSession::applyBedroomSleep(const SceneInteractionDef& interaction)
     {
         std::string details =
@@ -1317,35 +1350,46 @@ namespace
 
         details +=
             "\n\nSleep takes you the way it takes men who have been awake too long in the wrong country: without "
-            "permission and without dreams you trust.\n\n"
-            "When you wake, gray light sits at the window and the bourbon bottle throws a darker shadow on the dresser. "
-            "Your mouth tastes of smoke and iron. The newspaper has not moved. The room remembers you, but only barely.";
+            "permission and without dreams you trust.";
 
         appendNarrativeSection("Using:", details);
 
-        StatusEffect sleepEffect;
-        sleepEffect.key = interactionKey(interaction.id);
-        sleepEffect.health = interaction.useHealthDelta;
-        sleepEffect.energy = interaction.useEnergyDelta;
-        sleepEffect.lucidity = interaction.useLucidityDelta;
-        tryApplyStatusEffect(sleepEffect, interaction.repeat);
-
-        if (blueWomanHired)
-        {
-            StatusEffect hiredEffect;
-            hiredEffect.key = interactionKey("sleep_bed:blue_woman");
-            hiredEffect.energy = 10.0f;
-            hiredEffect.health = 5.0f;
-            hiredEffect.lucidity = 10.0f;
-            hiredEffect.charisma = 2.0f;
-            tryApplyStatusEffect(hiredEffect, interaction.repeat);
-        }
-
         closeAllUiPanels();
         updateInventoryLayout();
-        worldState.advanceDay();
         worldState.recordAction();
+
+        if (!interaction.overlaySequence.empty())
+        {
+            triggerOverlaySequence(
+                interaction.overlaySequence,
+                [this, interaction, blueWomanHired]()
+                {
+                    finishBedroomSleep(interaction, blueWomanHired);
+                });
+        }
+        else
+            finishBedroomSleep(interaction, blueWomanHired);
+
         updateActionAvailability();
+    }
+
+    void GameSession::applySceneOverlays()
+    {
+        overlayMgr.setSceneOverlays(sceneDatabase.getOverlays(worldState.currentSceneId));
+    }
+
+    void GameSession::triggerOverlaySequence(
+        const std::vector<OverlaySequenceStep>& sequence,
+        std::function<void()> onComplete)
+    {
+        if (sequence.empty())
+        {
+            if (onComplete)
+                onComplete();
+            return;
+        }
+
+        overlayMgr.startSequence(sequence, std::move(onComplete));
     }
 
     void GameSession::applyInteraction(const SceneInteractionDef& interaction)
@@ -1384,6 +1428,9 @@ namespace
             worldState.advanceDay();
 
         worldState.recordAction();
+
+        if (!interaction.overlaySequence.empty())
+            triggerOverlaySequence(interaction.overlaySequence);
 
         if (!interaction.exitSceneId.empty())
             transitionToScene(interaction.exitSceneId);
@@ -1651,6 +1698,7 @@ namespace
         backward = locationStruct.movementFilter.backward;
         left = locationStruct.movementFilter.left;
         right = locationStruct.movementFilter.right;
+        applySceneOverlays();
     }
 
     void GameSession::applyLocationStruct(const LocationStruct& locationStruct, const std::string& fromRoom)
@@ -1980,6 +2028,7 @@ namespace
         }
 
         audioManager.update(GetFrameTime());
+        overlayMgr.update(GetFrameTime());
         updateTransientMessage(GetFrameTime());
         handleQuickSaveInput();
         handleDevOverlayInput();
@@ -2018,6 +2067,12 @@ namespace
         syncNarrativeContext();
         updateInventoryLayout();
         updateActionAvailability();
+
+        if (overlayMgr.isSequenceActive())
+        {
+            handleNarrativeScrollInput();
+            return;
+        }
 
         if (!inventoryMgr.isExaminingItem() && narrativeNotebook.getPage() == NotebookPage::CaseNotes)
             handleNarrativeChoiceInput();
@@ -2184,6 +2239,7 @@ namespace
         ClearBackground(BLACK);
 
         drawMainImage();
+        overlayMgr.draw(getMainImageBounds());
 
         const Rectangle dialog = getDialogBounds();
         drawNotebookBackdrop(dialog);
