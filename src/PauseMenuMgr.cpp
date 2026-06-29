@@ -392,7 +392,6 @@ void PauseMenuMgr::cycleResolutionPreset()
     gameConfig->display.height = kResolutionPresets[nextIndex].height;
     gameConfig->display.fullscreen = false;
 
-    persistGameConfig();
     if (onDisplaySettingsChanged)
         onDisplaySettingsChanged();
 }
@@ -403,7 +402,6 @@ void PauseMenuMgr::toggleFullscreen()
         return;
 
     gameConfig->display.fullscreen = !gameConfig->display.fullscreen;
-    persistGameConfig();
     if (onDisplaySettingsChanged)
         onDisplaySettingsChanged();
 }

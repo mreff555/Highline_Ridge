@@ -61,6 +61,7 @@ class GameSession
     bool shouldQuit() const { return quitRequested; }
     void applyDisplayConfig();
     void applyInputConfig();
+    void persistDisplayConfig();
 
     Texture2D getImage() const;
      char* getDescription() const;
@@ -256,6 +257,11 @@ class GameSession
     TakeMgr takeMgr;
     InteractionMgr interactionMgr;
     SpeakTargetMgr speakTargetMgr;
+
+    void trackDisplayConfigChanges();
+    DisplayConfig lastPersistedDisplay{};
+    float displayPersistCooldown = 0.0f;
+    bool displayPersistPending = false;
 
     bool deferInitialRoomAudio = true;
     bool initialFrameComplete = false;

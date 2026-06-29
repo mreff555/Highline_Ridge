@@ -1,7 +1,9 @@
 #include "GameConfig.h"
 
+#include <algorithm>
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <raylib.h>
 
 namespace highline_ridge
 {
@@ -54,6 +56,9 @@ bool loadGameConfig(const std::string& configPath, GameConfig& outConfig)
         outConfig.display.width = display.value("width", outConfig.display.width);
         outConfig.display.height = display.value("height", outConfig.display.height);
         outConfig.display.fullscreen = display.value("fullscreen", outConfig.display.fullscreen);
+        outConfig.display.x = display.value("x", outConfig.display.x);
+        outConfig.display.y = display.value("y", outConfig.display.y);
+        outConfig.display.monitor = display.value("monitor", outConfig.display.monitor);
     }
 
     if (config.contains("audio") && config["audio"].is_object())
@@ -123,7 +128,10 @@ bool saveGameConfig(const std::string& configPath, const GameConfig& config)
     root["display"] = {
         {"width", config.display.width},
         {"height", config.display.height},
-        {"fullscreen", config.display.fullscreen}
+        {"fullscreen", config.display.fullscreen},
+        {"x", config.display.x},
+        {"y", config.display.y},
+        {"monitor", config.display.monitor}
     };
     root["audio"] = {
         {"master", config.audio.master},
@@ -145,6 +153,77 @@ bool saveGameConfig(const std::string& configPath, const GameConfig& config)
 
     out << root.dump(2);
     return out.good();
+}
+
+bool displayConfigsEqual(const DisplayConfig& left, const DisplayConfig& right)
+{
+    return left.width == right.width
+        && left.height == right.height
+        && left.fullscreen == right.fullscreen
+        && left.x == right.x
+        && left.y == right.y
+        && left.monitor == right.monitor;
+}
+
+namespace
+{
+
+void clampWindowPosition(DisplayConfig& display)
+{
+    if (display.fullscreen || display.x < 0 || display.y < 0)
+        return;
+
+    const int monitorCount = GetMonitorCount();
+    int monitor = display.monitor;
+    if (monitor < 0 || monitor >= monitorCount)
+        monitor = GetCurrentMonitor();
+
+    const Vector2 monitorPosition = GetMonitorPosition(monitor);
+    const int monitorWidth = GetMonitorWidth(monitor);
+    const int monitorHeight = GetMonitorHeight(monitor);
+    const int minVisible = 80;
+
+    const int minX = (int)monitorPosition.x - display.width + minVisible;
+    const int maxX = (int)monitorPosition.x + monitorWidth - minVisible;
+    const int minY = (int)monitorPosition.y;
+    const int maxY = (int)monitorPosition.y + monitorHeight - minVisible;
+
+    display.x = std::max(minX, std::min(display.x, maxX));
+    display.y = std::max(minY, std::min(display.y, maxY));
+}
+
+}
+
+void syncDisplayConfigFromWindow(DisplayConfig& display)
+{
+    display.fullscreen = IsWindowFullscreen();
+    display.width = GetScreenWidth();
+    display.height = GetScreenHeight();
+    display.monitor = GetCurrentMonitor();
+
+    if (!display.fullscreen)
+    {
+        const Vector2 position = GetWindowPosition();
+        display.x = (int)position.x;
+        display.y = (int)position.y;
+    }
+}
+
+void applySavedWindowPlacement(const DisplayConfig& display)
+{
+    if (display.fullscreen)
+        return;
+
+    DisplayConfig placement = display;
+    clampWindowPosition(placement);
+
+    if (placement.monitor >= 0 && placement.monitor < GetMonitorCount())
+        SetWindowMonitor(placement.monitor);
+
+    SetWindowSize(placement.width, placement.height);
+
+    if (placement.x >= 0 && placement.y >= 0)
+        SetWindowPosition(placement.x, placement.y);
 }
 
 }

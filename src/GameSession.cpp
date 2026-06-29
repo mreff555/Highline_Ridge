@@ -330,9 +330,14 @@ namespace
         pauseMenu.setAudioManager(&audioManager);
         pauseMenu.setGameConfig(&gameConfig);
         pauseMenu.setConfigPath(gameConfigPath);
-        pauseMenu.setOnDisplaySettingsChanged([this]() { applyDisplayConfig(); });
+        pauseMenu.setOnDisplaySettingsChanged([this]()
+        {
+            applyDisplayConfig();
+            persistDisplayConfig();
+        });
         pauseMenu.setOnInputSettingsChanged([this]() { applyInputConfig(); });
         applyInputConfig();
+        lastPersistedDisplay = gameConfig.display;
         narrativeNotebook.setFonts(descriptionFont, boldFont);
         narrativeNotebook.getNarrativeText() = locationStruct.locationDescription;
         narrativeNotebook.setAssetRoot(assetRoot);
@@ -388,14 +393,51 @@ namespace
                 ToggleFullscreen();
 
             relayoutForScreenSize(GetScreenWidth(), GetScreenHeight());
+            syncDisplayConfigFromWindow(gameConfig.display);
             return;
         }
 
         if (IsWindowFullscreen())
             ToggleFullscreen();
 
-        SetWindowSize(gameConfig.display.width, gameConfig.display.height);
-        relayoutForScreenSize(gameConfig.display.width, gameConfig.display.height);
+        applySavedWindowPlacement(gameConfig.display);
+        relayoutForScreenSize(GetScreenWidth(), GetScreenHeight());
+        syncDisplayConfigFromWindow(gameConfig.display);
+    }
+
+    void GameSession::persistDisplayConfig()
+    {
+        syncDisplayConfigFromWindow(gameConfig.display);
+        if (!saveGameConfig(gameConfigPath, gameConfig))
+            return;
+
+        lastPersistedDisplay = gameConfig.display;
+        displayPersistPending = false;
+        displayPersistCooldown = 0.0f;
+    }
+
+    void GameSession::trackDisplayConfigChanges()
+    {
+        if (IsWindowResized())
+            relayoutForScreenSize(GetScreenWidth(), GetScreenHeight());
+
+        DisplayConfig current = gameConfig.display;
+        syncDisplayConfigFromWindow(current);
+        if (!displayConfigsEqual(current, lastPersistedDisplay))
+        {
+            gameConfig.display = current;
+            displayPersistPending = true;
+            displayPersistCooldown = 0.5f;
+        }
+
+        if (!displayPersistPending)
+            return;
+
+        displayPersistCooldown -= GetFrameTime();
+        if (displayPersistCooldown > 0.0f)
+            return;
+
+        persistDisplayConfig();
     }
 
     void GameSession::applyInputConfig()
@@ -3074,6 +3116,7 @@ namespace
 
         audioManager.update(GetFrameTime());
         overlayMgr.update(GetFrameTime());
+        trackDisplayConfigChanges();
         updateTransientMessage(GetFrameTime());
         handleQuickSaveInput();
         handleDevOverlayInput();

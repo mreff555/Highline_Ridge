@@ -20,6 +20,9 @@ struct DisplayConfig
     int width = 1500;
     int height = 1117;
     bool fullscreen = false;
+    int x = -1;
+    int y = -1;
+    int monitor = -1;
 };
 
 struct InputConfig
@@ -52,6 +55,9 @@ struct GameConfig
 
 bool loadGameConfig(const std::string& configPath, GameConfig& outConfig);
 bool saveGameConfig(const std::string& configPath, const GameConfig& config);
+bool displayConfigsEqual(const DisplayConfig& left, const DisplayConfig& right);
+void syncDisplayConfigFromWindow(DisplayConfig& display);
+void applySavedWindowPlacement(const DisplayConfig& display);
 
 }
 

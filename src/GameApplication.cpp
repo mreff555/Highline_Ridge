@@ -93,6 +93,8 @@ bool GameApplication::initializeWindow(const GameConfig& config)
     SetExitKey(0);
     if (config.display.fullscreen)
         ToggleFullscreen();
+    else
+        applySavedWindowPlacement(config.display);
     if (!IsAudioDeviceReady())
         InitAudioDevice();
     return true;
@@ -132,6 +134,8 @@ bool GameApplication::loadDatabases()
 
 void GameApplication::shutdown()
 {
+    if (session)
+        session->persistDisplayConfig();
     session.reset();
     audioManager.shutdown();
     CloseWindow();
