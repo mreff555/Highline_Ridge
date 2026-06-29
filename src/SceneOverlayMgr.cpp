@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <random>
 
 namespace highline_ridge
 {
@@ -29,9 +30,12 @@ void SceneOverlayMgr::clear()
     stepElapsed = 0.0f;
     sequenceFadeOpacity = 0.0f;
     sequenceVignetteOcclusion = 0.0f;
+    sequenceHypoxiaOpacity = 0.0f;
     stepStartFadeOpacity = 0.0f;
     stepStartVignetteOcclusion = 0.0f;
+    stepStartHypoxiaOpacity = 0.0f;
     sequenceFadeColor = BLACK;
+    hypoxiaDots.clear();
     sequenceActive = false;
     sequenceCompletedPending = false;
     sequenceCompleteCallback = nullptr;
@@ -81,6 +85,17 @@ void SceneOverlayMgr::setSceneOverlays(const std::vector<SceneOverlayDef>& overl
     }
 }
 
+void SceneOverlayMgr::setHypoxiaOpacity(float opacity)
+{
+    sequenceHypoxiaOpacity = clamp01(opacity);
+}
+
+void SceneOverlayMgr::setOnSequenceStepStart(
+    std::function<void(const OverlaySequenceStep&, float fromOpacity, float toOpacity)> callback)
+{
+    onSequenceStepStart = std::move(callback);
+}
+
 void SceneOverlayMgr::startSequence(
     const std::vector<OverlaySequenceStep>& steps,
     std::function<void()> onComplete)
@@ -90,6 +105,7 @@ void SceneOverlayMgr::startSequence(
     stepElapsed = 0.0f;
     stepStartFadeOpacity = sequenceFadeOpacity;
     stepStartVignetteOcclusion = sequenceVignetteOcclusion;
+    stepStartHypoxiaOpacity = sequenceHypoxiaOpacity;
     sequenceActive = !sequenceSteps.empty();
     sequenceCompletedPending = false;
     sequenceCompleteCallback = std::move(onComplete);
@@ -98,6 +114,85 @@ void SceneOverlayMgr::startSequence(
     {
         sequenceCompleteCallback();
         sequenceCompleteCallback = nullptr;
+        return;
+    }
+
+    beginSequenceStep();
+}
+
+void SceneOverlayMgr::generateHypoxiaDots(const OverlaySequenceStep& step)
+{
+    hypoxiaDots.clear();
+
+    const float peakOpacity = std::max(stepStartHypoxiaOpacity, clamp01(step.targetOpacity));
+    const int dotCount = std::max(
+        40,
+        (int)std::lround(80.0f + 220.0f * peakOpacity));
+
+    std::mt19937 rng((unsigned int)(sequenceIndex * 0x9E3779B1u + 0x51ED270Bu));
+    std::uniform_real_distribution<float> positionDist(0.04f, 0.96f);
+    std::uniform_real_distribution<float> radiusDist(2.0f, 14.0f);
+    std::uniform_real_distribution<float> staggerDist(0.0f, 0.85f);
+    std::uniform_int_distribution<int> colorDist(0, 2);
+
+    hypoxiaDots.reserve((size_t)dotCount);
+    for (int dotIndex = 0; dotIndex < dotCount; ++dotIndex)
+    {
+        HypoxiaDot dot;
+        dot.nx = positionDist(rng);
+        dot.ny = positionDist(rng);
+        dot.radius = radiusDist(rng);
+        dot.crimson = colorDist(rng) > 0;
+        dot.stagger = staggerDist(rng);
+        hypoxiaDots.push_back(dot);
+    }
+}
+
+void SceneOverlayMgr::beginSequenceStep()
+{
+    if (!sequenceActive || sequenceIndex >= sequenceSteps.size())
+        return;
+
+    const OverlaySequenceStep& step = sequenceSteps[sequenceIndex];
+    stepStartFadeOpacity = sequenceFadeOpacity;
+    stepStartVignetteOcclusion = sequenceVignetteOcclusion;
+    stepStartHypoxiaOpacity = sequenceHypoxiaOpacity;
+    stepElapsed = 0.0f;
+
+    if (step.action == OverlaySequenceAction::FadeTo)
+        sequenceFadeColor = step.color;
+    else if (step.action == OverlaySequenceAction::HypoxiaTo)
+        generateHypoxiaDots(step);
+
+    if (onSequenceStepStart)
+    {
+        if (step.action == OverlaySequenceAction::HypoxiaTo)
+        {
+            onSequenceStepStart(
+                step,
+                stepStartHypoxiaOpacity,
+                clamp01(step.targetOpacity));
+        }
+        else if (step.action == OverlaySequenceAction::FadeTo)
+        {
+            onSequenceStepStart(
+                step,
+                stepStartFadeOpacity,
+                clamp01(step.targetOpacity));
+        }
+    }
+
+    if (step.durationSeconds <= 0.0f)
+    {
+        if (step.action == OverlaySequenceAction::FadeTo)
+            sequenceFadeOpacity = clamp01(step.targetOpacity);
+        else if (step.action == OverlaySequenceAction::VignetteTo)
+            sequenceVignetteOcclusion = std::max(0.0f, step.targetOcclusionPercent);
+        else if (step.action == OverlaySequenceAction::HypoxiaTo)
+            sequenceHypoxiaOpacity = clamp01(step.targetOpacity);
+
+        ++sequenceIndex;
+        beginSequenceStep();
     }
 }
 
@@ -113,6 +208,8 @@ void SceneOverlayMgr::advanceSequenceStep()
     if (!sequenceActive)
         return;
 
+    ++sequenceIndex;
+
     if (sequenceIndex >= sequenceSteps.size())
     {
         sequenceActive = false;
@@ -125,24 +222,7 @@ void SceneOverlayMgr::advanceSequenceStep()
         return;
     }
 
-    const OverlaySequenceStep& step = sequenceSteps[sequenceIndex];
-    stepStartFadeOpacity = sequenceFadeOpacity;
-    stepStartVignetteOcclusion = sequenceVignetteOcclusion;
-    stepElapsed = 0.0f;
-
-    if (step.action == OverlaySequenceAction::FadeTo)
-        sequenceFadeColor = step.color;
-
-    if (step.durationSeconds <= 0.0f)
-    {
-        if (step.action == OverlaySequenceAction::FadeTo)
-            sequenceFadeOpacity = clamp01(step.targetOpacity);
-        else if (step.action == OverlaySequenceAction::VignetteTo)
-            sequenceVignetteOcclusion = std::max(0.0f, step.targetOcclusionPercent);
-
-        ++sequenceIndex;
-        advanceSequenceStep();
-    }
+    beginSequenceStep();
 }
 
 void SceneOverlayMgr::update(float deltaSeconds)
@@ -210,10 +290,7 @@ void SceneOverlayMgr::update(float deltaSeconds)
     if (step.action == OverlaySequenceAction::Hold)
     {
         if (stepElapsed >= step.durationSeconds)
-        {
-            ++sequenceIndex;
             advanceSequenceStep();
-        }
         return;
     }
 
@@ -229,12 +306,15 @@ void SceneOverlayMgr::update(float deltaSeconds)
             std::max(0.0f, step.targetOcclusionPercent),
             t);
     }
+    else if (step.action == OverlaySequenceAction::HypoxiaTo)
+    {
+        sequenceHypoxiaOpacity = lerp(stepStartHypoxiaOpacity, clamp01(step.targetOpacity), t);
+        if (t >= 1.0f && clamp01(step.targetOpacity) <= 0.001f)
+            hypoxiaDots.clear();
+    }
 
     if (t >= 1.0f)
-    {
-        ++sequenceIndex;
         advanceSequenceStep();
-    }
 }
 
 float SceneOverlayMgr::combinedVignetteOcclusion() const
@@ -308,6 +388,39 @@ void SceneOverlayMgr::drawFadeOverlay(Rectangle bounds, float opacity, Color col
     DrawRectangle((int)bounds.x, (int)bounds.y, (int)bounds.width, (int)bounds.height, fill);
 }
 
+void SceneOverlayMgr::drawHypoxiaOverlay(Rectangle bounds) const
+{
+    const float hypoxia = clamp01(sequenceHypoxiaOpacity);
+    if (hypoxia <= 0.001f && hypoxiaDots.empty())
+        return;
+
+    for (const HypoxiaDot& dot : hypoxiaDots)
+    {
+        const float reveal = clamp01((hypoxia - dot.stagger * 0.35f) / 0.65f);
+        if (reveal <= 0.001f)
+            continue;
+
+        const float alpha = reveal * (0.35f + 0.65f * hypoxia);
+        Color fill = dot.crimson ? Color{ 72, 10, 20, 255 } : Color{ 0, 0, 0, 255 };
+        fill.a = (unsigned char)(fill.a * alpha);
+        const float centerX = bounds.x + dot.nx * bounds.width;
+        const float centerY = bounds.y + dot.ny * bounds.height;
+        DrawCircleV({ centerX, centerY }, dot.radius, fill);
+    }
+
+    if (hypoxia > 0.001f)
+    {
+        Color veil = BLACK;
+        veil.a = (unsigned char)(255.0f * hypoxia);
+        DrawRectangle(
+            (int)bounds.x,
+            (int)bounds.y,
+            (int)bounds.width,
+            (int)bounds.height,
+            veil);
+    }
+}
+
 void SceneOverlayMgr::draw(Rectangle bounds) const
 {
     const float vignette = combinedVignetteOcclusion();
@@ -315,6 +428,8 @@ void SceneOverlayMgr::draw(Rectangle bounds) const
     const float fadeOpacity = combinedFadeOpacity(fadeColor);
 
     drawVignette(bounds, vignette);
+    if (sequenceHypoxiaOpacity > 0.001f || !hypoxiaDots.empty())
+        drawHypoxiaOverlay(bounds);
     drawFadeOverlay(bounds, fadeOpacity, fadeColor);
 }
 

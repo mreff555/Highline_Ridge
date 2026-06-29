@@ -236,9 +236,31 @@ namespace
     }
 
     const char* kWakeOnFloorPrefix =
-        "You come back to yourself on the floor of the cabin, cheek pressed to the Persian rug, "
-        "the fireplace crackling somewhere near your shoulder. Your mouth tastes of ash and bourbon. "
-        "How you got here from the saloon is a blank page. How you got here at all is no clearer than before.";
+        "Consciousness returns in fragments — pain first, then cold stone, then the thin daylight "
+        "at the cave mouth. Your mouth tastes of iron. Memory stays blank.";
+
+    const float kOpeningHypoxiaHoldSeconds = 3.0f;
+    const float kOpeningHypoxiaSeconds = 8.0f;
+    const float kHypoxiaCollapseMaxSeconds = 4.0f;
+    const float kHypoxiaCollapseHoldSeconds = 3.0f;
+    const float kHypoxiaWakeSeconds = 8.0f;
+
+    OverlaySequenceStep makeHypoxiaStep(float targetOpacity, float durationSeconds)
+    {
+        OverlaySequenceStep step;
+        step.action = OverlaySequenceAction::HypoxiaTo;
+        step.targetOpacity = targetOpacity;
+        step.durationSeconds = durationSeconds;
+        return step;
+    }
+
+    OverlaySequenceStep makeHoldStep(float durationSeconds)
+    {
+        OverlaySequenceStep step;
+        step.action = OverlaySequenceAction::Hold;
+        step.durationSeconds = durationSeconds;
+        return step;
+    }
 }
 
     GameSession::GameSession(
@@ -336,8 +358,19 @@ namespace
             persistDisplayConfig();
         });
         pauseMenu.setOnInputSettingsChanged([this]() { applyInputConfig(); });
+        overlayMgr.setOnSequenceStepStart(
+            [this](const OverlaySequenceStep& step, float fromOpacity, float toOpacity)
+            {
+                playOverlayStepSfx(step, fromOpacity, toOpacity);
+            });
         applyInputConfig();
         lastPersistedDisplay = gameConfig.display;
+        if (worldState.currentSceneId == "snow_cave_interior")
+        {
+            overlayMgr.setHypoxiaOpacity(1.0f);
+            pendingOpeningHypoxiaSequence = true;
+            deferInitialRoomAudio = true;
+        }
         narrativeNotebook.setFonts(descriptionFont, boldFont);
         narrativeNotebook.getNarrativeText() = locationStruct.locationDescription;
         narrativeNotebook.setAssetRoot(assetRoot);
@@ -1557,13 +1590,63 @@ namespace
         appendSpeakDetails();
     }
 
-    void GameSession::applyLucidityCollapseRestart()
+    void GameSession::triggerOpeningHypoxiaSequence()
     {
-        LocationStruct cabinLocation;
-        std::string startSceneId;
-        if (!sceneDatabase.loadStartScene(cabinLocation, startSceneId))
+        overlayMgr.setHypoxiaOpacity(1.0f);
+        triggerOverlaySequence({
+            makeHoldStep(kOpeningHypoxiaHoldSeconds),
+            makeHypoxiaStep(0.0f, kOpeningHypoxiaSeconds),
+        });
+    }
+
+    void GameSession::triggerLucidityCollapseSequence()
+    {
+        if (lucidityCollapseSequenceActive)
+            return;
+
+        lucidityCollapseSequenceActive = true;
+        closeAllUiPanels();
+        updateActionAvailability();
+
+        const float currentOpacity = overlayMgr.getHypoxiaOpacity();
+        const float fadeToBlackSeconds = kHypoxiaCollapseMaxSeconds * (1.0f - currentOpacity);
+
+        std::vector<OverlaySequenceStep> steps;
+        if (fadeToBlackSeconds > 0.001f)
+            steps.push_back(makeHypoxiaStep(1.0f, fadeToBlackSeconds));
+        steps.push_back(makeHoldStep(kHypoxiaCollapseHoldSeconds));
+
+        triggerOverlaySequence(steps, [this]()
         {
-            TraceLog(LOG_ERROR, "Failed to restart at cabin after lucidity collapse");
+            performLucidityCollapseRestart();
+            triggerCaveWakeHypoxiaSequence();
+        });
+    }
+
+    void GameSession::triggerCaveWakeHypoxiaSequence()
+    {
+        triggerOverlaySequence(
+            { makeHypoxiaStep(0.0f, kHypoxiaWakeSeconds) },
+            [this]() { lucidityCollapseSequenceActive = false; });
+    }
+
+    void GameSession::performLucidityCollapseRestart()
+    {
+        LocationStruct startLocation;
+        std::string startSceneId;
+        if (!sceneDatabase.loadStartScene(startLocation, startSceneId))
+        {
+            TraceLog(LOG_ERROR, "Failed to restart at starting scene after lucidity collapse");
+            lucidityCollapseSequenceActive = false;
+            return;
+        }
+
+        const std::string wakeSubSceneId = "toward_exit";
+        worldState.activeSubSceneId = wakeSubSceneId;
+        if (!sceneDatabase.loadScene(startSceneId, wakeSubSceneId, startLocation))
+        {
+            TraceLog(LOG_ERROR, "Failed to load wake sub-scene after lucidity collapse");
+            lucidityCollapseSequenceActive = false;
             return;
         }
 
@@ -1579,24 +1662,32 @@ namespace
         worldState.droppedItemsByScene.clear();
         worldState.knownActorIds.clear();
         closeAllUiPanels();
-        applyLocationStruct(cabinLocation);
+        applyLocationStruct(startLocation, worldState.currentSceneId);
 
         narrativeNotebook.getNarrativeText() += "\n\n";
         narrativeNotebook.getNarrativeText() += kWakeOnFloorPrefix;
         narrativeNotebook.getNarrativeText() += "\n\n";
         narrativeNotebook.getNarrativeText() += baseDescription;
-        worldState.playerStats.health = 90.0f;
-        worldState.playerStats.energy = 20.0f;
-        worldState.playerStats.resolve = 50.0f;
-        worldState.playerStats.lucidity = 30.0f;
-        worldState.playerStats.charisma = 50.0f;
-        worldState.playerStats.walletCash = 20.0f;
-        syncWalletInventoryDisplay();
+
+        StatusEffect wakeEffect;
+        wakeEffect.energy = 5.0f;
+        wakeEffect.lucidity = 15.0f;
+        wakeEffect.resolve = -10.0f;
+        wakeEffect.charisma = -5.0f;
+        worldState.playerStats.apply(wakeEffect, true);
         narrativeNotebook.resetNarrativeScroll();
         narrativeNotebook.invalidateLayout();
         trimNarrativeBuffer();
         worldState.advanceDay();
         updateActionAvailability();
+    }
+
+    void GameSession::applyLucidityCollapseRestart()
+    {
+        if (lucidityCollapseSequenceActive)
+            return;
+
+        triggerLucidityCollapseSequence();
     }
 
     void GameSession::recordPlayerAction()
@@ -1856,6 +1947,33 @@ namespace
         }
 
         overlayMgr.startSequence(sequence, std::move(onComplete));
+    }
+
+    void GameSession::playOverlayStepSfx(
+        const OverlaySequenceStep& step,
+        float fromOpacity,
+        float toOpacity)
+    {
+        AudioClipDef clip;
+        clip.loop = false;
+        clip.volume = step.sfxVolume;
+
+        if (!step.sfxPath.empty())
+        {
+            clip.path = step.sfxPath;
+        }
+        else if (step.action == OverlaySequenceAction::HypoxiaTo)
+        {
+            clip.path = toOpacity > fromOpacity
+                ? "resources/audio/sfx/hypoxia_fade_in.mp3"
+                : "resources/audio/sfx/hypoxia_fade_out.mp3";
+        }
+        else
+        {
+            return;
+        }
+
+        audioManager.playSfx(clip);
     }
 
     void GameSession::applyInteraction(const SceneInteractionDef& interaction)
@@ -2246,7 +2364,11 @@ namespace
             actions.take = canTakeInCurrentScene();
         }
 
-        buttonMgr.setAvailability(movement, actions);
+        const bool disableAllButtons = lucidityCollapseSequenceActive;
+        buttonMgr.setAvailability(
+            disableAllButtons ? MovementStruct{} : movement,
+            disableAllButtons ? ActionStruct{} : actions,
+            !disableAllButtons);
         {
             const PlayerStatPercents percents = worldState.playerStats.toPercents();
             buttonMgr.setStatus(percents.health, percents.energy, percents.resolve, percents.lucidity, percents.charisma);
@@ -2572,6 +2694,10 @@ namespace
         narrativeNotebook.getChoiceHitAreas().clear();
 
         closeAllUiPanels();
+
+        pendingOpeningHypoxiaSequence = false;
+        lucidityCollapseSequenceActive = false;
+        overlayMgr.clear();
 
         conversationMgr.onEnterScene(worldState.currentSceneId, sceneDatabase.getSpeakConfig(worldState.currentSceneId));
 
@@ -3106,6 +3232,11 @@ namespace
         if (!initialFrameComplete)
         {
             initialFrameComplete = true;
+        }
+        else if (pendingOpeningHypoxiaSequence)
+        {
+            pendingOpeningHypoxiaSequence = false;
+            triggerOpeningHypoxiaSequence();
         }
         else if (deferInitialRoomAudio)
         {

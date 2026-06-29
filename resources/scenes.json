@@ -4,7 +4,7 @@
   "uiFont": "resources/fonts/CourierPrime-Regular.ttf",
   "scenes": {
     "cabin": {
-      "start": true,
+      "start": false,
       "image": "resources/images/cabin.png",
       "description": "You come to in a dim cabin with no idea how you arrived. Your head is thick with fog. The room is empty. No one by the hearth, no voice from the shadows. Yet the fire still holds a low, patient heat, as though someone tended it minutes ago. Or was it you? You cannot say. Lavish furnishings crowd a space built from rough timber and mountain silence. Where are you? And why does the air feel like the middle of a sentence someone walked away from?",
       "examineDetails": "You force yourself to look past the disorientation and study the room properly. The craftsmanship is deliberate and expensive, not the work of a backwoods handyman improvising with what was at hand. The chair frames are turned walnut with carved acanthus leaves at the knees. The side table is rosewood with a satin finish worn only at the edges where habit has touched it. Brass andirons gleam before the hearth, their lion's-head finials polished as if for display. Against the crude log walls hangs a framed etching of a whaling fleet. Nantucket, by the look of it, incongruous as a sermon in a saloon.\n\nYour gaze drops to the floor. A Persian Heriz rug spreads beneath the furniture, its field a deep crimson ground woven with navy medallions and ivory vine-scroll borders in the late-nineteenth-century style of northwest Iran. The wool is dense and still faintly lustrous, but the pile is uneven: worn bare along a path from hearth to door, as though countless boots have crossed it in a city townhouse, not a cabin in the pines. It does not belong here. Someone brought it up the mountain recently. or dragged it here before your memory went dark.\n\nOn the armchair beside the fire rests a book, spine uncracked but corners softened with age. You lift it. A vintage copy of Moby-Dick, cloth-bound in faded navy, the gilt title still legible: The Whale. The pages are surprisingly well preserved. No mildew, no foxing. as if stored in a dry room until very recently. You leaf through from the beginning. The type is small and sure. The first line catches, as it always does: \"Call me Ishmael.\" You read on a little further, then let the pages slip faster beneath your thumb until you reach where the book was left open, a crease pressed deep into the paper. One line rises off the page as though inked in lamp smoke: \"There is a wisdom that is woe; but there is a woe that is madness.\" You read it again. And again. You cannot stop thinking about it. The fire pops. The cabin holds its breath. Somewhere behind the walls, the mountain waits for you to remember why you are here.\n\nThe kitchen lies behind you through the doorway you came from. To your right, a narrower passage leads to the bedroom under the roofline.\n\nAs you pace around the rug, you notice a different feel under your weight near the center. A small depression, very subtle. Could there be something under this rug?",
@@ -1571,17 +1571,12 @@
       }
     },
     "snow_cave_interior": {
-      "start": false,
+      "start": true,
       "highAltitude": true,
+      "defaultSubScene": "toward_exit",
       "image": "resources/images/snow_cave_interior.png",
-      "alternateImages": [
-        {
-          "image": "resources/images/snow_cave_interior_low.png",
-          "flag": ""
-        }
-      ],
-      "description": "You duck through the low entrance and the howling ridge falls away behind you — not gone, but muffled, as though the mountain were speaking through wool. Inside, the cold is worse. It does not bite the skin so much as settle in the bones and stay. Your lantern throws a small honest circle across wet stone and packed snow. Every sound you make comes back wrong: a drip, a boot scrape, your own breath — each returned from the dark with a thin eerie echo, as if the cave were listening.\n\nOn the floor before you, a pool of blood has frozen in a ragged fan, black-red in the lamplight. No body. No explanation. Only the stain and the feeling that someone left in a hurry.",
-      "examineDetails": "You keep the lantern low and work the scene the way altitude teaches you — slow, careful, unwilling to trust the walls.\n\nThe chamber is natural stone, basalt by the grain, slick with melt and frost. The ceiling drops low enough to force your shoulders inward. Sound behaves strangely here: the wind outside is a distant complaint, but your movements bounce back from the rear wall half a beat late.\n\nThe blood pool is recent enough that the cold has not made it entirely honest. Edges are sharp where it met stone. Nothing leads away in a trail — no drag marks, no footprints in the snow dust beyond your own.\n\nTo the right, pale daylight leaks through the entrance you came by — a small opening barely wide enough for a man on his knees. It is your only way back out to the ridge.",
+      "description": "You come to in pain — a deep, sick ache behind your eyes and along your ribs, as though the mountain struck you and left you here to think about it. You are disoriented. You do not remember how you arrived, who brought you, or what day it is.\n\nThe dark behind you is absolute. Ahead, pale daylight cuts a low opening in the stone — the cave mouth, rimed with ice, barely wide enough for a man on his knees. On the frozen floor within arm's reach, a fan of blood has stiffened to black-red ice. No body. No witness. You stare at it long enough to understand, with a cold certainty that settles worse than the pain: it is yours.\n\nYou pull yourself to your knees and prepare to crawl out of this eerie little cave.",
+      "examineDetails": "You brace on the wet stone and force yourself to take inventory while the pain clears in slow, unwilling waves.\n\nThe cave is natural basalt, slick with melt and rimed where the cold holds. Sound behaves wrongly here — your breath returns from the dark a half beat late, as though the chamber were listening. The wind outside is a distant complaint through the mouth of the cave.\n\nThe blood is frozen in a ragged fan where you must have fallen. The edges are sharp against the stone. Nothing suggests a struggle beyond your own collapse — no drag marks, no second set of prints in the snow dust.\n\nThe only light is the pale day at the low entrance ahead. The rest of the cave stays black. You have one way out: crawl toward the rimed opening and the howling ridge beyond.",
       "useDetails": "",
       "movement": {
         "forward": false,
@@ -1597,6 +1592,29 @@
       },
       "exits": {
         "right": "snow_cave_exterior"
+      },
+      "subSceneRules": [
+        { "default": true, "subScene": "toward_exit" }
+      ],
+      "subScenes": {
+        "chamber": {
+          "image": "resources/images/snow_cave_interior.png",
+          "description": "You duck through the low entrance and the howling ridge falls away behind you — not gone, but muffled, as though the mountain were speaking through wool. Inside, the cold is worse. It does not bite the skin so much as settle in the bones and stay. Your lantern throws a small honest circle across wet stone and packed snow. Every sound you make comes back wrong: a drip, a boot scrape, your own breath — each returned from the dark with a thin eerie echo, as if the cave were listening.\n\nOn the floor before you, a pool of blood has frozen in a ragged fan, black-red in the lamplight. No body. No explanation. Only the stain and the feeling that someone left in a hurry.",
+          "examineDetails": "You keep the lantern low and work the scene the way altitude teaches you — slow, careful, unwilling to trust the walls.\n\nThe chamber is natural stone, basalt by the grain, slick with melt and frost. The ceiling drops low enough to force your shoulders inward. Sound behaves strangely here: the wind outside is a distant complaint, but your movements bounce back from the rear wall half a beat late.\n\nThe blood pool is recent enough that the cold has not made it entirely honest. Edges are sharp where it met stone. Nothing leads away in a trail — no drag marks, no footprints in the snow dust beyond your own.\n\nTo the right, pale daylight leaks through the entrance — a small opening barely wide enough for a man on his knees. It is your only way back out to the ridge.",
+          "flags": ["dark"],
+          "movement": { "right": true },
+          "movementMask": { "right": true },
+          "actions": { "examine": true }
+        },
+        "toward_exit": {
+          "image": "resources/images/snow_cave_interior_low.png",
+          "description": "You come to in pain — a deep, sick ache behind your eyes and along your ribs, as though the mountain struck you and left you here to think about it. You are disoriented. You do not remember how you arrived, who brought you, or what day it is.\n\nThe dark behind you is absolute. Ahead, pale daylight cuts a low opening in the stone — the cave mouth, rimed with ice, barely wide enough for a man on your knees. On the frozen floor within arm's reach, a fan of blood has stiffened to black-red ice. No body. No witness. You stare at it long enough to understand, with a cold certainty that settles worse than the pain: it is yours.\n\nYou pull yourself to your knees and prepare to crawl out of this eerie little cave.",
+          "examineDetails": "You brace on the wet stone and force yourself to take inventory while the pain clears in slow, unwilling waves.\n\nThe cave is natural basalt, slick with melt and rimed where the cold holds. Sound behaves wrongly here — your breath returns from the dark a half beat late, as though the chamber were listening. The wind outside is a distant complaint through the mouth of the cave.\n\nThe blood is frozen in a ragged fan where you must have fallen. The edges are sharp against the stone. Nothing suggests a struggle beyond your own collapse — no drag marks, no second set of prints in the snow dust.\n\nThe only light is the pale day at the low entrance ahead. The rest of the cave stays black. You have one way out: crawl toward the rimed opening and the howling ridge beyond.",
+          "flags": ["dark"],
+          "movement": { "right": true },
+          "movementMask": { "right": true },
+          "actions": { "examine": true }
+        }
       },
       "audio": {
         "music": {

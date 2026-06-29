@@ -53,6 +53,12 @@ OverlaySequenceAction parseOverlaySequenceAction(const std::string& action)
         return OverlaySequenceAction::FadeTo;
     if (action == "vignetteTo" || action == "vignette_to")
         return OverlaySequenceAction::VignetteTo;
+    if (action == "hypoxiaTo" || action == "hypoxia_to"
+        || action == "hypoxiaFadeIn" || action == "hypoxia_fade_in"
+        || action == "hypoxiaFadeOut" || action == "hypoxia_fade_out")
+    {
+        return OverlaySequenceAction::HypoxiaTo;
+    }
     return OverlaySequenceAction::Hold;
 }
 
@@ -144,6 +150,13 @@ bool parseOverlaySequenceStep(const nlohmann::json& step, OverlaySequenceStep& o
 
     out.action = parseOverlaySequenceAction(step.value("action", "hold"));
     out.targetOpacity = step.value("opacity", step.value("targetOpacity", 0.0f));
+    if (step.contains("fillPercent") || step.contains("fill_percent"))
+    {
+        const float fillPercent = step.value(
+            "fillPercent",
+            step.value("fill_percent", 0.0f));
+        out.targetOpacity = fillPercent / 100.0f;
+    }
     out.targetOcclusionPercent = step.value(
         "occlusionPercent",
         step.value("occlusion_percent", 0.0f));
@@ -152,6 +165,8 @@ bool parseOverlaySequenceStep(const nlohmann::json& step, OverlaySequenceStep& o
         step.value("duration_seconds", 0.0f));
     out.color = BLACK;
     parseOverlayColor(step.value("color", nlohmann::json()), out.color);
+    out.sfxPath = step.value("sfx", step.value("sfxPath", step.value("sfx_path", "")));
+    out.sfxVolume = step.value("sfxVolume", step.value("sfx_volume", 1.0f));
     return true;
 }
 

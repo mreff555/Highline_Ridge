@@ -125,6 +125,10 @@ class GameSession
         const std::vector<ConversationChoiceDef>& choices) const;
     void appendNarrativeSketch(const std::string& sketchPath);
     void applyLucidityCollapseRestart();
+    void performLucidityCollapseRestart();
+    void triggerOpeningHypoxiaSequence();
+    void triggerLucidityCollapseSequence();
+    void triggerCaveWakeHypoxiaSequence();
     void recordPlayerAction();
     void evaluateMilestones();
     void applyLocationStruct(const LocationStruct& locationStruct, const std::string& fromRoom = "");
@@ -157,6 +161,10 @@ class GameSession
     void triggerOverlaySequence(
         const std::vector<OverlaySequenceStep>& sequence,
         std::function<void()> onComplete = nullptr);
+    void playOverlayStepSfx(
+        const OverlaySequenceStep& step,
+        float fromOpacity,
+        float toOpacity);
     static std::string formatNewspaperDate(int day);
     void applyDirectUse();
     std::vector<SceneInteractionDef> getAvailableInteractions() const;
@@ -265,6 +273,8 @@ class GameSession
 
     bool deferInitialRoomAudio = true;
     bool initialFrameComplete = false;
+    bool pendingOpeningHypoxiaSequence = false;
+    bool lucidityCollapseSequenceActive = false;
     std::string transientMessage;
     float transientMessageTimer = 0.0f;
     bool devOverlayVisible = false;

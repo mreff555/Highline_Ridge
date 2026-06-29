@@ -248,7 +248,10 @@ void ButtonMgr::drawStatusBar(const char* label, Rectangle bounds, float percent
         {228, 220, 198, 255});
 }
 
-void ButtonMgr::setAvailability(const MovementStruct& movement, const ActionStruct& actions)
+void ButtonMgr::setAvailability(
+    const MovementStruct& movement,
+    const ActionStruct& actions,
+    bool enableInventory)
 {
     buttons[0].setEnabled(movement.up);
     buttons[1].setEnabled(movement.down);
@@ -261,7 +264,7 @@ void ButtonMgr::setAvailability(const MovementStruct& movement, const ActionStru
     buttons[8].setEnabled(actions.take);
     buttons[9].setEnabled(actions.use);
     buttons[10].setEnabled(actions.hit);
-    buttons[11].setEnabled(true);
+    buttons[11].setEnabled(enableInventory);
 }
 
 namespace

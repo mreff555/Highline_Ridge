@@ -18,7 +18,10 @@ namespace highline_ridge
         ~ButtonMgr();
         void update();
         void draw() const;
-        void setAvailability(const MovementStruct& movement, const ActionStruct& actions);
+        void setAvailability(
+            const MovementStruct& movement,
+            const ActionStruct& actions,
+            bool enableInventory = true);
         void setStatus(
             float healthPercent,
             float energyPercent,

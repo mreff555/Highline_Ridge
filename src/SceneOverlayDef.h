@@ -38,7 +38,8 @@ enum class OverlaySequenceAction
 {
     FadeTo,
     Hold,
-    VignetteTo
+    VignetteTo,
+    HypoxiaTo
 };
 
 struct OverlaySequenceStep
@@ -48,6 +49,8 @@ struct OverlaySequenceStep
     float targetOcclusionPercent = 0.0f;
     float durationSeconds = 0.0f;
     Color color = BLACK;
+    std::string sfxPath;
+    float sfxVolume = 1.0f;
 };
 
 bool parseOverlayColor(const nlohmann::json& value, Color& outColor);
