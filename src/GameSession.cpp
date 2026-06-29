@@ -239,6 +239,7 @@ namespace
         "Consciousness returns in fragments — pain first, then cold stone, then the thin daylight "
         "at the cave mouth. Your mouth tastes of iron. Memory stays blank.";
 
+    const float kNarrativeTtsLeadBeforeBlackEndSeconds = 0.5f;
     const float kOpeningHypoxiaHoldSeconds = 3.0f;
     const float kOpeningHypoxiaSeconds = 8.0f;
     const float kHypoxiaCollapseMaxSeconds = 4.0f;
@@ -1257,6 +1258,40 @@ namespace
             "Missing bundled TTS audio (run with --refresh-voices=API_KEY)");
     }
 
+    void GameSession::scheduleDelayedSceneNarrativeTts(
+        const std::vector<std::string>& audioPaths,
+        float delaySeconds)
+    {
+        if (!gameConfig.tts.enabled || audioPaths.empty())
+            return;
+
+        delayedSceneNarrativeTtsPaths = audioPaths;
+        delayedSceneNarrativeTtsTimer = std::max(0.0f, delaySeconds);
+        pendingDelayedSceneNarrativeTts = true;
+    }
+
+    void GameSession::updateDelayedSceneNarrativeTts(float deltaSeconds)
+    {
+        if (!pendingDelayedSceneNarrativeTts)
+            return;
+
+        delayedSceneNarrativeTtsTimer -= deltaSeconds;
+        if (delayedSceneNarrativeTtsTimer > 0.0f)
+            return;
+
+        pendingDelayedSceneNarrativeTts = false;
+        const std::vector<std::string> audioPaths = std::move(delayedSceneNarrativeTtsPaths);
+        delayedSceneNarrativeTtsPaths.clear();
+        playSceneNarrativeTtsSequence(audioPaths);
+    }
+
+    void GameSession::cancelDelayedSceneNarrativeTts()
+    {
+        pendingDelayedSceneNarrativeTts = false;
+        delayedSceneNarrativeTtsTimer = 0.0f;
+        delayedSceneNarrativeTtsPaths.clear();
+    }
+
     void GameSession::processSpeakResult(const SpeakResult& result)
     {
         if (result.action == SpeakResult::Action::None
@@ -1611,6 +1646,13 @@ namespace
             makeHoldStep(kOpeningHypoxiaHoldSeconds),
             makeHypoxiaStep(0.0f, kOpeningHypoxiaSeconds),
         });
+
+        std::vector<std::string> openingNarrativeAudio;
+        if (descriptionTts.enabled && !descriptionTts.audio.empty())
+            openingNarrativeAudio.push_back(descriptionTts.audio);
+        scheduleDelayedSceneNarrativeTts(
+            openingNarrativeAudio,
+            kOpeningHypoxiaHoldSeconds - kNarrativeTtsLeadBeforeBlackEndSeconds);
     }
 
     void GameSession::triggerLucidityCollapseSequence()
@@ -1629,6 +1671,34 @@ namespace
         if (fadeToBlackSeconds > 0.001f)
             steps.push_back(makeHypoxiaStep(1.0f, fadeToBlackSeconds));
         steps.push_back(makeHoldStep(kHypoxiaCollapseHoldSeconds));
+
+        LocationStruct wakeLocation;
+        std::string startSceneId;
+        if (sceneDatabase.loadStartScene(wakeLocation, startSceneId))
+        {
+            const std::string wakeSubSceneId = "toward_exit";
+            if (sceneDatabase.loadScene(startSceneId, wakeSubSceneId, wakeLocation))
+            {
+                const SceneData* startScene = sceneDatabase.getScene(startSceneId);
+                std::vector<std::string> wakeNarrativeAudio;
+                if (startScene != nullptr
+                    && startScene->wakeTts.enabled
+                    && !startScene->wakeTts.audio.empty())
+                {
+                    wakeNarrativeAudio.push_back(startScene->wakeTts.audio);
+                }
+                if (wakeLocation.descriptionTts.enabled
+                    && !wakeLocation.descriptionTts.audio.empty())
+                {
+                    wakeNarrativeAudio.push_back(wakeLocation.descriptionTts.audio);
+                }
+
+                scheduleDelayedSceneNarrativeTts(
+                    wakeNarrativeAudio,
+                    fadeToBlackSeconds + kHypoxiaCollapseHoldSeconds
+                        - kNarrativeTtsLeadBeforeBlackEndSeconds);
+            }
+        }
 
         triggerOverlaySequence(steps, [this]()
         {
@@ -1687,16 +1757,6 @@ namespace
         narrativeNotebook.getNarrativeText() += wakeNarrative;
         narrativeNotebook.getNarrativeText() += "\n\n";
         narrativeNotebook.getNarrativeText() += baseDescription;
-
-        if (sceneData != nullptr)
-        {
-            std::vector<std::string> wakeAudio;
-            if (sceneData->wakeTts.enabled && !sceneData->wakeTts.audio.empty())
-                wakeAudio.push_back(sceneData->wakeTts.audio);
-            if (descriptionTts.enabled && !descriptionTts.audio.empty())
-                wakeAudio.push_back(descriptionTts.audio);
-            playSceneNarrativeTtsSequence(wakeAudio);
-        }
 
         StatusEffect wakeEffect;
         wakeEffect.energy = 5.0f;
@@ -2736,6 +2796,7 @@ namespace
 
         pendingOpeningHypoxiaSequence = false;
         lucidityCollapseSequenceActive = false;
+        cancelDelayedSceneNarrativeTts();
         overlayMgr.clear();
 
         conversationMgr.onEnterScene(worldState.currentSceneId, sceneDatabase.getSpeakConfig(worldState.currentSceneId));
@@ -3282,9 +3343,9 @@ namespace
             audioManager.onRoomEnter(
                 sceneDatabase.getSceneAudio(worldState.currentSceneId, worldState.activeSubSceneId));
             deferInitialRoomAudio = false;
-            playSceneNarrativeTts(descriptionTts);
         }
 
+        updateDelayedSceneNarrativeTts(GetFrameTime());
         audioManager.update(GetFrameTime());
         overlayMgr.update(GetFrameTime());
         trackDisplayConfigChanges();

@@ -1645,21 +1645,21 @@
         "tts": true,
         "ttsAudio": "resources/audio/tts/snow_cave_interior/toward_exit_description.mp3",
         "ttsText": "You come to in pain. A deep, sick ache sits behind your eyes and along your ribs, as though the mountain struck you and left you here to think about it. You are disoriented. You do not remember how you arrived, who brought you, or what day it is. The dark behind you is absolute. Ahead, pale daylight cuts a low opening in the stone, the cave mouth rimed with ice, barely wide enough for a man on his knees. On the frozen floor within arm's reach, a fan of blood has stiffened to black-red ice. No body. No witness. You stare at it long enough to understand, with a cold certainty that settles worse than the pain. It is yours. You pull yourself to your knees and prepare to crawl out of this eerie little cave.",
-        "ttsTextSha256": "60aec4cd151c6af138186c10381cd8ecdfda5be65687b6c89aeece3433b9e262"
+        "ttsVoice": "leo"
       },
       "wakeNarrative": "Consciousness returns in fragments — pain first, then cold stone, then the thin daylight at the cave mouth. Your mouth tastes of iron. Memory stays blank.",
       "wakeTts": {
         "tts": true,
         "ttsAudio": "resources/audio/tts/snow_cave_interior/lucidity_wake.mp3",
         "ttsText": "Consciousness returns in fragments. Pain first, then cold stone, then the thin daylight at the cave mouth. Your mouth tastes of iron. Memory stays blank.",
-        "ttsTextSha256": "71fd45f5943d7eace21df1c33fcee0c53aec2ee9878f0581ac7148fa74650a11"
+        "ttsVoice": "leo"
       },
       "examineDetails": "You brace on the wet stone and force yourself to take inventory while the pain clears in slow, unwilling waves.\n\nThe cave is natural basalt, slick with melt and rimed where the cold holds. Sound behaves wrongly here — your breath returns from the dark a half beat late, as though the chamber were listening. The wind outside is a distant complaint through the mouth of the cave.\n\nThe blood is frozen in a ragged fan where you must have fallen. The edges are sharp against the stone. Nothing suggests a struggle beyond your own collapse — no drag marks, no second set of prints in the snow dust.\n\nThe only light is the pale day at the low entrance ahead. The rest of the cave stays black. You have one way out: crawl toward the rimed opening and the howling ridge beyond.",
       "examineTts": {
         "tts": true,
         "ttsAudio": "resources/audio/tts/snow_cave_interior/toward_exit_examine.mp3",
         "ttsText": "You brace on the wet stone and force yourself to take inventory while the pain clears in slow, unwilling waves. The cave is natural basalt, slick with melt and rimed where the cold holds. Sound behaves wrongly here. Your breath returns from the dark a half beat late, as though the chamber were listening. The wind outside is a distant complaint through the mouth of the cave. The blood is frozen in a ragged fan where you must have fallen. The edges are sharp against the stone. Nothing suggests a struggle beyond your own collapse. No drag marks. No second set of prints in the snow dust. The only light is the pale day at the low entrance ahead. The rest of the cave stays black. You have one way out. Crawl toward the rimed opening and the howling ridge beyond.",
-        "ttsTextSha256": "52da1028d32411e87fe7502dac1d26c05fd9a9d16f94056d1048841a225c8fda"
+        "ttsVoice": "leo"
       },
       "useDetails": "",
       "movement": {
@@ -1691,14 +1691,14 @@
             "tts": true,
             "ttsAudio": "resources/audio/tts/snow_cave_interior/chamber_description.mp3",
             "ttsText": "You duck through the low entrance and the howling ridge falls away behind you, not gone, but muffled, as though the mountain were speaking through wool. Inside, the cold is worse. It does not bite the skin so much as settle in the bones and stay. Your lantern throws a small honest circle across wet stone and packed snow. Every sound you make comes back wrong. A drip. A boot scrape. Your own breath. Each returned from the dark with a thin eerie echo, as if the cave were listening. On the floor before you, a pool of blood has frozen in a ragged fan, black-red in the lamplight. No body. No explanation. Only the stain and the feeling that someone left in a hurry.",
-            "ttsTextSha256": "7a6935d24cf04aba6fd002fbb2836f3510e093bd211418f059dfa479016d961e"
+            "ttsVoice": "leo"
           },
           "examineDetails": "You keep the lantern low and work the scene the way altitude teaches you — slow, careful, unwilling to trust the walls.\n\nThe chamber is natural stone, basalt by the grain, slick with melt and frost. The ceiling drops low enough to force your shoulders inward. Sound behaves strangely here: the wind outside is a distant complaint, but your movements bounce back from the rear wall half a beat late.\n\nThe blood pool is recent enough that the cold has not made it entirely honest. Edges are sharp where it met stone. Nothing leads away in a trail — no drag marks, no footprints in the snow dust beyond your own.\n\nTo the right, pale daylight leaks through the entrance — a small opening barely wide enough for a man on his knees. It is your only way back out to the ridge.",
           "examineTts": {
             "tts": true,
             "ttsAudio": "resources/audio/tts/snow_cave_interior/chamber_examine.mp3",
             "ttsText": "You keep the lantern low and work the scene the way altitude teaches you, slow, careful, unwilling to trust the walls. The chamber is natural stone, basalt by the grain, slick with melt and frost. The ceiling drops low enough to force your shoulders inward. Sound behaves strangely here. The wind outside is a distant complaint, but your movements bounce back from the rear wall half a beat late. The blood pool is recent enough that the cold has not made it entirely honest. Edges are sharp where it met stone. Nothing leads away in a trail. No drag marks. No footprints in the snow dust beyond your own. To the right, pale daylight leaks through the entrance, a small opening barely wide enough for a man on his knees. It is your only way back out to the ridge.",
-            "ttsTextSha256": "1d6646f009408c36d4a24650b3b4fb1107e1860b744e7d5c0c4e32f5a8aa11f6"
+            "ttsVoice": "leo"
           },
           "flags": [
             "dark"
@@ -1720,14 +1720,14 @@
             "tts": true,
             "ttsAudio": "resources/audio/tts/snow_cave_interior/toward_exit_description.mp3",
             "ttsText": "You come to in pain. A deep, sick ache sits behind your eyes and along your ribs, as though the mountain struck you and left you here to think about it. You are disoriented. You do not remember how you arrived, who brought you, or what day it is. The dark behind you is absolute. Ahead, pale daylight cuts a low opening in the stone, the cave mouth rimed with ice, barely wide enough for a man on his knees. On the frozen floor within arm's reach, a fan of blood has stiffened to black-red ice. No body. No witness. You stare at it long enough to understand, with a cold certainty that settles worse than the pain. It is yours. You pull yourself to your knees and prepare to crawl out of this eerie little cave.",
-            "ttsTextSha256": "60aec4cd151c6af138186c10381cd8ecdfda5be65687b6c89aeece3433b9e262"
+            "ttsVoice": "leo"
           },
           "examineDetails": "You brace on the wet stone and force yourself to take inventory while the pain clears in slow, unwilling waves.\n\nThe cave is natural basalt, slick with melt and rimed where the cold holds. Sound behaves wrongly here — your breath returns from the dark a half beat late, as though the chamber were listening. The wind outside is a distant complaint through the mouth of the cave.\n\nThe blood is frozen in a ragged fan where you must have fallen. The edges are sharp against the stone. Nothing suggests a struggle beyond your own collapse — no drag marks, no second set of prints in the snow dust.\n\nThe only light is the pale day at the low entrance ahead. The rest of the cave stays black. You have one way out: crawl toward the rimed opening and the howling ridge beyond.",
           "examineTts": {
             "tts": true,
             "ttsAudio": "resources/audio/tts/snow_cave_interior/toward_exit_examine.mp3",
             "ttsText": "You brace on the wet stone and force yourself to take inventory while the pain clears in slow, unwilling waves. The cave is natural basalt, slick with melt and rimed where the cold holds. Sound behaves wrongly here. Your breath returns from the dark a half beat late, as though the chamber were listening. The wind outside is a distant complaint through the mouth of the cave. The blood is frozen in a ragged fan where you must have fallen. The edges are sharp against the stone. Nothing suggests a struggle beyond your own collapse. No drag marks. No second set of prints in the snow dust. The only light is the pale day at the low entrance ahead. The rest of the cave stays black. You have one way out. Crawl toward the rimed opening and the howling ridge beyond.",
-            "ttsTextSha256": "52da1028d32411e87fe7502dac1d26c05fd9a9d16f94056d1048841a225c8fda"
+            "ttsVoice": "leo"
           },
           "flags": [
             "dark"

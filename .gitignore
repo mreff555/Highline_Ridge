@@ -61,3 +61,4 @@ storyboard.md
 # xAI API key (optional; refresh uses --refresh-voices=KEY instead)
 resources/xai_api_key
 .DS_Store
+tools/__pycache__

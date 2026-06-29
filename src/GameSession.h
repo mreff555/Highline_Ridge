@@ -119,6 +119,11 @@ class GameSession
     void playInteractionTts(const SceneInteractionDef& interaction, bool includeAfter = false);
     void playSceneNarrativeTts(const ItemTtsDef& tts);
     void playSceneNarrativeTtsSequence(const std::vector<std::string>& audioPaths);
+    void scheduleDelayedSceneNarrativeTts(
+        const std::vector<std::string>& audioPaths,
+        float delaySeconds);
+    void updateDelayedSceneNarrativeTts(float deltaSeconds);
+    void cancelDelayedSceneNarrativeTts();
     void applyStatusEffects(const std::vector<StatusEffect>& effects);
     void handleNarrativeChoiceInput();
     void appendChoiceLinesToNarrative(
@@ -283,6 +288,9 @@ class GameSession
     bool initialFrameComplete = false;
     bool pendingOpeningHypoxiaSequence = false;
     bool lucidityCollapseSequenceActive = false;
+    bool pendingDelayedSceneNarrativeTts = false;
+    float delayedSceneNarrativeTtsTimer = 0.0f;
+    std::vector<std::string> delayedSceneNarrativeTtsPaths;
     std::string transientMessage;
     float transientMessageTimer = 0.0f;
     bool devOverlayVisible = false;
