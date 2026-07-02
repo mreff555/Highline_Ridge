@@ -34,6 +34,7 @@ set(SOURCES
     src/SceneOverlayDef.cpp
     src/SceneOverlayMgr.cpp
     src/ConversationManager.cpp
+    src/ConversationRequirements.cpp
     src/MilestoneDatabase.cpp
     src/MilestoneManager.cpp
     src/InventoryMgr.cpp

@@ -16,6 +16,10 @@ class ConversationManager
 {
     public:
     void setProgressionService(const ProgressionService* service) { progressionService = service; }
+    void setRequirementContext(const ConversationRequirementContext& context)
+    {
+        requirementContext = context;
+    }
     void onEnterScene(const std::string& sceneId, const SceneSpeakConfig& config);
     bool canSpeak(
         const SceneSpeakConfig& config,
@@ -45,6 +49,7 @@ class ConversationManager
         const ConversationPhase& phase,
         const std::set<std::string>& storyFlags) const;
     bool canPickRandomLine(const RandomConversationLine& line) const;
+    bool meetsLineRequirements(const RandomConversationLine& line) const;
     bool canWorkTheRoom(
         const SceneSpeakConfig& config,
         const std::set<std::string>& storyFlags) const;
@@ -135,6 +140,7 @@ class ConversationManager
     std::string activeParentChoiceId;
     std::vector<ConversationChoiceDef> pendingChoices;
     const ProgressionService* progressionService = nullptr;
+    ConversationRequirementContext requirementContext;
 };
 
 }

@@ -40,6 +40,10 @@ class WorldState
     int day = 1;
     int actionCount = 0;
     int saloonRoomPurchasedDay = 0;
+    int lucidityCollapseCount = 0;
+    int lastLucidityCollapseDay = 0;
+    int lastSleepDay = 0;
+    std::map<std::string, int> flagGrantedDay;
     std::map<std::string, int> actorOpinions;
     std::map<std::string, float> actorTabOwed;
 

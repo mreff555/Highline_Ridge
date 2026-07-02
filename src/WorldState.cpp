@@ -37,6 +37,10 @@ SavedGameState WorldState::snapshot(
     state.day = day;
     state.actionCount = actionCount;
     state.saloonRoomPurchasedDay = saloonRoomPurchasedDay;
+    state.lucidityCollapseCount = lucidityCollapseCount;
+    state.lastLucidityCollapseDay = lastLucidityCollapseDay;
+    state.lastSleepDay = lastSleepDay;
+    state.flagGrantedDay = flagGrantedDay;
     state.actorOpinions = actorOpinions;
     state.actorTabOwed = actorTabOwed;
     state.knownActorIds = knownActorIds;
@@ -76,9 +80,19 @@ bool WorldState::restore(
     day = state.day;
     actionCount = state.actionCount;
     saloonRoomPurchasedDay = state.saloonRoomPurchasedDay;
+    lucidityCollapseCount = state.lucidityCollapseCount;
+    lastLucidityCollapseDay = state.lastLucidityCollapseDay;
+    lastSleepDay = state.lastSleepDay;
+    flagGrantedDay = state.flagGrantedDay;
     actorOpinions = state.actorOpinions;
     actorTabOwed = state.actorTabOwed;
     knownActorIds = state.knownActorIds;
+
+    for (const std::string& flag : storyFlags)
+    {
+        if (flagGrantedDay.count(flag) == 0)
+            flagGrantedDay[flag] = day > 0 ? day : 1;
+    }
 
     inventoryMgr.restoreFromSnapshots(state.inventoryItems);
     conversationMgr.importPersistState(state.conversation);

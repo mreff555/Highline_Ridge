@@ -276,6 +276,27 @@ bool parseGrantedInventoryItem(const nlohmann::json& item, GrantedInventoryItemD
     return true;
 }
 
+void parseDialogRequirementFields(const nlohmann::json& node, DialogRequirementFields& out)
+{
+    out.minDay = node.value("minDay", 0);
+    out.maxDay = node.value("maxDay", 0);
+    out.requiresLucidityBelow = node.value("requiresLucidityBelow", 0.0f);
+    out.requiresLucidityAbove = node.value("requiresLucidityAbove", 0.0f);
+    out.requiresRecentCollapse = node.value("requiresRecentCollapse", false);
+    out.requiresRecentSleep = node.value("requiresRecentSleep", false);
+    out.requiresDaysSinceFlag = node.value("requiresDaysSinceFlag", "");
+    out.requiresDaysSinceMin = node.value("requiresDaysSinceMin", 0);
+    out.requiresDaysSinceMax = node.value("requiresDaysSinceMax", 0);
+
+    if (node.contains("requiresDaysSince") && node["requiresDaysSince"].is_object())
+    {
+        const nlohmann::json& since = node["requiresDaysSince"];
+        out.requiresDaysSinceFlag = since.value("flag", out.requiresDaysSinceFlag);
+        out.requiresDaysSinceMin = since.value("min", out.requiresDaysSinceMin);
+        out.requiresDaysSinceMax = since.value("max", out.requiresDaysSinceMax);
+    }
+}
+
 bool parseConversationChoice(const nlohmann::json& choice, ConversationChoiceDef& out)
 {
     if (!choice.is_object())
@@ -345,6 +366,7 @@ bool parseRandomLine(const nlohmann::json& line, RandomConversationLine& out)
     out.id = line.value("id", "");
     if (!parseActorFields(line, out.actorId, out.actorName))
         return false;
+    parseDialogRequirementFields(line, out.requirements);
     out.text = line.value("text", "");
     out.sketchPath = line.value("sketch", "");
     out.audio = parseOptionalAudioField(line, "audio");
@@ -390,6 +412,7 @@ bool parseConversationPhase(const nlohmann::json& phase, ConversationPhase& out)
     out.type = parsePhaseType(phase.value("type", "once"));
     out.requiresPhaseId = phase.value("requiresPhase", "");
     out.requiresFlag = phase.value("requiresFlag", "");
+    parseDialogRequirementFields(phase, out.requirements);
     out.resetOnSceneEnter = phase.value("resetOnSceneEnter", true);
     out.repeatable = phase.value("repeatable", false);
     out.text = phase.value("text", "");

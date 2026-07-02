@@ -1748,26 +1748,18 @@ namespace
         sceneController.getActiveScene().unloadOwnedImage();
         worldState.previousSceneId.clear();
         worldState.currentSceneId = startSceneId;
-        worldState.sceneVisits.examinedSceneIds.clear();
-        worldState.sceneVisits.usedSceneIds.clear();
-        worldState.takenItemKeys.clear();
-        worldState.usedInteractionKeys.clear();
-        worldState.storyFlags.clear();
-        worldState.committedPlayerDialogLines.clear();
-        worldState.droppedItemsByScene.clear();
-        worldState.knownActorIds.clear();
         closeAllUiPanels();
-        applyLocationStruct(startLocation, worldState.currentSceneId, false);
+        applyLocationStruct(startLocation, worldState.currentSceneId, false, true);
 
         const SceneData* sceneData = sceneDatabase.getScene(startSceneId);
         const std::string wakeNarrative = sceneData != nullptr && !sceneData->wakeNarrative.empty()
             ? sceneData->wakeNarrative
             : kWakeOnFloorPrefix;
 
-        narrativeNotebook.getNarrativeText() += "\n\n";
-        narrativeNotebook.getNarrativeText() += wakeNarrative;
+        appendNarrativeSection("Waking:", wakeNarrative);
         narrativeNotebook.getNarrativeText() += "\n\n";
         narrativeNotebook.getNarrativeText() += baseDescription;
+        worldState.narrativeText = narrativeNotebook.getNarrativeText();
 
         StatusEffect wakeEffect;
         wakeEffect.energy = 5.0f;
@@ -1778,7 +1770,9 @@ namespace
         narrativeNotebook.resetNarrativeScroll();
         narrativeNotebook.invalidateLayout();
         trimNarrativeBuffer();
+        ++worldState.lucidityCollapseCount;
         worldState.advanceDay();
+        worldState.lastLucidityCollapseDay = worldState.day;
         updateActionAvailability();
         return true;
     }
@@ -1961,9 +1955,11 @@ namespace
     {
         const std::string wakeDetails =
             "When you wake, gray light sits at the window and the bourbon bottle throws a darker shadow on the "
-            "dresser. Your mouth tastes of smoke and iron. The newspaper has not moved. The room remembers you, "
-            "but only barely.";
-        appendNarrativeSection("Using:", wakeDetails);
+            "dresser. Your mouth tastes of smoke and iron. You reach for the notebook on the nightstand and leaf "
+            "back through yesterday in your own hand. The entries are familiar and strange at once — as though "
+            "someone else lived them and left you the receipts. The newspaper has not moved. The room remembers "
+            "you, but only barely.";
+        appendNarrativeSection("Waking:", wakeDetails);
         playInteractionTts(interaction, true);
 
         StatusEffect sleepEffect;
@@ -1985,6 +1981,7 @@ namespace
         }
 
         worldState.advanceDay();
+        worldState.lastSleepDay = worldState.day;
         updateActionAvailability();
     }
 
@@ -2119,7 +2116,7 @@ namespace
             worldState.usedInteractionKeys.insert(interactionKey(interaction.id));
 
         if (!interaction.useFlag.empty())
-            worldState.storyFlags.insert(interaction.useFlag);
+            applyGrantedStoryFlag(interaction.useFlag);
 
         if (interaction.grantItem.isValid())
             grantConversationItem(interaction.grantItem);
@@ -2727,17 +2724,32 @@ namespace
         applySceneOverlays();
     }
 
+    void GameSession::syncConversationRequirements()
+    {
+        ConversationRequirementContext context;
+        context.currentDay = worldState.day;
+        context.lucidity = worldState.playerStats.lucidity;
+        context.lastLucidityCollapseDay = worldState.lastLucidityCollapseDay;
+        context.lastSleepDay = worldState.lastSleepDay;
+        context.flagGrantedDay = &worldState.flagGrantedDay;
+        conversationMgr.setRequirementContext(context);
+    }
+
     void GameSession::applyLocationStruct(
         const LocationStruct& locationStruct,
         const std::string& fromRoom,
-        bool playDescriptionTts)
+        bool playDescriptionTts,
+        bool preserveNarrative)
     {
         sceneController.getActiveScene().loadFromStruct(worldState.currentSceneId, locationStruct);
         syncFromActiveScene();
         worldState.sceneVisits.resetForNewScene();
         worldState.committedPlayerDialogLines.clear();
-        narrativeNotebook.getNarrativeText() = locationStruct.locationDescription;
-        worldState.narrativeText = narrativeNotebook.getNarrativeText();
+        if (!preserveNarrative)
+        {
+            narrativeNotebook.getNarrativeText() = locationStruct.locationDescription;
+            worldState.narrativeText = narrativeNotebook.getNarrativeText();
+        }
         narrativeNotebook.getChoiceHitAreas().clear();
 
         conversationMgr.onEnterScene(worldState.currentSceneId, sceneDatabase.getSpeakConfig(worldState.currentSceneId));
@@ -2950,6 +2962,8 @@ namespace
             return;
 
         worldState.storyFlags.insert(flag);
+        if (worldState.flagGrantedDay.count(flag) == 0)
+            worldState.flagGrantedDay[flag] = worldState.day;
         if (flag == "saloon_interior:chose_water"
             || flag == "saloon_interior:chose_usual"
             || flag == "saloon_interior:chose_cheaper"
@@ -3341,6 +3355,8 @@ namespace
 
     void GameSession::update()
     {
+        syncConversationRequirements();
+
         if (!initialFrameComplete)
         {
             initialFrameComplete = true;

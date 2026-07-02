@@ -139,10 +139,12 @@ class GameSession
     void triggerCaveWakeHypoxiaSequence();
     void recordPlayerAction();
     void evaluateMilestones();
+    void syncConversationRequirements();
     void applyLocationStruct(
         const LocationStruct& locationStruct,
         const std::string& fromRoom = "",
-        bool playDescriptionTts = true);
+        bool playDescriptionTts = true,
+        bool preserveNarrative = false);
     void transitionToScene(const std::string& sceneId, const std::string& subSceneId = "");
     void syncActiveSubScene();
     void tryMove(const std::string& direction);

@@ -628,7 +628,7 @@ bool writeSaveFile(const std::string& path, const SavedGameState& state, const S
         return false;
 
     nlohmann::json root;
-    root["version"] = 9;
+    root["version"] = 10;
     root["saveMeta"] = saveMetadataToJson(metadata);
     root["sceneId"] = state.sceneId;
     root["activeSubSceneId"] = state.activeSubSceneId;
@@ -676,6 +676,10 @@ bool writeSaveFile(const std::string& path, const SavedGameState& state, const S
     root["day"] = state.day;
     root["actionCount"] = state.actionCount;
     root["saloonRoomPurchasedDay"] = state.saloonRoomPurchasedDay;
+    root["lucidityCollapseCount"] = state.lucidityCollapseCount;
+    root["lastLucidityCollapseDay"] = state.lastLucidityCollapseDay;
+    root["lastSleepDay"] = state.lastSleepDay;
+    root["flagGrantedDay"] = actorOpinionsToJson(state.flagGrantedDay);
     root["actorOpinions"] = actorOpinionsToJson(state.actorOpinions);
     root["actorTabOwed"] = actorTabOwedToJson(state.actorTabOwed);
     root["knownActorIds"] = setToJsonArray(state.knownActorIds);
@@ -740,13 +744,23 @@ bool readSaveFile(const std::string& path, SavedGameState& state, SaveSlotMetada
     jsonArrayToSet(root.value("storyFlags", nlohmann::json::array()), state.storyFlags);
     jsonArrayToSet(root.value("consumedStatusActions", nlohmann::json::array()), state.consumedStatusActions);
     jsonArrayToSet(root.value("committedPlayerDialogLines", nlohmann::json::array()), state.committedPlayerDialogLines);
+    const int saveVersion = root.value("version", 4);
+
     state.day = root.value("day", state.day);
     state.actionCount = root.value("actionCount", state.actionCount);
     state.saloonRoomPurchasedDay = root.value("saloonRoomPurchasedDay", state.saloonRoomPurchasedDay);
+    if (saveVersion >= 10)
+    {
+        state.lucidityCollapseCount = root.value("lucidityCollapseCount", 0);
+        state.lastLucidityCollapseDay = root.value("lastLucidityCollapseDay", 0);
+        state.lastSleepDay = root.value("lastSleepDay", 0);
+        actorOpinionsFromJson(
+            root.value("flagGrantedDay", nlohmann::json::object()),
+            state.flagGrantedDay);
+    }
     actorOpinionsFromJson(root.value("actorOpinions", nlohmann::json::object()), state.actorOpinions);
     actorTabOwedFromJson(root.value("actorTabOwed", nlohmann::json::object()), state.actorTabOwed);
 
-    const int saveVersion = root.value("version", 4);
     if (saveVersion >= 8)
         jsonArrayToSet(root.value("knownActorIds", nlohmann::json::array()), state.knownActorIds);
     if (saveVersion >= 5)

@@ -186,7 +186,12 @@ bool ConversationManager::isPhaseRequirementMet(
             return false;
     }
 
-    return true;
+    return meetsDialogRequirements(phase.requirements, requirementContext);
+}
+
+bool ConversationManager::meetsLineRequirements(const RandomConversationLine& line) const
+{
+    return meetsDialogRequirements(line.requirements, requirementContext);
 }
 
 const ConversationPhase* ConversationManager::findPhase(
@@ -305,7 +310,10 @@ std::string ConversationManager::bestStartablePhaseIdForActor(
 
 bool ConversationManager::canPickRandomLine(const RandomConversationLine& line) const
 {
-    return !(line.once && !line.id.empty() && completedRandomLineIds.count(line.id) > 0);
+    if (line.once && !line.id.empty() && completedRandomLineIds.count(line.id) > 0)
+        return false;
+
+    return meetsLineRequirements(line);
 }
 
 bool ConversationManager::canWorkTheRoom(
@@ -647,7 +655,7 @@ SpeakResult ConversationManager::pickRandomLine(
     for (size_t i = 0; i < phase.lines.size(); ++i)
     {
         const RandomConversationLine& line = phase.lines[i];
-        if (line.once && !line.id.empty() && completedRandomLineIds.count(line.id) > 0)
+        if (!canPickRandomLine(line))
             continue;
 
         eligibleIndices.push_back(i);

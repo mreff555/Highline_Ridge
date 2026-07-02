@@ -47,6 +47,32 @@ struct StatusEffect
     }
 };
 
+struct DialogRequirementFields
+{
+    int minDay = 0;
+    int maxDay = 0;
+    float requiresLucidityBelow = 0.0f;
+    float requiresLucidityAbove = 0.0f;
+    bool requiresRecentCollapse = false;
+    bool requiresRecentSleep = false;
+    std::string requiresDaysSinceFlag;
+    int requiresDaysSinceMin = 0;
+    int requiresDaysSinceMax = 0;
+};
+
+struct ConversationRequirementContext
+{
+    int currentDay = 1;
+    float lucidity = 30.0f;
+    int lastLucidityCollapseDay = 0;
+    int lastSleepDay = 0;
+    const std::map<std::string, int>* flagGrantedDay = nullptr;
+};
+
+bool meetsDialogRequirements(
+    const DialogRequirementFields& requirements,
+    const ConversationRequirementContext& context);
+
 struct ChoiceAvailabilityContext
 {
     float walletCash = 0.0f;
@@ -164,6 +190,7 @@ struct RandomConversationLine
     std::string id;
     std::string actorId;
     std::string actorName;
+    DialogRequirementFields requirements;
     std::string text;
     std::string sketchPath;
     std::string audio;
@@ -198,6 +225,7 @@ struct ConversationPhase
     ConversationPhaseType type = ConversationPhaseType::Once;
     std::string requiresPhaseId;
     std::string requiresFlag;
+    DialogRequirementFields requirements;
     bool resetOnSceneEnter = true;
     bool repeatable = false;
 

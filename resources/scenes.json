@@ -1276,7 +1276,8 @@
           "ttsAfter": true,
           "ttsAfterVoice": "leo",
           "ttsAfterAudio": "resources/audio/tts/saloon_bedroom/sleep_wake.mp3",
-          "ttsAfterText": "When you wake, gray light sits at the window and the bourbon bottle throws a darker shadow on the dresser. Your mouth tastes of smoke and iron. The newspaper has not moved. The room remembers you, but only barely.",
+          "ttsAfterText": "When you wake, gray light sits at the window and the bourbon bottle throws a darker shadow on the dresser. Your mouth tastes of smoke and iron. You reach for the notebook on the nightstand and leaf back through yesterday in your own hand. The entries are familiar and strange at once, as though someone else lived them and left you the receipts. The newspaper has not moved. The room remembers you, but only barely.",
+          "ttsAfterTextSha256": "3e737e85ad17ea968cfcecec688bb121d04b9b964128d88bf5cde09d70b37960",
           "overlaySequence": [
             {
               "action": "fadeTo",
@@ -1641,12 +1642,12 @@
       "defaultSubScene": "toward_exit",
       "image": "resources/images/snow_cave_interior.png",
       "description": "You come to in pain.  A deep, sick ache behind your eyes and along your ribs, as though the mountain struck you and left you here to think about it. You are disoriented. You do not remember how you arrived, who brought you, or what day it is.\n\nThe dark behind you is absolute. Ahead, pale daylight cuts a low opening in the stone — the cave mouth, rimed with ice, barely wide enough for a man on his knees. On the frozen floor within arm's reach, a fan of blood has stiffened to black-red ice. No body. No witness. You stare at it long enough to understand, with a cold certainty that settles worse than the pain: it is yours.\n\nYou pull yourself to your knees and prepare to crawl out of this eerie little cave.",
-      "wakeNarrative": "Consciousness returns in fragments — pain first, then cold stone, then the thin daylight at the cave mouth. Your mouth tastes of iron. Memory stays blank.",
+      "wakeNarrative": "You come to in fragments — pain first, then cold stone, then the thin daylight at the cave mouth. Your mouth tastes of iron. You fumble for the notebook in your coat. The handwriting is yours, cramped and urgent. Names and places swim up from the page: the saloon, the ridge, Graysmill somewhere below. You do not remember writing half of it. You remember enough to know you have been here before.",
       "wakeTts": {
         "tts": true,
         "ttsAudio": "resources/audio/tts/snow_cave_interior/lucidity_wake.mp3",
-        "ttsText": "Consciousness returns in fragments. Pain first, then cold stone, then the thin daylight at the cave mouth. Your mouth tastes of iron. Memory stays blank.",
-        "ttsTextSha256": "71fd45f5943d7eace21df1c33fcee0c53aec2ee9878f0581ac7148fa74650a11",
+        "ttsText": "You come to in fragments. Pain first, then cold stone, then the thin daylight at the cave mouth. Your mouth tastes of iron. You fumble for the notebook in your coat. The handwriting is yours, cramped and urgent. Names and places swim up from the page: the saloon, the ridge, Graysmill somewhere below. You do not remember writing half of it. You remember enough to know you have been here before.",
+        "ttsTextSha256": "94d3b502d8ed30518c0f4bf1778ed03ba0bbfa335412ffe85691c3980c33f7d6",
         "ttsVoice": "leo"
       },
       "examineDetails": "You brace on the wet stone and force yourself to take inventory while the pain clears in slow, unwilling waves.\n\nThe cave is natural basalt, slick with melt and rimed where the cold holds. Sound behaves wrongly here — your breath returns from the dark a half beat late, as though the chamber were listening. The wind outside is a distant complaint through the mouth of the cave.\n\nThe blood is frozen in a ragged fan where you must have fallen. The edges are sharp against the stone. Nothing suggests a struggle beyond your own collapse — no drag marks, no second set of prints in the snow dust.\n\nThe only light is the pale day at the low entrance ahead. The rest of the cave stays black. You have one way out: crawl toward the rimed opening and the howling ridge beyond.",
