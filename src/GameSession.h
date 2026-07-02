@@ -133,7 +133,7 @@ class GameSession
         const std::vector<ConversationChoiceDef>& choices) const;
     void appendNarrativeSketch(const std::string& sketchPath);
     void applyLucidityCollapseRestart();
-    void performLucidityCollapseRestart();
+    bool performLucidityCollapseRestart();
     void triggerOpeningHypoxiaSequence();
     void triggerLucidityCollapseSequence();
     void triggerCaveWakeHypoxiaSequence();

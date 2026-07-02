@@ -37,7 +37,8 @@ class XaiTtsClient
         const std::string& assetRoot,
         const std::string& conversationsPath,
         const std::string& scenesPath,
-        const std::string& defaultVoiceId);
+        const std::string& defaultVoiceId,
+        bool forceRefresh = false);
 
     private:
     static bool synthesizeToFile(
@@ -49,7 +50,8 @@ class XaiTtsClient
     static VoiceBundleResult bundleVoiceFile(
         const std::string& apiKey,
         const TtsVoiceEntry& entry,
-        const std::string& assetRoot);
+        const std::string& assetRoot,
+        bool forceRefresh = false);
 
     static bool persistVoiceTextSha256(
         const std::string& conversationsPath,

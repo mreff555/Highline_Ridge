@@ -285,8 +285,7 @@ void collectSceneNarrativeEntries(
             entries,
             node["descriptionTts"],
             defaultVoiceId,
-            node.value("description", ""),
-            &node);
+            node.value("description", ""));
     }
 
     if (node.contains("examineTts") && node["examineTts"].is_object())
@@ -295,8 +294,7 @@ void collectSceneNarrativeEntries(
             entries,
             node["examineTts"],
             defaultVoiceId,
-            node.value("examineDetails", ""),
-            &node);
+            node.value("examineDetails", ""));
     }
 
     if (node.contains("wakeTts") && node["wakeTts"].is_object())
@@ -305,8 +303,7 @@ void collectSceneNarrativeEntries(
             entries,
             node["wakeTts"],
             defaultVoiceId,
-            node.value("wakeNarrative", ""),
-            &node);
+            node.value("wakeNarrative", ""));
     }
 }
 
@@ -401,7 +398,9 @@ void printGameHelp(const char* executableName)
         << "                             save them as resources/audio/tts/*.mp3.xz,\n"
         << "                             and exit. Lines whose ttsText hash already\n"
         << "                             matches the bundled audio are skipped.\n"
-        << "                             The API key is not stored.\n\n"
+        << "                             The API key is not stored.\n"
+        << "  -force, --force            With --refresh-voices, ignore stored text\n"
+        << "                             hashes and regenerate every dialog line.\n\n"
         << "Normal play uses bundled voice files and does not require an API key.\n";
 }
 
@@ -521,7 +520,8 @@ bool XaiTtsClient::synthesizeToFile(
 VoiceBundleResult XaiTtsClient::bundleVoiceFile(
     const std::string& apiKey,
     const TtsVoiceEntry& entry,
-    const std::string& assetRoot)
+    const std::string& assetRoot,
+    bool forceRefresh)
 {
     VoiceBundleResult result;
     result.textSha256 = sha256Hex(entry.text);
@@ -541,7 +541,8 @@ VoiceBundleResult XaiTtsClient::bundleVoiceFile(
 
     const std::string bundledXzPath = compressedAssetPath(resolvedAudioPath);
     const bool bundleExists = FileExists(bundledXzPath.c_str());
-    if (bundleExists
+    if (!forceRefresh
+        && bundleExists
         && !entry.storedTextSha256.empty()
         && entry.storedTextSha256 == result.textSha256)
     {
@@ -551,7 +552,9 @@ VoiceBundleResult XaiTtsClient::bundleVoiceFile(
         return result;
     }
 
-    if (bundleExists && entry.storedTextSha256.empty())
+    if (forceRefresh)
+        TraceLog(LOG_INFO, "TTS force refresh: %s", bundledXzPath.c_str());
+    else if (bundleExists && entry.storedTextSha256.empty())
         TraceLog(LOG_INFO, "TTS bundle missing text hash, refreshing: %s", bundledXzPath.c_str());
     else if (!bundleExists)
         TraceLog(LOG_INFO, "TTS bundle missing, refreshing: %s", bundledXzPath.c_str());
@@ -639,7 +642,8 @@ int XaiTtsClient::refreshBundledVoices(
     const std::string& assetRoot,
     const std::string& conversationsPath,
     const std::string& scenesPath,
-    const std::string& defaultVoiceId)
+    const std::string& defaultVoiceId,
+    bool forceRefresh)
 {
     const std::string trimmedKey = trimWhitespace(apiKey);
     if (trimmedKey.empty())
@@ -662,7 +666,7 @@ int XaiTtsClient::refreshBundledVoices(
     for (const TtsVoiceEntry& entry : entries)
     {
         const VoiceBundleResult bundleResult =
-            bundleVoiceFile(trimmedKey, entry, assetRoot);
+            bundleVoiceFile(trimmedKey, entry, assetRoot, forceRefresh);
         if (!bundleResult.success)
         {
             std::cerr << "Failed to refresh: " << entry.audioPath << "\n";

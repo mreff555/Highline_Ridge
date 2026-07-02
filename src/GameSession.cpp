@@ -1265,6 +1265,8 @@ namespace
         if (!gameConfig.tts.enabled || audioPaths.empty())
             return;
 
+        cancelDelayedSceneNarrativeTts();
+        audioManager.stopDialog();
         delayedSceneNarrativeTtsPaths = audioPaths;
         delayedSceneNarrativeTtsTimer = std::max(0.0f, delaySeconds);
         pendingDelayedSceneNarrativeTts = true;
@@ -1676,10 +1678,13 @@ namespace
         std::string startSceneId;
         if (sceneDatabase.loadStartScene(wakeLocation, startSceneId))
         {
-            const std::string wakeSubSceneId = "toward_exit";
+            const SceneData* startScene = sceneDatabase.getScene(startSceneId);
+            const std::string wakeSubSceneId = startScene != nullptr
+                && !startScene->defaultSubSceneId.empty()
+                ? startScene->defaultSubSceneId
+                : "toward_exit";
             if (sceneDatabase.loadScene(startSceneId, wakeSubSceneId, wakeLocation))
             {
-                const SceneData* startScene = sceneDatabase.getScene(startSceneId);
                 std::vector<std::string> wakeNarrativeAudio;
                 if (startScene != nullptr
                     && startScene->wakeTts.enabled
@@ -1702,8 +1707,10 @@ namespace
 
         triggerOverlaySequence(steps, [this]()
         {
-            performLucidityCollapseRestart();
-            triggerCaveWakeHypoxiaSequence();
+            if (performLucidityCollapseRestart())
+                triggerCaveWakeHypoxiaSequence();
+            else
+                cancelDelayedSceneNarrativeTts();
         });
     }
 
@@ -1714,7 +1721,7 @@ namespace
             [this]() { lucidityCollapseSequenceActive = false; });
     }
 
-    void GameSession::performLucidityCollapseRestart()
+    bool GameSession::performLucidityCollapseRestart()
     {
         LocationStruct startLocation;
         std::string startSceneId;
@@ -1722,16 +1729,20 @@ namespace
         {
             TraceLog(LOG_ERROR, "Failed to restart at starting scene after lucidity collapse");
             lucidityCollapseSequenceActive = false;
-            return;
+            return false;
         }
 
-        const std::string wakeSubSceneId = "toward_exit";
+        const SceneData* startScene = sceneDatabase.getScene(startSceneId);
+        const std::string wakeSubSceneId = startScene != nullptr
+            && !startScene->defaultSubSceneId.empty()
+            ? startScene->defaultSubSceneId
+            : "toward_exit";
         worldState.activeSubSceneId = wakeSubSceneId;
         if (!sceneDatabase.loadScene(startSceneId, wakeSubSceneId, startLocation))
         {
             TraceLog(LOG_ERROR, "Failed to load wake sub-scene after lucidity collapse");
             lucidityCollapseSequenceActive = false;
-            return;
+            return false;
         }
 
         sceneController.getActiveScene().unloadOwnedImage();
@@ -1769,6 +1780,7 @@ namespace
         trimNarrativeBuffer();
         worldState.advanceDay();
         updateActionAvailability();
+        return true;
     }
 
     void GameSession::applyLucidityCollapseRestart()
@@ -3345,7 +3357,8 @@ namespace
             deferInitialRoomAudio = false;
         }
 
-        updateDelayedSceneNarrativeTts(GetFrameTime());
+        if (!saveLoadMenu.isOpen() && !pauseMenu.isOpen())
+            updateDelayedSceneNarrativeTts(GetFrameTime());
         audioManager.update(GetFrameTime());
         overlayMgr.update(GetFrameTime());
         trackDisplayConfigChanges();

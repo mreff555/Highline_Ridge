@@ -18,6 +18,7 @@ namespace
 struct CommandLineOptions
 {
     bool showHelp = false;
+    bool forceRefreshVoices = false;
     std::string refreshVoicesApiKey;
 };
 
@@ -31,6 +32,12 @@ CommandLineOptions parseCommandLine(int argc, char* argv[])
         if (argument == "-h" || argument == "--help")
         {
             options.showHelp = true;
+            continue;
+        }
+
+        if (argument == "-force" || argument == "--force")
+        {
+            options.forceRefreshVoices = true;
             continue;
         }
 
@@ -178,7 +185,8 @@ int GameApplication::run(int argc, char* argv[])
             ".",
             conversationsPath,
             scenesPath,
-            gameConfig.tts.voiceId);
+            gameConfig.tts.voiceId,
+            commandLine.forceRefreshVoices);
     }
 
     std::srand((unsigned int)std::time(nullptr));
