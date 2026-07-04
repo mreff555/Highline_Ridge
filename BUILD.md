@@ -51,5 +51,5 @@ cmake --build build --config Release
 
 - The project file is `CMakeLists.txt` (standard casing; required on Linux).
 - Run the executable from the build folder so `resources/` and `saves/` resolve correctly, or keep `resources/` beside the `.exe`.
-- Optional dev tool `XaiTtsClient` (`--refresh-voices=KEY`) needs `curl` on `PATH`.
+- Optional dev tool `XaiTtsClient` (`--key=KEY --refresh-voices`) needs `curl` on `PATH`.
 - Save files live under `saves/` relative to the working directory.

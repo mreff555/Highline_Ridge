@@ -19,8 +19,19 @@ struct CommandLineOptions
 {
     bool showHelp = false;
     bool forceRefreshVoices = false;
-    std::string refreshVoicesApiKey;
+    bool refreshAllVoices = false;
+    std::string apiKey;
+    std::string refreshFilter;
 };
+
+bool extractPrefixedValue(const std::string& argument, const std::string& prefix, std::string& out)
+{
+    if (argument.compare(0, prefix.size(), prefix) != 0)
+        return false;
+
+    out = argument.substr(prefix.size());
+    return true;
+}
 
 CommandLineOptions parseCommandLine(int argc, char* argv[])
 {
@@ -41,10 +52,32 @@ CommandLineOptions parseCommandLine(int argc, char* argv[])
             continue;
         }
 
-        const std::string refreshPrefix = "--refresh-voices=";
-        if (argument.compare(0, refreshPrefix.size(), refreshPrefix) == 0)
+        if (argument == "--refresh-voices")
         {
-            options.refreshVoicesApiKey = argument.substr(refreshPrefix.size());
+            options.refreshAllVoices = true;
+            continue;
+        }
+
+        std::string prefixedValue;
+        if (extractPrefixedValue(argument, "--key=", prefixedValue))
+        {
+            options.apiKey = prefixedValue;
+            continue;
+        }
+
+        if (extractPrefixedValue(argument, "--refresh=", prefixedValue))
+        {
+            options.refreshFilter = prefixedValue;
+            continue;
+        }
+
+        const std::string legacyRefreshPrefix = "--refresh-voices=";
+        if (extractPrefixedValue(argument, legacyRefreshPrefix, prefixedValue))
+        {
+            std::cerr << "Warning: --refresh-voices=API_KEY is deprecated. Use:\n"
+                      << "  --key=" << prefixedValue << " --refresh-voices\n";
+            options.apiKey = prefixedValue;
+            options.refreshAllVoices = true;
             continue;
         }
 
@@ -52,7 +85,22 @@ CommandLineOptions parseCommandLine(int argc, char* argv[])
         options.showHelp = true;
     }
 
+    if (options.refreshAllVoices && !options.refreshFilter.empty())
+    {
+        std::cerr << "Cannot combine --refresh-voices with --refresh=ID\n";
+        options.showHelp = true;
+    }
+
     return options;
+}
+
+std::string resourcePathForRefreshRead(const char* relativePath)
+{
+    const std::string fromSource = pathJoin("..", relativePath);
+    if (FileExists(fromSource.c_str()))
+        return fromSource;
+
+    return relativePath;
 }
 
 }
@@ -163,7 +211,7 @@ int GameApplication::run(int argc, char* argv[])
         std::cerr << "Could not find game resources (resources/scenes.json).\n"
                   << "Run the game from the build directory, e.g. ./build/Highline\\ Ridge\n"
                   << "or rebuild so resources are synced: cmake --build build\n";
-        if (!commandLine.refreshVoicesApiKey.empty())
+        if (commandLine.refreshAllVoices || !commandLine.refreshFilter.empty())
             std::cerr << "Cannot refresh voices without game resources.\n";
         return 1;
     }
@@ -176,17 +224,28 @@ int GameApplication::run(int argc, char* argv[])
             TraceLog(LOG_WARNING, "Failed to load resources/game_config.json; using defaults");
     }
 
-    if (!commandLine.refreshVoicesApiKey.empty())
+    const bool refreshRequested =
+        commandLine.refreshAllVoices || !commandLine.refreshFilter.empty();
+    if (refreshRequested)
     {
-        const std::string conversationsPath = "resources/conversations.json";
-        const std::string scenesPath = "resources/scenes.json";
+        if (commandLine.apiKey.empty())
+        {
+            std::cerr << "Missing API key. Use --key=YOUR_XAI_API_KEY\n";
+            return 1;
+        }
+
+        const std::string conversationsPath =
+            resourcePathForRefreshRead("resources/conversations.json");
+        const std::string scenesPath =
+            resourcePathForRefreshRead("resources/scenes.json");
         return XaiTtsClient::refreshBundledVoices(
-            commandLine.refreshVoicesApiKey,
+            commandLine.apiKey,
             ".",
             conversationsPath,
             scenesPath,
             gameConfig.tts.voiceId,
-            commandLine.forceRefreshVoices);
+            commandLine.forceRefreshVoices,
+            commandLine.refreshAllVoices ? "" : commandLine.refreshFilter);
     }
 
     std::srand((unsigned int)std::time(nullptr));

@@ -30,7 +30,8 @@ class XaiTtsClient
     static std::vector<TtsVoiceEntry> collectVoiceEntries(
         const std::string& conversationsPath,
         const std::string& scenesPath,
-        const std::string& defaultVoiceId);
+        const std::string& defaultVoiceId,
+        const std::string& refreshFilter = "");
 
     static int refreshBundledVoices(
         const std::string& apiKey,
@@ -38,7 +39,8 @@ class XaiTtsClient
         const std::string& conversationsPath,
         const std::string& scenesPath,
         const std::string& defaultVoiceId,
-        bool forceRefresh = false);
+        bool forceRefresh = false,
+        const std::string& refreshFilter = "");
 
     private:
     static bool synthesizeToFile(

@@ -3,6 +3,8 @@
 #
 # To regenerate voice lines after dialog changes (unchanged lines are skipped
 # when their stored ttsTextSha256 matches the current ttsText):
-#   ./"Highline Ridge" --refresh-voices=YOUR_XAI_API_KEY
+#   ./"Highline Ridge" --key=YOUR_XAI_API_KEY --refresh-voices
+#   ./"Highline Ridge" --key=YOUR_XAI_API_KEY --refresh=blackjack_invite
+#   ./"Highline Ridge" --key=YOUR_XAI_API_KEY --refresh=saloon_interior
 #
 # The API key is used only for that command and is not stored.

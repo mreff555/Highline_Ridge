@@ -1227,7 +1227,7 @@ namespace
 
             TraceLog(
                 LOG_WARNING,
-                "Missing bundled TTS audio (run with --refresh-voices=API_KEY)");
+                "Missing bundled TTS audio (run with --key=API_KEY --refresh-voices)");
             return;
         }
 
@@ -1275,7 +1275,7 @@ namespace
 
         TraceLog(
             LOG_WARNING,
-            "Missing bundled TTS audio (run with --refresh-voices=API_KEY)");
+            "Missing bundled TTS audio (run with --key=API_KEY --refresh-voices)");
     }
 
     void GameSession::scheduleDelayedSceneNarrativeTts(

@@ -2,6 +2,7 @@
 
 #include "TextDigest.h"
 #include <ImageCompression.h>
+#include <PlatformPath.h>
 #include <nlohmann/json.hpp>
 #include <raylib.h>
 
@@ -9,6 +10,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <sstream>
 
@@ -17,6 +19,35 @@ namespace highline_ridge
 
 namespace
 {
+
+bool sourceResourcesTreeExists()
+{
+    return FileExists(pathJoin("..", "resources/scenes.json").c_str());
+}
+
+std::string runtimeResourcePath(const std::string& resourcePath)
+{
+    if (resourcePath.rfind("../", 0) == 0)
+        return resourcePath.substr(3);
+
+    return resourcePath;
+}
+
+bool mirrorBundleToSourceTree(const std::string& runtimeBundlePath)
+{
+    if (!sourceResourcesTreeExists())
+        return true;
+
+    const std::string sourceBundlePath = pathJoin("..", runtimeBundlePath);
+    std::vector<unsigned char> bytes;
+    if (!loadAssetBytesFromFile(runtimeBundlePath, bytes) || bytes.empty())
+        return false;
+
+    if (!ensureParentDirectoryExists(sourceBundlePath))
+        return false;
+
+    return writeBinaryFile(sourceBundlePath, bytes.data(), bytes.size());
+}
 
 std::string curlExecutable()
 {
@@ -241,33 +272,54 @@ void addAfterTtsEntry(
 void collectChoiceEntries(
     std::vector<TtsVoiceEntry>& entries,
     const nlohmann::json& choices,
-    const std::string& defaultVoiceId)
+    const std::string& defaultVoiceId,
+    const std::string& choiceIdFilter = "")
 {
     if (!choices.is_array())
         return;
 
     for (const nlohmann::json& choice : choices)
     {
+        const std::string choiceId = choice.value("id", "");
+        const bool restrictToChoice = !choiceIdFilter.empty();
+        if (restrictToChoice && choiceId != choiceIdFilter)
+        {
+            if (choice.contains("choices"))
+                collectChoiceEntries(entries, choice["choices"], defaultVoiceId, choiceIdFilter);
+            continue;
+        }
+
         addPrimaryTtsEntry(entries, choice, defaultVoiceId, choice.value("response", ""));
         addAfterTtsEntry(entries, choice, defaultVoiceId);
-        if (choice.contains("choices"))
+        if (!restrictToChoice && choice.contains("choices"))
             collectChoiceEntries(entries, choice["choices"], defaultVoiceId);
+        else if (restrictToChoice && choice.contains("choices"))
+            collectChoiceEntries(entries, choice["choices"], defaultVoiceId, choiceIdFilter);
     }
 }
 
 void collectRandomLineEntries(
     std::vector<TtsVoiceEntry>& entries,
     const nlohmann::json& lines,
-    const std::string& defaultVoiceId)
+    const std::string& defaultVoiceId,
+    const std::string& lineIdFilter = "",
+    const std::string& choiceIdFilter = "")
 {
     if (!lines.is_array())
         return;
 
     for (const nlohmann::json& line : lines)
     {
+        if (!lineIdFilter.empty() && line.value("id", "") != lineIdFilter)
+            continue;
+
         addPrimaryTtsEntry(entries, line, defaultVoiceId, line.value("text", ""));
         addAfterTtsEntry(entries, line, defaultVoiceId);
-        collectChoiceEntries(entries, line.value("choices", nlohmann::json::array()), defaultVoiceId);
+        collectChoiceEntries(
+            entries,
+            line.value("choices", nlohmann::json::array()),
+            defaultVoiceId,
+            choiceIdFilter);
     }
 }
 
@@ -307,10 +359,156 @@ void collectSceneNarrativeEntries(
     }
 }
 
+enum class TtsRefreshTargetKind
+{
+    All,
+    Scene,
+    Phase,
+    RandomLine,
+    Choice
+};
+
+struct TtsRefreshTarget
+{
+    TtsRefreshTargetKind kind = TtsRefreshTargetKind::All;
+    std::string id;
+};
+
+bool conversationsContainSceneId(const nlohmann::json& conversations, const std::string& sceneId)
+{
+    return conversations.is_object() && conversations.contains(sceneId);
+}
+
+bool scenesContainSceneId(const nlohmann::json& scenesRoot, const std::string& sceneId)
+{
+    const nlohmann::json& scenes = scenesRoot.value("scenes", nlohmann::json::object());
+    return scenes.is_object() && scenes.contains(sceneId);
+}
+
+TtsRefreshTarget classifyRefreshTarget(
+    const std::string& refreshFilter,
+    const std::string& conversationsPath,
+    const std::string& scenesPath)
+{
+    TtsRefreshTarget target;
+    if (refreshFilter.empty())
+        return target;
+
+    target.id = refreshFilter;
+
+    nlohmann::json conversations;
+    {
+        std::ifstream file(conversationsPath.c_str());
+        if (file.is_open())
+        {
+            try
+            {
+                file >> conversations;
+            }
+            catch (const nlohmann::json::exception&)
+            {
+                conversations = nlohmann::json::object();
+            }
+        }
+    }
+
+    if (conversationsContainSceneId(conversations, refreshFilter))
+    {
+        target.kind = TtsRefreshTargetKind::Scene;
+        return target;
+    }
+
+    nlohmann::json scenesRoot;
+    if (!scenesPath.empty())
+    {
+        std::ifstream file(scenesPath.c_str());
+        if (file.is_open())
+        {
+            try
+            {
+                file >> scenesRoot;
+            }
+            catch (const nlohmann::json::exception&)
+            {
+                scenesRoot = nlohmann::json::object();
+            }
+        }
+    }
+
+    if (scenesContainSceneId(scenesRoot, refreshFilter))
+    {
+        target.kind = TtsRefreshTargetKind::Scene;
+        return target;
+    }
+
+    if (conversations.is_object())
+    {
+        for (auto sceneIt = conversations.begin(); sceneIt != conversations.end(); ++sceneIt)
+        {
+            if (!sceneIt.value().is_object())
+                continue;
+
+            const nlohmann::json& phases = sceneIt.value().value("speakPhases", nlohmann::json::array());
+            if (!phases.is_array())
+                continue;
+
+            for (const nlohmann::json& phase : phases)
+            {
+                if (phase.value("id", "") == refreshFilter)
+                {
+                    target.kind = TtsRefreshTargetKind::Phase;
+                    return target;
+                }
+
+                const nlohmann::json& lines = phase.value("lines", nlohmann::json::array());
+                if (lines.is_array())
+                {
+                    for (const nlohmann::json& line : lines)
+                    {
+                        if (line.value("id", "") == refreshFilter)
+                        {
+                            target.kind = TtsRefreshTargetKind::RandomLine;
+                            return target;
+                        }
+                    }
+                }
+
+                std::function<bool(const nlohmann::json&)> choiceTreeContainsId;
+                choiceTreeContainsId = [&](const nlohmann::json& choices) -> bool
+                {
+                    if (!choices.is_array())
+                        return false;
+
+                    for (const nlohmann::json& choice : choices)
+                    {
+                        if (choice.value("id", "") == refreshFilter)
+                            return true;
+                        if (choice.contains("choices") && choiceTreeContainsId(choice["choices"]))
+                            return true;
+                    }
+
+                    return false;
+                };
+
+                if (choiceTreeContainsId(phase.value("choices", nlohmann::json::array())))
+                {
+                    target.kind = TtsRefreshTargetKind::Choice;
+                    return target;
+                }
+            }
+        }
+    }
+
+    target.kind = TtsRefreshTargetKind::All;
+    target.id.clear();
+    return target;
+}
+
 void collectSceneInteractionEntries(
     std::vector<TtsVoiceEntry>& entries,
     const std::string& scenesPath,
-    const std::string& defaultVoiceId)
+    const std::string& defaultVoiceId,
+    const std::string& sceneIdFilter = "")
 {
     std::ifstream file(scenesPath.c_str());
     if (!file.is_open())
@@ -333,6 +531,9 @@ void collectSceneInteractionEntries(
     for (auto sceneIt = scenes.begin(); sceneIt != scenes.end(); ++sceneIt)
     {
         if (!sceneIt.value().is_object())
+            continue;
+
+        if (!sceneIdFilter.empty() && sceneIt.key() != sceneIdFilter)
             continue;
 
         collectSceneNarrativeEntries(entries, sceneIt.value(), defaultVoiceId);
@@ -394,22 +595,37 @@ void printGameHelp(const char* executableName)
         << "  \"" << programName << "\" [options]\n\n"
         << "Options:\n"
         << "  -h, --help                 Show this help message\n"
-        << "  --refresh-voices=API_KEY   Download changed dialog TTS lines from x.ai,\n"
-        << "                             save them as resources/audio/tts/*.mp3.xz,\n"
-        << "                             and exit. Lines whose ttsText hash already\n"
-        << "                             matches the bundled audio are skipped.\n"
-        << "                             The API key is not stored.\n"
-        << "  -force, --force            With --refresh-voices, ignore stored text\n"
-        << "                             hashes and regenerate every dialog line.\n\n"
-        << "Normal play uses bundled voice files and does not require an API key.\n";
+        << "  --key=API_KEY              x.ai API key for TTS refresh commands.\n"
+        << "                             The key is not stored.\n"
+        << "  --refresh-voices           After editing dialog in conversations.json or\n"
+        << "                             scenes.json, regenerate bundled voice files for\n"
+        << "                             every TTS line in the game. Calls x.ai, writes\n"
+        << "                             resources/audio/tts/*.mp3.xz, updates text\n"
+        << "                             hashes, and exits. Requires --key. Lines whose\n"
+        << "                             stored text hash matches the current dialog are\n"
+        << "                             skipped.\n"
+        << "  --refresh=ID               Same as --refresh-voices, but only for one\n"
+        << "                             conversation phase id, random line id, dialog\n"
+        << "                             choice id, or scene id. Requires --key.\n"
+        << "  -force, --force            With refresh commands, ignore stored text\n"
+        << "                             hashes and regenerate every matching line.\n\n"
+        << "Examples:\n"
+        << "  \"" << programName << "\" --key=YOUR_XAI_API_KEY --refresh-voices\n"
+        << "  \"" << programName << "\" --key=YOUR_XAI_API_KEY --refresh=blackjack_invite\n"
+        << "  \"" << programName << "\" --key=YOUR_XAI_API_KEY --refresh=saloon_interior\n\n"
+        << "Normal play uses the bundled voice files already in resources/audio/tts/\n"
+        << "and does not call x.ai or require an API key.\n";
 }
 
 std::vector<TtsVoiceEntry> XaiTtsClient::collectVoiceEntries(
     const std::string& conversationsPath,
     const std::string& scenesPath,
-    const std::string& defaultVoiceId)
+    const std::string& defaultVoiceId,
+    const std::string& refreshFilter)
 {
     std::vector<TtsVoiceEntry> entries;
+    const TtsRefreshTarget target =
+        classifyRefreshTarget(refreshFilter, conversationsPath, scenesPath);
 
     std::ifstream file(conversationsPath.c_str());
     if (file.is_open())
@@ -431,12 +647,39 @@ std::vector<TtsVoiceEntry> XaiTtsClient::collectVoiceEntries(
                 if (!sceneIt.value().is_object())
                     continue;
 
+                if (target.kind == TtsRefreshTargetKind::Scene && sceneIt.key() != target.id)
+                    continue;
+
                 const nlohmann::json& phases = sceneIt.value().value("speakPhases", nlohmann::json::array());
                 if (!phases.is_array())
                     continue;
 
                 for (const nlohmann::json& phase : phases)
                 {
+                    if (target.kind == TtsRefreshTargetKind::Phase
+                        && phase.value("id", "") != target.id)
+                        continue;
+
+                    if (target.kind == TtsRefreshTargetKind::RandomLine)
+                    {
+                        collectRandomLineEntries(
+                            entries,
+                            phase.value("lines", nlohmann::json::array()),
+                            defaultVoiceId,
+                            target.id);
+                        continue;
+                    }
+
+                    if (target.kind == TtsRefreshTargetKind::Choice)
+                    {
+                        collectChoiceEntries(
+                            entries,
+                            phase.value("choices", nlohmann::json::array()),
+                            defaultVoiceId,
+                            target.id);
+                        continue;
+                    }
+
                     addPrimaryTtsEntry(
                         entries,
                         phase,
@@ -466,8 +709,13 @@ std::vector<TtsVoiceEntry> XaiTtsClient::collectVoiceEntries(
         }
     }
 
-    if (!scenesPath.empty())
-        collectSceneInteractionEntries(entries, scenesPath, defaultVoiceId);
+    if (!scenesPath.empty()
+        && (target.kind == TtsRefreshTargetKind::All || target.kind == TtsRefreshTargetKind::Scene))
+    {
+        const std::string sceneIdFilter =
+            target.kind == TtsRefreshTargetKind::Scene ? target.id : "";
+        collectSceneInteractionEntries(entries, scenesPath, defaultVoiceId, sceneIdFilter);
+    }
 
     return entries;
 }
@@ -530,7 +778,8 @@ VoiceBundleResult XaiTtsClient::bundleVoiceFile(
     std::string resolvedAudioPath;
     for (const std::string& path : audioPaths)
     {
-        if (FileExists(path.c_str()))
+        if (FileExists(path.c_str())
+            || FileExists(compressedAssetPath(path).c_str()))
         {
             resolvedAudioPath = path;
             break;
@@ -541,25 +790,33 @@ VoiceBundleResult XaiTtsClient::bundleVoiceFile(
 
     const std::string bundledXzPath = compressedAssetPath(resolvedAudioPath);
     const bool bundleExists = FileExists(bundledXzPath.c_str());
-    if (!forceRefresh
-        && bundleExists
-        && !entry.storedTextSha256.empty()
-        && entry.storedTextSha256 == result.textSha256)
-    {
-        TraceLog(LOG_INFO, "TTS text unchanged, skipping: %s", bundledXzPath.c_str());
-        result.success = true;
-        result.skipped = true;
-        return result;
-    }
+    const bool hashMatchesStored = !entry.storedTextSha256.empty()
+        && entry.storedTextSha256 == result.textSha256;
 
-    if (forceRefresh)
-        TraceLog(LOG_INFO, "TTS force refresh: %s", bundledXzPath.c_str());
-    else if (bundleExists && entry.storedTextSha256.empty())
-        TraceLog(LOG_INFO, "TTS bundle missing text hash, refreshing: %s", bundledXzPath.c_str());
-    else if (!bundleExists)
-        TraceLog(LOG_INFO, "TTS bundle missing, refreshing: %s", bundledXzPath.c_str());
+    if (!forceRefresh)
+    {
+        if (hashMatchesStored && bundleExists)
+        {
+            TraceLog(LOG_INFO, "TTS text unchanged, skipping: %s", bundledXzPath.c_str());
+            result.success = true;
+            result.skipped = true;
+            return result;
+        }
+
+        if (hashMatchesStored && !bundleExists)
+            TraceLog(LOG_INFO, "TTS text unchanged, bundle missing, refreshing: %s",
+                     bundledXzPath.c_str());
+        else if (!bundleExists)
+            TraceLog(LOG_INFO, "TTS bundle missing, refreshing: %s", bundledXzPath.c_str());
+        else if (entry.storedTextSha256.empty())
+            TraceLog(LOG_INFO, "TTS missing stored hash, refreshing: %s", bundledXzPath.c_str());
+        else
+            TraceLog(LOG_INFO, "TTS text changed, refreshing: %s", bundledXzPath.c_str());
+    }
     else
-        TraceLog(LOG_INFO, "TTS text changed, refreshing: %s", bundledXzPath.c_str());
+    {
+        TraceLog(LOG_INFO, "TTS force refresh: %s", bundledXzPath.c_str());
+    }
 
     const std::string tempMp3Path = resolvedAudioPath + ".tmp.mp3";
     std::remove(tempMp3Path.c_str());
@@ -583,6 +840,9 @@ VoiceBundleResult XaiTtsClient::bundleVoiceFile(
     std::remove(tempMp3Path.c_str());
     std::remove(resolvedAudioPath.c_str());
     TraceLog(LOG_INFO, "Saved TTS bundle: %s", bundledXzPath.c_str());
+    if (!mirrorBundleToSourceTree(bundledXzPath))
+        TraceLog(LOG_WARNING, "Saved runtime TTS bundle but failed to mirror: %s",
+                 bundledXzPath.c_str());
     result.success = true;
     result.regenerated = true;
     return result;
@@ -643,20 +903,36 @@ int XaiTtsClient::refreshBundledVoices(
     const std::string& conversationsPath,
     const std::string& scenesPath,
     const std::string& defaultVoiceId,
-    bool forceRefresh)
+    bool forceRefresh,
+    const std::string& refreshFilter)
 {
     const std::string trimmedKey = trimWhitespace(apiKey);
     if (trimmedKey.empty())
     {
-        std::cerr << "Missing API key. Use --refresh-voices=YOUR_XAI_API_KEY\n";
+        std::cerr << "Missing API key. Use --key=YOUR_XAI_API_KEY\n";
         return 1;
     }
 
+    const std::string trimmedFilter = trimWhitespace(refreshFilter);
+    if (!trimmedFilter.empty())
+    {
+        const TtsRefreshTarget target =
+            classifyRefreshTarget(trimmedFilter, conversationsPath, scenesPath);
+        if (target.id.empty())
+        {
+            std::cerr << "Unknown refresh id: " << trimmedFilter << "\n";
+            return 1;
+        }
+    }
+
     const std::vector<TtsVoiceEntry> entries =
-        collectVoiceEntries(conversationsPath, scenesPath, defaultVoiceId);
+        collectVoiceEntries(conversationsPath, scenesPath, defaultVoiceId, trimmedFilter);
     if (entries.empty())
     {
-        std::cerr << "No TTS entries found in " << conversationsPath << "\n";
+        if (!trimmedFilter.empty())
+            std::cerr << "No TTS entries found for refresh id: " << trimmedFilter << "\n";
+        else
+            std::cerr << "No TTS entries found in " << conversationsPath << "\n";
         return 1;
     }
 
@@ -681,11 +957,27 @@ int XaiTtsClient::refreshBundledVoices(
         }
 
         ++regeneratedCount;
-        if (!persistVoiceTextSha256(
-                conversationsPath,
-                scenesPath,
-                entry.audioPath,
-                bundleResult.textSha256))
+        bool persisted = persistVoiceTextSha256(
+            conversationsPath,
+            scenesPath,
+            entry.audioPath,
+            bundleResult.textSha256);
+
+        const std::string runtimeConversationsPath =
+            runtimeResourcePath(conversationsPath);
+        const std::string runtimeScenesPath = runtimeResourcePath(scenesPath);
+        if (runtimeConversationsPath != conversationsPath
+            || runtimeScenesPath != scenesPath)
+        {
+            persisted = persistVoiceTextSha256(
+                        runtimeConversationsPath,
+                        runtimeScenesPath,
+                        entry.audioPath,
+                        bundleResult.textSha256)
+                || persisted;
+        }
+
+        if (!persisted)
         {
             std::cerr << "Warning: refreshed audio but failed to persist text hash for "
                       << entry.audioPath << "\n";
