@@ -35,6 +35,8 @@ set(SOURCES
     src/SceneOverlayMgr.cpp
     src/ConversationManager.cpp
     src/ConversationRequirements.cpp
+    src/BlackjackGame.cpp
+    src/BlackjackPanel.cpp
     src/MilestoneDatabase.cpp
     src/MilestoneManager.cpp
     src/InventoryMgr.cpp

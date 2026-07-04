@@ -1100,6 +1100,12 @@
       "subSceneRules": [
         {
           "when": {
+            "flag": "saloon_interior:blackjack_seated"
+          },
+          "subScene": "blackjack_table"
+        },
+        {
+          "when": {
             "flag": "saloon_interior:room_tab"
           },
           "subScene": "burgundy_encounter",
@@ -1111,6 +1117,18 @@
           "subScene": "main_bar"
         }
       ],
+      "movementExits": {
+        "backward": [
+          {
+            "id": "leave_blackjack_table",
+            "target": "saloon_interior#main_bar",
+            "masked": true,
+            "unmaskWhen": {
+              "subScene": "blackjack_table"
+            }
+          }
+        ]
+      },
       "subScenes": {
         "main_bar": {
           "image": "resources/images/saloon_interior.png"
@@ -1120,6 +1138,29 @@
           "actorsPresent": [
             "burgundy_woman"
           ]
+        },
+        "blackjack_table": {
+          "focus": true,
+          "image": "resources/images/saloon_blackjack_table.png",
+          "description": "You sit at the blackjack table with whiskey glasses and cigar stubs crowded along the felt. Four men in trail-worn garb occupy the remaining chairs — sleeves rolled, hats on the floor, attention on the cards rather than on you. The lamp hangs low enough to warm the table and leave the rest of the saloon in peripheral smoke.",
+          "examineDetails": "The table is scarred pine under green felt that has gone shiny at the elbows. Chips are not uniform — some carved from bone, some stamped tin, one stack held together with a twine wrap. The men play without ceremony. No introductions. No house man watching the door. Just the soft slap of cards, the clink of glass, and the understanding that anyone who sits down is responsible for what they lose.",
+          "movement": {
+            "backward": true
+          },
+          "movementMask": {
+            "backward": true,
+            "forward": false,
+            "left": false,
+            "right": false,
+            "up": false,
+            "down": false
+          },
+          "actions": {
+            "examine": true,
+            "speak": false,
+            "hit": false,
+            "use": false
+          }
         }
       },
       "audio": {

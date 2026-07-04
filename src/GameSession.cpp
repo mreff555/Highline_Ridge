@@ -154,6 +154,20 @@ namespace
         const std::set<std::string>& storyFlags)
     {
         ResolvedActorSpeakTarget resolved;
+
+        const bool blackjackTableReady =
+            actorId == "blackjack_table"
+            && storyFlags.count("saloon_interior:blackjack_discovered") > 0
+            && storyFlags.count("saloon_interior:blackjack_seated") == 0;
+        if (blackjackTableReady)
+        {
+            resolved.phaseId = conversationMgr.bestStartablePhaseIdForActor(
+                config,
+                actorId,
+                storyFlags);
+            return resolved;
+        }
+
         resolved.phaseId = conversationMgr.bestStartablePhaseIdForActor(
             config,
             actorId,
@@ -338,6 +352,11 @@ namespace
         pauseMenu.setUiBackdrop(&uiBackdrop);
         saveLoadMenu.setUiBackdrop(&uiBackdrop);
         dropConfirmMgr.setUiBackdrop(&uiBackdrop);
+        blackjackPanel.setFonts(locationStruct.uiFont, locationStruct.boldFont);
+        blackjackPanel.setPanelBounds(buttonBox);
+        blackjackPanel.setUiBackdrop(&uiBackdrop);
+        blackjackPanel.setGameState(&blackjackState);
+        blackjackPanel.setPlayerStats(&worldState.playerStats);
         if (!inventoryMgr.ensureIconAssetsLoaded())
             TraceLog(LOG_WARNING, "Some inventory icons failed to load at startup");
         worldState.currentSceneId = sceneId;
@@ -409,6 +428,7 @@ namespace
         };
         fullDialogHeight = screenHeight * 2.0f / 3.0f;
         buttonMgr.relayout(buttonBox);
+        blackjackPanel.setPanelBounds(buttonBox);
         pauseMenu.setScreenSize(screenWidth, screenHeight);
         saveLoadMenu.setScreenSize(screenWidth, screenHeight);
         dropConfirmMgr.setScreenSize(screenWidth, screenHeight);
@@ -1328,8 +1348,13 @@ namespace
         evaluateMilestones();
         refreshSceneImage();
 
+        if (!result.grantStoryFlag.empty())
+            applyGrantedStoryFlag(result.grantStoryFlag);
+
         if (!result.spokenActorId.empty())
             worldState.markActorKnown(result.spokenActorId);
+
+        updateActionAvailability();
     }
 
     void GameSession::resolveDialogChoice(const std::string& choiceId)
@@ -1563,6 +1588,8 @@ namespace
             worldState.markActorKnown("bartender");
         if (hasSaloonBurgundyProgress(worldState, conversationMgr))
             worldState.markActorKnown("burgundy_woman");
+        if (worldState.storyFlags.count("saloon_interior:blackjack_discovered") > 0)
+            worldState.markActorKnown("blackjack_table");
     }
 
     bool GameSession::shouldOpenSpeakPicker() const
@@ -2208,6 +2235,14 @@ namespace
             if (!seenActorIds.insert(actor.id).second)
                 continue;
 
+            if (actor.id == "blackjack_table")
+            {
+                if (worldState.storyFlags.count("saloon_interior:blackjack_discovered") == 0)
+                    continue;
+                if (worldState.storyFlags.count("saloon_interior:blackjack_seated") > 0)
+                    continue;
+            }
+
             const ResolvedActorSpeakTarget resolved = resolveActorSpeakTarget(
                 conversationMgr,
                 config,
@@ -2247,6 +2282,22 @@ namespace
             workTheRoom.isWorkTheRoom = true;
             targets.push_back(workTheRoom);
         }
+
+        std::stable_sort(
+            targets.begin(),
+            targets.end(),
+            [](const SpeakTargetDef& a, const SpeakTargetDef& b)
+            {
+                if (a.id == "blackjack_table")
+                    return true;
+                if (b.id == "blackjack_table")
+                    return false;
+                if (a.isWorkTheRoom)
+                    return false;
+                if (b.isWorkTheRoom)
+                    return true;
+                return a.label < b.label;
+            });
 
         return targets;
     }
@@ -2340,6 +2391,19 @@ namespace
 
         MovementStruct movement{};
         ActionStruct actions{};
+
+        if (isBlackjackUiActive())
+        {
+            buttonMgr.setAvailability(movement, actions, false);
+            const PlayerStatPercents percents = worldState.playerStats.toPercents();
+            buttonMgr.setStatus(
+                percents.health,
+                percents.energy,
+                percents.resolve,
+                percents.lucidity,
+                percents.charisma);
+            return;
+        }
 
         if (dropConfirmMgr.isOpen())
         {
@@ -2581,6 +2645,13 @@ namespace
         if (maybeRevealCottonwoodMeadowDeparture(direction))
             return;
 
+        const bool leavingBlackjack =
+            worldState.currentSceneId == "saloon_interior"
+            && worldState.activeSubSceneId == "blackjack_table"
+            && direction == "backward";
+        const bool blackjackInProgress =
+            worldState.storyFlags.count("saloon_interior:blackjack_in_progress") > 0;
+
         if (!sceneController.tryMove(
                 direction,
                 worldState,
@@ -2595,6 +2666,25 @@ namespace
                 }))
         {
             return;
+        }
+
+        if (leavingBlackjack)
+        {
+            blackjackState.active = false;
+            worldState.storyFlags.erase("saloon_interior:blackjack_seated");
+            worldState.storyFlags.erase("saloon_interior:blackjack_in_progress");
+
+            if (blackjackInProgress)
+            {
+                StatusEffect walkAwayPenalty;
+                walkAwayPenalty.key = "saloon_interior:blackjack_walked_away";
+                walkAwayPenalty.actor = "blackjack_players";
+                walkAwayPenalty.actorOpinion = -3;
+                tryApplyStatusEffect(walkAwayPenalty, true);
+                appendNarrativeSection(
+                    "Speaking:",
+                    "You push back from the table before the hand resolves. A miner catches your arm on the way up — not hard, but enough to make the point. \"Sit down or walk,\" he says. You walk.\n\nThe muttering follows you into the sawdust: greenhorn, coward, waste of a chair. The deal continues without you.");
+            }
         }
 
         closeAllUiPanels();
@@ -2620,12 +2710,6 @@ namespace
     {
         const SceneData* scene = sceneDatabase.getScene(worldState.currentSceneId);
         if (scene == nullptr)
-            return;
-
-        const SubSceneDef* activeSubScene = sceneDatabase.getSubScene(
-            worldState.currentSceneId,
-            worldState.activeSubSceneId);
-        if (activeSubScene != nullptr && activeSubScene->focus)
             return;
 
         const std::string resolvedSubSceneId = sceneDatabase.resolveActiveSubSceneId(
@@ -2722,6 +2806,103 @@ namespace
         left = locationStruct.movementFilter.left;
         right = locationStruct.movementFilter.right;
         applySceneOverlays();
+        syncBlackjackSession();
+    }
+
+    bool GameSession::isBlackjackUiActive() const
+    {
+        return blackjackState.active
+            && worldState.currentSceneId == "saloon_interior"
+            && worldState.activeSubSceneId == "blackjack_table"
+            && worldState.storyFlags.count("saloon_interior:blackjack_seated") > 0;
+    }
+
+    void GameSession::syncBlackjackSession()
+    {
+        const bool shouldBeActive =
+            worldState.currentSceneId == "saloon_interior"
+            && worldState.activeSubSceneId == "blackjack_table"
+            && worldState.storyFlags.count("saloon_interior:blackjack_seated") > 0;
+
+        blackjackPanel.setGameState(&blackjackState);
+        blackjackPanel.setPlayerStats(&worldState.playerStats);
+
+        if (!shouldBeActive)
+        {
+            blackjackState.active = false;
+            return;
+        }
+
+        if (blackjackState.active)
+            return;
+
+        blackjackStartSession(blackjackState);
+        int tableOpinion = worldState.actorOpinionOf(blackjackTableOpinionActor());
+        blackjackBeginHand(
+            blackjackState,
+            worldState.playerStats.walletCash,
+            tableOpinion,
+            worldState.playerStats);
+    }
+
+    void GameSession::handleBlackjackInput()
+    {
+        blackjackPanel.update();
+
+        const BlackjackSeatAction action = blackjackPanel.consumeClickedAction();
+        if (action == BlackjackSeatAction::None)
+            return;
+
+        if (action == BlackjackSeatAction::LeaveTable)
+        {
+            tryMove("backward");
+            return;
+        }
+
+        int tableOpinion = worldState.actorOpinionOf(blackjackTableOpinionActor());
+        const BlackjackActionResult result = blackjackHandleAction(
+            blackjackState,
+            action,
+            worldState.playerStats,
+            worldState.playerStats.walletCash,
+            tableOpinion);
+
+        if (!result.handled)
+            return;
+
+        if (result.opinionChanged)
+            worldState.actorOpinions[blackjackTableOpinionActor()] = tableOpinion;
+
+        if (result.walletChanged)
+            syncWalletInventoryDisplay();
+
+        if (result.resolveDelta != 0.0f || result.charismaDelta != 0.0f)
+        {
+            StatusEffect statEffect;
+            statEffect.resolve = result.resolveDelta;
+            statEffect.charisma = result.charismaDelta;
+            statEffect.repeat = true;
+            tryApplyStatusEffect(statEffect, true);
+        }
+
+        if (result.appendNarrative && !result.narrative.empty())
+            appendNarrativeSection("Playing:", result.narrative);
+        else if (!blackjackState.resultLine.empty()
+            && (blackjackState.phase == BlackjackHandState::HandComplete
+                || blackjackState.phase == BlackjackHandState::SessionEnded))
+        {
+            appendNarrativeSection("Playing:", blackjackState.resultLine);
+        }
+
+        if (result.sessionEnded)
+        {
+            worldState.storyFlags.erase("saloon_interior:blackjack_in_progress");
+            if (!blackjackState.statusLine.empty())
+                appendNarrativeSection("Playing:", blackjackState.statusLine);
+        }
+
+        recordPlayerAction();
+        updateActionAvailability();
     }
 
     void GameSession::syncConversationRequirements()
@@ -2732,6 +2913,7 @@ namespace
         context.lastLucidityCollapseDay = worldState.lastLucidityCollapseDay;
         context.lastSleepDay = worldState.lastSleepDay;
         context.flagGrantedDay = &worldState.flagGrantedDay;
+        context.actorOpinions = &worldState.actorOpinions;
         conversationMgr.setRequirementContext(context);
     }
 
@@ -2964,6 +3146,18 @@ namespace
         worldState.storyFlags.insert(flag);
         if (worldState.flagGrantedDay.count(flag) == 0)
             worldState.flagGrantedDay[flag] = worldState.day;
+        if (flag == "saloon_interior:blackjack_discovered")
+        {
+            ConversationPersistState conversationSnapshot;
+            conversationMgr.exportPersistState(conversationSnapshot);
+            conversationSnapshot.workTheRoomAttempts.erase("saloon_interior:patrons");
+            conversationMgr.importPersistState(conversationSnapshot);
+        }
+        if (flag == "saloon_interior:blackjack_seated")
+        {
+            worldState.storyFlags.insert("saloon_interior:blackjack_in_progress");
+            syncBlackjackSession();
+        }
         if (flag == "saloon_interior:chose_water"
             || flag == "saloon_interior:chose_usual"
             || flag == "saloon_interior:chose_cheaper"
@@ -3429,6 +3623,20 @@ namespace
 
         handleNotebookNavInput();
 
+        if (isBlackjackUiActive()
+            && !pauseMenu.isOpen()
+            && !saveLoadMenu.isOpen()
+            && !dropConfirmMgr.isOpen()
+            && !inventoryMgr.isOpen()
+            && !takeMgr.isOpen()
+            && !interactionMgr.isOpen()
+            && !speakTargetMgr.isOpen())
+        {
+            handleBlackjackInput();
+            handleNarrativeScrollInput();
+            return;
+        }
+
         buttonMgr.update();
 
         if (buttonMgr.consumeMoveOrActionButtonClick())
@@ -3636,7 +3844,10 @@ namespace
         else if (speakTargetMgr.isOpen())
             speakTargetMgr.draw();
 
-        buttonMgr.draw();
+        if (isBlackjackUiActive())
+            blackjackPanel.draw();
+        else
+            buttonMgr.draw();
         pauseMenu.draw();
         saveLoadMenu.draw();
         drawTransientMessage();

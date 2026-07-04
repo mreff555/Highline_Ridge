@@ -133,6 +133,7 @@ class ConversationManager
     std::set<std::string> consumedScriptedChoiceIds;
     std::set<std::string> persistedConsumedScriptedChoiceIds;
     std::map<std::string, int> lastRandomLineIndex;
+    std::map<std::string, int> workTheRoomAttempts;
     bool awaitingChoice = false;
     bool combatAttackAllowed = false;
     std::string combatEncounterId;

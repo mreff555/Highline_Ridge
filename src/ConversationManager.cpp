@@ -131,6 +131,13 @@ int ConversationManager::phaseStartPriority(
         priority += 500;
     if (phase.repeatable)
         priority += 250;
+    if (phase.requirements.hasActorOpinionAtMost)
+        priority += 1500;
+    else if (phase.requirements.hasActorOpinionAtLeast
+        && phase.requirements.hasActorOpinionAtMost)
+        priority += 1400;
+    else if (phase.requirements.hasActorOpinionAtLeast)
+        priority += 1200;
     return priority;
 }
 
@@ -275,7 +282,12 @@ bool ConversationManager::canStartPhase(
         return true;
 
     if (phase.type == ConversationPhaseType::Scripted)
+    {
+        if (phase.repeatable)
+            return true;
+
         return !remainingTopLevelChoices(phase).empty();
+    }
 
     return false;
 }
@@ -770,6 +782,7 @@ SpeakResult ConversationManager::pickRandomLine(
         line.ttsAfterVoice,
         line.ttsAfterAudio,
         line.text);
+    result.grantStoryFlag = line.grantStoryFlag;
     result.spokenActorId = lineActorId(line);
     return result;
 }
@@ -781,8 +794,16 @@ SpeakResult ConversationManager::handleSpeakTarget(
     const std::string& phaseId,
     const std::string& randomLineId)
 {
-    if (awaitingChoice || phaseId.empty())
+    if (phaseId.empty())
         return SpeakResult();
+
+    if (awaitingChoice)
+    {
+        if (phaseId != activeScriptPhaseId)
+            return SpeakResult();
+
+        return startScriptedPhase(config, phaseId, storyFlags, true);
+    }
 
     const ConversationPhase* phase = findPhase(config, phaseId);
     if (phase == nullptr)
@@ -839,6 +860,29 @@ SpeakResult ConversationManager::handleSpeakWorkTheRoom(
             continue;
         if (!isPhaseRequirementMet(phase, storyFlags) || phase.lines.empty())
             continue;
+
+        const std::string poolKey = randomPoolKey(sceneId, phase);
+        const bool blackjackUndiscovered =
+            sceneId == "saloon_interior"
+            && storyFlags.count("saloon_interior:blackjack_discovered") == 0;
+
+        if (blackjackUndiscovered)
+            completedRandomLineIds.erase("blackjack_spotted");
+
+        int& attempts = workTheRoomAttempts[poolKey];
+        ++attempts;
+
+        if (blackjackUndiscovered && attempts >= 5)
+        {
+            for (const RandomConversationLine& line : phase.lines)
+            {
+                if (line.id != "blackjack_spotted" || !canPickRandomLine(line))
+                    continue;
+
+                workTheRoomAttempts.erase(poolKey);
+                return pickSpecificRandomLine(sceneId, phase, line.id);
+            }
+        }
 
         return pickRandomLine(sceneId, phase);
     }
@@ -898,7 +942,7 @@ SpeakResult ConversationManager::startScriptedPhase(
     const std::set<std::string>& storyFlags,
     bool skipIntro)
 {
-    if (awaitingChoice)
+    if (awaitingChoice && phaseId != activeScriptPhaseId)
         return SpeakResult();
 
     const ConversationPhase* phase = findPhase(config, phaseId);
@@ -908,9 +952,15 @@ SpeakResult ConversationManager::startScriptedPhase(
     if (!canStartPhase(*phase, storyFlags))
         return SpeakResult();
 
+    if (phase->repeatable && allTopLevelChoicesConsumed(*phase))
+        resetRepeatablePhase(phaseId);
+
     const std::vector<ConversationChoiceDef> available = remainingTopLevelChoices(*phase);
     if (available.empty())
     {
+        awaitingChoice = false;
+        activeScriptPhaseId.clear();
+        pendingChoices.clear();
         markPhaseComplete(phaseId);
         return SpeakResult();
     }
@@ -1178,6 +1228,7 @@ void ConversationManager::exportPersistState(ConversationPersistState& out) cons
     out.completedRandomLineIds = completedRandomLineIds;
     out.consumedScriptedChoiceIds = consumedScriptedChoiceIds;
     out.persistedConsumedScriptedChoiceIds = persistedConsumedScriptedChoiceIds;
+    out.workTheRoomAttempts = workTheRoomAttempts;
 }
 
 void ConversationManager::importPersistState(const ConversationPersistState& state)
@@ -1186,6 +1237,7 @@ void ConversationManager::importPersistState(const ConversationPersistState& sta
     completedRandomLineIds = state.completedRandomLineIds;
     consumedScriptedChoiceIds = state.consumedScriptedChoiceIds;
     persistedConsumedScriptedChoiceIds = state.persistedConsumedScriptedChoiceIds;
+    workTheRoomAttempts = state.workTheRoomAttempts;
     awaitingChoice = false;
     combatAttackAllowed = false;
     combatEncounterId.clear();

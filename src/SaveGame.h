@@ -19,6 +19,7 @@ struct ConversationPersistState
     std::set<std::string> completedRandomLineIds;
     std::set<std::string> consumedScriptedChoiceIds;
     std::set<std::string> persistedConsumedScriptedChoiceIds;
+    std::map<std::string, int> workTheRoomAttempts;
 };
 
 struct SavedGameState

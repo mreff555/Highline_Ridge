@@ -48,6 +48,27 @@ bool meetsDialogRequirements(
             return false;
     }
 
+    if (!requirements.opinionActor.empty()
+        && (requirements.hasActorOpinionAtLeast || requirements.hasActorOpinionAtMost))
+    {
+        if (context.actorOpinions == nullptr)
+            return false;
+
+        int opinion = 0;
+        std::map<std::string, int>::const_iterator it =
+            context.actorOpinions->find(requirements.opinionActor);
+        if (it != context.actorOpinions->end())
+            opinion = it->second;
+
+        if (requirements.hasActorOpinionAtLeast
+            && opinion < requirements.requiresActorOpinionAtLeast)
+            return false;
+
+        if (requirements.hasActorOpinionAtMost
+            && opinion > requirements.requiresActorOpinionAtMost)
+            return false;
+    }
+
     return true;
 }
 

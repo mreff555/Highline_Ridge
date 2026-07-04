@@ -58,6 +58,11 @@ struct DialogRequirementFields
     std::string requiresDaysSinceFlag;
     int requiresDaysSinceMin = 0;
     int requiresDaysSinceMax = 0;
+    std::string opinionActor;
+    bool hasActorOpinionAtLeast = false;
+    int requiresActorOpinionAtLeast = 0;
+    bool hasActorOpinionAtMost = false;
+    int requiresActorOpinionAtMost = 0;
 };
 
 struct ConversationRequirementContext
@@ -67,6 +72,7 @@ struct ConversationRequirementContext
     int lastLucidityCollapseDay = 0;
     int lastSleepDay = 0;
     const std::map<std::string, int>* flagGrantedDay = nullptr;
+    const std::map<std::string, int>* actorOpinions = nullptr;
 };
 
 bool meetsDialogRequirements(
@@ -205,6 +211,7 @@ struct RandomConversationLine
     StatusEffect status;
     int weight = 1;
     bool once = false;
+    std::string grantStoryFlag;
     bool allowAttack = false;
     std::string attackEncounterId;
     std::vector<ConversationChoiceDef> choices;

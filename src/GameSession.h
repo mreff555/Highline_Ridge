@@ -23,6 +23,8 @@
 #include <UiBackdrop.h>
 
 #include <LocationStruct.h>
+#include <BlackjackGame.h>
+#include <BlackjackPanel.h>
 #include <ButtonMgr.h>
 #include <SceneLoader.h>
 #include <SceneOverlayMgr.h>
@@ -211,6 +213,9 @@ class GameSession
     Rectangle getInventoryPanelBounds() const;
     void appendNarrativeSection(const char* header, const std::string& details);
     void updateActionAvailability();
+    bool isBlackjackUiActive() const;
+    void syncBlackjackSession();
+    void handleBlackjackInput();
     bool isExitDirectionAvailable(const std::string& direction) const;
     bool tryApplyStatusEffect(const StatusEffect& effect, bool allowRepeat);
     void scrollNarrativeToHeader(const char* header);
@@ -276,6 +281,8 @@ class GameSession
     Rectangle buttonBox;
     float fullDialogHeight;
     ButtonMgr buttonMgr;
+    BlackjackGameState blackjackState;
+    BlackjackPanel blackjackPanel;
     InventoryMgr inventoryMgr;
     TakeMgr takeMgr;
     InteractionMgr interactionMgr;

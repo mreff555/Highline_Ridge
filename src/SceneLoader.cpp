@@ -295,6 +295,18 @@ void parseDialogRequirementFields(const nlohmann::json& node, DialogRequirementF
         out.requiresDaysSinceMin = since.value("min", out.requiresDaysSinceMin);
         out.requiresDaysSinceMax = since.value("max", out.requiresDaysSinceMax);
     }
+
+    out.opinionActor = node.value("opinionActor", "");
+    if (node.contains("requiresActorOpinionAtLeast"))
+    {
+        out.hasActorOpinionAtLeast = true;
+        out.requiresActorOpinionAtLeast = node.value("requiresActorOpinionAtLeast", 0);
+    }
+    if (node.contains("requiresActorOpinionAtMost"))
+    {
+        out.hasActorOpinionAtMost = true;
+        out.requiresActorOpinionAtMost = node.value("requiresActorOpinionAtMost", 0);
+    }
 }
 
 bool parseConversationChoice(const nlohmann::json& choice, ConversationChoiceDef& out)
@@ -380,6 +392,7 @@ bool parseRandomLine(const nlohmann::json& line, RandomConversationLine& out)
     out.ttsAfterAudio = line.value("ttsAfterAudio", "");
     out.weight = line.value("weight", 1);
     out.once = line.value("once", false);
+    out.grantStoryFlag = line.value("grantStoryFlag", "");
     out.allowAttack = line.value("allowAttack", false);
     out.attackEncounterId = line.value("attackEncounterId", "");
     if (!parseStatusEffect(line.value("status", nlohmann::json::object()), out.status))
@@ -1337,18 +1350,38 @@ void buildDefaultSubScene(SceneData& scene)
         scene.defaultSubSceneId = subScene.id;
 }
 
+bool sameMovementTarget(const MovementTarget& left, const MovementTarget& right)
+{
+    return left.sceneId == right.sceneId && left.subSceneId == right.subSceneId;
+}
+
+bool hasUnmaskedMappingToTarget(
+    const std::vector<MovementMappingDef>& mappings,
+    const MovementTarget& target)
+{
+    for (const MovementMappingDef& mapping : mappings)
+    {
+        if (!mapping.defaultMasked && sameMovementTarget(mapping.target, target))
+            return true;
+    }
+
+    return false;
+}
+
 void buildMovementExitsFromLegacyExits(SceneData& scene)
 {
-    if (!scene.movementExits.empty())
-        return;
-
     for (std::map<std::string, std::string>::const_iterator it = scene.exits.begin();
          it != scene.exits.end();
          ++it)
     {
+        const MovementTarget legacyTarget = parseMovementTarget(it->second);
+        const std::vector<MovementMappingDef>& existing = scene.movementExits[it->first];
+        if (hasUnmaskedMappingToTarget(existing, legacyTarget))
+            continue;
+
         MovementMappingDef mapping;
         mapping.id = it->first + "_to_" + it->second;
-        mapping.target = parseMovementTarget(it->second);
+        mapping.target = legacyTarget;
         mapping.defaultMasked = false;
 
         std::map<std::string, ExitRequirementDef>::const_iterator requirementIt =

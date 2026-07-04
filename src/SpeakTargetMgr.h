@@ -1,6 +1,7 @@
 #ifndef SPEAK_TARGET_MGR_H
 #define SPEAK_TARGET_MGR_H
 
+#include <ScrollPanel.h>
 #include <SpeakTargetDef.h>
 #include <UiBackdrop.h>
 #include <raylib.h>
@@ -37,16 +38,21 @@ class SpeakTargetMgr
     void drawOptionList() const;
     void handleCloseButtonInput();
     void handleOptionInput();
+    void handleScrollInput();
     void layoutOptionBounds();
+    Rectangle getContentBounds() const;
     Rectangle getCloseButtonBounds() const;
     float getRowHeight() const;
+    float getContentHeight() const;
 
     static const float kCloseButtonSize;
     static const float kRowGap;
+    static const float kScrollbarWidth;
 
     Font panelFont{};
     Rectangle panelBounds{};
     const UiBackdrop* uiBackdrop = nullptr;
+    ScrollPanel optionScroll;
     bool openState = false;
     std::vector<SpeakTargetDef> options;
     mutable std::vector<Rectangle> optionBounds;

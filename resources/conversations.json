@@ -783,8 +783,143 @@
                 }
               }
             ]
+          },
+          {
+            "id": "blackjack_spotted",
+            "actorId": "blackjack_table",
+            "actorName": "Room for one more",
+            "once": true,
+            "weight": 5,
+            "grantStoryFlag": "saloon_interior:blackjack_discovered",
+            "tts": true,
+            "ttsVoice": "leo",
+            "ttsAudio": "resources/audio/tts/saloon_interior/blackjack_spotted.mp3",
+            "ttsText": "Your circuit of the room brings you past the stove table where four men play blackjack under a hanging lamp. Whiskey glasses and cigar stubs crowd the felt. An empty chair sits at the near corner, sawdust on the seat, a fresh ring on the wood where a glass stood and left. One of the players glances up as you slow, then returns to his cards as though daring you to remember the opening.",
+            "text": "Your circuit of the room brings you past the stove table where four men play blackjack under a hanging lamp. Whiskey glasses and cigar stubs crowd the felt. An empty chair sits at the near corner \u2014 sawdust on the seat, a fresh ring on the wood where a glass stood and left.\n\nOne of the players glances up as you slow, then returns to his cards as though daring you to remember the opening.",
+            "ttsTextSha256": "b23ad11806f3f8f5feef48d0e01c2b69cc344ffe109d97ff9bfe7c091d9c52d1"
           }
         ]
+      },
+      {
+        "id": "blackjack_invite_blocked",
+        "actorId": "blackjack_table",
+        "actorName": "Room for one more",
+        "type": "once",
+        "resetOnSceneEnter": false,
+        "requiresFlag": "saloon_interior:blackjack_discovered",
+        "opinionActor": "blackjack_players",
+        "requiresActorOpinionAtMost": -5,
+        "tts": true,
+        "ttsVoice": "leo",
+        "ttsAudio": "resources/audio/tts/saloon_interior/blackjack_invite_blocked.mp3",
+        "ttsText": "You approach the blackjack table. The empty chair is still there, but the man with the cigar does not look up. One of his companions mutters something about trouble already dealt in and the deal continues without a gap for you to sit down. The message is plain enough. You are not welcome at this table anymore.",
+        "text": "You approach the blackjack table. The empty chair is still there, but the man with the cigar does not look up.\n\nOne of his companions mutters something about \"trouble already dealt in,\" and the deal continues without a gap for you to sit down. The message is plain enough. You are not welcome at this table anymore.",
+        "ttsTextSha256": "b2ada01e0d1ff3be44aad49f618177392db48d0109aac883c2668f2fe25ad66f"
+      },
+      {
+        "id": "blackjack_invite_wary",
+        "actorId": "blackjack_table",
+        "actorName": "Room for one more",
+        "type": "scripted",
+        "resetOnSceneEnter": false,
+        "repeatable": true,
+        "requiresFlag": "saloon_interior:blackjack_discovered",
+        "opinionActor": "blackjack_players",
+        "requiresActorOpinionAtLeast": -4,
+        "requiresActorOpinionAtMost": -1,
+        "tts": true,
+        "ttsVoice": "leo",
+        "ttsAudio": "resources/audio/tts/saloon_interior/blackjack_invite_wary.mp3",
+        "ttsText": "You pause at the blackjack table long enough to draw their attention. Cards stop. The miner with the cigar clamped in his teeth looks you over without warmth. We have not forgotten the last time you sat here, he says. Chair is open if you still want it. Buy-in is two dollars and do not waste our evening.",
+        "intro": "You pause at the blackjack table long enough to draw their attention. Cards stop. The miner with the cigar clamped in his teeth looks you over without warmth.\n\n\"We haven't forgotten the last time you sat here,\" he says. \"Chair's open if you still want it. Buy-in's two dollars \u2014 and don't waste our evening.\"\n\n\"Well?\" he adds. \"Are you playing?\"",
+        "choices": [
+          {
+            "id": "blackjack_join",
+            "label": "> I'm in.",
+            "closePhase": true,
+            "requiresMoney": 2.0,
+            "grantStoryFlag": "saloon_interior:blackjack_seated",
+            "tts": true,
+            "ttsVoice": "leo",
+            "ttsAudio": "resources/audio/tts/saloon_interior/blackjack_join.mp3",
+            "ttsText": "You pull out the empty chair and slide two dollars into the center of the felt. The men around you return to their cards without introducing themselves. Sleeves rolled, collars loose, faces kept at the edge of the lamplight. A fresh hand is dealt before you have finished counting the chips in front of you.",
+            "response": "You pull out the empty chair and slide two dollars into the center of the felt. The men around you return to their cards without introducing themselves \u2014 sleeves rolled, collars loose, faces kept at the edge of the lamplight.\n\nA fresh hand is dealt before you've finished counting the chips in front of you.",
+            "status": {
+              "key": "saloon_interior:blackjack_join",
+              "money": -2.0
+            },
+            "ttsTextSha256": "a7d90eccf60a7841fb7160108145e1cc39b3b9a58642c1592d11067f5e62f071"
+          },
+          {
+            "id": "blackjack_decline",
+            "label": "> Maybe next time.",
+            "closePhase": true,
+            "tts": true,
+            "ttsVoice": "leo",
+            "ttsAudio": "resources/audio/tts/saloon_interior/blackjack_decline.mp3",
+            "ttsText": "You shake your head. Maybe next time. The miner snorts and mutters something unflattering about greenhorns and wasted chairs. His companions laugh once, without warmth, and the deal resumes as though you were never standing there.",
+            "response": "You shake your head. \"Maybe next time.\"\n\nThe miner snorts and mutters something unflattering about greenhorns and wasted chairs. His companions laugh once, without warmth, and the deal resumes as though you were never standing there.",
+            "status": {
+              "key": "saloon_interior:blackjack_decline",
+              "actor": "blackjack_players",
+              "actorOpinion": -1
+            },
+            "ttsTextSha256": "d34d68a871a439f5305f159ef703fc12165698e9cd1a0481324f82d94d09ce3d"
+          }
+        ],
+        "ttsTextSha256": "a3f2457ec4c6825dfe052c5763831717def8f76ee84be276c98ed3053deceaa7"
+      },
+      {
+        "id": "blackjack_invite",
+        "actorId": "blackjack_table",
+        "actorName": "Room for one more",
+        "type": "scripted",
+        "resetOnSceneEnter": false,
+        "repeatable": true,
+        "requiresFlag": "saloon_interior:blackjack_discovered",
+        "opinionActor": "blackjack_players",
+        "requiresActorOpinionAtLeast": 0,
+        "tts": true,
+        "ttsVoice": "leo",
+        "ttsAudio": "resources/audio/tts/saloon_interior/blackjack_invite.mp3",
+        "ttsText": "Near the stove table, four men in trail-worn garb play blackjack with the quiet intensity of men who have nowhere else to be. An empty chair sits at the near corner. You pause long enough to draw their attention. Cards stop. A miner with a cigar clamped in his teeth looks up without smiling. Well, he says. Are you playing? Buy-in is two dollars.",
+        "intro": "Near the stove table, four men in trail-worn garb play blackjack with the quiet intensity of men who have nowhere else to be. An empty chair sits at the near corner \u2014 sawdust on the seat, a fresh glass mark on the wood, as though someone stood up mid-hand and never came back.\n\nYou pause long enough to draw their attention. Cards stop. A miner with a cigar clamped in his teeth looks up without smiling.\n\n\"Well?\" he says. \"Are you playing? Buy-in's two dollars.\"",
+        "choices": [
+          {
+            "id": "blackjack_join",
+            "label": "> I'm in.",
+            "closePhase": true,
+            "requiresMoney": 2.0,
+            "grantStoryFlag": "saloon_interior:blackjack_seated",
+            "tts": true,
+            "ttsVoice": "leo",
+            "ttsAudio": "resources/audio/tts/saloon_interior/blackjack_join.mp3",
+            "ttsText": "You pull out the empty chair and slide two dollars into the center of the felt. The men around you return to their cards without introducing themselves. Sleeves rolled, collars loose, faces kept at the edge of the lamplight. A fresh hand is dealt before you have finished counting the chips in front of you.",
+            "response": "You pull out the empty chair and slide two dollars into the center of the felt. The men around you return to their cards without introducing themselves \u2014 sleeves rolled, collars loose, faces kept at the edge of the lamplight.\n\nA fresh hand is dealt before you've finished counting the chips in front of you.",
+            "status": {
+              "key": "saloon_interior:blackjack_join",
+              "money": -2.0
+            },
+            "ttsTextSha256": "a7d90eccf60a7841fb7160108145e1cc39b3b9a58642c1592d11067f5e62f071"
+          },
+          {
+            "id": "blackjack_decline",
+            "label": "> Maybe next time.",
+            "closePhase": true,
+            "tts": true,
+            "ttsVoice": "leo",
+            "ttsAudio": "resources/audio/tts/saloon_interior/blackjack_decline.mp3",
+            "ttsText": "You shake your head. Maybe next time. The miner snorts and mutters something about greenhorns and wasted chairs. His companions laugh once, without warmth, and the deal resumes as though you were never standing there.",
+            "response": "You shake your head. \"Maybe next time.\"\n\nThe miner snorts and mutters something about greenhorns and wasted chairs \u2014 not quite aimed at you, not quite aimed anywhere else. His companions laugh once, without warmth, and the deal resumes as though you were never standing there.",
+            "status": {
+              "key": "saloon_interior:blackjack_decline",
+              "actor": "blackjack_players",
+              "actorOpinion": -1
+            },
+            "ttsTextSha256": "d34d68a871a439f5305f159ef703fc12165698e9cd1a0481324f82d94d09ce3d"
+          }
+        ],
+        "ttsTextSha256": "d56aac6bd8fb012a51c2a30ea55bb617cf3995fec8f7c72d4548ede40d120d92"
       }
     ]
   },
