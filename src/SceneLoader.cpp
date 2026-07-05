@@ -263,6 +263,21 @@ std::string parseOptionalAudioField(const nlohmann::json& object, const char* ke
     return object.value(key, "");
 }
 
+std::vector<std::string> parseStringArrayField(const nlohmann::json& object, const char* key)
+{
+    std::vector<std::string> values;
+    if (!object.contains(key) || !object[key].is_array())
+        return values;
+
+    for (const nlohmann::json& entry : object[key])
+    {
+        if (entry.is_string() && !entry.get<std::string>().empty())
+            values.push_back(entry.get<std::string>());
+    }
+
+    return values;
+}
+
 bool parseGrantedInventoryItem(const nlohmann::json& item, GrantedInventoryItemDef& out)
 {
     if (!item.is_object())
@@ -323,6 +338,7 @@ bool parseConversationChoice(const nlohmann::json& choice, ConversationChoiceDef
     out.ttsVoice = choice.value("ttsVoice", "");
     out.ttsText = choice.value("ttsText", "");
     out.ttsAudio = choice.value("ttsAudio", "");
+    out.ttsAudioSegments = parseStringArrayField(choice, "ttsAudioSegments");
     out.ttsAfter = choice.value("ttsAfter", false);
     out.ttsAfterVoice = choice.value("ttsAfterVoice", "");
     out.ttsAfterText = choice.value("ttsAfterText", "");
@@ -386,6 +402,7 @@ bool parseRandomLine(const nlohmann::json& line, RandomConversationLine& out)
     out.ttsVoice = line.value("ttsVoice", "");
     out.ttsText = line.value("ttsText", "");
     out.ttsAudio = line.value("ttsAudio", "");
+    out.ttsAudioSegments = parseStringArrayField(line, "ttsAudioSegments");
     out.ttsAfter = line.value("ttsAfter", false);
     out.ttsAfterVoice = line.value("ttsAfterVoice", "");
     out.ttsAfterText = line.value("ttsAfterText", "");
@@ -437,6 +454,7 @@ bool parseConversationPhase(const nlohmann::json& phase, ConversationPhase& out)
     out.ttsVoice = phase.value("ttsVoice", "");
     out.ttsText = phase.value("ttsText", "");
     out.ttsAudio = phase.value("ttsAudio", "");
+    out.ttsAudioSegments = parseStringArrayField(phase, "ttsAudioSegments");
     out.ttsAfter = phase.value("ttsAfter", false);
     out.ttsAfterVoice = phase.value("ttsAfterVoice", "");
     out.ttsAfterText = phase.value("ttsAfterText", "");

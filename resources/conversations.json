@@ -1595,6 +1595,11 @@
             "response": "Her smile returns for half a heartbeat, then goes still. You stayed, for a few hours at least.  You know, cuddling is included in the fee, and I have woke up to worse smells before. She gently grabs your wrist for a moment and smiles.",
             "tts": true,
             "ttsAudio": "resources/audio/tts/saloon_balcony/stay_last_night.mp3",
+            "ttsAudioSegments": [
+              "resources/audio/tts/saloon_balcony/stay_last_night.seg0.mp3",
+              "resources/audio/tts/saloon_balcony/stay_last_night.seg1.mp3",
+              "resources/audio/tts/saloon_balcony/stay_last_night.seg2.mp3"
+            ],
             "ttsText": "Her smile returns for half a heartbeat, then goes still. {{voice:eve}}[pause]You stayed, [pause]for a few hours at least. [long-pause][sigh] You know, [pause] cuddling is included in the fee, [pause]and I have woke up to worse smells before.{{/voice}} She gently grabs your wrist for a moment and smiles.",
             "ttsTextSha256": "21b41086df7a134567730520565dbfb2ab9c8864186ccba9c37a7d0a85204b71",
             "ttsVoice": "leo"

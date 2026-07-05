@@ -156,4 +156,32 @@ bool parseVoiceMarkup(
     return true;
 }
 
+std::string buildSegmentAudioPath(
+    const std::string& baseAudioPath,
+    size_t segmentIndex,
+    size_t segmentCount)
+{
+    if (segmentCount <= 1)
+        return baseAudioPath;
+
+    const size_t dot = baseAudioPath.rfind('.');
+    if (dot == std::string::npos)
+        return baseAudioPath + ".seg" + std::to_string(segmentIndex);
+
+    return baseAudioPath.substr(0, dot) + ".seg" + std::to_string(segmentIndex)
+        + baseAudioPath.substr(dot);
+}
+
+std::vector<std::string> buildSegmentAudioPaths(
+    const std::string& baseAudioPath,
+    size_t segmentCount)
+{
+    std::vector<std::string> paths;
+    paths.reserve(segmentCount == 0 ? 1 : segmentCount);
+    const size_t count = segmentCount == 0 ? 1 : segmentCount;
+    for (size_t segmentIndex = 0; segmentIndex < count; ++segmentIndex)
+        paths.push_back(buildSegmentAudioPath(baseAudioPath, segmentIndex, count));
+    return paths;
+}
+
 }

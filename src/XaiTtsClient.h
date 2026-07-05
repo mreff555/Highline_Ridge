@@ -22,6 +22,7 @@ struct VoiceBundleResult
     bool skipped = false;
     bool regenerated = false;
     std::string textSha256;
+    std::vector<std::string> segmentAudioPaths;
 };
 
 class XaiTtsClient
@@ -60,6 +61,12 @@ class XaiTtsClient
         const std::string& scenesPath,
         const std::string& audioPath,
         const std::string& textSha256);
+
+    static bool persistVoiceAudioSegments(
+        const std::string& conversationsPath,
+        const std::string& scenesPath,
+        const std::string& audioPath,
+        const std::vector<std::string>& segmentPaths);
 };
 
 void printGameHelp(const char* executableName);

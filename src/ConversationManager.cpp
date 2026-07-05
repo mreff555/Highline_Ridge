@@ -32,13 +32,26 @@ void applyTtsFields(
     const std::string& ttsText,
     const std::string& ttsVoice,
     const std::string& ttsAudio,
+    const std::vector<std::string>& ttsAudioSegments,
     const std::string& fallbackNarration)
 {
-    if (!enabled || ttsAudio.empty())
+    if (!enabled)
+        return;
+
+    const std::vector<std::string>& playbackPaths =
+        !ttsAudioSegments.empty() ? ttsAudioSegments : std::vector<std::string>{};
+    if (playbackPaths.empty() && ttsAudio.empty())
         return;
 
     result.useTts = true;
-    result.ttsAudioPaths.push_back(ttsAudio);
+    if (!playbackPaths.empty())
+    {
+        for (const std::string& path : playbackPaths)
+            result.ttsAudioPaths.push_back(path);
+    }
+    else
+        result.ttsAudioPaths.push_back(ttsAudio);
+
     result.ttsVoice = ttsVoice;
     result.ttsText = !ttsText.empty() ? ttsText : fallbackNarration;
 }
@@ -496,6 +509,7 @@ SpeakResult ConversationManager::resumeScriptedPhase(
             phase.resumeTtsText,
             phase.resumeTtsVoice,
             phase.resumeTtsAudio,
+            {},
             phase.resumeIntro);
     }
 
@@ -616,6 +630,7 @@ SpeakResult ConversationManager::pickSpecificRandomLine(
             line->ttsText,
             line->ttsVoice,
             line->ttsAudio,
+            line->ttsAudioSegments,
             line->text);
         applyTtsAfterFields(
             result,
@@ -643,6 +658,7 @@ SpeakResult ConversationManager::pickSpecificRandomLine(
         line->ttsText,
         line->ttsVoice,
         line->ttsAudio,
+        line->ttsAudioSegments,
         line->text);
     applyTtsAfterFields(
         result,
@@ -747,6 +763,7 @@ SpeakResult ConversationManager::pickRandomLine(
             line.ttsText,
             line.ttsVoice,
             line.ttsAudio,
+            line.ttsAudioSegments,
             line.text);
         applyTtsAfterFields(
             result,
@@ -774,6 +791,7 @@ SpeakResult ConversationManager::pickRandomLine(
         line.ttsText,
         line.ttsVoice,
         line.ttsAudio,
+        line.ttsAudioSegments,
         line.text);
     applyTtsAfterFields(
         result,
@@ -825,6 +843,7 @@ SpeakResult ConversationManager::handleSpeakTarget(
             phase->ttsText,
             phase->ttsVoice,
             phase->ttsAudio,
+            phase->ttsAudioSegments,
             phase->text);
         applyTtsAfterFields(
             result,
@@ -915,6 +934,7 @@ SpeakResult ConversationManager::handleSpeak(
             phase->ttsText,
             phase->ttsVoice,
             phase->ttsAudio,
+            phase->ttsAudioSegments,
             phase->text);
         applyTtsAfterFields(
             result,
@@ -976,6 +996,7 @@ SpeakResult ConversationManager::startScriptedPhase(
             phase->ttsText,
             phase->ttsVoice,
             phase->ttsAudio,
+            phase->ttsAudioSegments,
             phase->intro);
         appendDialogAudioTrack(result, phase->introAudio);
     }
@@ -1014,6 +1035,7 @@ SpeakResult ConversationManager::resolveScriptedChoice(
                 choice.ttsText,
                 choice.ttsVoice,
                 choice.ttsAudio,
+                choice.ttsAudioSegments,
                 choice.response);
             applyTtsAfterFields(
                 result,
@@ -1048,6 +1070,7 @@ SpeakResult ConversationManager::resolveScriptedChoice(
             choice.ttsText,
             choice.ttsVoice,
             choice.ttsAudio,
+            choice.ttsAudioSegments,
             choice.response);
         applyTtsAfterFields(
             result,
@@ -1091,6 +1114,7 @@ SpeakResult ConversationManager::resolveScriptedChoice(
             choice.ttsText,
             choice.ttsVoice,
             choice.ttsAudio,
+            choice.ttsAudioSegments,
             choice.response);
         applyTtsAfterFields(
             result,
@@ -1147,6 +1171,7 @@ SpeakResult ConversationManager::resolveScriptedChoice(
         choice.ttsText,
         choice.ttsVoice,
         choice.ttsAudio,
+        choice.ttsAudioSegments,
         choice.response);
     applyTtsAfterFields(
         result,

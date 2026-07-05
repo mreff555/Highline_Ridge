@@ -159,6 +159,92 @@ bool updateSha256InJsonTree(
     return updated;
 }
 
+bool updateAudioSegmentsInJsonTree(
+    nlohmann::json& node,
+    const std::string& audioPath,
+    const std::vector<std::string>& segmentPaths)
+{
+    bool updated = false;
+
+    if (node.is_object())
+    {
+        if (node.value("ttsAudio", "") == audioPath)
+        {
+            if (segmentPaths.size() > 1)
+                node["ttsAudioSegments"] = segmentPaths;
+            else if (node.contains("ttsAudioSegments"))
+                node.erase("ttsAudioSegments");
+            updated = true;
+        }
+
+        for (auto it = node.begin(); it != node.end(); ++it)
+            updated = updateAudioSegmentsInJsonTree(*it, audioPath, segmentPaths) || updated;
+    }
+    else if (node.is_array())
+    {
+        for (nlohmann::json& child : node)
+            updated = updateAudioSegmentsInJsonTree(child, audioPath, segmentPaths) || updated;
+    }
+
+    return updated;
+}
+
+bool bundleExistsAtResolvedPath(const std::string& resolvedAudioPath)
+{
+    return FileExists(compressedAssetPath(resolvedAudioPath).c_str());
+}
+
+bool allSegmentBundlesExist(
+    const std::string& assetRoot,
+    const std::string& baseAudioPath,
+    const std::vector<std::string>& segmentPaths)
+{
+    for (const std::string& segmentPath : segmentPaths)
+    {
+        const std::vector<std::string> searchPaths =
+            buildAssetSearchPaths(assetRoot, segmentPath);
+        bool found = false;
+        for (const std::string& path : searchPaths)
+        {
+            if (bundleExistsAtResolvedPath(path))
+            {
+                found = true;
+                break;
+            }
+        }
+
+        if (!found)
+            return false;
+    }
+
+    return true;
+}
+
+void removeStaleTtsBundles(
+    const std::string& assetRoot,
+    const std::string& baseAudioPath)
+{
+    const std::vector<std::string> basePaths = buildAssetSearchPaths(assetRoot, baseAudioPath);
+    for (const std::string& path : basePaths)
+    {
+        std::remove(compressedAssetPath(path).c_str());
+        std::remove(path.c_str());
+    }
+
+    for (size_t segmentIndex = 0; segmentIndex < 16; ++segmentIndex)
+    {
+        const std::string segmentPath =
+            buildSegmentAudioPath(baseAudioPath, segmentIndex, 999);
+        const std::vector<std::string> segmentPaths =
+            buildAssetSearchPaths(assetRoot, segmentPath);
+        for (const std::string& path : segmentPaths)
+        {
+            std::remove(compressedAssetPath(path).c_str());
+            std::remove(path.c_str());
+        }
+    }
+}
+
 bool writeJsonFileIfChanged(
     const std::string& path,
     nlohmann::json& root,
@@ -606,6 +692,8 @@ void printGameHelp(const char* executableName)
         << "                             stored text hash matches the current dialog are\n"
         << "                             skipped. Use {{voice:eve}}...{{/voice}} in ttsText\n"
         << "                             to switch voices mid-line (eve, ara, rex, sal, leo).\n"
+        << "                             Multi-voice lines save ttsAudioSegments and play\n"
+        << "                             each segment in order.\n"
         << "  --refresh=ID               Same as --refresh-voices, but only for one\n"
         << "                             conversation phase id, random line id, dialog\n"
         << "                             choice id, or scene id. Requires --key.\n"
@@ -834,36 +922,6 @@ VoiceBundleResult XaiTtsClient::bundleVoiceFile(
     if (resolvedAudioPath.empty())
         resolvedAudioPath = resolveAssetPath(assetRoot, entry.audioPath);
 
-    const std::string bundledXzPath = compressedAssetPath(resolvedAudioPath);
-    const bool bundleExists = FileExists(bundledXzPath.c_str());
-    const bool hashMatchesStored = !entry.storedTextSha256.empty()
-        && entry.storedTextSha256 == result.textSha256;
-
-    if (!forceRefresh)
-    {
-        if (hashMatchesStored && bundleExists)
-        {
-            TraceLog(LOG_INFO, "TTS text unchanged, skipping: %s", bundledXzPath.c_str());
-            result.success = true;
-            result.skipped = true;
-            return result;
-        }
-
-        if (hashMatchesStored && !bundleExists)
-            TraceLog(LOG_INFO, "TTS text unchanged, bundle missing, refreshing: %s",
-                     bundledXzPath.c_str());
-        else if (!bundleExists)
-            TraceLog(LOG_INFO, "TTS bundle missing, refreshing: %s", bundledXzPath.c_str());
-        else if (entry.storedTextSha256.empty())
-            TraceLog(LOG_INFO, "TTS missing stored hash, refreshing: %s", bundledXzPath.c_str());
-        else
-            TraceLog(LOG_INFO, "TTS text changed, refreshing: %s", bundledXzPath.c_str());
-    }
-    else
-    {
-        TraceLog(LOG_INFO, "TTS force refresh: %s", bundledXzPath.c_str());
-    }
-
     std::vector<TtsVoiceSegment> voiceSegments;
     std::string markupError;
     if (!parseVoiceMarkup(entry.text, entry.voiceId, voiceSegments, markupError))
@@ -872,13 +930,66 @@ VoiceBundleResult XaiTtsClient::bundleVoiceFile(
         return result;
     }
 
-    std::vector<unsigned char> mp3Bytes;
+    const std::vector<std::string> segmentAudioPaths =
+        buildSegmentAudioPaths(entry.audioPath, voiceSegments.size());
+    const bool bundleExists =
+        allSegmentBundlesExist(assetRoot, entry.audioPath, segmentAudioPaths);
+    const bool hashMatchesStored = !entry.storedTextSha256.empty()
+        && entry.storedTextSha256 == result.textSha256;
+
+    if (!forceRefresh)
+    {
+        if (hashMatchesStored && bundleExists)
+        {
+            TraceLog(LOG_INFO, "TTS text unchanged, skipping: %s", entry.audioPath.c_str());
+            result.success = true;
+            result.skipped = true;
+            return result;
+        }
+
+        if (hashMatchesStored && !bundleExists)
+            TraceLog(LOG_INFO, "TTS text unchanged, bundle missing, refreshing: %s",
+                     entry.audioPath.c_str());
+        else if (!bundleExists)
+            TraceLog(LOG_INFO, "TTS bundle missing, refreshing: %s", entry.audioPath.c_str());
+        else if (entry.storedTextSha256.empty())
+            TraceLog(LOG_INFO, "TTS missing stored hash, refreshing: %s", entry.audioPath.c_str());
+        else
+            TraceLog(LOG_INFO, "TTS text changed, refreshing: %s", entry.audioPath.c_str());
+    }
+    else
+    {
+        TraceLog(LOG_INFO, "TTS force refresh: %s", entry.audioPath.c_str());
+    }
+
+    removeStaleTtsBundles(assetRoot, entry.audioPath);
+
     for (size_t segmentIndex = 0; segmentIndex < voiceSegments.size(); ++segmentIndex)
     {
         const TtsVoiceSegment& segment = voiceSegments[segmentIndex];
-        const std::string tempMp3Path =
-            resolvedAudioPath + ".seg" + std::to_string(segmentIndex) + ".mp3";
+        const std::string& segmentAudioPath = segmentAudioPaths[segmentIndex];
+        const std::vector<std::string> segmentSearchPaths =
+            buildAssetSearchPaths(assetRoot, segmentAudioPath);
+        std::string resolvedSegmentPath;
+        for (const std::string& path : segmentSearchPaths)
+        {
+            resolvedSegmentPath = path;
+            break;
+        }
+        if (resolvedSegmentPath.empty())
+            resolvedSegmentPath = resolveAssetPath(assetRoot, segmentAudioPath);
+
+        const std::string bundledSegmentXzPath = compressedAssetPath(resolvedSegmentPath);
+        const std::string tempMp3Path = resolvedSegmentPath + ".tmp.mp3";
         std::remove(tempMp3Path.c_str());
+
+        TraceLog(
+            LOG_INFO,
+            "TTS segment %zu/%zu voice=%s path=%s",
+            segmentIndex + 1,
+            voiceSegments.size(),
+            segment.voiceId.c_str(),
+            bundledSegmentXzPath.c_str());
 
         if (!synthesizeToFile(apiKey, segment.text, segment.voiceId, tempMp3Path))
             return result;
@@ -890,20 +1001,32 @@ VoiceBundleResult XaiTtsClient::bundleVoiceFile(
             return result;
         }
 
-        mp3Bytes.insert(mp3Bytes.end(), segmentBytes.begin(), segmentBytes.end());
+        if (!compressBytesToXzFile(
+                segmentBytes.data(),
+                segmentBytes.size(),
+                bundledSegmentXzPath))
+        {
+            std::remove(tempMp3Path.c_str());
+            return result;
+        }
+
         std::remove(tempMp3Path.c_str());
+        std::remove(resolvedSegmentPath.c_str());
+        if (!mirrorBundleToSourceTree(bundledSegmentXzPath))
+        {
+            TraceLog(LOG_WARNING, "Saved runtime TTS bundle but failed to mirror: %s",
+                     bundledSegmentXzPath.c_str());
+        }
     }
 
-    if (!compressBytesToXzFile(mp3Bytes.data(), mp3Bytes.size(), bundledXzPath))
-        return result;
-
-    std::remove(resolvedAudioPath.c_str());
-    TraceLog(LOG_INFO, "Saved TTS bundle: %s", bundledXzPath.c_str());
-    if (!mirrorBundleToSourceTree(bundledXzPath))
-        TraceLog(LOG_WARNING, "Saved runtime TTS bundle but failed to mirror: %s",
-                 bundledXzPath.c_str());
+    TraceLog(
+        LOG_INFO,
+        "Saved %zu TTS segment bundle(s) for %s",
+        voiceSegments.size(),
+        entry.audioPath.c_str());
     result.success = true;
     result.regenerated = true;
+    result.segmentAudioPaths = segmentAudioPaths;
     return result;
 }
 
@@ -944,6 +1067,55 @@ bool XaiTtsClient::persistVoiceTextSha256(
             {
                 in >> scenesRoot;
                 if (updateSha256InJsonTree(scenesRoot, audioPath, textSha256)
+                    && writeJsonFileIfChanged(scenesPath, scenesRoot, true))
+                    persisted = true;
+            }
+            catch (const nlohmann::json::exception&)
+            {
+            }
+        }
+    }
+
+    return persisted;
+}
+
+bool XaiTtsClient::persistVoiceAudioSegments(
+    const std::string& conversationsPath,
+    const std::string& scenesPath,
+    const std::string& audioPath,
+    const std::vector<std::string>& segmentPaths)
+{
+    bool persisted = false;
+
+    if (!conversationsPath.empty())
+    {
+        std::ifstream in(conversationsPath.c_str());
+        if (in.is_open())
+        {
+            nlohmann::json conversations;
+            try
+            {
+                in >> conversations;
+                if (updateAudioSegmentsInJsonTree(conversations, audioPath, segmentPaths)
+                    && writeJsonFileIfChanged(conversationsPath, conversations, true))
+                    persisted = true;
+            }
+            catch (const nlohmann::json::exception&)
+            {
+            }
+        }
+    }
+
+    if (!scenesPath.empty())
+    {
+        std::ifstream in(scenesPath.c_str());
+        if (in.is_open())
+        {
+            nlohmann::json scenesRoot;
+            try
+            {
+                in >> scenesRoot;
+                if (updateAudioSegmentsInJsonTree(scenesRoot, audioPath, segmentPaths)
                     && writeJsonFileIfChanged(scenesPath, scenesRoot, true))
                     persisted = true;
             }
@@ -1039,6 +1211,28 @@ int XaiTtsClient::refreshBundledVoices(
         if (!persisted)
         {
             std::cerr << "Warning: refreshed audio but failed to persist text hash for "
+                      << entry.audioPath << "\n";
+        }
+
+        bool segmentsPersisted = persistVoiceAudioSegments(
+            conversationsPath,
+            scenesPath,
+            entry.audioPath,
+            bundleResult.segmentAudioPaths);
+        if (runtimeConversationsPath != conversationsPath
+            || runtimeScenesPath != scenesPath)
+        {
+            segmentsPersisted = persistVoiceAudioSegments(
+                                    runtimeConversationsPath,
+                                    runtimeScenesPath,
+                                    entry.audioPath,
+                                    bundleResult.segmentAudioPaths)
+                || segmentsPersisted;
+        }
+
+        if (!segmentsPersisted && bundleResult.segmentAudioPaths.size() > 1)
+        {
+            std::cerr << "Warning: refreshed audio but failed to persist segment paths for "
                       << entry.audioPath << "\n";
         }
     }

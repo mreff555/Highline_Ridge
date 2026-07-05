@@ -126,6 +126,7 @@ struct ConversationChoiceDef
     std::string ttsVoice;
     std::string ttsText;
     std::string ttsAudio;
+    std::vector<std::string> ttsAudioSegments;
     bool ttsAfter = false;
     std::string ttsAfterVoice;
     std::string ttsAfterText;
@@ -204,6 +205,7 @@ struct RandomConversationLine
     std::string ttsVoice;
     std::string ttsText;
     std::string ttsAudio;
+    std::vector<std::string> ttsAudioSegments;
     bool ttsAfter = false;
     std::string ttsAfterVoice;
     std::string ttsAfterText;
@@ -248,6 +250,7 @@ struct ConversationPhase
     std::string ttsVoice;
     std::string ttsText;
     std::string ttsAudio;
+    std::vector<std::string> ttsAudioSegments;
     bool ttsAfter = false;
     std::string ttsAfterVoice;
     std::string ttsAfterText;

@@ -23,6 +23,15 @@ bool parseVoiceMarkup(
     std::vector<TtsVoiceSegment>& outSegments,
     std::string& outError);
 
+std::string buildSegmentAudioPath(
+    const std::string& baseAudioPath,
+    size_t segmentIndex,
+    size_t segmentCount);
+
+std::vector<std::string> buildSegmentAudioPaths(
+    const std::string& baseAudioPath,
+    size_t segmentCount);
+
 }
 
 #endif /* TTS_VOICE_MARKUP_H */
