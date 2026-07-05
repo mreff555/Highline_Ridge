@@ -55,6 +55,7 @@ set(SOURCES
     src/DropConfirmMgr.cpp
     src/SaveGame.cpp
     src/TextDigest.cpp
+    src/TtsVoiceMarkup.cpp
     src/XaiTtsClient.cpp
     src/ItemInstance.cpp
     src/ItemDatabase.cpp

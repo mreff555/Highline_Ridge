@@ -1,6 +1,7 @@
 #include "XaiTtsClient.h"
 
 #include "TextDigest.h"
+#include "TtsVoiceMarkup.h"
 #include <ImageCompression.h>
 #include <PlatformPath.h>
 #include <nlohmann/json.hpp>
@@ -603,7 +604,8 @@ void printGameHelp(const char* executableName)
         << "                             resources/audio/tts/*.mp3.xz, updates text\n"
         << "                             hashes, and exits. Requires --key. Lines whose\n"
         << "                             stored text hash matches the current dialog are\n"
-        << "                             skipped.\n"
+        << "                             skipped. Use {{voice:eve}}...{{/voice}} in ttsText\n"
+        << "                             to switch voices mid-line (eve, ara, rex, sal, leo).\n"
         << "  --refresh=ID               Same as --refresh-voices, but only for one\n"
         << "                             conversation phase id, random line id, dialog\n"
         << "                             choice id, or scene id. Requires --key.\n"
@@ -720,6 +722,19 @@ std::vector<TtsVoiceEntry> XaiTtsClient::collectVoiceEntries(
     return entries;
 }
 
+bool isLikelyTtsApiErrorPayload(const std::vector<unsigned char>& bytes)
+{
+    if (bytes.empty())
+        return true;
+
+    if (bytes[0] != '{')
+        return false;
+
+    const std::string payload(bytes.begin(), bytes.end());
+    return payload.find("\"error\"") != std::string::npos
+        || payload.find("\"code\"") != std::string::npos;
+}
+
 bool XaiTtsClient::synthesizeToFile(
     const std::string& apiKey,
     const std::string& text,
@@ -734,7 +749,7 @@ bool XaiTtsClient::synthesizeToFile(
 
     nlohmann::json payload;
     payload["text"] = text;
-    payload["voice_id"] = voiceId;
+    payload["voice_id"] = normalizeVoiceId(voiceId);
     payload["language"] = "en";
 
     const std::string payloadPath = outputPath + ".json";
@@ -747,17 +762,48 @@ bool XaiTtsClient::synthesizeToFile(
             return false;
     }
 
+    const std::string httpCodePath = outputPath + ".http";
     std::ostringstream command;
-    command << curlExecutable() << " -sS --fail-with-body -X POST https://api.x.ai/v1/tts "
+    command << curlExecutable() << " -sS -X POST https://api.x.ai/v1/tts "
             << "-H \"Authorization: Bearer " << apiKey << "\" "
             << "-H \"Content-Type: application/json\" "
             << "-d @\"" << payloadPath << "\" "
-            << "--output \"" << outputPath << "\"";
+            << "-o \"" << outputPath << "\" "
+            << "-w \"%{http_code}\" > \"" << httpCodePath << "\"";
     const int exitCode = std::system(command.str().c_str());
     std::remove(payloadPath.c_str());
 
+    std::string httpCode;
+    {
+        std::ifstream httpCodeFile(httpCodePath.c_str());
+        if (httpCodeFile.is_open())
+            std::getline(httpCodeFile, httpCode);
+    }
+    std::remove(httpCodePath.c_str());
+
     if (exitCode != 0 || !FileExists(outputPath.c_str()))
     {
+        std::remove(outputPath.c_str());
+        std::cerr << "TTS request failed for voice '" << voiceId << "' (curl exit " << exitCode
+                  << ")\n";
+        return false;
+    }
+
+    std::vector<unsigned char> responseBytes;
+    if (!loadAssetBytesFromFile(outputPath, responseBytes) || responseBytes.empty())
+    {
+        std::remove(outputPath.c_str());
+        std::cerr << "TTS response was empty for voice '" << voiceId << "'\n";
+        return false;
+    }
+
+    if (httpCode != "200" || isLikelyTtsApiErrorPayload(responseBytes))
+    {
+        const std::string responseText(responseBytes.begin(), responseBytes.end());
+        std::cerr << "TTS API error";
+        if (!httpCode.empty())
+            std::cerr << " (" << httpCode << ")";
+        std::cerr << " for voice '" << voiceId << "': " << responseText << "\n";
         std::remove(outputPath.c_str());
         return false;
     }
@@ -818,26 +864,39 @@ VoiceBundleResult XaiTtsClient::bundleVoiceFile(
         TraceLog(LOG_INFO, "TTS force refresh: %s", bundledXzPath.c_str());
     }
 
-    const std::string tempMp3Path = resolvedAudioPath + ".tmp.mp3";
-    std::remove(tempMp3Path.c_str());
-
-    if (!synthesizeToFile(apiKey, entry.text, entry.voiceId, tempMp3Path))
+    std::vector<TtsVoiceSegment> voiceSegments;
+    std::string markupError;
+    if (!parseVoiceMarkup(entry.text, entry.voiceId, voiceSegments, markupError))
+    {
+        std::cerr << "Invalid ttsText for " << entry.audioPath << ": " << markupError << "\n";
         return result;
+    }
 
     std::vector<unsigned char> mp3Bytes;
-    if (!loadAssetBytesFromFile(tempMp3Path, mp3Bytes) || mp3Bytes.empty())
+    for (size_t segmentIndex = 0; segmentIndex < voiceSegments.size(); ++segmentIndex)
     {
+        const TtsVoiceSegment& segment = voiceSegments[segmentIndex];
+        const std::string tempMp3Path =
+            resolvedAudioPath + ".seg" + std::to_string(segmentIndex) + ".mp3";
         std::remove(tempMp3Path.c_str());
-        return result;
+
+        if (!synthesizeToFile(apiKey, segment.text, segment.voiceId, tempMp3Path))
+            return result;
+
+        std::vector<unsigned char> segmentBytes;
+        if (!loadAssetBytesFromFile(tempMp3Path, segmentBytes) || segmentBytes.empty())
+        {
+            std::remove(tempMp3Path.c_str());
+            return result;
+        }
+
+        mp3Bytes.insert(mp3Bytes.end(), segmentBytes.begin(), segmentBytes.end());
+        std::remove(tempMp3Path.c_str());
     }
 
     if (!compressBytesToXzFile(mp3Bytes.data(), mp3Bytes.size(), bundledXzPath))
-    {
-        std::remove(tempMp3Path.c_str());
         return result;
-    }
 
-    std::remove(tempMp3Path.c_str());
     std::remove(resolvedAudioPath.c_str());
     TraceLog(LOG_INFO, "Saved TTS bundle: %s", bundledXzPath.c_str());
     if (!mirrorBundleToSourceTree(bundledXzPath))
