@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 project(HighlineRidge CXX)
+set(CMAKE_BUILD_TYPE Release)
 
 # C++17 for std::filesystem (cross-platform paths and save directories).
 set(CMAKE_CXX_STANDARD 17)

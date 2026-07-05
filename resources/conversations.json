@@ -573,8 +573,275 @@
         "id": "merchant",
         "intro": "The merchant straightens from a ledger behind the counter and meets your eyes without hurry. He is tall, broad through the chest and shoulders, built like a man who has lifted iron all his life and meant to keep doing it. His shirt is clean, his suspenders straight, his beard trimmed with the same discipline he brings to stock and shelf.\n\n\"Afternoon. What can I help you find?\"",
         "resetOnSceneEnter": true,
-        "resumeIntro": "He rests both hands on the counter, patient and square-shouldered. \"What else do you need?\"",
-        "type": "scripted"
+        "lines": [
+          {
+            "id": "faro_player",
+            "actorId": "faro_player",
+            "actorName": "Faro Player",
+            "tts": true,
+            "ttsVoice": "leo",
+            "ttsAudio": "resources/audio/tts/saloon_interior/faro_player.mp3",
+            "ttsText": "A faro player at the stove table looks up long enough to fan his cards. House always remembers, he says, and returns to his stack as though you are part of the furniture.",
+            "text": "A faro player at the stove table looks up long enough to fan his cards. \"House always remembers,\" he says, and returns to his stack as though you are part of the furniture."
+          },
+          {
+            "id": "piano_player",
+            "tts": true,
+            "ttsVoice": "leo",
+            "ttsAudio": "resources/audio/tts/saloon_interior/piano_player.mp3",
+            "ttsText": "The piano player cuts a glance your way mid-phrase, fingers never stopping. Easy now, he says to the keys, but you suspect the advice is meant for you.",
+            "text": "The piano player cuts a glance your way mid-phrase, fingers never stopping. \"Easy now,\" he says to the keys, but you suspect the advice is meant for you."
+          },
+          {
+            "id": "miner",
+            "tts": true,
+            "ttsVoice": "leo",
+            "ttsAudio": "resources/audio/tts/saloon_interior/miner.mp3",
+            "ttsText": "A miner at the poker table rubs a thumb over a chipped ace. Luck ain't a debt you can outrun, he mutters, and the table laughs without warmth.",
+            "text": "A miner at the poker table rubs a thumb over a chipped ace. \"Luck ain't a debt you can outrun,\" he mutters, and the table laughs without warmth."
+          },
+          {
+            "id": "barmaid",
+            "tts": true,
+            "ttsVoice": "leo",
+            "ttsAudio": "resources/audio/tts/saloon_interior/barmaid.mp3",
+            "ttsText": "A barmaid passes with an empty tray, eyes flicking over you once. Mind the stairs, she says, already gone into the crowd.",
+            "text": "A barmaid passes with an empty tray, eyes flicking over you once. \"Mind the stairs,\" she says, already gone into the crowd."
+          },
+          {
+            "id": "drunk_patron",
+            "actorId": "drunk_patron",
+            "actorName": "Drunk Patron",
+            "once": true,
+            "weight": 3,
+            "allowAttack": true,
+            "attackEncounterId": "drunk_patron",
+            "sketch": "resources/sketches/drunk_patron.png",
+            "tts": true,
+            "ttsVoice": "leo",
+            "ttsAudio": "resources/audio/tts/saloon_interior/drunk_patron.mp3",
+            "ttsText": "You shoulder through the press near the bar, looking for a clear patch of pine to think. A miner in a stained duster is half-turned on his stool, elbow high, telling the room a story it has already heard. You brush his arm reaching for the rail. It is nothing. A half-second contact in a crowded room. He comes off the stool like you struck him on purpose. The hell you think you're doing, he roars, breath hot with rye and spite. Spittle catches the lamplight. He shoves you hard in the chest with both hands. Your heel skids in sawdust. Glasses stop halfway to mouths. The piano player misses a note, then grins and keeps playing because this is better than music. I'll kill you, the drunk says, loud enough for the balcony to hear. I'll kill you right here and pay for the mess. He is not convincing as a killer. He is very convincing as entertainment. The room turns toward you the way a crowd turns toward a stage: not afraid, not helpful, only interested in what happens next. The bartender does not intervene yet. He wipes the same glass and watches to see what kind of trouble you are.",
+            "text": "You shoulder through the press near the bar, looking for a clear patch of pine to think. A miner in a stained duster is half-turned on his stool, elbow high, telling the room a story it has already heard. You brush his arm reaching for the rail. It is nothing. A half-second contact in a crowded room.\n\nHe comes off the stool like you struck him on purpose.\n\n\"The hell you think you're doing?\" he roars, breath hot with rye and spite. Spittle catches the lamplight. He shoves you hard in the chest with both hands. Your heel skids in sawdust. Glasses stop halfway to mouths. The piano player misses a note, then grins and keeps playing because this is better than music.\n\n\"I'll kill you,\" the drunk says, loud enough for the balcony to hear. \"I'll kill you right here and pay for the mess.\" He is not convincing as a killer. He is very convincing as entertainment. The room turns toward you the way a crowd turns toward a stage: not afraid, not helpful, only interested in what happens next.\n\nThe bartender does not intervene yet. He wipes the same glass and watches to see what kind of trouble you are.",
+            "choices": [
+              {
+                "id": "buy_drink",
+                "label": "Relax, it was an accident. Bartender, get this man another drink on me.",
+                "tts": true,
+                "ttsVoice": "leo",
+                "ttsAudio": "resources/audio/tts/saloon_interior/buy_drink.mp3",
+                "ttsText": "You raise both hands, palms out, the way men do when they want a dog to sit. Your voice stays level. Relax. It was an accident. Bartender, get this man another drink on me. For a moment the drunk man stares at you as though you spoke in a foreign tongue. Then the fight drains out of him in a sour wave. He blinks, looks at your hands, looks at the room that is still watching, and decides he has won enough. Damn right it was an accident, he mutters, but he takes the stool again. The bartender pours without comment and sets the glass in front of him. You slide five dollars across the scarred pine. The bartender sweeps the notes away with two fingers.",
+                "ttsAfter": true,
+                "ttsAfterVoice": "leo",
+                "ttsAfterAudio": "resources/audio/tts/saloon_interior/buy_drink_after.mp3",
+                "ttsAfterText": "The crowd loses interest almost at once. Laughter loosens back into ordinary noise. The piano finds its broken phrase again. A woman on the balcony fans herself and says something you cannot hear. The moment passes, filed under free show averted by money. The drunk man drinks. He does not thank you. He does not need to. The room has already decided you knew how to handle him.",
+                "response": "You raise both hands, palms out, the way men do when they want a dog to sit. Your voice stays level.\n\n\"Relax. It was an accident. Bartender, get this man another drink on me.\"\n\nFor a moment the drunk man stares at you as though you spoke in a foreign tongue. Then the fight drains out of him in a sour wave. He blinks, looks at your hands, looks at the room that is still watching, and decides he has won enough.\n\n\"Damn right it was an accident,\" he mutters, but he takes the stool again. The bartender pours without comment and sets the glass in front of him. You slide five dollars across the scarred pine. The bartender sweeps the notes away with two fingers.\n\nThe crowd loses interest almost at once. Laughter loosens back into ordinary noise. The piano finds its broken phrase again. A woman on the balcony fans herself and says something you cannot hear. The moment passes, filed under free show averted by money.\n\nThe drunk man drinks. He does not thank you. He does not need to. The room has already decided you knew how to handle him.",
+                "status": {
+                  "key": "saloon_interior:drunk_patron_buy_drink",
+                  "money": -0.5,
+                  "charisma": 5
+                }
+              },
+              {
+                "id": "back_down",
+                "label": "Look, I don't want any trouble!",
+                "tts": true,
+                "ttsVoice": "leo",
+                "ttsAudio": "resources/audio/tts/saloon_interior/back_down.mp3",
+                "ttsText": "Your voice comes out tighter than you meant. Look, I don't want any trouble. The drunk man's face brightens as though you handed him a gift. He spreads his arms wide, inviting the room to witness. Don't want trouble, he repeats, pitching it for the balcony. Greenhorn don't want trouble. He bumped me and then he begged like a church mouse. Laughter rolls through the saloon, mean and delighted. Someone at the faro table claps once. The piano player leans into the keys with renewed appetite. Even the bartender's mouth twitches, not quite a smile, not quite sympathy.",
+                "ttsAfter": true,
+                "ttsAfterVoice": "leo",
+                "ttsAfterAudio": "resources/audio/tts/saloon_interior/back_down_after.mp3",
+                "ttsAfterText": "The drunk man shoves you again, lighter this time, a punctuation mark. Next time you walk, you walk around me, he says. He settles back onto his stool victorious. You stand in the sawdust with the room's amusement settling on your shoulders like ash. You said the right words for peace and got the wrong kind of it.",
+                "response": "Your voice comes out tighter than you meant.\n\n\"Look, I don't want any trouble!\"\n\nThe drunk man's face brightens as though you handed him a gift. He spreads his arms wide, inviting the room to witness.\n\n\"Don't want trouble,\" he repeats, pitching it for the balcony. \"Greenhorn don't want trouble. He bumped me and then he begged like a church mouse.\"\n\nLaughter rolls through the saloon, mean and delighted. Someone at the faro table claps once. The piano player leans into the keys with renewed appetite. Even the bartender's mouth twitches, not quite a smile, not quite sympathy.\n\nThe drunk man shoves you again, lighter this time, a punctuation mark. \"Next time you walk, you walk around me.\" He settles back onto his stool victorious. You stand in the sawdust with the room's amusement settling on your shoulders like ash.\n\nYou said the right words for peace and got the wrong kind of it.",
+                "status": {
+                  "key": "saloon_interior:drunk_patron_back_down",
+                  "charisma": -10,
+                  "actor": "drunk_patron",
+                  "actorOpinion": -1
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "saloon_balcony": {
+    "speakPhases": [
+      {
+        "id": "blue_woman",
+        "type": "scripted",
+        "resetOnSceneEnter": false,
+        "tts": true,
+        "ttsVoice": "leo",
+        "ttsAudio": "resources/audio/tts/saloon_balcony/blue_woman_intro.mp3",
+        "ttsText": "The woman in blue does not startle when you approach. She finishes her thought with the two at the rail, lets them laugh without her, and turns as though you were expected. She takes a slow drag from her cigarette, exhales through the side of her mouth, and studies you with that same focused calm. You disappeared this morning, she says. Not accusation. Inventory.",
+        "intro": "The woman in blue does not startle when you approach. She finishes her thought with the two at the rail, lets them laugh without her, and turns as though you were expected.\n\nShe takes a slow drag from her cigarette, exhales through the side of her mouth, and studies you with that same focused calm.\n\n\"You disappeared this morning,\" she says. Not accusation. Inventory.",
+        "resumeTts": true,
+        "resumeTtsVoice": "leo",
+        "resumeTtsAudio": "resources/audio/tts/saloon_balcony/blue_woman_resume.mp3",
+        "resumeTtsText": "The woman in blue waits without impatience, cigarette held loose between two fingers. When you meet her eyes again, she inclines her head as though the earlier thread were still hanging.",
+        "resumeIntro": "The woman in blue waits without impatience, cigarette held loose between two fingers. When you meet her eyes again, she inclines her head as though the earlier thread were still hanging.",
+        "choices": [
+          {
+            "id": "stay_last_night",
+            "label": "> Did I stay with you last night?",
+            "closePhase": false,
+            "tts": true,
+            "ttsVoice": "leo",
+            "ttsAudio": "resources/audio/tts/saloon_balcony/stay_last_night.mp3",
+            "ttsText": "Her smile returns for half a heartbeat, then goes still. You stayed, she says, for a few hours at least. She taps ash into the rail groove. You know, cuddling is included in the fee, and I have woken up to worse smells before. She gently grabs your wrist for a moment and smiles.",
+            "response": "Her smile returns for half a heartbeat, then goes still. {{voice:eve}}[pause]You stayed, [pause]for a few hours at least. [long-pause][sigh]  You know, [pause] cuddling is included in the fee, [pause]and I have woke up to worse smells before.{{/voice}}  She gentilly grabs your wrist for a moment and smiles.  ",
+            "choices": [
+              {
+                "id": "rough_night",
+                "label": "I didn't mean to offend you. I had a rough night last night. Honestly I don't remember much.",
+                "closePhase": false,
+                "tts": true,
+                "ttsVoice": "leo",
+                "ttsAudio": "resources/audio/tts/saloon_balcony/rough_night.mp3",
+                "ttsText": "She takes a drag of her cigarette, and turning her head to the side, slowly exhales and says under her breath, I know. Turning back to you she looks at you with a more serious but vulnerable expression. She pauses for a moment to re-evaluate if she wants to say what she is about to say.",
+                "ttsAfter": true,
+                "ttsAfterVoice": "leo",
+                "ttsAfterAudio": "resources/audio/tts/saloon_balcony/rough_night_after.mp3",
+                "ttsAfterText": "Last night, before we fell asleep, you asked me how did I end up here, she says. I didn't give you an answer. She takes another drag from her cigarette and looks down, exhaling slowly. I was running from something. It's not something I want to discuss or, for that matter, all that easy to explain. The point is I had good days and bad days. I could have faced it, but I chose to run. Now I'm here. Just like before, I have good days and bad days, but I don't run anymore. Facing your fears is terrifying, but sometimes it brings you peace. She takes a small step back. Clasping one hand with another she momentarily gives a weak smile, and lowers her eyes to the floor. She is embarrassed by what she said.",
+                "response": "She takes a drag of her cigarette, and turning her head to the side, slowly exhales and says under her breath, \"I know.\" Turning back to you she looks at you with a more serious but vulnerable expression.\n\nShe pauses for a moment to re-evaluate if she wants to say what she is about to say.\n\n\"Last night, before we fell asleep, you asked me... How did I end up here? I didn't give you an answer.\"\n\nShe takes another drag from her cigarette and looks down, exhaling slowly.\n\n\"I was running from something. It's not something I want to discuss or, for that matter, all that easy to explain. The point is I had good days and bad days. I could have faced it, but I chose to run... Now I'm here. Just like before, I have good days and bad days, but I don't run anymore. Facing your fears is terrifying, but sometimes... It brings you peace.\"\n\nShe takes a small step back. Clasping one hand with another she momentarily gives a weak smile, and lowers her eyes to the floor. She is embarrassed by what she said.",
+                "status": {
+                  "key": "saloon_balcony:rough_night",
+                  "actor": "blue_woman",
+                  "actorOpinion": 1
+                },
+                "choices": [
+                  {
+                    "id": "remember_that",
+                    "label": "I'll remember that",
+                    "closePhase": true,
+                    "tts": true,
+                    "ttsVoice": "leo",
+                    "ttsAudio": "resources/audio/tts/saloon_balcony/remember_that.mp3",
+                    "ttsText": "She says nothing. She smiles, takes a drag of her cigarette, and turns to the balcony.",
+                    "response": "She says nothing. She smiles, takes a drag of her cigarette, and turns to the balcony.",
+                    "status": {
+                      "key": "saloon_balcony:remember_that",
+                      "actor": "blue_woman",
+                      "actorOpinion": 1
+                    }
+                  },
+                  {
+                    "id": "what_does_it_mean",
+                    "label": "What is that supposed to mean?",
+                    "closePhase": true,
+                    "tts": true,
+                    "ttsVoice": "leo",
+                    "ttsAudio": "resources/audio/tts/saloon_balcony/what_does_it_mean.mp3",
+                    "ttsText": "Frustrated, she turns to the balcony. I can't tell you everything, she says. You are going to have to figure some of this out on your own. She takes another drag of her cigarette. She is obviously done talking.",
+                    "response": "Frustrated, she turns to the balcony.\n\n\"I can't tell you everything. You are going to have to figure some of this out on your own.\"\n\nShe takes another drag of her cigarette. She is obviously done talking.",
+                    "status": {
+                      "key": "saloon_balcony:what_does_it_mean"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "looking_for_apology",
+                "label": "Are you looking for an apology?",
+                "closePhase": false,
+                "tts": true,
+                "ttsVoice": "leo",
+                "ttsAudio": "resources/audio/tts/saloon_balcony/looking_for_apology.mp3",
+                "ttsText": "No, she says. She takes a quick drag of her cigarette, her eyes not leaving yours. I just wanted to tell you something. After a pause, she begins.",
+                "ttsAfter": true,
+                "ttsAfterVoice": "leo",
+                "ttsAfterAudio": "resources/audio/tts/saloon_balcony/looking_for_apology_after.mp3",
+                "ttsAfterText": "She pauses for a moment to re-evaluate if she wants to say what she is about to say. Last night, before we fell asleep, you asked me how did I end up here, she says. I didn't give you an answer. She takes another drag from her cigarette and looks down, exhaling slowly. I was running from something. It's not something I want to discuss or, for that matter, all that easy to explain. The point is I had good days and bad days. I could have faced it, but I chose to run. Now I'm here. Just like before, I have good days and bad days, but I don't run anymore. Facing your fears is terrifying, but sometimes it brings you peace. She takes a small step back. Clasping one hand with another she momentarily gives a weak smile, and lowers her eyes to the floor. She is embarrassed by what she said.",
+                "response": "\"No.\"\n\nShe takes a quick drag of her cigarette, her eyes not leaving yours.\n\n\"I just wanted to tell you something....\"\n\nAfter a pause, she tells you what she has been holding back.\n\nShe pauses for a moment to re-evaluate if she wants to say what she is about to say.\n\n\"Last night, before we fell asleep, you asked me... How did I end up here? I didn't give you an answer.\"\n\nShe takes another drag from her cigarette and looks down, exhaling slowly.\n\n\"I was running from something. It's not something I want to discuss or, for that matter, all that easy to explain. The point is I had good days and bad days. I could have faced it, but I chose to run... Now I'm here. Just like before, I have good days and bad days, but I don't run anymore. Facing your fears is terrifying, but sometimes... It brings you peace.\"\n\nShe takes a small step back. Clasping one hand with another she momentarily gives a weak smile, and lowers her eyes to the floor. She is embarrassed by what she said.",
+                "status": {
+                  "key": "saloon_balcony:looking_for_apology"
+                },
+                "choices": [
+                  {
+                    "id": "remember_that",
+                    "label": "I'll remember that",
+                    "closePhase": true,
+                    "tts": true,
+                    "ttsVoice": "leo",
+                    "ttsAudio": "resources/audio/tts/saloon_balcony/remember_that.mp3",
+                    "ttsText": "She says nothing. She smiles, takes a drag of her cigarette, and turns to the balcony.",
+                    "response": "She says nothing. She smiles, takes a drag of her cigarette, and turns to the balcony.",
+                    "status": {
+                      "key": "saloon_balcony:remember_that",
+                      "actor": "blue_woman",
+                      "actorOpinion": 1
+                    }
+                  },
+                  {
+                    "id": "what_does_it_mean",
+                    "label": "What is that supposed to mean?",
+                    "closePhase": true,
+                    "tts": true,
+                    "ttsVoice": "leo",
+                    "ttsAudio": "resources/audio/tts/saloon_balcony/what_does_it_mean.mp3",
+                    "ttsText": "Frustrated, she turns to the balcony. I can't tell you everything, she says. You are going to have to figure some of this out on your own. She takes another drag of her cigarette. She is obviously done talking.",
+                    "response": "Frustrated, she turns to the balcony.\n\n\"I can't tell you everything. You are going to have to figure some of this out on your own.\"\n\nShe takes another drag of her cigarette. She is obviously done talking.",
+                    "status": {
+                      "key": "saloon_balcony:what_does_it_mean"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "ignore_comment",
+            "label": "> Ignore the comment",
+            "tts": true,
+            "ttsVoice": "leo",
+            "ttsAudio": "resources/audio/tts/saloon_balcony/ignore_comment.mp3",
+            "ttsText": "You let the words hang and look out over the room instead. Patrons, cards, smoke, the machinery of appetite running on schedule. Suit yourself, she says, voice mild. Not offended. Accustomed. She takes another drag and watches the main floor the way the other women do, as though you have chosen a role she already priced.",
+            "response": "You let the words hang and look out over the room instead. Patrons, cards, smoke, the machinery of appetite running on schedule.\n\n\"Suit yourself,\" she says, voice mild. Not offended. Accustomed. She takes another drag and watches the main floor the way the other women do, as though you have chosen a role she already priced.",
+            "status": {
+              "key": "saloon_balcony:ignore_comment",
+              "resolve": 5
+            }
+          }
+        ]
+      },
+      {
+        "id": "blue_woman_fedora",
+        "type": "once",
+        "resetOnSceneEnter": false,
+        "requiresPhase": "blue_woman",
+        "tts": true,
+        "ttsVoice": "leo",
+        "ttsAudio": "resources/audio/tts/saloon_balcony/blue_woman_fedora.mp3",
+        "ttsText": "The woman in blue catches your sleeve as you start to turn away. Oh, by the way, she says, mild as an afterthought. You left this in my room this morning. She draws a weathered felt fedora from behind her back and holds it out to you. It looks better on you than me, she says. You might as well keep it.",
+        "ttsAfter": true,
+        "ttsAfterVoice": "leo",
+        "ttsAfterAudio": "resources/audio/tts/saloon_balcony/blue_woman_fedora_after.mp3",
+        "ttsAfterText": "The hat settles into your grip with the weight of something that has already been yours.",
+        "text": "The woman in blue catches your sleeve as you start to turn away.\n\n\"Oh, by the way,\" she says, mild as an afterthought. \"You left this in my room this morning.\"\n\nShe draws a weathered felt fedora from behind her back - dark, brim-softened, ribbon stained where rain and smoke have worked the same habit. She turns it once in her hands and holds it out to you.\n\n\"It looks better on you than me,\" she says. \"You might as well keep it.\"\n\nThe hat settles into your grip with the weight of something that has already been yours.",
+        "grantItem": {
+          "id": "fedora",
+          "name": "Fedora",
+          "icon": "resources/icons/fedora_icon.png",
+          "examineText": "A weathered felt fedora, dark charcoal gone dusty at the brim. The grosgrain ribbon is stained where smoke and rain have worked the same habit. The crown is dented from carry and sleep. It smells faintly of cigarettes and another room."
+        }
+      },
+      {
+        "id": "burgundy_path",
+        "type": "once",
+        "resetOnSceneEnter": false,
+        "requiresPhase": "blue_woman",
+        "requiresFlag": "path_c:hanging_tree",
+        "tts": true,
+        "ttsVoice": "leo",
+        "ttsAudio": "resources/audio/tts/saloon_balcony/burgundy_path.mp3",
+        "ttsText": "The woman in blue listens while you tell her about the hanging tree marker, the charcoal ring, the stakes, the silk in the ice house. When you finish, she nods once. You went up the path, she says. It is not a question. You always do, and you always come back with that look, like the mountain showed you a face you refused to wear. They hung the wrong man. He was still breathing when they cut him down. He still is.",
+        "ttsAfter": true,
+        "ttsAfterVoice": "leo",
+        "ttsAfterAudio": "resources/audio/tts/saloon_balcony/burgundy_path_after.mp3",
+        "ttsAfterText": "Then the room reclaims her. She leans over the rail and laughs for a patron below as though nothing happened, leaving you with the words like a splinter under the nail.",
+        "text": "The woman in blue listens while you tell her about the hanging tree marker, the charcoal ring, the stakes, the silk in the ice house. She does not interrupt.\n\nWhen you finish, she nods once, as though a column in her ledger has finally balanced.\n\n\"You went up the path,\" she says. It is not a question. \"You always do, and you always come back with that look - like the mountain showed you a face you refused to wear.\"\n\nHer voice drops beneath the piano.\n\n\"They hung the wrong man. He was still breathing when they cut him down.\" She holds your gaze without blinking. \"He still is.\"\n\nThen the room reclaims her. She leans over the rail and laughs for a patron below as though nothing happened, leaving you with the words like a splinter under the nail."
       }
     ]
   },
