@@ -1505,6 +1505,7 @@
                     "tts": true,
                     "ttsAudio": "resources/audio/tts/saloon_balcony/remember_that.mp3",
                     "ttsText": "She says nothing. She smiles, takes a drag of her cigarette, and turns to the balcony.",
+                    "ttsTextSha256": "9d2f6244a25e479a67bc4e094bd20e71fbbadf34ce54764ad563f88dbddf877e",
                     "ttsVoice": "leo"
                   },
                   {
@@ -1518,6 +1519,7 @@
                     "tts": true,
                     "ttsAudio": "resources/audio/tts/saloon_balcony/what_does_it_mean.mp3",
                     "ttsText": "Frustrated, she turns to the balcony. I can't tell you everything, she says. You are going to have to figure some of this out on your own. She takes another drag of her cigarette. She is obviously done talking.",
+                    "ttsTextSha256": "664e3d9efb6627fc1dc1c3bbd4213aa5797dbe1eda0384ecb40cdc467c5941a4",
                     "ttsVoice": "leo"
                   }
                 ],
@@ -1537,6 +1539,11 @@
                 "ttsAfterTextSha256": "bd122f8aca53d1a77514cd80f7cd8a36eeebe061ae6daefc84c9a24e7090a038",
                 "ttsAfterVoice": "leo",
                 "ttsAudio": "resources/audio/tts/saloon_balcony/rough_night.mp3",
+                "ttsAudioSegments": [
+                  "resources/audio/tts/saloon_balcony/rough_night.seg0.mp3",
+                  "resources/audio/tts/saloon_balcony/rough_night.seg1.mp3",
+                  "resources/audio/tts/saloon_balcony/rough_night.seg2.mp3"
+                ],
                 "ttsText": "She takes a drag of her cigarette, and turning her head to the side, slowly exhales and says under her breath, {{voice:eve}}[pause]I know.[pause]{{/voice}} Turning back to you she looks at you with a more serious but vulnerable expression. She pauses for a moment to re-evaluate if she wants to say what she is about to say.",
                 "ttsTextSha256": "a1cc58f5ba3b714f49c19119c336e99a4b19422e0f68cd58073e9eebf2e8a2f2",
                 "ttsVoice": "leo"
@@ -1556,6 +1563,7 @@
                     "tts": true,
                     "ttsAudio": "resources/audio/tts/saloon_balcony/remember_that.mp3",
                     "ttsText": "She says nothing. She smiles, takes a drag of her cigarette, and turns to the balcony.",
+                    "ttsTextSha256": "9d2f6244a25e479a67bc4e094bd20e71fbbadf34ce54764ad563f88dbddf877e",
                     "ttsVoice": "leo"
                   },
                   {
@@ -1569,6 +1577,7 @@
                     "tts": true,
                     "ttsAudio": "resources/audio/tts/saloon_balcony/what_does_it_mean.mp3",
                     "ttsText": "Frustrated, she turns to the balcony. I can't tell you everything, she says. You are going to have to figure some of this out on your own. She takes another drag of her cigarette. She is obviously done talking.",
+                    "ttsTextSha256": "664e3d9efb6627fc1dc1c3bbd4213aa5797dbe1eda0384ecb40cdc467c5941a4",
                     "ttsVoice": "leo"
                   }
                 ],
@@ -1583,9 +1592,11 @@
                 "ttsAfter": true,
                 "ttsAfterAudio": "resources/audio/tts/saloon_balcony/looking_for_apology_after.mp3",
                 "ttsAfterText": "She pauses for a moment to re-evaluate if she wants to say what she is about to say. Last night, before we fell asleep, you asked me how did I end up here, she says. I didn't give you an answer. She takes another drag from her cigarette and looks down, exhaling slowly. I was running from something. It's not something I want to discuss or, for that matter, all that easy to explain. The point is I had good days and bad days. I could have faced it, but I chose to run. Now I'm here. Just like before, I have good days and bad days, but I don't run anymore. Facing your fears is terrifying, but sometimes it brings you peace. She takes a small step back. Clasping one hand with another she momentarily gives a weak smile, and lowers her eyes to the floor. She is embarrassed by what she said.",
+                "ttsAfterTextSha256": "b090cfca06081215d9aaad277667d5f287cb20ddf3c88197c45ced6121a92378",
                 "ttsAfterVoice": "leo",
                 "ttsAudio": "resources/audio/tts/saloon_balcony/looking_for_apology.mp3",
                 "ttsText": "No, she says. She takes a quick drag of her cigarette, her eyes not leaving yours. I just wanted to tell you something. After a pause, she begins.",
+                "ttsTextSha256": "3a19f4b892a9e3a18bf375e4cfa639ce9db7857fb1d95c7e7a3f39ebd2b8d3d2",
                 "ttsVoice": "leo"
               }
             ],
@@ -1615,6 +1626,7 @@
             "tts": true,
             "ttsAudio": "resources/audio/tts/saloon_balcony/ignore_comment.mp3",
             "ttsText": "You let the words hang and look out over the room instead. Patrons, cards, smoke, the machinery of appetite running on schedule. Suit yourself, she says, voice mild. Not offended. Accustomed. She takes another drag and watches the main floor the way the other women do, as though you have chosen a role she already priced.",
+            "ttsTextSha256": "4c5c1545a2f9cf9f157730d353a2eab9500b478b7289e461fad8de13784b226d",
             "ttsVoice": "leo"
           }
         ],
@@ -1625,10 +1637,18 @@
         "resumeTts": true,
         "resumeTtsAudio": "resources/audio/tts/saloon_balcony/blue_woman_resume.mp3",
         "resumeTtsText": "The woman in blue waits without impatience, cigarette held loose between two fingers. When you meet her eyes again, she inclines her head as though the earlier thread were still hanging.",
+        "resumeTtsTextSha256": "92d39eb46531692bec4c6951207b77bab84d60dfa870f4a52a97052708bcaac9",
         "resumeTtsVoice": "leo",
         "tts": true,
         "ttsAudio": "resources/audio/tts/saloon_balcony/blue_woman_intro.mp3",
-        "ttsText": "The woman in blue does not startle when you approach. She finishes her thought with the two at the rail, lets them laugh without her, and turns as though you were expected. She takes a slow drag from her cigarette, exhales through the side of her mouth, and studies you with that same focused calm. You disappeared this morning, she says. Not accusation. Inventory.",
+        "ttsAudioSegments": [
+          "resources/audio/tts/saloon_balcony/blue_woman_intro.seg0.mp3",
+          "resources/audio/tts/saloon_balcony/blue_woman_intro.seg1.mp3",
+          "resources/audio/tts/saloon_balcony/blue_woman_intro.seg2.mp3",
+          "resources/audio/tts/saloon_balcony/blue_woman_intro.seg3.mp3"
+        ],
+        "ttsText": "The woman in blue does not startle when you approach. She finishes her thought with the two at the rail, lets them laugh without her, and turns as though you were expected. She takes a slow drag from her cigarette, exhales through the side of her mouth, and studies you with that same focused calm. {{voice:eve}}[pause]You disappeared this morning,{{/voice}} [pause] she says. {{voice:eve}}[pause]Not accusation. [pause] Inventory.[/pause]{{/voice}}",
+        "ttsTextSha256": "864d7f5a2ab70ca8e4685baf83ea14c3a7c360a6ff653d77bf0161e90a5744b5",
         "ttsVoice": "leo",
         "type": "scripted"
       },
