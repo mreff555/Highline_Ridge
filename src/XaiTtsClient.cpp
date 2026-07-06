@@ -40,8 +40,15 @@ bool mirrorBundleToSourceTree(const std::string& runtimeBundlePath)
         return true;
 
     const std::string sourceBundlePath = pathJoin("..", runtimeBundlePath);
-    std::vector<unsigned char> bytes;
-    if (!loadAssetBytesFromFile(runtimeBundlePath, bytes) || bytes.empty())
+    std::ifstream input(runtimeBundlePath.c_str(), std::ios::binary);
+    if (!input.is_open())
+        return false;
+
+    std::vector<unsigned char> bytes(
+        (std::istreambuf_iterator<char>(input)),
+        std::istreambuf_iterator<char>());
+    input.close();
+    if (bytes.empty())
         return false;
 
     if (!ensureParentDirectoryExists(sourceBundlePath))
@@ -174,6 +181,14 @@ bool updateAudioSegmentsInJsonTree(
                 node["ttsAudioSegments"] = segmentPaths;
             else if (node.contains("ttsAudioSegments"))
                 node.erase("ttsAudioSegments");
+            updated = true;
+        }
+        if (node.value("ttsAfterAudio", "") == audioPath)
+        {
+            if (segmentPaths.size() > 1)
+                node["ttsAfterAudioSegments"] = segmentPaths;
+            else if (node.contains("ttsAfterAudioSegments"))
+                node.erase("ttsAfterAudioSegments");
             updated = true;
         }
 

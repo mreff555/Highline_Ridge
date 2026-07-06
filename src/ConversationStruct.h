@@ -131,6 +131,7 @@ struct ConversationChoiceDef
     std::string ttsAfterVoice;
     std::string ttsAfterText;
     std::string ttsAfterAudio;
+    std::vector<std::string> ttsAfterAudioSegments;
     StatusEffect status;
     GrantedInventoryItemDef grantItem;
     float requiresMoney = 0.0f;
@@ -210,6 +211,7 @@ struct RandomConversationLine
     std::string ttsAfterVoice;
     std::string ttsAfterText;
     std::string ttsAfterAudio;
+    std::vector<std::string> ttsAfterAudioSegments;
     StatusEffect status;
     int weight = 1;
     bool once = false;
@@ -255,6 +257,7 @@ struct ConversationPhase
     std::string ttsAfterVoice;
     std::string ttsAfterText;
     std::string ttsAfterAudio;
+    std::vector<std::string> ttsAfterAudioSegments;
     bool resumeTts = false;
     std::string resumeTtsVoice;
     std::string resumeTtsText;

@@ -343,6 +343,7 @@ bool parseConversationChoice(const nlohmann::json& choice, ConversationChoiceDef
     out.ttsAfterVoice = choice.value("ttsAfterVoice", "");
     out.ttsAfterText = choice.value("ttsAfterText", "");
     out.ttsAfterAudio = choice.value("ttsAfterAudio", "");
+    out.ttsAfterAudioSegments = parseStringArrayField(choice, "ttsAfterAudioSegments");
     if (!parseStatusEffect(choice.value("status", nlohmann::json::object()), out.status))
         return false;
 
@@ -407,6 +408,7 @@ bool parseRandomLine(const nlohmann::json& line, RandomConversationLine& out)
     out.ttsAfterVoice = line.value("ttsAfterVoice", "");
     out.ttsAfterText = line.value("ttsAfterText", "");
     out.ttsAfterAudio = line.value("ttsAfterAudio", "");
+    out.ttsAfterAudioSegments = parseStringArrayField(line, "ttsAfterAudioSegments");
     out.weight = line.value("weight", 1);
     out.once = line.value("once", false);
     out.grantStoryFlag = line.value("grantStoryFlag", "");
@@ -459,6 +461,7 @@ bool parseConversationPhase(const nlohmann::json& phase, ConversationPhase& out)
     out.ttsAfterVoice = phase.value("ttsAfterVoice", "");
     out.ttsAfterText = phase.value("ttsAfterText", "");
     out.ttsAfterAudio = phase.value("ttsAfterAudio", "");
+    out.ttsAfterAudioSegments = parseStringArrayField(phase, "ttsAfterAudioSegments");
     out.resumeTts = phase.value("resumeTts", false);
     out.resumeTtsVoice = phase.value("resumeTtsVoice", "");
     out.resumeTtsText = phase.value("resumeTtsText", "");

@@ -62,13 +62,26 @@ void applyTtsAfterFields(
     const std::string& ttsAfterText,
     const std::string& /*ttsAfterVoice*/,
     const std::string& ttsAfterAudio,
+    const std::vector<std::string>& ttsAfterAudioSegments,
     const std::string& fallbackNarration)
 {
-    if (!enabled || ttsAfterAudio.empty())
+    if (!enabled)
+        return;
+
+    const std::vector<std::string>& playbackPaths =
+        !ttsAfterAudioSegments.empty() ? ttsAfterAudioSegments : std::vector<std::string>{};
+    if (playbackPaths.empty() && ttsAfterAudio.empty())
         return;
 
     result.useTts = true;
-    result.ttsAudioPaths.push_back(ttsAfterAudio);
+    if (!playbackPaths.empty())
+    {
+        for (const std::string& path : playbackPaths)
+            result.ttsAudioPaths.push_back(path);
+    }
+    else
+        result.ttsAudioPaths.push_back(ttsAfterAudio);
+
     if (result.ttsText.empty())
         result.ttsText = !ttsAfterText.empty() ? ttsAfterText : fallbackNarration;
 }
@@ -638,6 +651,7 @@ SpeakResult ConversationManager::pickSpecificRandomLine(
             line->ttsAfterText,
             line->ttsAfterVoice,
             line->ttsAfterAudio,
+            line->ttsAfterAudioSegments,
             line->text);
         awaitingChoice = true;
         activeScriptPhaseId = phase.id;
@@ -666,6 +680,7 @@ SpeakResult ConversationManager::pickSpecificRandomLine(
         line->ttsAfterText,
         line->ttsAfterVoice,
         line->ttsAfterAudio,
+        line->ttsAfterAudioSegments,
         line->text);
     result.spokenActorId = lineActorId(*line);
     return result;
@@ -771,6 +786,7 @@ SpeakResult ConversationManager::pickRandomLine(
             line.ttsAfterText,
             line.ttsAfterVoice,
             line.ttsAfterAudio,
+            line.ttsAfterAudioSegments,
             line.text);
         awaitingChoice = true;
         activeScriptPhaseId = phase.id;
@@ -799,6 +815,7 @@ SpeakResult ConversationManager::pickRandomLine(
         line.ttsAfterText,
         line.ttsAfterVoice,
         line.ttsAfterAudio,
+        line.ttsAfterAudioSegments,
         line.text);
     result.grantStoryFlag = line.grantStoryFlag;
     result.spokenActorId = lineActorId(line);
@@ -851,6 +868,7 @@ SpeakResult ConversationManager::handleSpeakTarget(
             phase->ttsAfterText,
             phase->ttsAfterVoice,
             phase->ttsAfterAudio,
+            phase->ttsAfterAudioSegments,
             "");
         result.spokenActorId = phaseActorId(*phase);
         return result;
@@ -942,6 +960,7 @@ SpeakResult ConversationManager::handleSpeak(
             phase->ttsAfterText,
             phase->ttsAfterVoice,
             phase->ttsAfterAudio,
+            phase->ttsAfterAudioSegments,
             "");
         result.spokenActorId = phaseActorId(*phase);
         return result;
@@ -1043,6 +1062,7 @@ SpeakResult ConversationManager::resolveScriptedChoice(
                 choice.ttsAfterText,
                 choice.ttsAfterVoice,
                 choice.ttsAfterAudio,
+                choice.ttsAfterAudioSegments,
                 "");
 
             result.choices = resumeChoice->followUpChoices;
@@ -1078,6 +1098,7 @@ SpeakResult ConversationManager::resolveScriptedChoice(
             choice.ttsAfterText,
             choice.ttsAfterVoice,
             choice.ttsAfterAudio,
+            choice.ttsAfterAudioSegments,
             "");
 
         if (result.action == SpeakResult::Action::ShowChoices)
@@ -1122,6 +1143,7 @@ SpeakResult ConversationManager::resolveScriptedChoice(
             choice.ttsAfterText,
             choice.ttsAfterVoice,
             choice.ttsAfterAudio,
+            choice.ttsAfterAudioSegments,
             "");
         awaitingChoice = true;
         activeScriptPhaseId = phase.id;
@@ -1179,6 +1201,7 @@ SpeakResult ConversationManager::resolveScriptedChoice(
         choice.ttsAfterText,
         choice.ttsAfterVoice,
         choice.ttsAfterAudio,
+        choice.ttsAfterAudioSegments,
         "");
     if (!choice.status.onZeroLucidity.empty())
         result.action = SpeakResult::Action::ShowNarrative;
