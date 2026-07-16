@@ -41,6 +41,7 @@
 *.dwo
 
 build
+tools/scene-editor/build
 
 # Audio assets are stored xz-compressed in git; keep local uncompressed copies untracked.
 resources/audio/**/*.mp3
