@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.24)
 project(HighlineRidgeSceneEditor CXX)
 
-set(CMAKE_CXX_STANDARD 11)
+# Match the game target: ImageCompression uses std::filesystem.
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FetchContent)
@@ -75,6 +76,7 @@ set(EDITOR_SOURCES
     main.cpp
     ${CMAKE_SOURCE_DIR}/../../src/SceneDocument.cpp
     ${CMAKE_SOURCE_DIR}/../../src/ImageCompression.cpp
+    ${CMAKE_SOURCE_DIR}/../../src/PlatformPath.cpp
 )
 
 add_executable(scene-editor ${EDITOR_SOURCES})

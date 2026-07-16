@@ -5,7 +5,7 @@
 #include <fstream>
 #include <sstream>
 
-namespace testgame
+namespace highline_ridge
 {
 
 namespace

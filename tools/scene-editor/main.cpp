@@ -11,11 +11,11 @@
 #include <string>
 #include <vector>
 
-using testgame::SceneActor;
-using testgame::SceneDocument;
-using testgame::SceneLayout;
-using testgame::buildAssetSearchPaths;
-using testgame::loadTextureFromAssetFile;
+using highline_ridge::SceneActor;
+using highline_ridge::SceneDocument;
+using highline_ridge::SceneLayout;
+using highline_ridge::buildAssetSearchPaths;
+using highline_ridge::loadTextureFromAssetFile;
 
 namespace
 {
