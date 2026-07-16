@@ -112,8 +112,17 @@ bool resolveEditorPaths(std::string& outResourceDir, std::string& outAssetRoot)
     const char* appDir = GetApplicationDirectory();
     if (appDir != nullptr && appDir[0] != '\0')
     {
-        if (findResourcesFromBase(appDir, outResourceDir, outAssetRoot))
+        const std::string bundledResources = pathJoin(appDir, "resources");
+        if (scenesFileExists(bundledResources))
+        {
+            outResourceDir = bundledResources;
+            outAssetRoot = appDir;
             found = true;
+        }
+        else if (findResourcesFromBase(appDir, outResourceDir, outAssetRoot))
+        {
+            found = true;
+        }
         else
         {
             const std::string fallbackResources = pathJoin(appDir, "../../../resources");
@@ -153,6 +162,20 @@ bool resolveEditorPaths(std::string& outResourceDir, std::string& outAssetRoot)
     outResourceDir = absolutePath(outResourceDir);
     outAssetRoot = absolutePath(outAssetRoot);
     return found || scenesFileExists(outResourceDir);
+}
+
+bool ensureValidResourcePaths(std::string& resourceDir, std::string& assetRoot)
+{
+    resourceDir = absolutePath(resourceDir);
+    if (!assetRoot.empty())
+        assetRoot = absolutePath(assetRoot);
+    else
+        assetRoot = parentDirectory(resourceDir);
+
+    if (scenesFileExists(resourceDir))
+        return true;
+
+    return resolveEditorPaths(resourceDir, assetRoot);
 }
 
 void drawWrappedText(
@@ -1032,12 +1055,23 @@ int main(int argc, char** argv)
 
     if (argc >= 2)
     {
-        app.resourceDir = absolutePath(argv[1]);
-        app.assetRoot = absolutePath((argc >= 3) ? argv[2] : parentDirectory(app.resourceDir));
+        app.resourceDir = argv[1];
+        app.assetRoot = (argc >= 3) ? argv[2] : "";
+    }
+
+    if (!ensureValidResourcePaths(app.resourceDir, app.assetRoot))
+    {
+        TraceLog(
+            LOG_WARNING,
+            "SCENE EDITOR: scenes.json not found under resources (%s)",
+            app.resourceDir.c_str());
     }
     else
     {
-        resolveEditorPaths(app.resourceDir, app.assetRoot);
+        TraceLog(
+            LOG_INFO,
+            "SCENE EDITOR: using resources at %s",
+            app.resourceDir.c_str());
     }
 
     app.initLayout(screenWidth, screenHeight);

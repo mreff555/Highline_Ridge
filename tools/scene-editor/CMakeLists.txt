@@ -99,6 +99,15 @@ endif()
 
 target_link_libraries(scene-editor PRIVATE raylib ${_image_deps})
 
+# Keep resources beside the editor binary (matches the main game's build layout).
+set(_scene_editor_resources_src "${CMAKE_SOURCE_DIR}/../../resources")
+add_custom_target(sync_scene_editor_resources ALL
+    COMMAND ${CMAKE_COMMAND} -E rm -rf "${CMAKE_CURRENT_BINARY_DIR}/resources"
+    COMMAND ${CMAKE_COMMAND} -E create_symlink "${_scene_editor_resources_src}" "${CMAKE_CURRENT_BINARY_DIR}/resources"
+    COMMENT "Linking resources beside scene-editor"
+)
+add_dependencies(scene-editor sync_scene_editor_resources)
+
 if(APPLE)
     target_link_libraries(scene-editor PRIVATE
         "-framework Cocoa"
