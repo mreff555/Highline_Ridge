@@ -1,4 +1,5 @@
 #include "ImageCompression.h"
+#include "PlatformPath.h"
 #include "SceneDocument.h"
 
 #include <raylib.h>
@@ -6,6 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 #include <map>
 #include <sstream>
 #include <string>
@@ -16,6 +18,7 @@ using highline_ridge::SceneDocument;
 using highline_ridge::SceneLayout;
 using highline_ridge::buildAssetSearchPaths;
 using highline_ridge::loadTextureFromAssetFile;
+using highline_ridge::pathJoin;
 
 namespace
 {
@@ -39,6 +42,127 @@ const float kSceneCardHeight = 100.0f;
 const float kListThumbSize = 48.0f;
 const float kListRowHeight = 56.0f;
 
+namespace fs = std::filesystem;
+
+std::string parentDirectory(const std::string& path)
+{
+    if (path.empty())
+        return "";
+
+    const fs::path parent = fs::path(path).parent_path();
+    if (parent.empty())
+        return "";
+
+    return parent.lexically_normal().string();
+}
+
+bool scenesFileExists(const std::string& resourceDir)
+{
+    return FileExists(pathJoin(resourceDir, "scenes.json").c_str());
+}
+
+bool findResourcesFromBase(
+    const std::string& baseDir,
+    std::string& outResourceDir,
+    std::string& outAssetRoot)
+{
+    std::string dir = baseDir;
+    for (int depth = 0; depth < 8 && !dir.empty(); ++depth)
+    {
+        const std::string resourcesDir = pathJoin(dir, "resources");
+        if (scenesFileExists(resourcesDir))
+        {
+            outResourceDir = resourcesDir;
+            outAssetRoot = dir;
+            return true;
+        }
+
+        const std::string parent = parentDirectory(dir);
+        if (parent.empty() || parent == dir)
+            break;
+        dir = parent;
+    }
+
+    return false;
+}
+
+bool resolveEditorPaths(std::string& outResourceDir, std::string& outAssetRoot)
+{
+    const char* appDir = GetApplicationDirectory();
+    if (appDir != nullptr && appDir[0] != '\0')
+    {
+        if (findResourcesFromBase(appDir, outResourceDir, outAssetRoot))
+            return true;
+
+        const std::string fallbackResources = pathJoin(appDir, "../../../resources");
+        if (scenesFileExists(fallbackResources))
+        {
+            outResourceDir = fs::path(fallbackResources).lexically_normal().string();
+            outAssetRoot = fs::path(pathJoin(appDir, "../../..")).lexically_normal().string();
+            return true;
+        }
+    }
+
+    const char* workingDir = GetWorkingDirectory();
+    if (workingDir != nullptr && workingDir[0] != '\0')
+    {
+        if (findResourcesFromBase(workingDir, outResourceDir, outAssetRoot))
+            return true;
+    }
+
+    if (appDir != nullptr && appDir[0] != '\0')
+    {
+        outResourceDir = fs::path(pathJoin(appDir, "../../../resources")).lexically_normal().string();
+        outAssetRoot = fs::path(pathJoin(appDir, "../../..")).lexically_normal().string();
+    }
+    else
+    {
+        outResourceDir = "../../../resources";
+        outAssetRoot = "../../..";
+    }
+
+    return scenesFileExists(outResourceDir);
+}
+
+void drawWrappedText(
+    Font font,
+    const std::string& text,
+    Vector2 position,
+    float maxWidth,
+    float fontSize,
+    float lineSpacing,
+    Color color)
+{
+    std::string line;
+    float y = position.y;
+
+    auto flushLine = [&]()
+    {
+        if (line.empty())
+            return;
+        DrawTextEx(font, line.c_str(), {position.x, y}, fontSize, 1.0f, color);
+        y += fontSize + lineSpacing;
+        line.clear();
+    };
+
+    std::istringstream stream(text);
+    std::string word;
+    while (stream >> word)
+    {
+        const std::string candidate = line.empty() ? word : line + " " + word;
+        if (MeasureTextEx(font, candidate.c_str(), fontSize, 1.0f).x <= maxWidth)
+        {
+            line = candidate;
+            continue;
+        }
+
+        flushLine();
+        line = word;
+    }
+
+    flushLine();
+}
+
 enum class DragSource
 {
     None,
@@ -55,8 +179,9 @@ struct ThumbnailEntry
 
 struct SceneEditorApp
 {
-    std::string resourceDir = "../resources";
-    std::string assetRoot = "..";
+    std::string resourceDir = "../../../resources";
+    std::string assetRoot = "../../..";
+    std::string loadError;
     SceneDocument scenesDoc;
 
     std::vector<std::string> jsonTabs;
@@ -163,20 +288,42 @@ struct SceneEditorApp
 
     bool loadActiveDocument()
     {
-        if (jsonTabs.empty())
-            return false;
+        loadError.clear();
 
-        const std::string filename = jsonTabs[static_cast<size_t>(activeTabIndex)];
-        if (filename != "scenes.json")
+        if (!DirectoryExists(resourceDir.c_str()))
         {
+            loadError = "Resources folder not found:\n" + resourceDir +
+                "\n\nLaunch with:\n./scene-editor /path/to/resources";
             scenesDoc = SceneDocument{};
             selectedSceneId.clear();
             return false;
         }
 
-        const std::string path = resourceDir + "/" + filename;
-        if (!scenesDoc.load(path))
+        if (jsonTabs.empty())
+        {
+            loadError = "No .json files found in:\n" + resourceDir;
+            scenesDoc = SceneDocument{};
+            selectedSceneId.clear();
             return false;
+        }
+
+        const std::string filename = jsonTabs[static_cast<size_t>(activeTabIndex)];
+        if (filename != "scenes.json")
+        {
+            loadError = filename + " editing is not implemented yet.\nSelect the scenes.json tab.";
+            scenesDoc = SceneDocument{};
+            selectedSceneId.clear();
+            return false;
+        }
+
+        const std::string path = pathJoin(resourceDir, filename);
+        if (!scenesDoc.load(path))
+        {
+            loadError = "Failed to load scenes.json:\n" + path;
+            scenesDoc = SceneDocument{};
+            selectedSceneId.clear();
+            return false;
+        }
 
         dirty = false;
         if (selectedSceneId.empty() && scenesDoc.isLoaded())
@@ -306,6 +453,13 @@ struct SceneEditorApp
 
     void drawTabs(Rectangle leftBounds)
     {
+        if (jsonTabs.empty())
+        {
+            DrawTextEx(GetFontDefault(), "No resource JSON files",
+                       {leftBounds.x + 8.0f, leftBounds.y + 8.0f}, 12.0f, 1.0f, kTextMuted);
+            return;
+        }
+
         const float tabWidth = leftBounds.width / static_cast<float>(std::max<size_t>(1, jsonTabs.size()));
         float x = leftBounds.x;
         for (size_t i = 0; i < jsonTabs.size(); ++i)
@@ -341,8 +495,17 @@ struct SceneEditorApp
     {
         if (!scenesDoc.isLoaded())
         {
-            DrawTextEx(GetFontDefault(), "No scenes loaded", {listBounds.x + 12.0f, listBounds.y + 12.0f},
-                       14.0f, 1.0f, kTextMuted);
+            const std::string message = loadError.empty()
+                ? "Loading scenes.json..."
+                : loadError;
+            drawWrappedText(
+                GetFontDefault(),
+                message,
+                {listBounds.x + 12.0f, listBounds.y + 12.0f},
+                listBounds.width - 24.0f,
+                13.0f,
+                4.0f,
+                kTextMuted);
             return;
         }
 
@@ -522,8 +685,17 @@ struct SceneEditorApp
 
         if (!scenesDoc.isLoaded())
         {
-            DrawTextEx(GetFontDefault(), "Open scenes.json to edit the scene map",
-                       {canvasBounds.x + 20.0f, canvasBounds.y + 40.0f}, 16.0f, 1.0f, kTextMuted);
+            const std::string message = loadError.empty()
+                ? "Select the scenes.json tab to edit the scene map."
+                : loadError;
+            drawWrappedText(
+                GetFontDefault(),
+                message,
+                {canvasBounds.x + 20.0f, canvasBounds.y + 40.0f},
+                canvasBounds.width - 40.0f,
+                15.0f,
+                5.0f,
+                kTextMuted);
             return;
         }
 
@@ -765,7 +937,9 @@ struct SceneEditorApp
     void drawStatusBar(int screenWidth, int screenHeight)
     {
         const std::string status = dirty ? "Modified" : "Saved";
-        const std::string pathLabel = scenesDoc.path().empty() ? resourceDir : scenesDoc.path();
+        const std::string pathLabel = scenesDoc.isLoaded()
+            ? scenesDoc.path()
+            : "Resources: " + resourceDir;
         DrawTextEx(GetFontDefault(), pathLabel.c_str(), {8.0f, static_cast<float>(screenHeight) - 18.0f},
                    12.0f, 1.0f, kTextMuted);
         DrawTextEx(GetFontDefault(), status.c_str(),
@@ -816,22 +990,6 @@ struct SceneEditorApp
     }
 };
 
-std::string defaultResourceDir()
-{
-    const char* appDir = GetApplicationDirectory();
-    if (appDir != nullptr && appDir[0] != '\0')
-        return std::string(appDir) + "/../resources";
-    return "../resources";
-}
-
-std::string defaultAssetRoot()
-{
-    const char* appDir = GetApplicationDirectory();
-    if (appDir != nullptr && appDir[0] != '\0')
-        return std::string(appDir) + "/..";
-    return "..";
-}
-
 }
 
 int main(int argc, char** argv)
@@ -844,13 +1002,16 @@ int main(int argc, char** argv)
     SetTargetFPS(60);
 
     SceneEditorApp app;
-    app.resourceDir = defaultResourceDir();
-    app.assetRoot = defaultAssetRoot();
 
     if (argc >= 2)
+    {
         app.resourceDir = argv[1];
-    if (argc >= 3)
-        app.assetRoot = argv[2];
+        app.assetRoot = (argc >= 3) ? argv[2] : parentDirectory(app.resourceDir);
+    }
+    else
+    {
+        resolveEditorPaths(app.resourceDir, app.assetRoot);
+    }
 
     app.initLayout(screenWidth, screenHeight);
     app.refreshTabs();
