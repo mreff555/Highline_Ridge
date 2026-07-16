@@ -17,6 +17,7 @@ using highline_ridge::SceneActor;
 using highline_ridge::SceneDocument;
 using highline_ridge::SceneLayout;
 using highline_ridge::buildAssetSearchPaths;
+using highline_ridge::listDirectoryFileNames;
 using highline_ridge::loadTextureFromAssetFile;
 using highline_ridge::pathJoin;
 
@@ -56,6 +57,25 @@ std::string parentDirectory(const std::string& path)
     return parent.lexically_normal().string();
 }
 
+std::string absolutePath(const std::string& path)
+{
+    if (path.empty())
+        return path;
+
+    std::error_code error;
+    const fs::path resolved = fs::absolute(fs::path(path), error);
+    if (error)
+        return path;
+
+    return resolved.lexically_normal().string();
+}
+
+bool resourceDirectoryExists(const std::string& resourceDir)
+{
+    std::error_code error;
+    return fs::is_directory(fs::path(resourceDir), error);
+}
+
 bool scenesFileExists(const std::string& resourceDir)
 {
     return FileExists(pathJoin(resourceDir, "scenes.json").c_str());
@@ -88,40 +108,51 @@ bool findResourcesFromBase(
 
 bool resolveEditorPaths(std::string& outResourceDir, std::string& outAssetRoot)
 {
+    bool found = false;
     const char* appDir = GetApplicationDirectory();
     if (appDir != nullptr && appDir[0] != '\0')
     {
         if (findResourcesFromBase(appDir, outResourceDir, outAssetRoot))
-            return true;
-
-        const std::string fallbackResources = pathJoin(appDir, "../../../resources");
-        if (scenesFileExists(fallbackResources))
+            found = true;
+        else
         {
-            outResourceDir = fs::path(fallbackResources).lexically_normal().string();
-            outAssetRoot = fs::path(pathJoin(appDir, "../../..")).lexically_normal().string();
-            return true;
+            const std::string fallbackResources = pathJoin(appDir, "../../../resources");
+            if (scenesFileExists(fallbackResources))
+            {
+                outResourceDir = fs::path(fallbackResources).lexically_normal().string();
+                outAssetRoot = fs::path(pathJoin(appDir, "../../..")).lexically_normal().string();
+                found = true;
+            }
         }
     }
 
-    const char* workingDir = GetWorkingDirectory();
-    if (workingDir != nullptr && workingDir[0] != '\0')
+    if (!found)
     {
-        if (findResourcesFromBase(workingDir, outResourceDir, outAssetRoot))
-            return true;
+        const char* workingDir = GetWorkingDirectory();
+        if (workingDir != nullptr && workingDir[0] != '\0' &&
+            findResourcesFromBase(workingDir, outResourceDir, outAssetRoot))
+        {
+            found = true;
+        }
     }
 
-    if (appDir != nullptr && appDir[0] != '\0')
+    if (!found)
     {
-        outResourceDir = fs::path(pathJoin(appDir, "../../../resources")).lexically_normal().string();
-        outAssetRoot = fs::path(pathJoin(appDir, "../../..")).lexically_normal().string();
-    }
-    else
-    {
-        outResourceDir = "../../../resources";
-        outAssetRoot = "../../..";
+        if (appDir != nullptr && appDir[0] != '\0')
+        {
+            outResourceDir = fs::path(pathJoin(appDir, "../../../resources")).lexically_normal().string();
+            outAssetRoot = fs::path(pathJoin(appDir, "../../..")).lexically_normal().string();
+        }
+        else
+        {
+            outResourceDir = "../../../resources";
+            outAssetRoot = "../../..";
+        }
     }
 
-    return scenesFileExists(outResourceDir);
+    outResourceDir = absolutePath(outResourceDir);
+    outAssetRoot = absolutePath(outAssetRoot);
+    return found || scenesFileExists(outResourceDir);
 }
 
 void drawWrappedText(
@@ -268,19 +299,15 @@ struct SceneEditorApp
     std::vector<std::string> listJsonResources() const
     {
         std::vector<std::string> files;
-        if (!DirectoryExists(resourceDir.c_str()))
+        if (!resourceDirectoryExists(resourceDir))
             return files;
 
-        FilePathList entries = LoadDirectoryFilesEx(resourceDir.c_str(), "*.json", false);
-        for (unsigned int i = 0; i < entries.count; ++i)
+        const std::vector<std::string> names = listDirectoryFileNames(resourceDir);
+        for (const std::string& name : names)
         {
-            const char* path = entries.paths[i];
-            const char* slash = std::max(strrchr(path, '/'), strrchr(path, '\\'));
-            const std::string filename = slash != nullptr ? slash + 1 : path;
-            if (!filename.empty())
-                files.push_back(filename);
+            if (name.size() >= 5 && name.compare(name.size() - 5, 5, ".json") == 0)
+                files.push_back(name);
         }
-        UnloadDirectoryFiles(entries);
 
         std::sort(files.begin(), files.end());
         return files;
@@ -290,7 +317,7 @@ struct SceneEditorApp
     {
         loadError.clear();
 
-        if (!DirectoryExists(resourceDir.c_str()))
+        if (!resourceDirectoryExists(resourceDir))
         {
             loadError = "Resources folder not found:\n" + resourceDir +
                 "\n\nLaunch with:\n./scene-editor /path/to/resources";
@@ -1005,8 +1032,8 @@ int main(int argc, char** argv)
 
     if (argc >= 2)
     {
-        app.resourceDir = argv[1];
-        app.assetRoot = (argc >= 3) ? argv[2] : parentDirectory(app.resourceDir);
+        app.resourceDir = absolutePath(argv[1]);
+        app.assetRoot = absolutePath((argc >= 3) ? argv[2] : parentDirectory(app.resourceDir));
     }
     else
     {
