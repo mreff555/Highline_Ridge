@@ -42,8 +42,8 @@
       "image": "resources/images/alpine_hardware.png",
       "layout": {
         "level": 0,
-        "x": 40.0,
-        "y": 40.0
+        "x": 984.0,
+        "y": 1224.0
       },
       "movement": {
         "backward": true,
@@ -97,8 +97,8 @@
       "image": "resources/images/alpine_summit.png",
       "layout": {
         "level": 0,
-        "x": 204.0,
-        "y": 40.0
+        "x": 1928.0,
+        "y": 440.0
       },
       "movement": {
         "backward": true,
@@ -160,8 +160,8 @@
       ],
       "layout": {
         "level": 0,
-        "x": 368.0,
-        "y": 40.0
+        "x": 276.0,
+        "y": 48.0
       },
       "movement": {
         "backward": true,
@@ -202,8 +202,8 @@
       "image": "resources/images/cabin_cellar_open.png",
       "layout": {
         "level": 0,
-        "x": 532.0,
-        "y": 40.0
+        "x": 2400.0,
+        "y": 440.0
       },
       "movement": {
         "backward": true,
@@ -262,8 +262,8 @@
       "image": "resources/images/cabin_kitchen.png",
       "layout": {
         "level": 0,
-        "x": 696.0,
-        "y": 40.0
+        "x": 276.0,
+        "y": 244.0
       },
       "movement": {
         "backward": true,
@@ -318,8 +318,8 @@
       "image": "resources/images/cabin_under_rug.png",
       "layout": {
         "level": 0,
-        "x": 40.0,
-        "y": 164.0
+        "x": 2400.0,
+        "y": 636.0
       },
       "movement": {
         "backward": true,
@@ -368,8 +368,8 @@
       ],
       "layout": {
         "level": -1,
-        "x": 204.0,
-        "y": 164.0
+        "x": 40.0,
+        "y": 48.0
       },
       "movement": {
         "backward": true,
@@ -424,8 +424,8 @@
       ],
       "layout": {
         "level": -1,
-        "x": 368.0,
-        "y": 164.0
+        "x": 512.0,
+        "y": 48.0
       },
       "movement": {
         "backward": false,
@@ -474,8 +474,8 @@
       ],
       "layout": {
         "level": -1,
-        "x": 532.0,
-        "y": 164.0
+        "x": 40.0,
+        "y": 244.0
       },
       "movement": {
         "backward": true,
@@ -673,8 +673,8 @@
       "image": "resources/images/charcoal_burner_camp.png",
       "layout": {
         "level": 0,
-        "x": 696.0,
-        "y": 164.0
+        "x": 748.0,
+        "y": 1420.0
       },
       "movement": {
         "backward": true,
@@ -731,8 +731,8 @@
       ],
       "layout": {
         "level": 0,
-        "x": 40.0,
-        "y": 288.0
+        "x": 984.0,
+        "y": 832.0
       },
       "movement": {
         "backward": true,
@@ -794,8 +794,8 @@
       "image": "resources/images/high_alpine_trail.png",
       "layout": {
         "level": 0,
-        "x": 204.0,
-        "y": 288.0
+        "x": 748.0,
+        "y": 244.0
       },
       "movement": {
         "backward": true,
@@ -835,8 +835,8 @@
       "image": "resources/images/ice_house.png",
       "layout": {
         "level": 0,
-        "x": 368.0,
-        "y": 288.0
+        "x": 748.0,
+        "y": 1028.0
       },
       "movement": {
         "backward": true,
@@ -899,8 +899,8 @@
       "image": "resources/images/ice_house_interior.png",
       "layout": {
         "level": 0,
-        "x": 532.0,
-        "y": 288.0
+        "x": 512.0,
+        "y": 1028.0
       },
       "movement": {
         "backward": false,
@@ -956,8 +956,8 @@
       "image": "resources/images/mountain_road.png",
       "layout": {
         "level": 0,
-        "x": 696.0,
-        "y": 288.0
+        "x": 748.0,
+        "y": 1812.0
       },
       "movement": {
         "backward": false,
@@ -1001,8 +1001,8 @@
       "image": "resources/images/mountain_road.png",
       "layout": {
         "level": 0,
-        "x": 40.0,
-        "y": 412.0
+        "x": 276.0,
+        "y": 832.0
       },
       "movement": {
         "backward": true,
@@ -1050,8 +1050,8 @@
       "image": "resources/images/mountain_road_supply_row.png",
       "layout": {
         "level": 0,
-        "x": 204.0,
-        "y": 412.0
+        "x": 512.0,
+        "y": 1224.0
       },
       "movement": {
         "backward": true,
@@ -1096,8 +1096,8 @@
       "image": "resources/images/mountain_road_trade_row.png",
       "layout": {
         "level": 0,
-        "x": 368.0,
-        "y": 412.0
+        "x": 512.0,
+        "y": 1420.0
       },
       "movement": {
         "backward": true,
@@ -1136,8 +1136,8 @@
       "image": "resources/images/narrow_path.png",
       "layout": {
         "level": 0,
-        "x": 532.0,
-        "y": 412.0
+        "x": 748.0,
+        "y": 1616.0
       },
       "movement": {
         "backward": true,
@@ -1189,8 +1189,8 @@
       "image": "resources/images/private_overlook.png",
       "layout": {
         "level": 0,
-        "x": 696.0,
-        "y": 412.0
+        "x": 984.0,
+        "y": 636.0
       },
       "movement": {
         "backward": true,
@@ -1227,8 +1227,8 @@
       "image": "resources/images/ridge_cabin_bedroom.png",
       "layout": {
         "level": 0,
-        "x": 40.0,
-        "y": 536.0
+        "x": 512.0,
+        "y": 48.0
       },
       "movement": {
         "backward": false,
@@ -1273,8 +1273,8 @@
       "image": "resources/images/ridge_cabin_exterior.png",
       "layout": {
         "level": 0,
-        "x": 204.0,
-        "y": 536.0
+        "x": 512.0,
+        "y": 636.0
       },
       "movement": {
         "backward": true,
@@ -1318,8 +1318,8 @@
       "image": "resources/images/ridge_cabin_switchbacks.png",
       "layout": {
         "level": 0,
-        "x": 368.0,
-        "y": 536.0
+        "x": 2872.0,
+        "y": 440.0
       },
       "movement": {
         "backward": true,
@@ -1363,8 +1363,8 @@
       "image": "resources/images/ridge_doctors_practice.png",
       "layout": {
         "level": 0,
-        "x": 532.0,
-        "y": 536.0
+        "x": 3344.0,
+        "y": 440.0
       },
       "movement": {
         "backward": true,
@@ -1415,8 +1415,8 @@
       "image": "resources/images/ridge_haberdashery.png",
       "layout": {
         "level": 0,
-        "x": 696.0,
-        "y": 536.0
+        "x": 276.0,
+        "y": 1224.0
       },
       "movement": {
         "backward": true,
@@ -1443,8 +1443,8 @@
       "image": "resources/images/scene_under_construction.png",
       "layout": {
         "level": 0,
-        "x": 40.0,
-        "y": 660.0
+        "x": 1220.0,
+        "y": 1224.0
       },
       "movement": {
         "backward": true,
@@ -1502,8 +1502,8 @@
       "image": "resources/images/saloon_balcony.png",
       "layout": {
         "level": 1,
-        "x": 204.0,
-        "y": 660.0
+        "x": 40.0,
+        "y": 48.0
       },
       "movement": {
         "backward": false,
@@ -1624,8 +1624,8 @@
       ],
       "layout": {
         "level": 1,
-        "x": 368.0,
-        "y": 660.0
+        "x": 276.0,
+        "y": 48.0
       },
       "movement": {
         "backward": false,
@@ -1678,8 +1678,8 @@
       "image": "resources/images/saloon_front.png",
       "layout": {
         "level": 0,
-        "x": 532.0,
-        "y": 660.0
+        "x": 984.0,
+        "y": 1812.0
       },
       "movement": {
         "backward": true,
@@ -1748,8 +1748,8 @@
       "image": "resources/images/saloon_interior.png",
       "layout": {
         "level": 0,
-        "x": 696.0,
-        "y": 660.0
+        "x": 984.0,
+        "y": 1616.0
       },
       "movement": {
         "backward": true,
@@ -1844,8 +1844,8 @@
       "image": "resources/images/scene_under_construction.png",
       "layout": {
         "level": 0,
-        "x": 40.0,
-        "y": 784.0
+        "x": 3816.0,
+        "y": 440.0
       },
       "movement": {
         "backward": true,
@@ -1881,8 +1881,8 @@
       "image": "resources/images/saloon_owner_office.png",
       "layout": {
         "level": 0,
-        "x": 204.0,
-        "y": 784.0
+        "x": 984.0,
+        "y": 1420.0
       },
       "movement": {
         "backward": true,
@@ -1920,8 +1920,8 @@
       "image": "resources/images/saloon_owner_office_desk.png",
       "layout": {
         "level": 0,
-        "x": 368.0,
-        "y": 784.0
+        "x": 1220.0,
+        "y": 1028.0
       },
       "movement": {
         "backward": true,
@@ -1972,8 +1972,8 @@
       "image": "resources/images/saloon_service_hall.png",
       "layout": {
         "level": 0,
-        "x": 532.0,
-        "y": 784.0
+        "x": 1220.0,
+        "y": 1420.0
       },
       "movement": {
         "backward": true,
@@ -2014,8 +2014,8 @@
       "image": "resources/images/saloon_side_passage.png",
       "layout": {
         "level": 0,
-        "x": 696.0,
-        "y": 784.0
+        "x": 1220.0,
+        "y": 1616.0
       },
       "movement": {
         "backward": false,
@@ -2055,8 +2055,8 @@
       "image": "resources/images/saloon_supply_closet.png",
       "layout": {
         "level": 0,
-        "x": 40.0,
-        "y": 908.0
+        "x": 1456.0,
+        "y": 1420.0
       },
       "movement": {
         "backward": true,
@@ -2145,8 +2145,8 @@
       ],
       "layout": {
         "level": 0,
-        "x": 204.0,
-        "y": 908.0
+        "x": 1928.0,
+        "y": 244.0
       },
       "movement": {
         "backward": true,
@@ -2208,8 +2208,8 @@
       "image": "resources/images/snow_cave_exterior.png",
       "layout": {
         "level": 0,
-        "x": 368.0,
-        "y": 908.0
+        "x": 748.0,
+        "y": 440.0
       },
       "movement": {
         "backward": true,
@@ -2262,8 +2262,8 @@
       "image": "resources/images/snow_cave_interior.png",
       "layout": {
         "level": 0,
-        "x": 532.0,
-        "y": 908.0
+        "x": 512.0,
+        "y": 440.0
       },
       "movement": {
         "backward": false,
@@ -2395,8 +2395,8 @@
       "image": "resources/images/steep_mountain_trail.png",
       "layout": {
         "level": 0,
-        "x": 696.0,
-        "y": 908.0
+        "x": 748.0,
+        "y": 636.0
       },
       "movement": {
         "backward": true,
@@ -2434,8 +2434,8 @@
       "image": "resources/images/survey_stake_line.png",
       "layout": {
         "level": 0,
-        "x": 40.0,
-        "y": 1032.0
+        "x": 748.0,
+        "y": 1224.0
       },
       "movement": {
         "backward": true,
@@ -2481,8 +2481,8 @@
       "image": "resources/images/white_baptist_church.png",
       "layout": {
         "level": 0,
-        "x": 204.0,
-        "y": 1032.0
+        "x": 512.0,
+        "y": 832.0
       },
       "movement": {
         "backward": true,
@@ -2526,8 +2526,8 @@
       "image": "resources/images/white_baptist_church_cemetery.png",
       "layout": {
         "level": 0,
-        "x": 368.0,
-        "y": 1032.0
+        "x": 984.0,
+        "y": 1028.0
       },
       "movement": {
         "backward": true,
@@ -2579,8 +2579,8 @@
       "image": "resources/images/white_baptist_church_interior.png",
       "layout": {
         "level": 0,
-        "x": 532.0,
-        "y": 1032.0
+        "x": 276.0,
+        "y": 440.0
       },
       "movement": {
         "backward": true,
@@ -2631,8 +2631,8 @@
       "image": "resources/images/white_baptist_church_vestry.png",
       "layout": {
         "level": 0,
-        "x": 696.0,
-        "y": 1032.0
+        "x": 40.0,
+        "y": 440.0
       },
       "movement": {
         "backward": true,
@@ -2679,8 +2679,8 @@
       "image": "resources/images/winding_alpine_path.png",
       "layout": {
         "level": 0,
-        "x": 40.0,
-        "y": 1156.0
+        "x": 748.0,
+        "y": 832.0
       },
       "movement": {
         "backward": true,
