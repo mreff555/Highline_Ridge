@@ -71,6 +71,12 @@ const float kLayoutOriginX = 40.0f;
 const float kLayoutOriginY = 48.0f;
 const float kListThumbSize = 48.0f;
 const float kListRowHeight = 56.0f;
+const float kCanvasChromeHeight = 36.0f;
+const float kScrollBarSize = 14.0f;
+const float kScrollContentPad = 48.0f;
+const Color kScrollTrack = {22, 20, 28, 255};
+const Color kScrollThumb = {110, 92, 52, 255};
+const Color kScrollThumbActive = {168, 138, 72, 255};
 
 namespace fs = std::filesystem;
 
@@ -292,6 +298,10 @@ struct SceneEditorApp
     float variablesScroll = 0.0f;
     float actorsScroll = 0.0f;
     Vector2 canvasScroll{0.0f, 0.0f};
+    bool draggingHScroll = false;
+    bool draggingVScroll = false;
+    float hScrollGrabOffset = 0.0f;
+    float vScrollGrabOffset = 0.0f;
 
     bool draggingVerticalDivider = false;
     bool draggingHorizontalDivider = false;
@@ -1848,6 +1858,224 @@ struct SceneEditorApp
         }
     }
 
+    struct CanvasContentBounds
+    {
+        float minX = 0.0f;
+        float minY = 0.0f;
+        float maxX = 0.0f;
+        float maxY = 0.0f;
+        bool valid = false;
+
+        float width() const { return maxX - minX; }
+        float height() const { return maxY - minY; }
+    };
+
+    CanvasContentBounds contentBoundsForLevel(int level) const
+    {
+        CanvasContentBounds bounds;
+        const std::vector<std::string> ids = scenesOnLevel(level);
+        for (size_t i = 0; i < ids.size(); ++i)
+        {
+            const SceneLayout layout = scenesDoc.getLayout(ids[i]);
+            const float right = layout.x + kSceneCardWidth;
+            const float bottom = layout.y + kSceneCardHeight;
+            if (!bounds.valid)
+            {
+                bounds.minX = layout.x;
+                bounds.minY = layout.y;
+                bounds.maxX = right;
+                bounds.maxY = bottom;
+                bounds.valid = true;
+            }
+            else
+            {
+                bounds.minX = std::min(bounds.minX, layout.x);
+                bounds.minY = std::min(bounds.minY, layout.y);
+                bounds.maxX = std::max(bounds.maxX, right);
+                bounds.maxY = std::max(bounds.maxY, bottom);
+            }
+        }
+
+        if (bounds.valid)
+        {
+            bounds.minX -= kScrollContentPad;
+            bounds.minY -= kScrollContentPad;
+            bounds.maxX += kScrollContentPad;
+            bounds.maxY += kScrollContentPad;
+        }
+
+        return bounds;
+    }
+
+    void clampCanvasScrollForCanvas(Rectangle canvasBounds, Rectangle contentView, const CanvasContentBounds& content)
+    {
+        if (!content.valid)
+        {
+            canvasScroll = {0.0f, 0.0f};
+            return;
+        }
+
+        // screenPos = canvasBounds + layout + scroll
+        // Visible when screenPos is inside contentView.
+        // scroll.x max (content pinned left): contentView.x = canvasBounds.x + content.minX + scroll.x
+        //   => scroll.x = contentView.x - canvasBounds.x - content.minX
+        // scroll.x min (content pinned right):
+        //   contentView.x + contentView.width = canvasBounds.x + content.maxX + scroll.x
+        //   => scroll.x = contentView.x + contentView.width - canvasBounds.x - content.maxX
+
+        float maxScrollX = contentView.x - canvasBounds.x - content.minX;
+        float minScrollX = contentView.x + contentView.width - canvasBounds.x - content.maxX;
+        float maxScrollY = contentView.y - canvasBounds.y - content.minY;
+        float minScrollY = contentView.y + contentView.height - canvasBounds.y - content.maxY;
+
+        if (content.width() <= contentView.width)
+            canvasScroll.x = maxScrollX;
+        else
+        {
+            if (minScrollX > maxScrollX)
+                std::swap(minScrollX, maxScrollX);
+            if (canvasScroll.x < minScrollX)
+                canvasScroll.x = minScrollX;
+            if (canvasScroll.x > maxScrollX)
+                canvasScroll.x = maxScrollX;
+        }
+
+        if (content.height() <= contentView.height)
+            canvasScroll.y = maxScrollY;
+        else
+        {
+            if (minScrollY > maxScrollY)
+                std::swap(minScrollY, maxScrollY);
+            if (canvasScroll.y < minScrollY)
+                canvasScroll.y = minScrollY;
+            if (canvasScroll.y > maxScrollY)
+                canvasScroll.y = maxScrollY;
+        }
+    }
+
+    void drawCanvasScrollBars(
+        Rectangle canvasBounds,
+        Rectangle contentView,
+        const CanvasContentBounds& content,
+        bool showH,
+        bool showV)
+    {
+        const Vector2 mouse = GetMousePosition();
+
+        if (showH)
+        {
+            const Rectangle track = {
+                contentView.x,
+                canvasBounds.y + canvasBounds.height - kScrollBarSize,
+                contentView.width,
+                kScrollBarSize};
+            DrawRectangleRec(track, kScrollTrack);
+            DrawRectangleLinesEx(track, 1.0f, kPanelInnerEdge);
+
+            const float contentW = std::max(content.width(), 1.0f);
+            const float thumbW = std::max(24.0f, track.width * (contentView.width / contentW));
+            const float maxScrollX = contentView.x - canvasBounds.x - content.minX;
+            const float minScrollX = contentView.x + contentView.width - canvasBounds.x - content.maxX;
+            const float scrollRange = std::max(0.001f, maxScrollX - minScrollX);
+            const float t = (maxScrollX - canvasScroll.x) / scrollRange;
+            const float thumbX = track.x + t * (track.width - thumbW);
+            const Rectangle thumb = {thumbX, track.y + 2.0f, thumbW, track.height - 4.0f};
+            DrawRectangleRec(thumb, draggingHScroll ? kScrollThumbActive : kScrollThumb);
+
+            if (!stackDialogOpen && !isDraggingDivider())
+            {
+                if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, thumb))
+                {
+                    draggingHScroll = true;
+                    hScrollGrabOffset = mouse.x - thumb.x;
+                    dragSource = DragSource::None;
+                    dragSceneId.clear();
+                }
+                else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, track))
+                {
+                    const float center = mouse.x - thumbW * 0.5f;
+                    const float ratio = (center - track.x) / std::max(1.0f, track.width - thumbW);
+                    canvasScroll.x = maxScrollX - ratio * scrollRange;
+                    draggingHScroll = true;
+                    hScrollGrabOffset = thumbW * 0.5f;
+                }
+            }
+
+            if (draggingHScroll && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+            {
+                const float thumbPos = mouse.x - hScrollGrabOffset;
+                const float ratio = (thumbPos - track.x) / std::max(1.0f, track.width - thumbW);
+                const float clampedRatio = std::max(0.0f, std::min(1.0f, ratio));
+                canvasScroll.x = maxScrollX - clampedRatio * scrollRange;
+            }
+        }
+
+        if (showV)
+        {
+            const Rectangle track = {
+                canvasBounds.x + canvasBounds.width - kScrollBarSize,
+                contentView.y,
+                kScrollBarSize,
+                contentView.height};
+            DrawRectangleRec(track, kScrollTrack);
+            DrawRectangleLinesEx(track, 1.0f, kPanelInnerEdge);
+
+            const float contentH = std::max(content.height(), 1.0f);
+            const float thumbH = std::max(24.0f, track.height * (contentView.height / contentH));
+            const float maxScrollY = contentView.y - canvasBounds.y - content.minY;
+            const float minScrollY = contentView.y + contentView.height - canvasBounds.y - content.maxY;
+            const float scrollRange = std::max(0.001f, maxScrollY - minScrollY);
+            const float t = (maxScrollY - canvasScroll.y) / scrollRange;
+            const float thumbY = track.y + t * (track.height - thumbH);
+            const Rectangle thumb = {track.x + 2.0f, thumbY, track.width - 4.0f, thumbH};
+            DrawRectangleRec(thumb, draggingVScroll ? kScrollThumbActive : kScrollThumb);
+
+            if (!stackDialogOpen && !isDraggingDivider())
+            {
+                if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, thumb))
+                {
+                    draggingVScroll = true;
+                    vScrollGrabOffset = mouse.y - thumb.y;
+                    dragSource = DragSource::None;
+                    dragSceneId.clear();
+                }
+                else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, track))
+                {
+                    const float center = mouse.y - thumbH * 0.5f;
+                    const float ratio = (center - track.y) / std::max(1.0f, track.height - thumbH);
+                    canvasScroll.y = maxScrollY - ratio * scrollRange;
+                    draggingVScroll = true;
+                    vScrollGrabOffset = thumbH * 0.5f;
+                }
+            }
+
+            if (draggingVScroll && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+            {
+                const float thumbPos = mouse.y - vScrollGrabOffset;
+                const float ratio = (thumbPos - track.y) / std::max(1.0f, track.height - thumbH);
+                const float clampedRatio = std::max(0.0f, std::min(1.0f, ratio));
+                canvasScroll.y = maxScrollY - clampedRatio * scrollRange;
+            }
+        }
+
+        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+        {
+            draggingHScroll = false;
+            draggingVScroll = false;
+        }
+
+        // Corner filler where bars meet.
+        if (showH && showV)
+        {
+            DrawRectangleRec(
+                {canvasBounds.x + canvasBounds.width - kScrollBarSize,
+                 canvasBounds.y + canvasBounds.height - kScrollBarSize,
+                 kScrollBarSize,
+                 kScrollBarSize},
+                kScrollTrack);
+        }
+    }
+
     void drawCanvas(Rectangle canvasBounds)
     {
         DrawRectangleRec(canvasBounds, kCanvasBg);
@@ -1869,11 +2097,30 @@ struct SceneEditorApp
             return;
         }
 
+        const CanvasContentBounds content = contentBoundsForLevel(canvasLevel);
+        const float fullViewW = canvasBounds.width;
+        const float fullViewH = canvasBounds.height - kCanvasChromeHeight;
+        bool showV = content.valid && content.height() > fullViewH + 0.5f;
+        bool showH = content.valid && content.width() > (fullViewW - (showV ? kScrollBarSize : 0.0f)) + 0.5f;
+        // Re-evaluate vertical once horizontal bar may steal height.
+        showV = content.valid &&
+            content.height() > (fullViewH - (showH ? kScrollBarSize : 0.0f)) + 0.5f;
+        showH = content.valid &&
+            content.width() > (fullViewW - (showV ? kScrollBarSize : 0.0f)) + 0.5f;
+
+        const Rectangle contentView = {
+            canvasBounds.x,
+            canvasBounds.y + kCanvasChromeHeight,
+            canvasBounds.width - (showV ? kScrollBarSize : 0.0f),
+            canvasBounds.height - kCanvasChromeHeight - (showH ? kScrollBarSize : 0.0f)};
+
+        clampCanvasScrollForCanvas(canvasBounds, contentView, content);
+
         BeginScissorMode(
-            static_cast<int>(canvasBounds.x),
-            static_cast<int>(canvasBounds.y + 36.0f),
-            static_cast<int>(canvasBounds.width),
-            static_cast<int>(canvasBounds.height - 36.0f));
+            static_cast<int>(contentView.x),
+            static_cast<int>(contentView.y),
+            static_cast<int>(contentView.width),
+            static_cast<int>(contentView.height));
 
         // Draw cards first, then links on top so arrows are never half-hidden
         // under thumbnails.
@@ -1906,7 +2153,10 @@ struct SceneEditorApp
             DrawTextEx(textFont(), id.c_str(), {card.x + 6.0f, card.y + card.height - 22.0f},
                        12.0f, 1.0f, kTextPrimary);
 
-            if (!stackDialogOpen && !isDraggingDivider())
+            if (!stackDialogOpen &&
+                !isDraggingDivider() &&
+                !draggingHScroll &&
+                !draggingVScroll)
             {
                 const bool hovered = CheckCollisionPointRec(GetMousePosition(), card);
                 if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
@@ -1954,7 +2204,7 @@ struct SceneEditorApp
             dragSource != DragSource::None &&
             IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
         {
-            if (CheckCollisionPointRec(GetMousePosition(), canvasBounds) &&
+            if (CheckCollisionPointRec(GetMousePosition(), contentView) &&
                 scenesDoc.hasScene(dragSceneId))
             {
                 const float dropX =
@@ -1994,14 +2244,25 @@ struct SceneEditorApp
 
         EndScissorMode();
 
-        if (!stackDialogOpen && CheckCollisionPointRec(GetMousePosition(), canvasBounds))
+        drawCanvasScrollBars(canvasBounds, contentView, content, showH, showV);
+        clampCanvasScrollForCanvas(canvasBounds, contentView, content);
+
+        if (!stackDialogOpen &&
+            !draggingHScroll &&
+            !draggingVScroll &&
+            CheckCollisionPointRec(GetMousePosition(), contentView))
         {
-            if (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL))
-                canvasScroll.x += GetMouseWheelMove() * 24.0f;
-            else if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT))
-                canvasScroll.y += GetMouseWheelMove() * 24.0f;
+            const float wheel = GetMouseWheelMove() * 32.0f;
+            if (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL) ||
+                IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT))
+            {
+                canvasScroll.x += wheel;
+            }
             else
-                canvasScroll.y -= GetMouseWheelMove() * 24.0f;
+            {
+                canvasScroll.y -= wheel;
+            }
+            clampCanvasScrollForCanvas(canvasBounds, contentView, content);
         }
     }
 
