@@ -60,13 +60,13 @@ const float kMinBottomHeight = 140.0f;
 const float kTabHeight = 30.0f;
 const float kSceneCardWidth = 140.0f;
 const float kSceneCardHeight = 100.0f;
-// Corridors between cards: enough room for orthogonal links + full arrow heads
-// without sitting under scene thumbnails (especially for down-pointing arrows).
+// Corridors between cards for mid-route turns (endpoints stay flush with card edges).
 const float kLayoutGapX = 96.0f;
 const float kLayoutGapY = 96.0f;
-const float kLinkPortOutset = 14.0f; // start/end outside the card edge
-const float kArrowHeadLength = 14.0f;
-const float kArrowHeadHalfWidth = 6.0f;
+// How far into the corridor the perpendicular exit/enter stubs travel before turning.
+const float kLinkStubLength = 28.0f;
+const float kArrowHeadLength = 12.0f;
+const float kArrowHeadHalfWidth = 5.0f;
 const float kLayoutOriginX = 40.0f;
 const float kLayoutOriginY = 48.0f;
 const float kListThumbSize = 48.0f;
@@ -1456,16 +1456,27 @@ struct SceneEditorApp
         return false;
     }
 
-    Vector2 cardPort(Rectangle card, const std::string& side, float outward = 0.0f) const
+    Vector2 cardPort(Rectangle card, const std::string& side) const
     {
-        // Keep endpoints just outside the card so links never sit under thumbnails.
+        // Flush with the card edge — no gap between image border and link end.
         if (side == "left")
-            return {card.x - outward, card.y + card.height * 0.5f};
+            return {card.x, card.y + card.height * 0.5f};
         if (side == "right")
-            return {card.x + card.width + outward, card.y + card.height * 0.5f};
+            return {card.x + card.width, card.y + card.height * 0.5f};
         if (side == "top")
-            return {card.x + card.width * 0.5f, card.y - outward};
-        return {card.x + card.width * 0.5f, card.y + card.height + outward};
+            return {card.x + card.width * 0.5f, card.y};
+        return {card.x + card.width * 0.5f, card.y + card.height};
+    }
+
+    Vector2 sideOutwardNormal(const std::string& side) const
+    {
+        if (side == "left")
+            return {-1.0f, 0.0f};
+        if (side == "right")
+            return {1.0f, 0.0f};
+        if (side == "top")
+            return {0.0f, -1.0f};
+        return {0.0f, 1.0f};
     }
 
     std::string facingSide(Rectangle from, Rectangle to) const
@@ -1505,25 +1516,15 @@ struct SceneEditorApp
         if (points.size() < 2)
             return;
 
-        // Stop the shaft short of the tip so the arrow head has reserved clear space
-        // (important when pointing down into the top of a scene card).
-        std::vector<Vector2> shaft = points;
-        const Vector2 tip = points.back();
-        Vector2 beforeTip = points[points.size() - 2];
-        Vector2 toTip = Vector2Subtract(tip, beforeTip);
-        const float tipSegmentLen = Vector2Length(toTip);
-        if (tipSegmentLen > kArrowHeadLength + 2.0f)
-        {
-            const Vector2 dir = Vector2Scale(toTip, 1.0f / tipSegmentLen);
-            shaft.back() = Vector2Subtract(tip, Vector2Scale(dir, kArrowHeadLength));
-        }
+        // Full path meets both card edges; arrow sits on the final approach.
+        for (size_t i = 0; i + 1 < points.size(); ++i)
+            DrawLineEx(points[i], points[i + 1], 4.0f, Color{8, 7, 12, 220});
+        for (size_t i = 0; i + 1 < points.size(); ++i)
+            DrawLineEx(points[i], points[i + 1], 2.0f, kExitArrow);
 
-        for (size_t i = 0; i + 1 < shaft.size(); ++i)
-            DrawLineEx(shaft[i], shaft[i + 1], 4.0f, Color{8, 7, 12, 220});
-        for (size_t i = 0; i + 1 < shaft.size(); ++i)
-            DrawLineEx(shaft[i], shaft[i + 1], 2.0f, kExitArrow);
-
-        drawArrowHead(tip, Vector2Subtract(tip, beforeTip));
+        const Vector2& a = points[points.size() - 2];
+        const Vector2& b = points[points.size() - 1];
+        drawArrowHead(b, Vector2Subtract(b, a));
     }
 
     std::vector<Vector2> buildOrthogonalRoute(
@@ -1565,110 +1566,128 @@ struct SceneEditorApp
             toSide = oppositeSide(fromSide);
         }
 
-        // Reserve clear space outside each card for the full arrow head.
-        const Vector2 start = cardPort(fromCard, fromSide, kLinkPortOutset);
-        const Vector2 end = cardPort(toCard, toSide, kLinkPortOutset);
+        // Endpoints flush with the card borders.
+        const Vector2 start = cardPort(fromCard, fromSide);
+        const Vector2 end = cardPort(toCard, toSide);
 
-        std::vector<std::vector<Vector2> > candidates;
+        // Leave / enter each card on the perpendicular to that side, then turn
+        // in the corridor between tiles.
+        const Vector2 startNormal = sideOutwardNormal(fromSide);
+        const Vector2 endNormal = sideOutwardNormal(toSide);
+        const Vector2 exitStub = Vector2Add(start, Vector2Scale(startNormal, kLinkStubLength));
+        const Vector2 enterStub = Vector2Add(end, Vector2Scale(endNormal, kLinkStubLength));
 
-        // Straight orthogonal if aligned in the gutter.
-        if (std::fabs(start.x - end.x) < 1.0f || std::fabs(start.y - end.y) < 1.0f)
+        std::vector<std::vector<Vector2> > midRoutes;
+
+        if (std::fabs(exitStub.x - enterStub.x) < 1.0f ||
+            std::fabs(exitStub.y - enterStub.y) < 1.0f)
         {
             std::vector<Vector2> straight;
-            straight.push_back(start);
-            straight.push_back(end);
-            candidates.push_back(straight);
+            straight.push_back(exitStub);
+            straight.push_back(enterStub);
+            midRoutes.push_back(straight);
         }
 
-        // L routes through corridor gutters.
         {
             std::vector<Vector2> path;
-            path.push_back(start);
-            path.push_back({end.x, start.y});
-            path.push_back(end);
-            candidates.push_back(path);
+            path.push_back(exitStub);
+            path.push_back({enterStub.x, exitStub.y});
+            path.push_back(enterStub);
+            midRoutes.push_back(path);
         }
         {
             std::vector<Vector2> path;
-            path.push_back(start);
-            path.push_back({start.x, end.y});
-            path.push_back(end);
-            candidates.push_back(path);
+            path.push_back(exitStub);
+            path.push_back({exitStub.x, enterStub.y});
+            path.push_back(enterStub);
+            midRoutes.push_back(path);
         }
 
-        // U routes around the pair using mid-corridor offsets.
-        const float midX =
-            0.5f * ((fromCard.x + fromCard.width * 0.5f) + (toCard.x + toCard.width * 0.5f));
-        const float midY =
-            0.5f * ((fromCard.y + fromCard.height * 0.5f) + (toCard.y + toCard.height * 0.5f));
         const float above = std::min(fromCard.y, toCard.y) - kLayoutGapY * 0.5f;
         const float below = std::max(fromCard.y + fromCard.height, toCard.y + toCard.height) +
             kLayoutGapY * 0.5f;
         const float left = std::min(fromCard.x, toCard.x) - kLayoutGapX * 0.5f;
         const float right = std::max(fromCard.x + fromCard.width, toCard.x + toCard.width) +
             kLayoutGapX * 0.5f;
+        const float midX =
+            0.5f * ((fromCard.x + fromCard.width * 0.5f) + (toCard.x + toCard.width * 0.5f));
+        const float midY =
+            0.5f * ((fromCard.y + fromCard.height * 0.5f) + (toCard.y + toCard.height * 0.5f));
 
         {
             std::vector<Vector2> path;
-            path.push_back(start);
-            path.push_back({start.x, above});
-            path.push_back({end.x, above});
-            path.push_back(end);
-            candidates.push_back(path);
+            path.push_back(exitStub);
+            path.push_back({exitStub.x, above});
+            path.push_back({enterStub.x, above});
+            path.push_back(enterStub);
+            midRoutes.push_back(path);
         }
         {
             std::vector<Vector2> path;
-            path.push_back(start);
-            path.push_back({start.x, below});
-            path.push_back({end.x, below});
-            path.push_back(end);
-            candidates.push_back(path);
+            path.push_back(exitStub);
+            path.push_back({exitStub.x, below});
+            path.push_back({enterStub.x, below});
+            path.push_back(enterStub);
+            midRoutes.push_back(path);
         }
         {
             std::vector<Vector2> path;
-            path.push_back(start);
-            path.push_back({left, start.y});
-            path.push_back({left, end.y});
-            path.push_back(end);
-            candidates.push_back(path);
+            path.push_back(exitStub);
+            path.push_back({left, exitStub.y});
+            path.push_back({left, enterStub.y});
+            path.push_back(enterStub);
+            midRoutes.push_back(path);
         }
         {
             std::vector<Vector2> path;
-            path.push_back(start);
-            path.push_back({right, start.y});
-            path.push_back({right, end.y});
-            path.push_back(end);
-            candidates.push_back(path);
+            path.push_back(exitStub);
+            path.push_back({right, exitStub.y});
+            path.push_back({right, enterStub.y});
+            path.push_back(enterStub);
+            midRoutes.push_back(path);
         }
         {
             std::vector<Vector2> path;
-            path.push_back(start);
-            path.push_back({midX, start.y});
-            path.push_back({midX, end.y});
-            path.push_back(end);
-            candidates.push_back(path);
+            path.push_back(exitStub);
+            path.push_back({midX, exitStub.y});
+            path.push_back({midX, enterStub.y});
+            path.push_back(enterStub);
+            midRoutes.push_back(path);
         }
         {
             std::vector<Vector2> path;
-            path.push_back(start);
-            path.push_back({start.x, midY});
-            path.push_back({end.x, midY});
-            path.push_back(end);
-            candidates.push_back(path);
+            path.push_back(exitStub);
+            path.push_back({exitStub.x, midY});
+            path.push_back({enterStub.x, midY});
+            path.push_back(enterStub);
+            midRoutes.push_back(path);
         }
 
-        for (size_t i = 0; i < candidates.size(); ++i)
+        std::vector<Vector2> chosenMid;
+        bool found = false;
+        for (size_t i = 0; i < midRoutes.size(); ++i)
         {
-            if (!pathHitsObstacle(candidates[i], obstacles))
-                return candidates[i];
+            if (!pathHitsObstacle(midRoutes[i], obstacles))
+            {
+                chosenMid = midRoutes[i];
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+        {
+            chosenMid.push_back(exitStub);
+            chosenMid.push_back({enterStub.x, exitStub.y});
+            chosenMid.push_back(enterStub);
         }
 
-        // Last resort: L-route even if blocked (should be rare with grid gutters).
-        std::vector<Vector2> fallback;
-        fallback.push_back(start);
-        fallback.push_back({end.x, start.y});
-        fallback.push_back(end);
-        return fallback;
+        // edge (flush) -> perpendicular stub -> corridor -> stub -> edge (flush)
+        std::vector<Vector2> full;
+        full.push_back(start);
+        for (size_t i = 0; i < chosenMid.size(); ++i)
+            full.push_back(chosenMid[i]);
+        full.push_back(end);
+        return full;
     }
 
     void drawExitArrows(Rectangle canvasBounds)
