@@ -46,12 +46,14 @@ const Color kModalOverlay = {0, 0, 0, 160};
 const Color kModalFill = {32, 30, 40, 255};
 
 const float kDividerSize = 8.0f;
+const float kDividerHitPadding = 6.0f; // extra grab area beyond the visible grip
 const float kPanelRoundness = 0.03f;
 const float kPanelBorderThick = 2.0f;
 const float kStatusBarHeight = 22.0f;
 const float kTopAreaRatio = 2.0f / 3.0f;
 const float kLeftPaneRatio = 0.4f; // was 0.2; doubled so scene labels stay readable
 const float kMinLeftWidth = 320.0f;
+const float kMinMainWidth = 280.0f;
 const float kMinTopHeight = 200.0f;
 const float kMinBottomHeight = 140.0f;
 const float kTabHeight = 30.0f;
@@ -271,6 +273,7 @@ struct SceneEditorApp
 
     float leftPaneWidth = 0.0f;
     float topAreaHeight = 0.0f;
+    bool userResizedLeftSplit = false;
     bool userResizedTopSplit = false;
     int lastScreenWidth = 0;
     int lastScreenHeight = 0;
@@ -394,6 +397,7 @@ struct SceneEditorApp
     {
         leftPaneWidth = static_cast<float>(screenWidth) * kLeftPaneRatio;
         applyDefaultTopSplit(screenHeight);
+        userResizedLeftSplit = false;
         userResizedTopSplit = false;
         lastScreenWidth = screenWidth;
         lastScreenHeight = screenHeight;
@@ -416,10 +420,14 @@ struct SceneEditorApp
             topAreaHeight = contentHeight(screenHeight) * ratio;
         }
 
-        if (lastScreenWidth > 0)
-            leftPaneWidth *= static_cast<float>(screenWidth) / static_cast<float>(lastScreenWidth);
-        else
+        if (!userResizedLeftSplit || lastScreenWidth <= 0)
+        {
             leftPaneWidth = static_cast<float>(screenWidth) * kLeftPaneRatio;
+        }
+        else
+        {
+            leftPaneWidth *= static_cast<float>(screenWidth) / static_cast<float>(lastScreenWidth);
+        }
 
         lastScreenWidth = screenWidth;
         lastScreenHeight = screenHeight;
@@ -428,7 +436,8 @@ struct SceneEditorApp
 
     void clampLayout(int screenWidth, int screenHeight)
     {
-        const float maxLeft = static_cast<float>(screenWidth) - kMinLeftWidth - 200.0f;
+        const float maxLeft =
+            static_cast<float>(screenWidth) - kMinMainWidth - kDividerSize;
         if (leftPaneWidth < kMinLeftWidth)
             leftPaneWidth = kMinLeftWidth;
         if (leftPaneWidth > maxLeft)
@@ -442,6 +451,29 @@ struct SceneEditorApp
             topAreaHeight = maxTop;
         if (topAreaHeight < 1.0f)
             topAreaHeight = contentH * kTopAreaRatio;
+    }
+
+    Rectangle expandHitRect(Rectangle bounds, float pad, bool vertical) const
+    {
+        if (vertical)
+        {
+            return {
+                bounds.x - pad,
+                bounds.y,
+                bounds.width + pad * 2.0f,
+                bounds.height};
+        }
+
+        return {
+            bounds.x,
+            bounds.y - pad,
+            bounds.width,
+            bounds.height + pad * 2.0f};
+    }
+
+    bool isDraggingDivider() const
+    {
+        return draggingVerticalDivider || draggingHorizontalDivider;
     }
 
     Rectangle topAreaBounds(int screenWidth) const
@@ -1089,7 +1121,10 @@ struct SceneEditorApp
                 kTextMuted);
 
             const bool hovered = CheckCollisionPointRec(GetMousePosition(), row);
-            if (!stackDialogOpen && hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+            if (!stackDialogOpen &&
+                !isDraggingDivider() &&
+                hovered &&
+                IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
             {
                 selectedSceneId = id;
                 dragSource = DragSource::SceneList;
@@ -1342,7 +1377,7 @@ struct SceneEditorApp
             DrawTextEx(textFont(), id.c_str(), {card.x + 6.0f, card.y + card.height - 22.0f},
                        12.0f, 1.0f, kTextPrimary);
 
-            if (!stackDialogOpen)
+            if (!stackDialogOpen && !isDraggingDivider())
             {
                 const bool hovered = CheckCollisionPointRec(GetMousePosition(), card);
                 if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
@@ -1660,18 +1695,43 @@ struct SceneEditorApp
         drawActorsPane(actorsBounds);
     }
 
-    void handleDividers(int screenWidth, int screenHeight)
+    void handleDividerInput(int screenWidth, int screenHeight)
     {
         const Rectangle vDiv = verticalDividerBounds(screenWidth);
         const Rectangle hDiv = horizontalDividerBounds(screenWidth);
+        const Rectangle vHit = expandHitRect(vDiv, kDividerHitPadding, true);
+        const Rectangle hHit = expandHitRect(hDiv, kDividerHitPadding, false);
         const Vector2 mouse = GetMousePosition();
+
+        const bool overVertical = CheckCollisionPointRec(mouse, vHit);
+        const bool overHorizontal = CheckCollisionPointRec(mouse, hHit);
+
+        if (draggingVerticalDivider || overVertical)
+            SetMouseCursor(MOUSE_CURSOR_RESIZE_EW);
+        else if (draggingHorizontalDivider || overHorizontal)
+            SetMouseCursor(MOUSE_CURSOR_RESIZE_NS);
+        else
+            SetMouseCursor(MOUSE_CURSOR_DEFAULT);
 
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
         {
-            if (CheckCollisionPointRec(mouse, vDiv))
+            // Prefer the split under the cursor; vertical first if both overlap.
+            if (overVertical)
                 draggingVerticalDivider = true;
-            else if (CheckCollisionPointRec(mouse, hDiv))
+            else if (overHorizontal)
                 draggingHorizontalDivider = true;
+        }
+
+        if (draggingVerticalDivider && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        {
+            leftPaneWidth = mouse.x - vDiv.width * 0.5f;
+            userResizedLeftSplit = true;
+        }
+
+        if (draggingHorizontalDivider && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        {
+            topAreaHeight = mouse.y - hDiv.height * 0.5f;
+            userResizedTopSplit = true;
         }
 
         if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
@@ -1680,19 +1740,13 @@ struct SceneEditorApp
             draggingHorizontalDivider = false;
         }
 
-        if (draggingVerticalDivider && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
-            leftPaneWidth = mouse.x - vDiv.width * 0.5f;
-
-        if (draggingHorizontalDivider && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
-        {
-            topAreaHeight = mouse.y - hDiv.height * 0.5f;
-            userResizedTopSplit = true;
-        }
-
         clampLayout(screenWidth, screenHeight);
+    }
 
-        drawDivider(vDiv, draggingVerticalDivider, true);
-        drawDivider(hDiv, draggingHorizontalDivider, false);
+    void drawDividers(int screenWidth, int screenHeight) const
+    {
+        drawDivider(verticalDividerBounds(screenWidth), draggingVerticalDivider, true);
+        drawDivider(horizontalDividerBounds(screenWidth), draggingHorizontalDivider, false);
     }
 
     void drawStatusBar(int screenWidth, int screenHeight)
@@ -1725,7 +1779,16 @@ struct SceneEditorApp
 
         handleShortcuts();
         if (!stackDialogOpen)
-            handleDividers(screenWidth, screenHeight);
+            handleDividerInput(screenWidth, screenHeight);
+        else
+            SetMouseCursor(MOUSE_CURSOR_DEFAULT);
+
+        // Don't start scene drags while resizing panes.
+        if (isDraggingDivider())
+        {
+            dragSource = DragSource::None;
+            dragSceneId.clear();
+        }
     }
 
     void draw()
@@ -1751,6 +1814,7 @@ struct SceneEditorApp
         drawCanvas(canvasBounds);
 
         drawBottomPane(bottom);
+        drawDividers(screenWidth, screenHeight);
         drawStatusBar(screenWidth, screenHeight);
         drawStackDialog(screenWidth, screenHeight);
 
