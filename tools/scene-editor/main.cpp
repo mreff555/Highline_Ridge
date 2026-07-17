@@ -9,8 +9,10 @@
 #include <cmath>
 #include <filesystem>
 #include <map>
+#include <queue>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 using highline_ridge::SceneActor;
@@ -33,6 +35,10 @@ const Color kTextMuted = {132, 122, 104, 255};
 const Color kCanvasBg = {18, 17, 22, 255};
 const Color kSelection = {120, 96, 48, 180};
 const Color kExitArrow = {168, 138, 72, 220};
+const Color kButtonDisabled = {48, 46, 54, 255};
+const Color kTextDisabled = {90, 86, 96, 255};
+const Color kModalOverlay = {0, 0, 0, 160};
+const Color kModalFill = {32, 30, 40, 255};
 
 const float kDividerSize = 6.0f;
 const float kMinLeftWidth = 180.0f;
@@ -267,6 +273,12 @@ struct SceneEditorApp
     std::string dragSceneId;
     Vector2 dragOffset{0.0f, 0.0f};
 
+    bool stackDialogOpen = false;
+    std::string stackSourceId;
+    std::string stackTargetId;
+    float stackPendingX = 0.0f;
+    float stackPendingY = 0.0f;
+
     std::map<std::string, ThumbnailEntry> thumbnails;
     bool dirty = false;
 
@@ -444,6 +456,177 @@ struct SceneEditorApp
         return true;
     }
 
+    std::string getExitTarget(const std::string& sceneId, const std::string& direction) const
+    {
+        const nlohmann::json* scene = scenesDoc.sceneJson(sceneId);
+        if (scene == nullptr || !scene->contains("exits") || !(*scene)["exits"].is_object())
+            return "";
+        if (!(*scene)["exits"].contains(direction) || !(*scene)["exits"][direction].is_string())
+            return "";
+        return (*scene)["exits"][direction].get<std::string>();
+    }
+
+    void setExitTarget(const std::string& sceneId, const std::string& direction, const std::string& targetId)
+    {
+        nlohmann::json* scene = scenesDoc.sceneJson(sceneId);
+        if (scene == nullptr)
+            return;
+
+        if (!scene->contains("exits") || !(*scene)["exits"].is_object())
+            (*scene)["exits"] = nlohmann::json::object();
+        (*scene)["exits"][direction] = targetId;
+
+        if (!scene->contains("movement") || !(*scene)["movement"].is_object())
+            (*scene)["movement"] = nlohmann::json::object();
+        (*scene)["movement"][direction] = true;
+    }
+
+    void recomputeLevelsFromExits()
+    {
+        if (!scenesDoc.isLoaded())
+            return;
+
+        const std::vector<std::string> ids = scenesDoc.sceneIds();
+        std::map<std::string, std::vector<std::pair<std::string, int> > > edges;
+
+        auto addEdge = [&](const std::string& fromId, const std::string& toId, int delta)
+        {
+            if (toId.empty() || !scenesDoc.hasScene(toId))
+                return;
+            edges[fromId].push_back(std::make_pair(toId, delta));
+            edges[toId].push_back(std::make_pair(fromId, -delta));
+        };
+
+        for (const std::string& id : ids)
+        {
+            // Vertical links change floor; horizontal links stay on the same floor.
+            addEdge(id, getExitTarget(id, "up"), 1);
+            addEdge(id, getExitTarget(id, "down"), -1);
+            addEdge(id, getExitTarget(id, "forward"), 0);
+            addEdge(id, getExitTarget(id, "backward"), 0);
+            addEdge(id, getExitTarget(id, "left"), 0);
+            addEdge(id, getExitTarget(id, "right"), 0);
+        }
+
+        std::map<std::string, int> levels;
+        std::queue<std::string> queue;
+
+        auto seed = [&](const std::string& id, int level)
+        {
+            if (levels.count(id) != 0)
+                return;
+            levels[id] = level;
+            queue.push(id);
+        };
+
+        for (const std::string& id : ids)
+        {
+            const nlohmann::json* scene = scenesDoc.sceneJson(id);
+            if (scene != nullptr && scene->value("start", false))
+                seed(id, 0);
+        }
+
+        if (levels.empty() && !ids.empty())
+            seed(ids.front(), 0);
+
+        while (!queue.empty())
+        {
+            const std::string current = queue.front();
+            queue.pop();
+            const int currentLevel = levels[current];
+
+            const std::vector<std::pair<std::string, int> >& links = edges[current];
+            for (size_t i = 0; i < links.size(); ++i)
+            {
+                const std::string& nextId = links[i].first;
+                const int nextLevel = currentLevel + links[i].second;
+                std::map<std::string, int>::iterator existing = levels.find(nextId);
+                if (existing == levels.end())
+                {
+                    levels[nextId] = nextLevel;
+                    queue.push(nextId);
+                }
+            }
+        }
+
+        // Seed remaining connected components (e.g. saloon cluster without start=true).
+        for (const std::string& id : ids)
+        {
+            if (levels.count(id) != 0)
+                continue;
+            if (edges.count(id) == 0 || edges[id].empty())
+                continue;
+
+            levels[id] = 0;
+            queue.push(id);
+            while (!queue.empty())
+            {
+                const std::string current = queue.front();
+                queue.pop();
+                const int currentLevel = levels[current];
+                const std::vector<std::pair<std::string, int> >& links = edges[current];
+                for (size_t i = 0; i < links.size(); ++i)
+                {
+                    const std::string& nextId = links[i].first;
+                    if (levels.count(nextId) != 0)
+                        continue;
+                    levels[nextId] = currentLevel + links[i].second;
+                    queue.push(nextId);
+                }
+            }
+        }
+
+        for (const std::string& id : ids)
+        {
+            if (levels.count(id) == 0)
+                continue;
+
+            SceneLayout layout = scenesDoc.getLayout(id);
+            layout.level = levels[id];
+            scenesDoc.setLayout(id, layout);
+        }
+    }
+
+    void getLevelRange(int& outMin, int& outMax) const
+    {
+        outMin = 0;
+        outMax = 0;
+        if (!scenesDoc.isLoaded())
+            return;
+
+        bool any = false;
+        const std::vector<std::string> ids = scenesDoc.sceneIds();
+        for (const std::string& id : ids)
+        {
+            const int level = scenesDoc.getLayout(id).level;
+            if (!any)
+            {
+                outMin = level;
+                outMax = level;
+                any = true;
+            }
+            else
+            {
+                if (level < outMin)
+                    outMin = level;
+                if (level > outMax)
+                    outMax = level;
+            }
+        }
+    }
+
+    int countScenesOnLevel(int level) const
+    {
+        int count = 0;
+        const std::vector<std::string> ids = scenesDoc.sceneIds();
+        for (const std::string& id : ids)
+        {
+            if (scenesDoc.getLayout(id).level == level)
+                ++count;
+        }
+        return count;
+    }
+
     void ensureDefaultLayouts()
     {
         if (!scenesDoc.isLoaded())
@@ -459,7 +642,6 @@ struct SceneEditorApp
             {
                 layout.x = x;
                 layout.y = y;
-                layout.level = 0;
                 scenesDoc.setLayout(id, layout);
                 x += kSceneCardWidth + 24.0f;
                 if (x > 800.0f)
@@ -469,6 +651,70 @@ struct SceneEditorApp
                 }
             }
         }
+
+        recomputeLevelsFromExits();
+
+        int minLevel = 0;
+        int maxLevel = 0;
+        getLevelRange(minLevel, maxLevel);
+        if (canvasLevel < minLevel || canvasLevel > maxLevel)
+            canvasLevel = 0;
+        if (canvasLevel < minLevel)
+            canvasLevel = minLevel;
+        if (canvasLevel > maxLevel)
+            canvasLevel = maxLevel;
+    }
+
+    void applyStackLink(bool placeAbove)
+    {
+        if (!scenesDoc.hasScene(stackSourceId) || !scenesDoc.hasScene(stackTargetId))
+            return;
+
+        if (placeAbove)
+        {
+            setExitTarget(stackTargetId, "up", stackSourceId);
+            setExitTarget(stackSourceId, "down", stackTargetId);
+        }
+        else
+        {
+            setExitTarget(stackTargetId, "down", stackSourceId);
+            setExitTarget(stackSourceId, "up", stackTargetId);
+        }
+
+        SceneLayout sourceLayout = scenesDoc.getLayout(stackSourceId);
+        const SceneLayout targetLayout = scenesDoc.getLayout(stackTargetId);
+        sourceLayout.x = targetLayout.x + 24.0f;
+        sourceLayout.y = targetLayout.y + 24.0f;
+        scenesDoc.setLayout(stackSourceId, sourceLayout);
+
+        recomputeLevelsFromExits();
+        canvasLevel = scenesDoc.getLayout(stackSourceId).level;
+        selectedSceneId = stackSourceId;
+        markDirty();
+    }
+
+    void closeStackDialog()
+    {
+        stackDialogOpen = false;
+        stackSourceId.clear();
+        stackTargetId.clear();
+    }
+
+    std::string findStackTarget(const Rectangle& ghost, Rectangle canvasBounds, const std::string& excludeId) const
+    {
+        const std::vector<std::string> ids = scenesDoc.sceneIds();
+        for (const std::string& id : ids)
+        {
+            if (id == excludeId)
+                continue;
+            if (scenesDoc.getLayout(id).level != canvasLevel)
+                continue;
+
+            const Rectangle card = sceneCardBounds(id, canvasBounds);
+            if (CheckCollisionRecs(ghost, card))
+                return id;
+        }
+        return "";
     }
 
     void refreshTabs()
@@ -681,15 +927,21 @@ struct SceneEditorApp
                     WHITE);
             }
 
-            DrawTextEx(textFont(), id.c_str(), {row.x + kListThumbSize + 12.0f, row.y + 10.0f},
+            const int sceneLevel = scenesDoc.getLayout(id).level;
+            DrawTextEx(textFont(), id.c_str(), {row.x + kListThumbSize + 12.0f, row.y + 8.0f},
                        14.0f, 1.0f, kTextPrimary);
+            DrawTextEx(
+                textFont(),
+                TextFormat("L%d", sceneLevel),
+                {row.x + kListThumbSize + 12.0f, row.y + 28.0f},
+                12.0f,
+                1.0f,
+                kTextMuted);
 
             const bool hovered = CheckCollisionPointRec(GetMousePosition(), row);
-            if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-                selectedSceneId = id;
-
-            if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+            if (!stackDialogOpen && hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
             {
+                selectedSceneId = id;
                 dragSource = DragSource::SceneList;
                 dragSceneId = id;
                 dragOffset = {GetMouseX() - row.x, GetMouseY() - row.y};
@@ -786,40 +1038,92 @@ struct SceneEditorApp
             if (layout.level != canvasLevel)
                 continue;
 
-            const nlohmann::json* scene = scenesDoc.sceneJson(id);
-            if (scene == nullptr || !scene->contains("exits") || !(*scene)["exits"].is_object())
-                continue;
-
-            bool hasUp = scene->at("exits").contains("up");
-            bool hasDown = scene->at("exits").contains("down");
+            const bool hasUp = !getExitTarget(id, "up").empty();
+            const bool hasDown = !getExitTarget(id, "down").empty();
             if (!hasUp && !hasDown)
                 continue;
 
             const Rectangle card = sceneCardBounds(id, canvasBounds);
-            const char* icon = hasUp ? "^" : "v";
-            DrawTextEx(textFont(), icon, {card.x + card.width - 18.0f, card.y + 4.0f},
-                       16.0f, 1.0f, kTextPrimary);
+            float iconX = card.x + card.width - 20.0f;
+            if (hasUp)
+            {
+                DrawTextEx(textFont(), "^", {iconX, card.y + 4.0f}, 16.0f, 1.0f, kPanelBorder);
+                iconX -= 14.0f;
+            }
+            if (hasDown)
+            {
+                DrawTextEx(textFont(), "v", {iconX, card.y + 4.0f}, 16.0f, 1.0f, kPanelBorder);
+            }
+        }
+    }
+
+    void drawLevelChrome(Rectangle canvasBounds)
+    {
+        int minLevel = 0;
+        int maxLevel = 0;
+        getLevelRange(minLevel, maxLevel);
+        const bool canGoDown = scenesDoc.isLoaded() && canvasLevel > minLevel;
+        const bool canGoUp = scenesDoc.isLoaded() && canvasLevel < maxLevel;
+        const int onLevel = scenesDoc.isLoaded() ? countScenesOnLevel(canvasLevel) : 0;
+
+        const std::string levelLabel = TextFormat(
+            "Floor level %d  |  range %d to %d  |  %d scene(s) here",
+            canvasLevel,
+            minLevel,
+            maxLevel,
+            onLevel);
+        DrawTextEx(
+            textFont(),
+            levelLabel.c_str(),
+            {canvasBounds.x + 12.0f, canvasBounds.y + 10.0f},
+            14.0f,
+            1.0f,
+            kTextPrimary);
+
+        const Rectangle levelDownBtn = {
+            canvasBounds.x + canvasBounds.width - 76.0f,
+            canvasBounds.y + 8.0f,
+            30.0f,
+            24.0f};
+        const Rectangle levelUpBtn = {
+            canvasBounds.x + canvasBounds.width - 40.0f,
+            canvasBounds.y + 8.0f,
+            30.0f,
+            24.0f};
+
+        DrawRectangleRec(levelDownBtn, canGoDown ? kPanelAccent : kButtonDisabled);
+        DrawRectangleRec(levelUpBtn, canGoUp ? kPanelAccent : kButtonDisabled);
+        DrawRectangleLinesEx(levelDownBtn, 1.0f, canGoDown ? kPanelBorder : kTextDisabled);
+        DrawRectangleLinesEx(levelUpBtn, 1.0f, canGoUp ? kPanelBorder : kTextDisabled);
+        DrawTextEx(
+            textFont(),
+            "-",
+            {levelDownBtn.x + 10.0f, levelDownBtn.y + 3.0f},
+            16.0f,
+            1.0f,
+            canGoDown ? kTextPrimary : kTextDisabled);
+        DrawTextEx(
+            textFont(),
+            "+",
+            {levelUpBtn.x + 9.0f, levelUpBtn.y + 3.0f},
+            16.0f,
+            1.0f,
+            canGoUp ? kTextPrimary : kTextDisabled);
+
+        if (!stackDialogOpen && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+            const Vector2 mouse = GetMousePosition();
+            if (canGoDown && CheckCollisionPointRec(mouse, levelDownBtn))
+                canvasLevel -= 1;
+            if (canGoUp && CheckCollisionPointRec(mouse, levelUpBtn))
+                canvasLevel += 1;
         }
     }
 
     void drawCanvas(Rectangle canvasBounds)
     {
         DrawRectangleRec(canvasBounds, kCanvasBg);
-
-        DrawTextEx(textFont(), TextFormat("Level %d", canvasLevel),
-                   {canvasBounds.x + 12.0f, canvasBounds.y + 8.0f}, 14.0f, 1.0f, kTextMuted);
-
-        const Rectangle levelDownBtn = {canvasBounds.x + canvasBounds.width - 72.0f, canvasBounds.y + 6.0f, 28.0f, 22.0f};
-        const Rectangle levelUpBtn = {canvasBounds.x + canvasBounds.width - 38.0f, canvasBounds.y + 6.0f, 28.0f, 22.0f};
-        DrawRectangleRec(levelDownBtn, kPanelAccent);
-        DrawRectangleRec(levelUpBtn, kPanelAccent);
-        DrawTextEx(textFont(), "-", {levelDownBtn.x + 10.0f, levelDownBtn.y + 2.0f}, 16.0f, 1.0f, kTextPrimary);
-        DrawTextEx(textFont(), "+", {levelUpBtn.x + 8.0f, levelUpBtn.y + 2.0f}, 16.0f, 1.0f, kTextPrimary);
-
-        if (CheckCollisionPointRec(GetMousePosition(), levelDownBtn) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-            canvasLevel -= 1;
-        if (CheckCollisionPointRec(GetMousePosition(), levelUpBtn) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-            canvasLevel += 1;
+        drawLevelChrome(canvasBounds);
 
         if (!scenesDoc.isLoaded())
         {
@@ -829,13 +1133,19 @@ struct SceneEditorApp
             drawWrappedText(
                 textFont(),
                 message,
-                {canvasBounds.x + 20.0f, canvasBounds.y + 40.0f},
+                {canvasBounds.x + 20.0f, canvasBounds.y + 44.0f},
                 canvasBounds.width - 40.0f,
                 15.0f,
                 5.0f,
                 kTextMuted);
             return;
         }
+
+        BeginScissorMode(
+            static_cast<int>(canvasBounds.x),
+            static_cast<int>(canvasBounds.y + 36.0f),
+            static_cast<int>(canvasBounds.width),
+            static_cast<int>(canvasBounds.height - 36.0f));
 
         drawExitArrows(canvasBounds);
 
@@ -868,45 +1178,94 @@ struct SceneEditorApp
             DrawTextEx(textFont(), id.c_str(), {card.x + 6.0f, card.y + card.height - 22.0f},
                        12.0f, 1.0f, kTextPrimary);
 
-            const bool hovered = CheckCollisionPointRec(GetMousePosition(), card);
-            if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+            if (!stackDialogOpen)
             {
-                selectedSceneId = id;
-                dragSource = DragSource::Canvas;
-                dragSceneId = id;
-                dragOffset = {GetMouseX() - card.x, GetMouseY() - card.y};
+                const bool hovered = CheckCollisionPointRec(GetMousePosition(), card);
+                if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+                {
+                    selectedSceneId = id;
+                    dragSource = DragSource::Canvas;
+                    dragSceneId = id;
+                    dragOffset = {GetMouseX() - card.x, GetMouseY() - card.y};
+                }
             }
         }
 
         drawStairIcons(canvasBounds);
 
-        if (dragSource != DragSource::None && !dragSceneId.empty() && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        if (!stackDialogOpen &&
+            dragSource != DragSource::None &&
+            !dragSceneId.empty() &&
+            IsMouseButtonDown(MOUSE_BUTTON_LEFT))
         {
-            const Rectangle ghost = {static_cast<float>(GetMouseX()) - dragOffset.x,
-                                     static_cast<float>(GetMouseY()) - dragOffset.y,
-                                     kSceneCardWidth, kSceneCardHeight};
+            const Rectangle ghost = {
+                static_cast<float>(GetMouseX()) - dragOffset.x,
+                static_cast<float>(GetMouseY()) - dragOffset.y,
+                kSceneCardWidth,
+                kSceneCardHeight};
             DrawRectangleRec(ghost, Color{80, 70, 50, 120});
             DrawRectangleLinesEx(ghost, 1.0f, kPanelBorder);
+
+            const std::string hoverTarget = findStackTarget(ghost, canvasBounds, dragSceneId);
+            if (!hoverTarget.empty())
+            {
+                const Rectangle targetCard = sceneCardBounds(hoverTarget, canvasBounds);
+                DrawRectangleLinesEx(targetCard, 2.0f, Color{220, 180, 80, 255});
+                DrawTextEx(
+                    textFont(),
+                    "Drop for Up / Down / Cancel",
+                    {targetCard.x, targetCard.y - 18.0f},
+                    12.0f,
+                    1.0f,
+                    kPanelBorder);
+            }
         }
 
-        if (dragSource != DragSource::None && IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+        if (!stackDialogOpen &&
+            dragSource != DragSource::None &&
+            IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
         {
-            if (CheckCollisionPointRec(GetMousePosition(), canvasBounds) && scenesDoc.hasScene(dragSceneId))
+            if (CheckCollisionPointRec(GetMousePosition(), canvasBounds) &&
+                scenesDoc.hasScene(dragSceneId))
             {
-                SceneLayout layout = scenesDoc.getLayout(dragSceneId);
-                layout.x = static_cast<float>(GetMouseX()) - canvasBounds.x - dragOffset.x - canvasScroll.x;
-                layout.y = static_cast<float>(GetMouseY()) - canvasBounds.y - dragOffset.y - canvasScroll.y;
-                layout.level = canvasLevel;
-                scenesDoc.setLayout(dragSceneId, layout);
-                selectedSceneId = dragSceneId;
-                markDirty();
+                const float dropX =
+                    static_cast<float>(GetMouseX()) - canvasBounds.x - dragOffset.x - canvasScroll.x;
+                const float dropY =
+                    static_cast<float>(GetMouseY()) - canvasBounds.y - dragOffset.y - canvasScroll.y;
+                const Rectangle ghost = {
+                    static_cast<float>(GetMouseX()) - dragOffset.x,
+                    static_cast<float>(GetMouseY()) - dragOffset.y,
+                    kSceneCardWidth,
+                    kSceneCardHeight};
+                const std::string targetId = findStackTarget(ghost, canvasBounds, dragSceneId);
+
+                if (!targetId.empty())
+                {
+                    stackDialogOpen = true;
+                    stackSourceId = dragSceneId;
+                    stackTargetId = targetId;
+                    stackPendingX = dropX;
+                    stackPendingY = dropY;
+                }
+                else
+                {
+                    SceneLayout layout = scenesDoc.getLayout(dragSceneId);
+                    layout.x = dropX;
+                    layout.y = dropY;
+                    layout.level = canvasLevel;
+                    scenesDoc.setLayout(dragSceneId, layout);
+                    selectedSceneId = dragSceneId;
+                    markDirty();
+                }
             }
 
             dragSource = DragSource::None;
             dragSceneId.clear();
         }
 
-        if (CheckCollisionPointRec(GetMousePosition(), canvasBounds))
+        EndScissorMode();
+
+        if (!stackDialogOpen && CheckCollisionPointRec(GetMousePosition(), canvasBounds))
         {
             if (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL))
                 canvasScroll.x += GetMouseWheelMove() * 24.0f;
@@ -915,6 +1274,100 @@ struct SceneEditorApp
             else
                 canvasScroll.y -= GetMouseWheelMove() * 24.0f;
         }
+    }
+
+    void drawStackDialog(int screenWidth, int screenHeight)
+    {
+        if (!stackDialogOpen)
+            return;
+
+        DrawRectangle(0, 0, screenWidth, screenHeight, kModalOverlay);
+
+        const float dialogW = 420.0f;
+        const float dialogH = 220.0f;
+        const Rectangle dialog = {
+            (static_cast<float>(screenWidth) - dialogW) * 0.5f,
+            (static_cast<float>(screenHeight) - dialogH) * 0.5f,
+            dialogW,
+            dialogH};
+        DrawRectangleRounded(dialog, 0.04f, 8, kModalFill);
+        DrawRectangleLinesEx(dialog, 2.0f, kPanelBorder);
+
+        DrawTextEx(
+            textFont(),
+            "Stack scene floors",
+            {dialog.x + 20.0f, dialog.y + 18.0f},
+            18.0f,
+            1.0f,
+            kTextPrimary);
+
+        const std::string body = TextFormat(
+            "Place \"%s\" relative to \"%s\"?",
+            stackSourceId.c_str(),
+            stackTargetId.c_str());
+        drawWrappedText(
+            textFont(),
+            body,
+            {dialog.x + 20.0f, dialog.y + 52.0f},
+            dialogW - 40.0f,
+            14.0f,
+            4.0f,
+            kTextMuted);
+
+        DrawTextEx(
+            textFont(),
+            "Up = one floor above  |  Down = one floor below",
+            {dialog.x + 20.0f, dialog.y + 100.0f},
+            12.0f,
+            1.0f,
+            kTextMuted);
+
+        const float btnW = 110.0f;
+        const float btnH = 34.0f;
+        const float btnY = dialog.y + dialogH - btnH - 20.0f;
+        const Rectangle upBtn = {dialog.x + 20.0f, btnY, btnW, btnH};
+        const Rectangle downBtn = {dialog.x + 150.0f, btnY, btnW, btnH};
+        const Rectangle cancelBtn = {dialog.x + 280.0f, btnY, btnW, btnH};
+
+        auto drawButton = [&](Rectangle bounds, const char* label, bool accent)
+        {
+            DrawRectangleRec(bounds, accent ? kPanelAccent : Color{44, 42, 52, 255});
+            DrawRectangleLinesEx(bounds, 1.0f, kPanelBorder);
+            const Vector2 size = MeasureTextEx(textFont(), label, 14.0f, 1.0f);
+            DrawTextEx(
+                textFont(),
+                label,
+                {bounds.x + (bounds.width - size.x) * 0.5f, bounds.y + 9.0f},
+                14.0f,
+                1.0f,
+                kTextPrimary);
+        };
+
+        drawButton(upBtn, "Up", true);
+        drawButton(downBtn, "Down", true);
+        drawButton(cancelBtn, "Cancel", false);
+
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+            const Vector2 mouse = GetMousePosition();
+            if (CheckCollisionPointRec(mouse, upBtn))
+            {
+                applyStackLink(true);
+                closeStackDialog();
+            }
+            else if (CheckCollisionPointRec(mouse, downBtn))
+            {
+                applyStackLink(false);
+                closeStackDialog();
+            }
+            else if (CheckCollisionPointRec(mouse, cancelBtn) || !CheckCollisionPointRec(mouse, dialog))
+            {
+                closeStackDialog();
+            }
+        }
+
+        if (IsKeyPressed(KEY_ESCAPE))
+            closeStackDialog();
     }
 
     std::string truncate(const std::string& text, size_t maxLen) const
@@ -1097,7 +1550,8 @@ struct SceneEditorApp
     void update()
     {
         handleShortcuts();
-        handleDividers(GetScreenWidth(), GetScreenHeight());
+        if (!stackDialogOpen)
+            handleDividers(GetScreenWidth(), GetScreenHeight());
     }
 
     void draw()
@@ -1123,6 +1577,7 @@ struct SceneEditorApp
 
         drawBottomPane(bottom);
         drawStatusBar(screenWidth, screenHeight);
+        drawStackDialog(screenWidth, screenHeight);
 
         EndDrawing();
     }
