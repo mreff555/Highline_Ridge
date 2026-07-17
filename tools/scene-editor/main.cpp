@@ -244,6 +244,7 @@ struct SceneEditorApp
     std::string assetRoot = "../../..";
     std::string loadError;
     SceneDocument scenesDoc;
+    Font uiFont{};
 
     std::vector<std::string> jsonTabs;
     int activeTabIndex = 0;
@@ -268,6 +269,55 @@ struct SceneEditorApp
 
     std::map<std::string, ThumbnailEntry> thumbnails;
     bool dirty = false;
+
+    Font textFont() const
+    {
+        if (uiFont.texture.id != 0)
+            return uiFont;
+        return GetFontDefault();
+    }
+
+    void loadUiFont()
+    {
+        if (uiFont.texture.id != 0)
+        {
+            UnloadFont(uiFont);
+            uiFont = Font{};
+        }
+
+        const std::string candidates[] = {
+            pathJoin(resourceDir, "fonts/CourierPrime-Regular.ttf"),
+            pathJoin(assetRoot, "resources/fonts/CourierPrime-Regular.ttf"),
+            pathJoin(assetRoot, "fonts/CourierPrime-Regular.ttf"),
+            "/System/Library/Fonts/Supplemental/Courier New.ttf",
+            "/System/Library/Fonts/Supplemental/Arial.ttf",
+            "/System/Library/Fonts/Helvetica.ttc"
+        };
+
+        for (const std::string& path : candidates)
+        {
+            if (path.empty() || !FileExists(path.c_str()))
+                continue;
+
+            Font font = LoadFontEx(path.c_str(), 64, nullptr, 0);
+            if (font.texture.id == 0)
+                continue;
+
+            SetTextureFilter(font.texture, TEXTURE_FILTER_BILINEAR);
+            uiFont = font;
+            TraceLog(LOG_INFO, "SCENE EDITOR: loaded UI font %s", path.c_str());
+            return;
+        }
+
+        TraceLog(LOG_WARNING, "SCENE EDITOR: UI font not found; using default");
+    }
+
+    void unloadUiFont()
+    {
+        if (uiFont.texture.id != 0)
+            UnloadFont(uiFont);
+        uiFont = Font{};
+    }
 
     void initLayout(int screenWidth, int screenHeight)
     {
@@ -543,7 +593,7 @@ struct SceneEditorApp
     {
         if (jsonTabs.empty())
         {
-            DrawTextEx(GetFontDefault(), "No resource JSON files",
+            DrawTextEx(textFont(), "No resource JSON files",
                        {leftBounds.x + 8.0f, leftBounds.y + 8.0f}, 12.0f, 1.0f, kTextMuted);
             return;
         }
@@ -559,9 +609,9 @@ struct SceneEditorApp
 
             const std::string& label = jsonTabs[i];
             const float fontSize = 12.0f;
-            const Vector2 textSize = MeasureTextEx(GetFontDefault(), label.c_str(), fontSize, 1.0f);
+            const Vector2 textSize = MeasureTextEx(textFont(), label.c_str(), fontSize, 1.0f);
             DrawTextEx(
-                GetFontDefault(),
+                textFont(),
                 label.c_str(),
                 {tab.x + (tab.width - textSize.x) * 0.5f, tab.y + 8.0f},
                 fontSize,
@@ -587,7 +637,7 @@ struct SceneEditorApp
                 ? "Loading scenes.json..."
                 : loadError;
             drawWrappedText(
-                GetFontDefault(),
+                textFont(),
                 message,
                 {listBounds.x + 12.0f, listBounds.y + 12.0f},
                 listBounds.width - 24.0f,
@@ -631,7 +681,7 @@ struct SceneEditorApp
                     WHITE);
             }
 
-            DrawTextEx(GetFontDefault(), id.c_str(), {row.x + kListThumbSize + 12.0f, row.y + 10.0f},
+            DrawTextEx(textFont(), id.c_str(), {row.x + kListThumbSize + 12.0f, row.y + 10.0f},
                        14.0f, 1.0f, kTextPrimary);
 
             const bool hovered = CheckCollisionPointRec(GetMousePosition(), row);
@@ -747,7 +797,7 @@ struct SceneEditorApp
 
             const Rectangle card = sceneCardBounds(id, canvasBounds);
             const char* icon = hasUp ? "^" : "v";
-            DrawTextEx(GetFontDefault(), icon, {card.x + card.width - 18.0f, card.y + 4.0f},
+            DrawTextEx(textFont(), icon, {card.x + card.width - 18.0f, card.y + 4.0f},
                        16.0f, 1.0f, kTextPrimary);
         }
     }
@@ -756,15 +806,15 @@ struct SceneEditorApp
     {
         DrawRectangleRec(canvasBounds, kCanvasBg);
 
-        DrawTextEx(GetFontDefault(), TextFormat("Level %d", canvasLevel),
+        DrawTextEx(textFont(), TextFormat("Level %d", canvasLevel),
                    {canvasBounds.x + 12.0f, canvasBounds.y + 8.0f}, 14.0f, 1.0f, kTextMuted);
 
         const Rectangle levelDownBtn = {canvasBounds.x + canvasBounds.width - 72.0f, canvasBounds.y + 6.0f, 28.0f, 22.0f};
         const Rectangle levelUpBtn = {canvasBounds.x + canvasBounds.width - 38.0f, canvasBounds.y + 6.0f, 28.0f, 22.0f};
         DrawRectangleRec(levelDownBtn, kPanelAccent);
         DrawRectangleRec(levelUpBtn, kPanelAccent);
-        DrawTextEx(GetFontDefault(), "-", {levelDownBtn.x + 10.0f, levelDownBtn.y + 2.0f}, 16.0f, 1.0f, kTextPrimary);
-        DrawTextEx(GetFontDefault(), "+", {levelUpBtn.x + 8.0f, levelUpBtn.y + 2.0f}, 16.0f, 1.0f, kTextPrimary);
+        DrawTextEx(textFont(), "-", {levelDownBtn.x + 10.0f, levelDownBtn.y + 2.0f}, 16.0f, 1.0f, kTextPrimary);
+        DrawTextEx(textFont(), "+", {levelUpBtn.x + 8.0f, levelUpBtn.y + 2.0f}, 16.0f, 1.0f, kTextPrimary);
 
         if (CheckCollisionPointRec(GetMousePosition(), levelDownBtn) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
             canvasLevel -= 1;
@@ -777,7 +827,7 @@ struct SceneEditorApp
                 ? "Select the scenes.json tab to edit the scene map."
                 : loadError;
             drawWrappedText(
-                GetFontDefault(),
+                textFont(),
                 message,
                 {canvasBounds.x + 20.0f, canvasBounds.y + 40.0f},
                 canvasBounds.width - 40.0f,
@@ -815,7 +865,7 @@ struct SceneEditorApp
                     WHITE);
             }
 
-            DrawTextEx(GetFontDefault(), id.c_str(), {card.x + 6.0f, card.y + card.height - 22.0f},
+            DrawTextEx(textFont(), id.c_str(), {card.x + 6.0f, card.y + card.height - 22.0f},
                        12.0f, 1.0f, kTextPrimary);
 
             const bool hovered = CheckCollisionPointRec(GetMousePosition(), card);
@@ -876,12 +926,12 @@ struct SceneEditorApp
 
     void drawVariablesPane(Rectangle paneBounds)
     {
-        DrawTextEx(GetFontDefault(), "Scene Variables", {paneBounds.x + 12.0f, paneBounds.y + 8.0f},
+        DrawTextEx(textFont(), "Scene Variables", {paneBounds.x + 12.0f, paneBounds.y + 8.0f},
                    15.0f, 1.0f, kTextMuted);
 
         if (selectedSceneId.empty() || !scenesDoc.hasScene(selectedSceneId))
         {
-            DrawTextEx(GetFontDefault(), "Select a scene", {paneBounds.x + 12.0f, paneBounds.y + 36.0f},
+            DrawTextEx(textFont(), "Select a scene", {paneBounds.x + 12.0f, paneBounds.y + 36.0f},
                        14.0f, 1.0f, kTextMuted);
             return;
         }
@@ -904,7 +954,7 @@ struct SceneEditorApp
         for (const std::pair<std::string, std::string>& row : rows)
         {
             const std::string line = row.first + ": " + truncate(row.second, 80);
-            DrawTextEx(GetFontDefault(), line.c_str(), {paneBounds.x + 12.0f, y}, 13.0f, 1.0f, kTextPrimary);
+            DrawTextEx(textFont(), line.c_str(), {paneBounds.x + 12.0f, y}, 13.0f, 1.0f, kTextPrimary);
             y += rowHeight;
         }
 
@@ -920,12 +970,12 @@ struct SceneEditorApp
 
     void drawActorsPane(Rectangle paneBounds)
     {
-        DrawTextEx(GetFontDefault(), "Actors", {paneBounds.x + 12.0f, paneBounds.y + 8.0f},
+        DrawTextEx(textFont(), "Actors", {paneBounds.x + 12.0f, paneBounds.y + 8.0f},
                    15.0f, 1.0f, kTextMuted);
 
         if (selectedSceneId.empty() || !scenesDoc.hasScene(selectedSceneId))
         {
-            DrawTextEx(GetFontDefault(), "Select a scene", {paneBounds.x + 12.0f, paneBounds.y + 36.0f},
+            DrawTextEx(textFont(), "Select a scene", {paneBounds.x + 12.0f, paneBounds.y + 36.0f},
                        14.0f, 1.0f, kTextMuted);
             return;
         }
@@ -946,7 +996,7 @@ struct SceneEditorApp
         float y = paneBounds.y + 36.0f - actorsScroll;
         if (actors.empty())
         {
-            DrawTextEx(GetFontDefault(), "(no actors)", {paneBounds.x + 12.0f, y},
+            DrawTextEx(textFont(), "(no actors)", {paneBounds.x + 12.0f, y},
                        13.0f, 1.0f, kTextMuted);
             y += rowHeight;
         }
@@ -956,7 +1006,7 @@ struct SceneEditorApp
             {
                 const std::string line = actor.id + " — " + actor.name +
                     (actor.role.empty() ? "" : " (" + actor.role + ")");
-                DrawTextEx(GetFontDefault(), line.c_str(), {paneBounds.x + 12.0f, y},
+                DrawTextEx(textFont(), line.c_str(), {paneBounds.x + 12.0f, y},
                            13.0f, 1.0f, kTextPrimary);
                 y += rowHeight;
             }
@@ -1028,9 +1078,9 @@ struct SceneEditorApp
         const std::string pathLabel = scenesDoc.isLoaded()
             ? scenesDoc.path()
             : "Resources: " + resourceDir;
-        DrawTextEx(GetFontDefault(), pathLabel.c_str(), {8.0f, static_cast<float>(screenHeight) - 18.0f},
+        DrawTextEx(textFont(), pathLabel.c_str(), {8.0f, static_cast<float>(screenHeight) - 18.0f},
                    12.0f, 1.0f, kTextMuted);
-        DrawTextEx(GetFontDefault(), status.c_str(),
+        DrawTextEx(textFont(), status.c_str(),
                    {static_cast<float>(screenWidth) - 70.0f, static_cast<float>(screenHeight) - 18.0f},
                    12.0f, 1.0f, dirty ? Color{200, 140, 80, 255} : kTextMuted);
     }
@@ -1112,6 +1162,7 @@ int main(int argc, char** argv)
             app.resourceDir.c_str());
     }
 
+    app.loadUiFont();
     app.initLayout(screenWidth, screenHeight);
     app.refreshTabs();
     app.loadActiveDocument();
@@ -1123,6 +1174,7 @@ int main(int argc, char** argv)
     }
 
     app.unloadThumbnails();
+    app.unloadUiFont();
     app.saveDocument();
     CloseWindow();
     return 0;
