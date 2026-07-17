@@ -50,7 +50,8 @@ const float kPanelRoundness = 0.03f;
 const float kPanelBorderThick = 2.0f;
 const float kStatusBarHeight = 22.0f;
 const float kTopAreaRatio = 2.0f / 3.0f;
-const float kMinLeftWidth = 180.0f;
+const float kLeftPaneRatio = 0.4f; // was 0.2; doubled so scene labels stay readable
+const float kMinLeftWidth = 320.0f;
 const float kMinTopHeight = 200.0f;
 const float kMinBottomHeight = 140.0f;
 const float kTabHeight = 30.0f;
@@ -391,7 +392,7 @@ struct SceneEditorApp
 
     void initLayout(int screenWidth, int screenHeight)
     {
-        leftPaneWidth = static_cast<float>(screenWidth) * 0.2f;
+        leftPaneWidth = static_cast<float>(screenWidth) * kLeftPaneRatio;
         applyDefaultTopSplit(screenHeight);
         userResizedTopSplit = false;
         lastScreenWidth = screenWidth;
@@ -418,7 +419,7 @@ struct SceneEditorApp
         if (lastScreenWidth > 0)
             leftPaneWidth *= static_cast<float>(screenWidth) / static_cast<float>(lastScreenWidth);
         else
-            leftPaneWidth = static_cast<float>(screenWidth) * 0.2f;
+            leftPaneWidth = static_cast<float>(screenWidth) * kLeftPaneRatio;
 
         lastScreenWidth = screenWidth;
         lastScreenHeight = screenHeight;
