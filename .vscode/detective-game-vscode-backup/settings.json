@@ -1,0 +1,14 @@
+{
+    "C_Cpp.default.includePath": [
+        "${workspaceFolder}/src",
+        "${workspaceFolder}/build/_deps/raylib-src/src",
+        "${workspaceFolder}/build/_deps/json-src/include",
+        "${workspaceFolder}/build-test/_deps/raylib-src/src",
+        "${workspaceFolder}/build-test/_deps/json-src/include",
+        "/opt/homebrew/include",
+        "/usr/local/include"
+    ],
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/build-test/compile_commands.json",
+    "C_Cpp.default.cppStandard": "c++11",
+    "C_Cpp.default.intelliSenseMode": "macos-clang-arm64"
+}

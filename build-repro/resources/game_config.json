@@ -1,0 +1,12 @@
+{
+  "display": {
+    "width": 1500,
+    "height": 1117
+  },
+  "audio": {
+    "master": 1.0,
+    "music": 0.7,
+    "ambient": 0.5,
+    "sfx": 0.8
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "milestones": {
+    "path_overlook_discovered": {
+      "isQuest": false,
+      "completeWhen": { "storyFlag": "path_c:overlook" }
+    },
+    "path_hanging_tree_discovered": {
+      "isQuest": false,
+      "completeWhen": { "storyFlag": "path_c:hanging_tree" }
+    },
+    "saloon_bartender_done": {
+      "isQuest": false,
+      "completeWhen": { "conversationPhaseComplete": "bartender" }
+    },
+    "saloon_cowboy_done": {
+      "isQuest": false,
+      "completeWhen": { "conversationPhaseComplete": "cowboy" }
+    },
+    "saloon_blue_woman_done": {
+      "isQuest": false,
+      "completeWhen": { "conversationPhaseComplete": "blue_woman" }
+    },
+    "investigate_the_ridge": {
+      "isQuest": true,
+      "title": "What the ridge remembers",
+      "summary": "Walk the path above Graysmill and see what the fog is hiding.",
+      "completeSummary": "You found something worth carrying back to the saloon.",
+      "startWhen": { "sceneEntered": "narrow_path" },
+      "completeWhen": {
+        "any": [
+          { "storyFlag": "path_c:overlook" },
+          { "storyFlag": "path_c:hanging_tree" }
+        ]
+      },
+      "objectives": [
+        {
+          "id": "overlook",
+          "text": "Find the overlook bench",
+          "required": false,
+          "completeWhen": { "storyFlag": "path_c:overlook" }
+        },
+        {
+          "id": "hanging_tree",
+          "text": "Find the hanging tree marker",
+          "required": false,
+          "completeWhen": { "storyFlag": "path_c:hanging_tree" }
+        }
+      ]
+    },
+    "report_ridge_findings": {
+      "isQuest": true,
+      "title": "Bring word back to the saloon",
+      "summary": "Someone on the ridge wanted answers. The saloon is where men trade them.",
+      "requires": ["investigate_the_ridge"],
+      "startWhen": {
+        "any": [
+          { "storyFlag": "path_c:overlook" },
+          { "storyFlag": "path_c:hanging_tree" }
+        ]
+      },
+      "completeWhen": {
+        "any": [
+          { "conversationPhaseComplete": "bartender_path" },
+          { "conversationPhaseComplete": "cowboy_path" },
+          { "conversationPhaseComplete": "burgundy_path" }
+        ]
+      }
+    },
+    "escort_across_ridge": {
+      "isQuest": true,
+      "title": "See him across the ridge",
+      "summary": "A merchant needs an escort through dangerous country before the weather turns.",
+      "completeSummary": "You brought him through. The ridge kept its accounts and let you pass.",
+      "startWhen": { "conversationChoiceConsumed": "bartender:accept_escort" },
+      "completeWhen": { "sceneEntered": "path_c_exit" },
+      "failWhen": { "npcDead": "merchant_escort" },
+      "timeLimit": {
+        "amount": 3,
+        "unit": "game_days"
+      },
+      "objectives": [
+        {
+          "id": "reach_path_exit",
+          "text": "Reach the far side of the ridge path",
+          "required": true,
+          "completeWhen": { "sceneEntered": "path_c_exit" }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh/cmake_install.cmake",
+		"/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh/_deps/json-build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

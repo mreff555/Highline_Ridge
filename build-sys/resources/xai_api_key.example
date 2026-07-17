@@ -1,0 +1,7 @@
+# Voice lines are bundled as resources/audio/tts/*.mp3.xz
+# and do not require an API key during normal play.
+#
+# To regenerate voice lines after dialog changes:
+#   ./"Highline Ridge" --refresh-voices=YOUR_XAI_API_KEY
+#
+# The API key is used only for that command and is not stored.

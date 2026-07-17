@@ -1,0 +1,50 @@
+[
+{
+  "directory": "/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh",
+  "command": "/usr/bin/c++  -I/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/src -I/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh/_deps/json-src/include -isystem /usr/local/Cellar/xz/5.8.3/include -isystem /usr/local/opt/jpeg-turbo/include -std=gnu++11 -I/usr/local/include -o CMakeFiles/HighlineRidge.dir/src/main.cpp.o -c /Users/mreff555/.grok/worktrees/src-detective-game/detective-game/src/main.cpp",
+  "file": "/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/src/main.cpp",
+  "output": "CMakeFiles/HighlineRidge.dir/src/main.cpp.o"
+},
+{
+  "directory": "/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh",
+  "command": "/usr/bin/c++  -I/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/src -I/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh/_deps/json-src/include -isystem /usr/local/Cellar/xz/5.8.3/include -isystem /usr/local/opt/jpeg-turbo/include -std=gnu++11 -I/usr/local/include -o CMakeFiles/HighlineRidge.dir/src/Location.cpp.o -c /Users/mreff555/.grok/worktrees/src-detective-game/detective-game/src/Location.cpp",
+  "file": "/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/src/Location.cpp",
+  "output": "CMakeFiles/HighlineRidge.dir/src/Location.cpp.o"
+},
+{
+  "directory": "/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh",
+  "command": "/usr/bin/c++  -I/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/src -I/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh/_deps/json-src/include -isystem /usr/local/Cellar/xz/5.8.3/include -isystem /usr/local/opt/jpeg-turbo/include -std=gnu++11 -I/usr/local/include -o CMakeFiles/HighlineRidge.dir/src/Button.cpp.o -c /Users/mreff555/.grok/worktrees/src-detective-game/detective-game/src/Button.cpp",
+  "file": "/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/src/Button.cpp",
+  "output": "CMakeFiles/HighlineRidge.dir/src/Button.cpp.o"
+},
+{
+  "directory": "/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh",
+  "command": "/usr/bin/c++  -I/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/src -I/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh/_deps/json-src/include -isystem /usr/local/Cellar/xz/5.8.3/include -isystem /usr/local/opt/jpeg-turbo/include -std=gnu++11 -I/usr/local/include -o CMakeFiles/HighlineRidge.dir/src/ButtonMgr.cpp.o -c /Users/mreff555/.grok/worktrees/src-detective-game/detective-game/src/ButtonMgr.cpp",
+  "file": "/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/src/ButtonMgr.cpp",
+  "output": "CMakeFiles/HighlineRidge.dir/src/ButtonMgr.cpp.o"
+},
+{
+  "directory": "/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh",
+  "command": "/usr/bin/c++  -I/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/src -I/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh/_deps/json-src/include -isystem /usr/local/Cellar/xz/5.8.3/include -isystem /usr/local/opt/jpeg-turbo/include -std=gnu++11 -I/usr/local/include -o CMakeFiles/HighlineRidge.dir/src/SceneLoader.cpp.o -c /Users/mreff555/.grok/worktrees/src-detective-game/detective-game/src/SceneLoader.cpp",
+  "file": "/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/src/SceneLoader.cpp",
+  "output": "CMakeFiles/HighlineRidge.dir/src/SceneLoader.cpp.o"
+},
+{
+  "directory": "/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh",
+  "command": "/usr/bin/c++  -I/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/src -I/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh/_deps/json-src/include -isystem /usr/local/Cellar/xz/5.8.3/include -isystem /usr/local/opt/jpeg-turbo/include -std=gnu++11 -I/usr/local/include -o CMakeFiles/HighlineRidge.dir/src/ConversationManager.cpp.o -c /Users/mreff555/.grok/worktrees/src-detective-game/detective-game/src/ConversationManager.cpp",
+  "file": "/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/src/ConversationManager.cpp",
+  "output": "CMakeFiles/HighlineRidge.dir/src/ConversationManager.cpp.o"
+},
+{
+  "directory": "/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh",
+  "command": "/usr/bin/c++  -I/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/src -I/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh/_deps/json-src/include -isystem /usr/local/Cellar/xz/5.8.3/include -isystem /usr/local/opt/jpeg-turbo/include -std=gnu++11 -I/usr/local/include -o CMakeFiles/HighlineRidge.dir/src/InventoryMgr.cpp.o -c /Users/mreff555/.grok/worktrees/src-detective-game/detective-game/src/InventoryMgr.cpp",
+  "file": "/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/src/InventoryMgr.cpp",
+  "output": "CMakeFiles/HighlineRidge.dir/src/InventoryMgr.cpp.o"
+},
+{
+  "directory": "/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh",
+  "command": "/usr/bin/c++  -I/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/src -I/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh/_deps/json-src/include -isystem /usr/local/Cellar/xz/5.8.3/include -isystem /usr/local/opt/jpeg-turbo/include -std=gnu++11 -I/usr/local/include -o CMakeFiles/HighlineRidge.dir/src/ImageCompression.cpp.o -c /Users/mreff555/.grok/worktrees/src-detective-game/detective-game/src/ImageCompression.cpp",
+  "file": "/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/src/ImageCompression.cpp",
+  "output": "CMakeFiles/HighlineRidge.dir/src/ImageCompression.cpp.o"
+}
+]

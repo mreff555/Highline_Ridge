@@ -1,0 +1,5 @@
+/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh/CMakeFiles/HighlineRidge.dir
+/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh/CMakeFiles/edit_cache.dir
+/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh/CMakeFiles/rebuild_cache.dir
+/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh/_deps/json-build/CMakeFiles/edit_cache.dir
+/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh/_deps/json-build/CMakeFiles/rebuild_cache.dir

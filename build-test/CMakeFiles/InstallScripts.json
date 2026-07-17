@@ -1,0 +1,12 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-test/cmake_install.cmake",
+		"/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-test/_deps/raylib-build/cmake_install.cmake",
+		"/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-test/_deps/raylib-build/raylib/cmake_install.cmake",
+		"/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-test/_deps/raylib-build/raylib/external/glfw/cmake_install.cmake",
+		"/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-test/_deps/raylib-build/raylib/external/glfw/src/cmake_install.cmake",
+		"/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-test/_deps/json-build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

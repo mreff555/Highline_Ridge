@@ -1,0 +1,138 @@
+{
+  "saloon_front": {
+    "speakPhases": [
+      {
+        "id": "cowboy",
+        "type": "once",
+        "resetOnSceneEnter": false,
+        "text": "You square your shoulders and approach with the careful posture of a man who means to be taken seriously. Professional, unhurried, hard enough at the edges that no one mistakes you for lost. The cowboy still does not look at you until you are close enough to count the ash on his cigarette.\n\n\"Evening,\" you say.\n\nHe exhales through his nose. Not quite a laugh. \"Evening.\"\n\nYou try idle ground first. Weather, the road, the piano bleeding through the saloon walls. He lets you talk. When you mention the cold, he taps ash into the dust. When you mention the view, he says, \"Always there.\" It is the tone of a man answering a question he has already answered too many times. You realize, with a slow cold certainty, that he knows you. There is no warmth in it and no hostility either. Just recognition, flat and complete, as though your face is an old receipt he has been carrying in his pocket.\n\nYou stop circling and ask what you came to ask. \"Where am I?\"\n\nNow he looks at you. Hat brim lifting just enough to show eyes that are tired more than anything else.\n\n\"Highline,\" he says. \"You're on the Highline. Ridge settlement. cabins, shops, fools who think altitude makes them honest.\" He jerks his chin toward the drop where the clouds boil below. \"Graysmill's down there in the valley. Mill town, rail town, always was. They cut timber out of these slopes till the hills went bald, floated it downriver, built their factories, filled their streets. Highline stayed up here 'cause the air kept the timber from rotting and the men with money liked the view. Saloons came next. Then gamblers. Then people like you.\"\n\nHe studies you a moment longer, annoyed in the way of a man whose quiet has been interrupted by something he cannot simply walk away from.\n\n\"We had this same talk two days ago,\" he says. \"Same questions. Same look on your face when I said Graysmill. I'm not sure you heard me then either.\"\n\nThe cigarette glows again. He eyes you the way a man eyes a cracked axle, not angry, just certain something is going to give.\n\n\"You don't look quite right,\" he says. \"Pale. Jumping at nothing. You ought to take it easy on the drink, or whatever it is you've been taking. I'm not telling you twice.\"",
+        "status": {
+          "key": "saloon_front:cowboy",
+          "tenacity": 5
+        }
+      },
+      {
+        "id": "cowboy_path",
+        "type": "once",
+        "resetOnSceneEnter": false,
+        "requiresPhase": "cowboy",
+        "requiresFlag": "path_c:overlook",
+        "text": "You tell him about the hanging tree marker, the charcoal ring, the survey stakes, the silk in the ice house. You do not tell him everything. You tell him enough.\n\nFor the first time since you arrived, he looks at you as though you are real.\n\n\"You found the tree,\" he says. The cigarette has gone out. He does not relight it. \"Then you already know why I don't ride anymore.\"\n\nHe turns his gaze back to the batwing doors, jaw working once.\n\n\"Company men,\" he says. \"They measured by the chain and called it justice. I was supposed to hold the rope. I didn't. That's not the same as innocent, but it's why I'm still here and they're still down in Graysmill pretending the fog is weather.\"\n\nHe finally meets your eyes.\n\n\"Don't go back up that path at night. Not until you remember whose name was scratched off that tin.\""
+      }
+    ]
+  },
+  "saloon_interior": {
+    "speakPhases": [
+      {
+        "id": "bartender",
+        "type": "scripted",
+        "resetOnSceneEnter": true,
+        "intro": "You step to the bar. The noise closes around you, then parts. The bartender meets your eyes with a neutral expression that gives away nothing. He knows you. That much is plain. He is not inclined to tell a story about it.\n\n\"You want the usual?\" he says, rag finally moving again across the wood.",
+        "choices": [
+          {
+            "id": "water",
+            "label": "> No, just a water",
+            "response": "The bartender holds your gaze a beat longer than necessary, then turns away for a glass. He sets it on the bar without ceremony. Water, clear and cold. Under his breath, barely audible above the piano, he mutters that he is perfectly all right with you not drinking in his establishment. The words are flat. Not cruel. Not kind. Simply settled.\n\nYou lift the glass and drink. The water cuts clean through the smoke in your throat and the ash at the back of your tongue. Your head steadies. The room feels a fraction less unreal, as though someone has wiped a smear from a window you did not know was dirty.",
+            "status": {
+              "key": "saloon_interior:water",
+              "health": 5,
+              "lucidity": 10
+            }
+          },
+          {
+            "id": "usual",
+            "label": "> Sure",
+            "response": "The bartender's jaw tightens almost imperceptibly. He reaches high above the backbar, to a shelf you would need a ladder to trust, and brings down a bottle of bourbon with an artistic label and a wax seal dark as blood. He pours a single shot without measuring, slides it across the pine, and watches you with a look that could crush stone.\n\nYou down it anyway. Fire and oak. The room tilts half a degree and rights itself. Your resolve hardens even as your thoughts go slippery at the edges.",
+            "status": {
+              "key": "saloon_interior:usual",
+              "tenacity": 20,
+              "lucidity": -10,
+              "onZeroLucidity": "restart_cabin"
+            }
+          }
+        ]
+      },
+      {
+        "id": "bartender_path",
+        "type": "once",
+        "resetOnSceneEnter": false,
+        "requiresPhase": "bartender",
+        "requiresFlag": "path_c:overlook",
+        "text": "You lean on the bar and tell him what you found on the narrow path - the stakes, the ice house, the bench carved for a name you cannot finish. You keep your voice low. The piano does not stop, but the bartender does.\n\nHe reaches high above the backbar without asking what you want and sets a glass of bourbon on the pine in front of you. No measure. No ceremony.\n\n\"Some stories you drink to forget on purpose,\" he says. \"You always did.\"\n\nYou lift the glass. You do not remember deciding to. Fire and oak hit the back of your throat and the bench on the ridge flashes behind your eyes - fog, carved wood, a name stopped mid-letter. The room steadies again, but the drink stays with you, heavy and certain.\n\nHe turns away without watching to see whether you finished it. The sawdust takes a single fallen drop, as though the bar itself has marked the account paid.",
+        "status": {
+          "key": "saloon_interior:bartender_path",
+          "tenacity": 10,
+          "lucidity": -15
+        }
+      },
+      {
+        "id": "patrons",
+        "type": "random",
+        "requiresPhase": "bartender",
+        "poolId": "patrons",
+        "avoidRepeat": true,
+        "resetOnSceneEnter": true,
+        "lines": [
+          {
+            "id": "faro_player",
+            "text": "A faro player at the stove table looks up long enough to fan his cards. \"House always remembers,\" he says, and returns to his stack as though you are part of the furniture."
+          },
+          {
+            "id": "burgundy_woman",
+            "text": "On the balcony, a woman in burgundy silk follows your movement with professional interest. \"Back early,\" she murmurs, and the words are not quite a question."
+          },
+          {
+            "id": "piano_player",
+            "text": "The piano player cuts a glance your way mid-phrase, fingers never stopping. \"Easy now,\" he says to the keys, but you suspect the advice is meant for you."
+          },
+          {
+            "id": "miner",
+            "text": "A miner at the poker table rubs a thumb over a chipped ace. \"Luck ain't a debt you can outrun,\" he mutters, and the table laughs without warmth."
+          },
+          {
+            "id": "barmaid",
+            "text": "A barmaid passes with an empty tray, eyes flicking over you once. \"Mind the stairs,\" she says, already gone into the crowd."
+          }
+        ]
+      }
+    ]
+  },
+  "saloon_balcony": {
+    "speakPhases": [
+      {
+        "id": "blue_woman",
+        "type": "scripted",
+        "resetOnSceneEnter": true,
+        "intro": "The woman in blue does not startle when you approach. She finishes her thought with the two at the rail, lets them laugh without her, and turns as though you were expected.\n\nShe takes a slow drag from her cigarette, exhales through the side of her mouth, and studies you with that same focused calm.\n\n\"You disappeared this morning,\" she says. Not accusation. Inventory.",
+        "choices": [
+          {
+            "id": "stay_last_night",
+            "label": "> Did I stay with you last night?",
+            "response": "Her smile returns for half a heartbeat, then goes still.\n\n\"You stayed,\" she says. \"You always do, until you don't.\" She taps ash into the rail groove with a neat flick of her wrist. \"You asked questions in your sleep. The same ones. Where you are. Who brought you. Whether the fog was weather.\" She holds your gaze without blinking. \"I answered none of them. I am not sure you heard me when you woke either.\"\n\nBelow, the piano stumbles and recovers. The two women at the rail glance back once, decide you are not their business, and return to their gossip.",
+            "status": {
+              "key": "saloon_balcony:stay_last_night",
+              "lucidity": -5
+            }
+          },
+          {
+            "id": "ignore_comment",
+            "label": "> Ignore the comment",
+            "response": "You let the words hang and look out over the room instead. Patrons, cards, smoke, the machinery of appetite running on schedule.\n\n\"Suit yourself,\" she says, voice mild. Not offended. Accustomed. She takes another drag and watches the main floor the way the other women do, as though you have chosen a role she already priced.\n\nAfter a moment she adds, quietly, \"You will ask eventually. You always do.\"",
+            "status": {
+              "key": "saloon_balcony:ignore_comment",
+              "tenacity": 5
+            }
+          }
+        ]
+      },
+      {
+        "id": "burgundy_path",
+        "type": "once",
+        "resetOnSceneEnter": false,
+        "requiresPhase": "blue_woman",
+        "requiresFlag": "path_c:hanging_tree",
+        "text": "The woman in blue listens while you tell her about the hanging tree marker, the charcoal ring, the stakes, the silk in the ice house. She does not interrupt.\n\nWhen you finish, she nods once, as though a column in her ledger has finally balanced.\n\n\"You went up the path,\" she says. It is not a question. \"You always do, and you always come back with that look - like the mountain showed you a face you refused to wear.\"\n\nHer voice drops beneath the piano.\n\n\"They hung the wrong man. He was still breathing when they cut him down.\" She holds your gaze without blinking. \"He still is.\"\n\nThen the room reclaims her. She leans over the rail and laughs for a patron below as though nothing happened, leaving you with the words like a splinter under the nail."
+      }
+    ]
+  }
+}

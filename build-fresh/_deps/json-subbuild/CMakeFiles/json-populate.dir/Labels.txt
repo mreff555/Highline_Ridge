@@ -1,0 +1,14 @@
+# Target labels
+ json-populate
+# Source files and their labels
+/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh/_deps/json-subbuild/CMakeFiles/json-populate
+/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh/_deps/json-subbuild/CMakeFiles/json-populate.rule
+/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh/_deps/json-subbuild/CMakeFiles/json-populate-complete.rule
+/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh/_deps/json-subbuild/json-populate-prefix/src/json-populate-stamp/json-populate-build.rule
+/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh/_deps/json-subbuild/json-populate-prefix/src/json-populate-stamp/json-populate-configure.rule
+/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh/_deps/json-subbuild/json-populate-prefix/src/json-populate-stamp/json-populate-download.rule
+/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh/_deps/json-subbuild/json-populate-prefix/src/json-populate-stamp/json-populate-install.rule
+/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh/_deps/json-subbuild/json-populate-prefix/src/json-populate-stamp/json-populate-mkdir.rule
+/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh/_deps/json-subbuild/json-populate-prefix/src/json-populate-stamp/json-populate-patch.rule
+/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh/_deps/json-subbuild/json-populate-prefix/src/json-populate-stamp/json-populate-test.rule
+/Users/mreff555/.grok/worktrees/src-detective-game/detective-game/build-fresh/_deps/json-subbuild/json-populate-prefix/src/json-populate-stamp/json-populate-update.rule

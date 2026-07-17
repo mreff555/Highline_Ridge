@@ -1,0 +1,47 @@
+{
+  "combinations": [
+    {
+      "id": "fabric_wire_wick",
+      "itemA": "wool_fabric_sample",
+      "itemB": "copper_wire_spool",
+      "requirements": {
+        "copper_wire_spool": {
+          "notFlags": ["wire_partially_used"]
+        }
+      },
+      "effects": [
+        { "remove": "wool_fabric_sample" },
+        { "addFlag": { "item": "copper_wire_spool", "flag": "wire_partially_used" } },
+        { "grant": "wick" }
+      ]
+    },
+    {
+      "id": "knife_drill_lamp_oil",
+      "itemA": "hunting_knife",
+      "itemB": "lamp_oil",
+      "requirements": {
+        "lamp_oil": {
+          "notFlags": ["drilled_stopper"]
+        }
+      },
+      "effects": [
+        { "addFlag": { "item": "lamp_oil", "flag": "drilled_stopper" } }
+      ]
+    },
+    {
+      "id": "oil_wick_lantern",
+      "itemA": "lamp_oil",
+      "itemB": "wick",
+      "requirements": {
+        "lamp_oil": {
+          "flags": ["drilled_stopper"]
+        }
+      },
+      "effects": [
+        { "remove": "lamp_oil" },
+        { "remove": "wick" },
+        { "grant": "crude_lantern" }
+      ]
+    }
+  ]
+}

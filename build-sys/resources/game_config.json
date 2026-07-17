@@ -1,0 +1,24 @@
+{
+  "display": {
+    "width": 1500,
+    "height": 1117,
+    "fullscreen": false
+  },
+  "audio": {
+    "master": 1.0,
+    "music": 0.7,
+    "ambient": 0.5,
+    "sfx": 0.8
+  },
+  "input": {
+    "clickHoldSeconds": 0.1
+  },
+  "tts": {
+    "enabled": true,
+    "voice": "leo",
+    "bundleDir": "resources/audio/tts"
+  },
+  "saves": {
+    "maxNamedSaves": 10
+  }
+}
