@@ -1451,15 +1451,16 @@ struct SceneEditorApp
         return false;
     }
 
-    Vector2 cardPort(Rectangle card, const std::string& side) const
+    Vector2 cardPort(Rectangle card, const std::string& side, float outward = 0.0f) const
     {
+        // Keep endpoints just outside the card so links never sit under thumbnails.
         if (side == "left")
-            return {card.x, card.y + card.height * 0.5f};
+            return {card.x - outward, card.y + card.height * 0.5f};
         if (side == "right")
-            return {card.x + card.width, card.y + card.height * 0.5f};
+            return {card.x + card.width + outward, card.y + card.height * 0.5f};
         if (side == "top")
-            return {card.x + card.width * 0.5f, card.y};
-        return {card.x + card.width * 0.5f, card.y + card.height};
+            return {card.x + card.width * 0.5f, card.y - outward};
+        return {card.x + card.width * 0.5f, card.y + card.height + outward};
     }
 
     std::string facingSide(Rectangle from, Rectangle to) const
@@ -1496,6 +1497,9 @@ struct SceneEditorApp
 
     void drawPolyline(const std::vector<Vector2>& points) const
     {
+        // Dark underlay keeps gold links readable on busy backgrounds.
+        for (size_t i = 0; i + 1 < points.size(); ++i)
+            DrawLineEx(points[i], points[i + 1], 4.0f, Color{8, 7, 12, 220});
         for (size_t i = 0; i + 1 < points.size(); ++i)
             DrawLineEx(points[i], points[i + 1], 2.0f, kExitArrow);
 
@@ -1546,12 +1550,13 @@ struct SceneEditorApp
             toSide = oppositeSide(fromSide);
         }
 
-        const Vector2 start = cardPort(fromCard, fromSide);
-        const Vector2 end = cardPort(toCard, toSide);
+        const float portOutset = 8.0f;
+        const Vector2 start = cardPort(fromCard, fromSide, portOutset);
+        const Vector2 end = cardPort(toCard, toSide, portOutset);
 
         std::vector<std::vector<Vector2> > candidates;
 
-        // Straight orthogonal if aligned.
+        // Straight orthogonal if aligned in the gutter.
         if (std::fabs(start.x - end.x) < 1.0f || std::fabs(start.y - end.y) < 1.0f)
         {
             std::vector<Vector2> straight;
@@ -1577,8 +1582,10 @@ struct SceneEditorApp
         }
 
         // U routes around the pair using mid-corridor offsets.
-        const float midX = (fromCard.x + fromCard.width + toCard.x) * 0.5f;
-        const float midY = (fromCard.y + fromCard.height + toCard.y) * 0.5f;
+        const float midX =
+            0.5f * ((fromCard.x + fromCard.width * 0.5f) + (toCard.x + toCard.width * 0.5f));
+        const float midY =
+            0.5f * ((fromCard.y + fromCard.height * 0.5f) + (toCard.y + toCard.height * 0.5f));
         const float above = std::min(fromCard.y, toCard.y) - kLayoutGapY * 0.5f;
         const float below = std::max(fromCard.y + fromCard.height, toCard.y + toCard.height) +
             kLayoutGapY * 0.5f;
@@ -1690,16 +1697,10 @@ struct SceneEditorApp
                 const Rectangle fromCard = sceneCardBounds(fromId, canvasBounds);
                 const Rectangle toCard = sceneCardBounds(toId, canvasBounds);
 
-                std::vector<Rectangle> obstacles;
-                for (size_t c = 0; c < levelIds.size(); ++c)
-                {
-                    if (levelIds[c] == fromId || levelIds[c] == toId)
-                        continue;
-                    obstacles.push_back(allCards[c]);
-                }
-
+                // Treat every card as an obstacle so routes stay in gutters only.
+                // Ports are outset outside the cards so endpoints remain valid.
                 const std::vector<Vector2> route =
-                    buildOrthogonalRoute(fromCard, toCard, dirs[d], obstacles);
+                    buildOrthogonalRoute(fromCard, toCard, dirs[d], allCards);
                 drawPolyline(route);
             }
         }
@@ -1840,8 +1841,8 @@ struct SceneEditorApp
             static_cast<int>(canvasBounds.width),
             static_cast<int>(canvasBounds.height - 36.0f));
 
-        drawExitArrows(canvasBounds);
-
+        // Draw cards first, then links on top so arrows are never half-hidden
+        // under thumbnails.
         const std::vector<std::string> ids = scenesDoc.sceneIds();
         for (const std::string& id : ids)
         {
@@ -1884,6 +1885,7 @@ struct SceneEditorApp
             }
         }
 
+        drawExitArrows(canvasBounds);
         drawStairIcons(canvasBounds);
 
         if (!stackDialogOpen &&
