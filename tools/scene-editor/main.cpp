@@ -251,6 +251,7 @@ struct SceneEditorApp
     std::string loadError;
     SceneDocument scenesDoc;
     Font uiFont{};
+    Font uiFontBold{};
 
     std::vector<std::string> jsonTabs;
     int activeTabIndex = 0;
@@ -289,25 +290,18 @@ struct SceneEditorApp
         return GetFontDefault();
     }
 
-    void loadUiFont()
+    Font boldFont() const
     {
-        if (uiFont.texture.id != 0)
-        {
-            UnloadFont(uiFont);
-            uiFont = Font{};
-        }
+        if (uiFontBold.texture.id != 0)
+            return uiFontBold;
+        return textFont();
+    }
 
-        const std::string candidates[] = {
-            pathJoin(resourceDir, "fonts/CourierPrime-Regular.ttf"),
-            pathJoin(assetRoot, "resources/fonts/CourierPrime-Regular.ttf"),
-            pathJoin(assetRoot, "fonts/CourierPrime-Regular.ttf"),
-            "/System/Library/Fonts/Supplemental/Courier New.ttf",
-            "/System/Library/Fonts/Supplemental/Arial.ttf",
-            "/System/Library/Fonts/Helvetica.ttc"
-        };
-
-        for (const std::string& path : candidates)
+    Font tryLoadFont(const std::string candidates[], size_t count) const
+    {
+        for (size_t i = 0; i < count; ++i)
         {
+            const std::string& path = candidates[i];
             if (path.empty() || !FileExists(path.c_str()))
                 continue;
 
@@ -316,19 +310,59 @@ struct SceneEditorApp
                 continue;
 
             SetTextureFilter(font.texture, TEXTURE_FILTER_BILINEAR);
-            uiFont = font;
             TraceLog(LOG_INFO, "SCENE EDITOR: loaded UI font %s", path.c_str());
-            return;
+            return font;
         }
 
-        TraceLog(LOG_WARNING, "SCENE EDITOR: UI font not found; using default");
+        return Font{};
+    }
+
+    void loadUiFont()
+    {
+        if (uiFont.texture.id != 0)
+        {
+            UnloadFont(uiFont);
+            uiFont = Font{};
+        }
+        if (uiFontBold.texture.id != 0)
+        {
+            UnloadFont(uiFontBold);
+            uiFontBold = Font{};
+        }
+
+        const std::string regularCandidates[] = {
+            pathJoin(resourceDir, "fonts/CourierPrime-Regular.ttf"),
+            pathJoin(assetRoot, "resources/fonts/CourierPrime-Regular.ttf"),
+            pathJoin(assetRoot, "fonts/CourierPrime-Regular.ttf"),
+            "/System/Library/Fonts/Supplemental/Courier New.ttf",
+            "/System/Library/Fonts/Supplemental/Arial.ttf",
+            "/System/Library/Fonts/Helvetica.ttc"
+        };
+        const std::string boldCandidates[] = {
+            pathJoin(resourceDir, "fonts/CourierPrime-Bold.ttf"),
+            pathJoin(assetRoot, "resources/fonts/CourierPrime-Bold.ttf"),
+            pathJoin(assetRoot, "fonts/CourierPrime-Bold.ttf"),
+            "/System/Library/Fonts/Supplemental/Courier New Bold.ttf",
+            "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
+        };
+
+        uiFont = tryLoadFont(regularCandidates, sizeof(regularCandidates) / sizeof(regularCandidates[0]));
+        uiFontBold = tryLoadFont(boldCandidates, sizeof(boldCandidates) / sizeof(boldCandidates[0]));
+
+        if (uiFont.texture.id == 0)
+            TraceLog(LOG_WARNING, "SCENE EDITOR: UI font not found; using default");
+        if (uiFontBold.texture.id == 0)
+            TraceLog(LOG_WARNING, "SCENE EDITOR: bold UI font not found; stair icons use regular");
     }
 
     void unloadUiFont()
     {
         if (uiFont.texture.id != 0)
             UnloadFont(uiFont);
+        if (uiFontBold.texture.id != 0 && uiFontBold.texture.id != uiFont.texture.id)
+            UnloadFont(uiFontBold);
         uiFont = Font{};
+        uiFontBold = Font{};
     }
 
     void initLayout(int screenWidth, int screenHeight)
@@ -1044,15 +1078,16 @@ struct SceneEditorApp
                 continue;
 
             const Rectangle card = sceneCardBounds(id, canvasBounds);
-            float iconX = card.x + card.width - 20.0f;
+            const float iconSize = 20.0f;
+            float iconX = card.x + card.width - 22.0f;
             if (hasUp)
             {
-                DrawTextEx(textFont(), "^", {iconX, card.y + 4.0f}, 16.0f, 1.0f, kPanelBorder);
-                iconX -= 14.0f;
+                DrawTextEx(boldFont(), "^", {iconX, card.y + 2.0f}, iconSize, 1.0f, kPanelBorder);
+                iconX -= 16.0f;
             }
             if (hasDown)
             {
-                DrawTextEx(textFont(), "v", {iconX, card.y + 4.0f}, 16.0f, 1.0f, kPanelBorder);
+                DrawTextEx(boldFont(), "v", {iconX, card.y + 2.0f}, iconSize, 1.0f, kPanelBorder);
             }
         }
     }
