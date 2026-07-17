@@ -67,6 +67,7 @@ const float kLayoutGapY = 96.0f;
 const float kLinkStubLength = 28.0f;
 const float kArrowHeadLength = 12.0f;
 const float kArrowHeadHalfWidth = 5.0f;
+const float kLinkEndCapRadius = 7.0f;
 const float kLayoutOriginX = 40.0f;
 const float kLayoutOriginY = 48.0f;
 const float kListThumbSize = 48.0f;
@@ -1509,6 +1510,30 @@ struct SceneEditorApp
         return "top";
     }
 
+    std::string oppositeDirection(const std::string& direction) const
+    {
+        if (direction == "left")
+            return "right";
+        if (direction == "right")
+            return "left";
+        if (direction == "forward")
+            return "backward";
+        if (direction == "backward")
+            return "forward";
+        return "";
+    }
+
+    bool isOppositeReciprocal(
+        const std::string& fromId,
+        const std::string& direction,
+        const std::string& toId) const
+    {
+        const std::string reverseDir = oppositeDirection(direction);
+        if (reverseDir.empty())
+            return false;
+        return getExitTarget(toId, reverseDir) == fromId;
+    }
+
     void drawArrowHead(Vector2 tip, Vector2 fromDir) const
     {
         Vector2 direction = Vector2Normalize(fromDir);
@@ -1521,20 +1546,71 @@ struct SceneEditorApp
         DrawTriangle(p1, tip, p2, kExitArrow);
     }
 
-    void drawPolyline(const std::vector<Vector2>& points) const
+    // Semicircle at the source edge: flat diameter on the scene border, curve outward.
+    void drawSourceEndCap(Vector2 edgePoint, const std::string& fromSide) const
+    {
+        // raylib angles: 0 = east, clockwise positive.
+        float startAngle = 0.0f;
+        float endAngle = 180.0f;
+        if (fromSide == "right")
+        {
+            startAngle = -90.0f;
+            endAngle = 90.0f;
+        }
+        else if (fromSide == "left")
+        {
+            startAngle = 90.0f;
+            endAngle = 270.0f;
+        }
+        else if (fromSide == "top")
+        {
+            startAngle = 180.0f;
+            endAngle = 360.0f;
+        }
+        else // bottom
+        {
+            startAngle = 0.0f;
+            endAngle = 180.0f;
+        }
+
+        DrawCircleSector(edgePoint, kLinkEndCapRadius, startAngle, endAngle, 18, kExitArrow);
+        DrawCircleSectorLines(edgePoint, kLinkEndCapRadius, startAngle, endAngle, 18, kPanelBorder);
+
+        // Flat diameter flush with the card edge.
+        const Vector2 normal = sideOutwardNormal(fromSide);
+        const Vector2 tangent = {-normal.y, normal.x};
+        const Vector2 a = Vector2Subtract(edgePoint, Vector2Scale(tangent, kLinkEndCapRadius));
+        const Vector2 b = Vector2Add(edgePoint, Vector2Scale(tangent, kLinkEndCapRadius));
+        DrawLineEx(a, b, 2.0f, kPanelBorder);
+    }
+
+    void drawPolyline(
+        const std::vector<Vector2>& points,
+        bool arrowAtStart,
+        bool arrowAtEnd,
+        bool semicircleAtStart,
+        const std::string& fromSide) const
     {
         if (points.size() < 2)
             return;
 
-        // Full path meets both card edges; arrow sits on the final approach.
         for (size_t i = 0; i + 1 < points.size(); ++i)
             DrawLineEx(points[i], points[i + 1], 4.0f, Color{8, 7, 12, 220});
         for (size_t i = 0; i + 1 < points.size(); ++i)
             DrawLineEx(points[i], points[i + 1], 2.0f, kExitArrow);
 
-        const Vector2& a = points[points.size() - 2];
-        const Vector2& b = points[points.size() - 1];
-        drawArrowHead(b, Vector2Subtract(b, a));
+        const Vector2& p0 = points[0];
+        const Vector2& p1 = points[1];
+        const Vector2& pN1 = points[points.size() - 2];
+        const Vector2& pN = points[points.size() - 1];
+
+        if (semicircleAtStart)
+            drawSourceEndCap(p0, fromSide);
+        else if (arrowAtStart)
+            drawArrowHead(p0, Vector2Subtract(p0, p1));
+
+        if (arrowAtEnd)
+            drawArrowHead(pN, Vector2Subtract(pN, pN1));
     }
 
     std::vector<Vector2> buildOrthogonalRoute(
@@ -1711,41 +1787,66 @@ struct SceneEditorApp
         for (const std::string& id : levelIds)
             allCards.push_back(sceneCardBounds(id, canvasBounds));
 
+        // Obstacles exclude the two endpoints of each link (stubs leave those cards).
         for (size_t i = 0; i < levelIds.size(); ++i)
         {
             const std::string& fromId = levelIds[i];
             const char* dirs[] = {"forward", "backward", "left", "right"};
             for (size_t d = 0; d < 4; ++d)
             {
-                const std::string toId = getExitTarget(fromId, dirs[d]);
+                const std::string direction = dirs[d];
+                const std::string toId = getExitTarget(fromId, direction);
                 if (toId.empty() || !isSameLevelLink(fromId, toId))
                     continue;
 
-                // Draw each undirected pair once (prefer lexicographically smaller source).
-                if (fromId > toId)
-                {
-                    bool hasReverseAny = false;
-                    const char* reverseDirs[] = {"forward", "backward", "left", "right"};
-                    for (size_t r = 0; r < 4; ++r)
-                    {
-                        if (getExitTarget(toId, reverseDirs[r]) == fromId)
-                        {
-                            hasReverseAny = true;
-                            break;
-                        }
-                    }
-                    if (hasReverseAny)
-                        continue;
-                }
+                const bool reciprocalOpposite = isOppositeReciprocal(fromId, direction, toId);
+
+                // Mutual opposite pair: draw once with arrows on both ends.
+                if (reciprocalOpposite && fromId > toId)
+                    continue;
 
                 const Rectangle fromCard = sceneCardBounds(fromId, canvasBounds);
                 const Rectangle toCard = sceneCardBounds(toId, canvasBounds);
 
-                // Treat every card as an obstacle so routes stay in gutters only.
-                // Ports are outset outside the cards so endpoints remain valid.
+                std::vector<Rectangle> obstacles;
+                for (size_t c = 0; c < levelIds.size(); ++c)
+                {
+                    if (levelIds[c] == fromId || levelIds[c] == toId)
+                        continue;
+                    obstacles.push_back(allCards[c]);
+                }
+
                 const std::vector<Vector2> route =
-                    buildOrthogonalRoute(fromCard, toCard, dirs[d], allCards);
-                drawPolyline(route);
+                    buildOrthogonalRoute(fromCard, toCard, direction, obstacles);
+
+                std::string fromSide = "right";
+                int dCol = 0;
+                int dRow = 0;
+                if (directionDelta(direction, dCol, dRow))
+                {
+                    if (dCol > 0)
+                        fromSide = "right";
+                    else if (dCol < 0)
+                        fromSide = "left";
+                    else if (dRow < 0)
+                        fromSide = "top";
+                    else
+                        fromSide = "bottom";
+                }
+                else
+                {
+                    fromSide = facingSide(fromCard, toCard);
+                }
+
+                if (reciprocalOpposite)
+                {
+                    drawPolyline(route, true, true, false, fromSide);
+                }
+                else
+                {
+                    // One-way: semicircle at source edge, arrow into destination.
+                    drawPolyline(route, false, true, true, fromSide);
+                }
             }
         }
     }
