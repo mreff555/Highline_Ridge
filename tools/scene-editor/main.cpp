@@ -60,8 +60,13 @@ const float kMinBottomHeight = 140.0f;
 const float kTabHeight = 30.0f;
 const float kSceneCardWidth = 140.0f;
 const float kSceneCardHeight = 100.0f;
-const float kLayoutGapX = 72.0f; // corridor between cards for orthogonal links
-const float kLayoutGapY = 72.0f;
+// Corridors between cards: enough room for orthogonal links + full arrow heads
+// without sitting under scene thumbnails (especially for down-pointing arrows).
+const float kLayoutGapX = 96.0f;
+const float kLayoutGapY = 96.0f;
+const float kLinkPortOutset = 14.0f; // start/end outside the card edge
+const float kArrowHeadLength = 14.0f;
+const float kArrowHeadHalfWidth = 6.0f;
 const float kLayoutOriginX = 40.0f;
 const float kLayoutOriginY = 48.0f;
 const float kListThumbSize = 48.0f;
@@ -1488,27 +1493,37 @@ struct SceneEditorApp
         Vector2 direction = Vector2Normalize(fromDir);
         if (Vector2Length(direction) < 0.01f)
             direction = {1.0f, 0.0f};
-        const Vector2 base = Vector2Subtract(tip, Vector2Scale(direction, 12.0f));
+        const Vector2 base = Vector2Subtract(tip, Vector2Scale(direction, kArrowHeadLength));
         const Vector2 ortho = {-direction.y, direction.x};
-        const Vector2 p1 = Vector2Add(base, Vector2Scale(ortho, 5.0f));
-        const Vector2 p2 = Vector2Subtract(base, Vector2Scale(ortho, 5.0f));
+        const Vector2 p1 = Vector2Add(base, Vector2Scale(ortho, kArrowHeadHalfWidth));
+        const Vector2 p2 = Vector2Subtract(base, Vector2Scale(ortho, kArrowHeadHalfWidth));
         DrawTriangle(p1, tip, p2, kExitArrow);
     }
 
     void drawPolyline(const std::vector<Vector2>& points) const
     {
-        // Dark underlay keeps gold links readable on busy backgrounds.
-        for (size_t i = 0; i + 1 < points.size(); ++i)
-            DrawLineEx(points[i], points[i + 1], 4.0f, Color{8, 7, 12, 220});
-        for (size_t i = 0; i + 1 < points.size(); ++i)
-            DrawLineEx(points[i], points[i + 1], 2.0f, kExitArrow);
+        if (points.size() < 2)
+            return;
 
-        if (points.size() >= 2)
+        // Stop the shaft short of the tip so the arrow head has reserved clear space
+        // (important when pointing down into the top of a scene card).
+        std::vector<Vector2> shaft = points;
+        const Vector2 tip = points.back();
+        Vector2 beforeTip = points[points.size() - 2];
+        Vector2 toTip = Vector2Subtract(tip, beforeTip);
+        const float tipSegmentLen = Vector2Length(toTip);
+        if (tipSegmentLen > kArrowHeadLength + 2.0f)
         {
-            const Vector2& a = points[points.size() - 2];
-            const Vector2& b = points[points.size() - 1];
-            drawArrowHead(b, Vector2Subtract(b, a));
+            const Vector2 dir = Vector2Scale(toTip, 1.0f / tipSegmentLen);
+            shaft.back() = Vector2Subtract(tip, Vector2Scale(dir, kArrowHeadLength));
         }
+
+        for (size_t i = 0; i + 1 < shaft.size(); ++i)
+            DrawLineEx(shaft[i], shaft[i + 1], 4.0f, Color{8, 7, 12, 220});
+        for (size_t i = 0; i + 1 < shaft.size(); ++i)
+            DrawLineEx(shaft[i], shaft[i + 1], 2.0f, kExitArrow);
+
+        drawArrowHead(tip, Vector2Subtract(tip, beforeTip));
     }
 
     std::vector<Vector2> buildOrthogonalRoute(
@@ -1550,9 +1565,9 @@ struct SceneEditorApp
             toSide = oppositeSide(fromSide);
         }
 
-        const float portOutset = 8.0f;
-        const Vector2 start = cardPort(fromCard, fromSide, portOutset);
-        const Vector2 end = cardPort(toCard, toSide, portOutset);
+        // Reserve clear space outside each card for the full arrow head.
+        const Vector2 start = cardPort(fromCard, fromSide, kLinkPortOutset);
+        const Vector2 end = cardPort(toCard, toSide, kLinkPortOutset);
 
         std::vector<std::vector<Vector2> > candidates;
 
