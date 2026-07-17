@@ -1079,15 +1079,28 @@ struct SceneEditorApp
 
             const Rectangle card = sceneCardBounds(id, canvasBounds);
             const float iconSize = 20.0f;
-            float iconX = card.x + card.width - 22.0f;
+            const float iconSlot = 16.0f;
+            const int iconCount = (hasUp ? 1 : 0) + (hasDown ? 1 : 0);
+            const float badgePad = 3.0f;
+            const float badgeW = iconCount * iconSlot + badgePad * 2.0f;
+            const float badgeH = iconSize + badgePad;
+            const Rectangle badge = {
+                card.x + card.width - badgeW - 3.0f,
+                card.y + 2.0f,
+                badgeW,
+                badgeH};
+            DrawRectangleRec(badge, Color{8, 7, 12, 230});
+            DrawRectangleLinesEx(badge, 1.0f, Color{20, 18, 26, 255});
+
+            float iconX = badge.x + badge.width - badgePad - iconSlot;
             if (hasUp)
             {
-                DrawTextEx(boldFont(), "^", {iconX, card.y + 2.0f}, iconSize, 1.0f, kPanelBorder);
-                iconX -= 16.0f;
+                DrawTextEx(boldFont(), "^", {iconX, badge.y}, iconSize, 1.0f, kPanelBorder);
+                iconX -= iconSlot;
             }
             if (hasDown)
             {
-                DrawTextEx(boldFont(), "v", {iconX, card.y + 2.0f}, iconSize, 1.0f, kPanelBorder);
+                DrawTextEx(boldFont(), "v", {iconX, badge.y}, iconSize, 1.0f, kPanelBorder);
             }
         }
     }
