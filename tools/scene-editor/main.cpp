@@ -64,12 +64,9 @@ const float kSceneCardHeight = 100.0f;
 // without sitting under scene thumbnails (especially for down-pointing arrows).
 const float kLayoutGapX = 96.0f;
 const float kLayoutGapY = 96.0f;
+const float kLinkPortOutset = 14.0f; // start/end outside the card edge
 const float kArrowHeadLength = 14.0f;
 const float kArrowHeadHalfWidth = 6.0f;
-// Visible shaft after a 90° turn, before the arrow head (a few pixels of line).
-const float kArrowVisibleStem = 3.0f;
-// Tip sits outside the card far enough for stem + full head.
-const float kLinkPortOutset = kArrowHeadLength + kArrowVisibleStem + 2.0f;
 const float kLayoutOriginX = 40.0f;
 const float kLayoutOriginY = 48.0f;
 const float kListThumbSize = 48.0f;
@@ -1503,64 +1500,19 @@ struct SceneEditorApp
         DrawTriangle(p1, tip, p2, kExitArrow);
     }
 
-    // Make sure the final approach has room for a short visible stem after any 90°
-    // bend, then the arrow head (all outside the destination card).
-    void ensureArrowApproach(std::vector<Vector2>& path) const
-    {
-        if (path.size() < 2)
-            return;
-
-        const float minApproach = kArrowHeadLength + kArrowVisibleStem;
-        const Vector2 tip = path.back();
-        Vector2& bend = path[path.size() - 2];
-        const float dx = tip.x - bend.x;
-        const float dy = tip.y - bend.y;
-        const float len = std::sqrt(dx * dx + dy * dy);
-        if (len >= minApproach - 0.1f)
-            return;
-
-        if (std::fabs(dx) >= std::fabs(dy))
-        {
-            // Horizontal approach into the tip.
-            const float sign = (dx >= 0.0f) ? 1.0f : -1.0f;
-            bend.x = tip.x - sign * minApproach;
-            bend.y = tip.y;
-        }
-        else
-        {
-            // Vertical approach (e.g. pointing down into a card top).
-            const float sign = (dy >= 0.0f) ? 1.0f : -1.0f;
-            bend.x = tip.x;
-            bend.y = tip.y - sign * minApproach;
-        }
-
-        // Keep the previous segment orthogonal after moving the bend.
-        if (path.size() >= 3)
-        {
-            Vector2& prev = path[path.size() - 3];
-            if (std::fabs(dx) >= std::fabs(dy))
-                prev.y = bend.y;
-            else
-                prev.x = bend.x;
-        }
-    }
-
     void drawPolyline(const std::vector<Vector2>& points) const
     {
         if (points.size() < 2)
             return;
 
-        std::vector<Vector2> path = points;
-        ensureArrowApproach(path);
-
-        // Shaft ends where the arrow head begins, leaving kArrowVisibleStem of
-        // line visible after the last 90° turn when the approach is long enough.
-        std::vector<Vector2> shaft = path;
-        const Vector2 tip = path.back();
-        const Vector2 beforeTip = path[path.size() - 2];
+        // Stop the shaft short of the tip so the arrow head has reserved clear space
+        // (important when pointing down into the top of a scene card).
+        std::vector<Vector2> shaft = points;
+        const Vector2 tip = points.back();
+        Vector2 beforeTip = points[points.size() - 2];
         Vector2 toTip = Vector2Subtract(tip, beforeTip);
         const float tipSegmentLen = Vector2Length(toTip);
-        if (tipSegmentLen > 0.1f)
+        if (tipSegmentLen > kArrowHeadLength + 2.0f)
         {
             const Vector2 dir = Vector2Scale(toTip, 1.0f / tipSegmentLen);
             shaft.back() = Vector2Subtract(tip, Vector2Scale(dir, kArrowHeadLength));
