@@ -17,6 +17,7 @@ using highline_ridge::SceneActor;
 using highline_ridge::SceneDocument;
 using highline_ridge::SceneLayout;
 using highline_ridge::buildAssetSearchPaths;
+using highline_ridge::compressedAssetPath;
 using highline_ridge::listDirectoryFileNames;
 using highline_ridge::loadTextureFromAssetFile;
 using highline_ridge::pathJoin;
@@ -173,7 +174,13 @@ bool ensureValidResourcePaths(std::string& resourceDir, std::string& assetRoot)
         assetRoot = parentDirectory(resourceDir);
 
     if (scenesFileExists(resourceDir))
+    {
+        // Image paths in scenes.json are like "resources/images/cabin.png", so
+        // the asset root is the parent of the resources directory.
+        if (assetRoot.empty() || !scenesFileExists(pathJoin(assetRoot, "resources")))
+            assetRoot = parentDirectory(resourceDir);
         return true;
+    }
 
     return resolveEditorPaths(resourceDir, assetRoot);
 }
@@ -452,10 +459,41 @@ struct SceneEditorApp
             return entry;
         }
 
+        // Match SceneLoader: prefer .png.xz (git-stored) then uncompressed paths.
         const std::vector<std::string> paths = buildAssetSearchPaths(assetRoot, imagePath);
         for (const std::string& path : paths)
         {
-            if (loadTextureFromAssetFile(path, entry.texture))
+            const std::string compressedPath = compressedAssetPath(path);
+            if (FileExists(compressedPath.c_str()) &&
+                loadTextureFromAssetFile(compressedPath, entry.texture))
+            {
+                entry.loaded = true;
+                return entry;
+            }
+
+            if (FileExists(path.c_str()) &&
+                loadTextureFromAssetFile(path, entry.texture))
+            {
+                entry.loaded = true;
+                return entry;
+            }
+        }
+
+        // Also search under the resource directory itself (resourceDir may be a
+        // symlink beside the binary while image paths are resources/images/...).
+        const std::string underResources = pathJoin(parentDirectory(resourceDir), imagePath);
+        if (!underResources.empty())
+        {
+            const std::string compressedPath = compressedAssetPath(underResources);
+            if (FileExists(compressedPath.c_str()) &&
+                loadTextureFromAssetFile(compressedPath, entry.texture))
+            {
+                entry.loaded = true;
+                return entry;
+            }
+
+            if (FileExists(underResources.c_str()) &&
+                loadTextureFromAssetFile(underResources, entry.texture))
             {
                 entry.loaded = true;
                 return entry;
