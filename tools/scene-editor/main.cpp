@@ -48,6 +48,8 @@ const Color kModalFill = {32, 30, 40, 255};
 const float kDividerSize = 8.0f;
 const float kPanelRoundness = 0.03f;
 const float kPanelBorderThick = 2.0f;
+const float kStatusBarHeight = 22.0f;
+const float kTopAreaRatio = 2.0f / 3.0f;
 const float kMinLeftWidth = 180.0f;
 const float kMinTopHeight = 200.0f;
 const float kMinBottomHeight = 140.0f;
@@ -268,6 +270,9 @@ struct SceneEditorApp
 
     float leftPaneWidth = 0.0f;
     float topAreaHeight = 0.0f;
+    bool userResizedTopSplit = false;
+    int lastScreenWidth = 0;
+    int lastScreenHeight = 0;
 
     float leftScroll = 0.0f;
     float variablesScroll = 0.0f;
@@ -372,25 +377,70 @@ struct SceneEditorApp
         uiFontBold = Font{};
     }
 
+    float contentHeight(int screenHeight) const
+    {
+        const float height = static_cast<float>(screenHeight) - kStatusBarHeight;
+        return height > 1.0f ? height : 1.0f;
+    }
+
+    void applyDefaultTopSplit(int screenHeight)
+    {
+        // Upper browser + canvas occupy 2/3 of the content area (above the status bar).
+        topAreaHeight = contentHeight(screenHeight) * kTopAreaRatio;
+    }
+
     void initLayout(int screenWidth, int screenHeight)
     {
-        leftPaneWidth = screenWidth * 0.2f;
-        topAreaHeight = screenHeight * (2.0f / 3.0f);
+        leftPaneWidth = static_cast<float>(screenWidth) * 0.2f;
+        applyDefaultTopSplit(screenHeight);
+        userResizedTopSplit = false;
+        lastScreenWidth = screenWidth;
+        lastScreenHeight = screenHeight;
+        clampLayout(screenWidth, screenHeight);
+    }
+
+    void syncLayoutToWindow(int screenWidth, int screenHeight)
+    {
+        if (screenWidth == lastScreenWidth && screenHeight == lastScreenHeight)
+            return;
+
+        if (!userResizedTopSplit || lastScreenHeight <= 0)
+        {
+            applyDefaultTopSplit(screenHeight);
+        }
+        else
+        {
+            const float previousContent = contentHeight(lastScreenHeight);
+            const float ratio = previousContent > 1.0f ? (topAreaHeight / previousContent) : kTopAreaRatio;
+            topAreaHeight = contentHeight(screenHeight) * ratio;
+        }
+
+        if (lastScreenWidth > 0)
+            leftPaneWidth *= static_cast<float>(screenWidth) / static_cast<float>(lastScreenWidth);
+        else
+            leftPaneWidth = static_cast<float>(screenWidth) * 0.2f;
+
+        lastScreenWidth = screenWidth;
+        lastScreenHeight = screenHeight;
+        clampLayout(screenWidth, screenHeight);
     }
 
     void clampLayout(int screenWidth, int screenHeight)
     {
-        const float maxLeft = screenWidth - kMinLeftWidth - 200.0f;
+        const float maxLeft = static_cast<float>(screenWidth) - kMinLeftWidth - 200.0f;
         if (leftPaneWidth < kMinLeftWidth)
             leftPaneWidth = kMinLeftWidth;
         if (leftPaneWidth > maxLeft)
             leftPaneWidth = maxLeft;
 
-        const float maxTop = screenHeight - kMinBottomHeight - 80.0f;
+        const float contentH = contentHeight(screenHeight);
+        const float maxTop = contentH - kMinBottomHeight - kDividerSize;
         if (topAreaHeight < kMinTopHeight)
             topAreaHeight = kMinTopHeight;
         if (topAreaHeight > maxTop)
             topAreaHeight = maxTop;
+        if (topAreaHeight < 1.0f)
+            topAreaHeight = contentH * kTopAreaRatio;
     }
 
     Rectangle topAreaBounds(int screenWidth) const
@@ -413,9 +463,12 @@ struct SceneEditorApp
 
     Rectangle bottomPaneBounds(int screenWidth, int screenHeight) const
     {
-        return {0.0f, topAreaHeight + kDividerSize,
-                static_cast<float>(screenWidth),
-                static_cast<float>(screenHeight) - topAreaHeight - kDividerSize};
+        const float contentH = contentHeight(screenHeight);
+        return {
+            0.0f,
+            topAreaHeight + kDividerSize,
+            static_cast<float>(screenWidth),
+            contentH - topAreaHeight - kDividerSize};
     }
 
     Rectangle verticalDividerBounds(int screenWidth) const
@@ -1630,7 +1683,10 @@ struct SceneEditorApp
             leftPaneWidth = mouse.x - vDiv.width * 0.5f;
 
         if (draggingHorizontalDivider && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        {
             topAreaHeight = mouse.y - hDiv.height * 0.5f;
+            userResizedTopSplit = true;
+        }
 
         clampLayout(screenWidth, screenHeight);
 
@@ -1662,15 +1718,20 @@ struct SceneEditorApp
 
     void update()
     {
+        const int screenWidth = GetScreenWidth();
+        const int screenHeight = GetScreenHeight();
+        syncLayoutToWindow(screenWidth, screenHeight);
+
         handleShortcuts();
         if (!stackDialogOpen)
-            handleDividers(GetScreenWidth(), GetScreenHeight());
+            handleDividers(screenWidth, screenHeight);
     }
 
     void draw()
     {
         const int screenWidth = GetScreenWidth();
         const int screenHeight = GetScreenHeight();
+        syncLayoutToWindow(screenWidth, screenHeight);
 
         BeginDrawing();
         ClearBackground(Color{14, 13, 18, 255});
@@ -1731,7 +1792,7 @@ int main(int argc, char** argv)
     }
 
     app.loadUiFont();
-    app.initLayout(screenWidth, screenHeight);
+    app.initLayout(GetScreenWidth(), GetScreenHeight());
     app.refreshTabs();
     app.loadActiveDocument();
 
