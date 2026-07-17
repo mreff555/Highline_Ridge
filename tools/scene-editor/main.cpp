@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <map>
 #include <queue>
+#include <set>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -59,6 +60,10 @@ const float kMinBottomHeight = 140.0f;
 const float kTabHeight = 30.0f;
 const float kSceneCardWidth = 140.0f;
 const float kSceneCardHeight = 100.0f;
+const float kLayoutGapX = 72.0f; // corridor between cards for orthogonal links
+const float kLayoutGapY = 72.0f;
+const float kLayoutOriginX = 40.0f;
+const float kLayoutOriginY = 48.0f;
 const float kListThumbSize = 48.0f;
 const float kListRowHeight = 56.0f;
 
@@ -754,32 +759,268 @@ struct SceneEditorApp
         return count;
     }
 
+    std::vector<std::string> scenesOnLevel(int level) const
+    {
+        std::vector<std::string> out;
+        const std::vector<std::string> ids = scenesDoc.sceneIds();
+        for (const std::string& id : ids)
+        {
+            if (scenesDoc.getLayout(id).level == level)
+                out.push_back(id);
+        }
+        return out;
+    }
+
+    bool isSameLevelLink(const std::string& fromId, const std::string& toId) const
+    {
+        if (!scenesDoc.hasScene(fromId) || !scenesDoc.hasScene(toId))
+            return false;
+        return scenesDoc.getLayout(fromId).level == scenesDoc.getLayout(toId).level;
+    }
+
+    bool directionDelta(const std::string& direction, int& outDCol, int& outDRow) const
+    {
+        if (direction == "right")
+        {
+            outDCol = 1;
+            outDRow = 0;
+            return true;
+        }
+        if (direction == "left")
+        {
+            outDCol = -1;
+            outDRow = 0;
+            return true;
+        }
+        // forward = "into" the room / up the screen; backward = toward the viewer.
+        if (direction == "forward")
+        {
+            outDCol = 0;
+            outDRow = -1;
+            return true;
+        }
+        if (direction == "backward")
+        {
+            outDCol = 0;
+            outDRow = 1;
+            return true;
+        }
+        return false;
+    }
+
+    std::string cellKey(int col, int row) const
+    {
+        return std::to_string(col) + "," + std::to_string(row);
+    }
+
+    void autoLayoutLevel(int level)
+    {
+        const std::vector<std::string> levelIds = scenesOnLevel(level);
+        if (levelIds.empty())
+            return;
+
+        std::map<std::string, std::vector<std::pair<std::string, std::string> > > neighbors;
+        for (const std::string& id : levelIds)
+        {
+            const char* dirs[] = {"forward", "backward", "left", "right"};
+            for (size_t i = 0; i < 4; ++i)
+            {
+                const std::string target = getExitTarget(id, dirs[i]);
+                if (target.empty() || !isSameLevelLink(id, target))
+                    continue;
+                neighbors[id].push_back(std::make_pair(target, std::string(dirs[i])));
+            }
+        }
+
+        std::map<std::string, std::pair<int, int> > grid; // id -> (col,row)
+        std::set<std::string> occupiedCells;
+        std::set<std::string> placed;
+
+        auto placeAt = [&](const std::string& id, int col, int row)
+        {
+            grid[id] = std::make_pair(col, row);
+            occupiedCells.insert(cellKey(col, row));
+            placed.insert(id);
+        };
+
+        auto isFree = [&](int col, int row) -> bool
+        {
+            return occupiedCells.count(cellKey(col, row)) == 0;
+        };
+
+        auto findFree = [&](int preferredCol, int preferredRow, int& outCol, int& outRow) -> bool
+        {
+            if (isFree(preferredCol, preferredRow))
+            {
+                outCol = preferredCol;
+                outRow = preferredRow;
+                return true;
+            }
+            for (int radius = 1; radius <= 24; ++radius)
+            {
+                for (int dCol = -radius; dCol <= radius; ++dCol)
+                {
+                    for (int dRow = -radius; dRow <= radius; ++dRow)
+                    {
+                        if (std::abs(dCol) != radius && std::abs(dRow) != radius)
+                            continue;
+                        const int col = preferredCol + dCol;
+                        const int row = preferredRow + dRow;
+                        if (isFree(col, row))
+                        {
+                            outCol = col;
+                            outRow = row;
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        };
+
+        // Prefer start scene roots, then alphabetical component seeds.
+        std::vector<std::string> seeds;
+        for (const std::string& id : levelIds)
+        {
+            const nlohmann::json* scene = scenesDoc.sceneJson(id);
+            if (scene != nullptr && scene->value("start", false))
+                seeds.push_back(id);
+        }
+        for (const std::string& id : levelIds)
+        {
+            if (std::find(seeds.begin(), seeds.end(), id) == seeds.end())
+                seeds.push_back(id);
+        }
+
+        int componentOffsetCol = 0;
+
+        for (size_t seedIndex = 0; seedIndex < seeds.size(); ++seedIndex)
+        {
+            const std::string& seedId = seeds[seedIndex];
+            if (placed.count(seedId) != 0)
+                continue;
+
+            int seedCol = 0;
+            int seedRow = 0;
+            if (!findFree(componentOffsetCol, 0, seedCol, seedRow))
+                continue;
+            placeAt(seedId, seedCol, seedRow);
+
+            std::queue<std::string> queue;
+            queue.push(seedId);
+
+            while (!queue.empty())
+            {
+                const std::string current = queue.front();
+                queue.pop();
+                const std::pair<int, int> currentCell = grid[current];
+
+                const std::vector<std::pair<std::string, std::string> >& links = neighbors[current];
+                for (size_t i = 0; i < links.size(); ++i)
+                {
+                    const std::string& nextId = links[i].first;
+                    if (placed.count(nextId) != 0)
+                        continue;
+
+                    int dCol = 0;
+                    int dRow = 0;
+                    int preferredCol = currentCell.first;
+                    int preferredRow = currentCell.second;
+                    if (directionDelta(links[i].second, dCol, dRow))
+                    {
+                        preferredCol += dCol;
+                        preferredRow += dRow;
+                    }
+                    else
+                    {
+                        preferredCol += 1;
+                    }
+
+                    int freeCol = preferredCol;
+                    int freeRow = preferredRow;
+                    if (!findFree(preferredCol, preferredRow, freeCol, freeRow))
+                        continue;
+
+                    placeAt(nextId, freeCol, freeRow);
+                    queue.push(nextId);
+                }
+            }
+
+            // Next disconnected cluster starts to the right of this one.
+            int maxCol = componentOffsetCol;
+            for (std::map<std::string, std::pair<int, int> >::const_iterator it = grid.begin();
+                 it != grid.end();
+                 ++it)
+            {
+                if (it->second.first > maxCol)
+                    maxCol = it->second.first;
+            }
+            componentOffsetCol = maxCol + 2;
+        }
+
+        // Place any remaining isolates.
+        for (const std::string& id : levelIds)
+        {
+            if (placed.count(id) != 0)
+                continue;
+            int freeCol = 0;
+            int freeRow = 0;
+            if (!findFree(componentOffsetCol, 0, freeCol, freeRow))
+                freeCol = componentOffsetCol;
+            placeAt(id, freeCol, freeRow);
+            componentOffsetCol = freeCol + 2;
+        }
+
+        int minCol = 0;
+        int minRow = 0;
+        bool any = false;
+        for (std::map<std::string, std::pair<int, int> >::const_iterator it = grid.begin();
+             it != grid.end();
+             ++it)
+        {
+            if (!any)
+            {
+                minCol = it->second.first;
+                minRow = it->second.second;
+                any = true;
+            }
+            else
+            {
+                minCol = std::min(minCol, it->second.first);
+                minRow = std::min(minRow, it->second.second);
+            }
+        }
+
+        const float pitchX = kSceneCardWidth + kLayoutGapX;
+        const float pitchY = kSceneCardHeight + kLayoutGapY;
+        for (std::map<std::string, std::pair<int, int> >::const_iterator it = grid.begin();
+             it != grid.end();
+             ++it)
+        {
+            SceneLayout layout = scenesDoc.getLayout(it->first);
+            layout.x = kLayoutOriginX + static_cast<float>(it->second.first - minCol) * pitchX;
+            layout.y = kLayoutOriginY + static_cast<float>(it->second.second - minRow) * pitchY;
+            layout.level = level;
+            scenesDoc.setLayout(it->first, layout);
+        }
+    }
+
+    void autoLayoutAllLevels()
+    {
+        int minLevel = 0;
+        int maxLevel = 0;
+        getLevelRange(minLevel, maxLevel);
+        for (int level = minLevel; level <= maxLevel; ++level)
+            autoLayoutLevel(level);
+    }
+
     void ensureDefaultLayouts()
     {
         if (!scenesDoc.isLoaded())
             return;
 
-        const std::vector<std::string> ids = scenesDoc.sceneIds();
-        float x = 40.0f;
-        float y = 40.0f;
-        for (const std::string& id : ids)
-        {
-            SceneLayout layout = scenesDoc.getLayout(id);
-            if (layout.x == 0.0f && layout.y == 0.0f)
-            {
-                layout.x = x;
-                layout.y = y;
-                scenesDoc.setLayout(id, layout);
-                x += kSceneCardWidth + 24.0f;
-                if (x > 800.0f)
-                {
-                    x = 40.0f;
-                    y += kSceneCardHeight + 24.0f;
-                }
-            }
-        }
-
         recomputeLevelsFromExits();
+        autoLayoutAllLevels();
 
         int minLevel = 0;
         int maxLevel = 0;
@@ -808,13 +1049,8 @@ struct SceneEditorApp
             setExitTarget(stackSourceId, "up", stackTargetId);
         }
 
-        SceneLayout sourceLayout = scenesDoc.getLayout(stackSourceId);
-        const SceneLayout targetLayout = scenesDoc.getLayout(stackTargetId);
-        sourceLayout.x = targetLayout.x + 24.0f;
-        sourceLayout.y = targetLayout.y + 24.0f;
-        scenesDoc.setLayout(stackSourceId, sourceLayout);
-
         recomputeLevelsFromExits();
+        autoLayoutAllLevels();
         canvasLevel = scenesDoc.getLayout(stackSourceId).level;
         selectedSceneId = stackSourceId;
         markDirty();
@@ -1160,53 +1396,311 @@ struct SceneEditorApp
         return {pos.x, pos.y, kSceneCardWidth, kSceneCardHeight};
     }
 
+    bool segmentIntersectsRect(Vector2 a, Vector2 b, Rectangle rect, float pad) const
+    {
+        const Rectangle inflated = {
+            rect.x - pad,
+            rect.y - pad,
+            rect.width + pad * 2.0f,
+            rect.height + pad * 2.0f};
+
+        // Quick reject for pure orthogonal segments (our only case).
+        const float minX = std::min(a.x, b.x);
+        const float maxX = std::max(a.x, b.x);
+        const float minY = std::min(a.y, b.y);
+        const float maxY = std::max(a.y, b.y);
+
+        if (maxX < inflated.x || minX > inflated.x + inflated.width ||
+            maxY < inflated.y || minY > inflated.y + inflated.height)
+        {
+            return false;
+        }
+
+        // Horizontal segment
+        if (std::fabs(a.y - b.y) < 0.5f)
+        {
+            return a.y >= inflated.y && a.y <= inflated.y + inflated.height &&
+                maxX >= inflated.x && minX <= inflated.x + inflated.width;
+        }
+
+        // Vertical segment
+        if (std::fabs(a.x - b.x) < 0.5f)
+        {
+            return a.x >= inflated.x && a.x <= inflated.x + inflated.width &&
+                maxY >= inflated.y && minY <= inflated.y + inflated.height;
+        }
+
+        return true;
+    }
+
+    bool pathHitsObstacle(
+        const std::vector<Vector2>& points,
+        const std::vector<Rectangle>& obstacles) const
+    {
+        if (points.size() < 2)
+            return false;
+
+        for (size_t i = 0; i + 1 < points.size(); ++i)
+        {
+            for (size_t o = 0; o < obstacles.size(); ++o)
+            {
+                if (segmentIntersectsRect(points[i], points[i + 1], obstacles[o], 2.0f))
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    Vector2 cardPort(Rectangle card, const std::string& side) const
+    {
+        if (side == "left")
+            return {card.x, card.y + card.height * 0.5f};
+        if (side == "right")
+            return {card.x + card.width, card.y + card.height * 0.5f};
+        if (side == "top")
+            return {card.x + card.width * 0.5f, card.y};
+        return {card.x + card.width * 0.5f, card.y + card.height};
+    }
+
+    std::string facingSide(Rectangle from, Rectangle to) const
+    {
+        const float dx = (to.x + to.width * 0.5f) - (from.x + from.width * 0.5f);
+        const float dy = (to.y + to.height * 0.5f) - (from.y + from.height * 0.5f);
+        if (std::fabs(dx) >= std::fabs(dy))
+            return dx >= 0.0f ? "right" : "left";
+        return dy >= 0.0f ? "bottom" : "top";
+    }
+
+    std::string oppositeSide(const std::string& side) const
+    {
+        if (side == "left")
+            return "right";
+        if (side == "right")
+            return "left";
+        if (side == "top")
+            return "bottom";
+        return "top";
+    }
+
+    void drawArrowHead(Vector2 tip, Vector2 fromDir) const
+    {
+        Vector2 direction = Vector2Normalize(fromDir);
+        if (Vector2Length(direction) < 0.01f)
+            direction = {1.0f, 0.0f};
+        const Vector2 base = Vector2Subtract(tip, Vector2Scale(direction, 12.0f));
+        const Vector2 ortho = {-direction.y, direction.x};
+        const Vector2 p1 = Vector2Add(base, Vector2Scale(ortho, 5.0f));
+        const Vector2 p2 = Vector2Subtract(base, Vector2Scale(ortho, 5.0f));
+        DrawTriangle(p1, tip, p2, kExitArrow);
+    }
+
+    void drawPolyline(const std::vector<Vector2>& points) const
+    {
+        for (size_t i = 0; i + 1 < points.size(); ++i)
+            DrawLineEx(points[i], points[i + 1], 2.0f, kExitArrow);
+
+        if (points.size() >= 2)
+        {
+            const Vector2& a = points[points.size() - 2];
+            const Vector2& b = points[points.size() - 1];
+            drawArrowHead(b, Vector2Subtract(b, a));
+        }
+    }
+
+    std::vector<Vector2> buildOrthogonalRoute(
+        Rectangle fromCard,
+        Rectangle toCard,
+        const std::string& exitDir,
+        const std::vector<Rectangle>& obstacles) const
+    {
+        std::string fromSide = "right";
+        std::string toSide = "left";
+        int dCol = 0;
+        int dRow = 0;
+        if (directionDelta(exitDir, dCol, dRow))
+        {
+            if (dCol > 0)
+            {
+                fromSide = "right";
+                toSide = "left";
+            }
+            else if (dCol < 0)
+            {
+                fromSide = "left";
+                toSide = "right";
+            }
+            else if (dRow < 0)
+            {
+                fromSide = "top";
+                toSide = "bottom";
+            }
+            else
+            {
+                fromSide = "bottom";
+                toSide = "top";
+            }
+        }
+        else
+        {
+            fromSide = facingSide(fromCard, toCard);
+            toSide = oppositeSide(fromSide);
+        }
+
+        const Vector2 start = cardPort(fromCard, fromSide);
+        const Vector2 end = cardPort(toCard, toSide);
+
+        std::vector<std::vector<Vector2> > candidates;
+
+        // Straight orthogonal if aligned.
+        if (std::fabs(start.x - end.x) < 1.0f || std::fabs(start.y - end.y) < 1.0f)
+        {
+            std::vector<Vector2> straight;
+            straight.push_back(start);
+            straight.push_back(end);
+            candidates.push_back(straight);
+        }
+
+        // L routes through corridor gutters.
+        {
+            std::vector<Vector2> path;
+            path.push_back(start);
+            path.push_back({end.x, start.y});
+            path.push_back(end);
+            candidates.push_back(path);
+        }
+        {
+            std::vector<Vector2> path;
+            path.push_back(start);
+            path.push_back({start.x, end.y});
+            path.push_back(end);
+            candidates.push_back(path);
+        }
+
+        // U routes around the pair using mid-corridor offsets.
+        const float midX = (fromCard.x + fromCard.width + toCard.x) * 0.5f;
+        const float midY = (fromCard.y + fromCard.height + toCard.y) * 0.5f;
+        const float above = std::min(fromCard.y, toCard.y) - kLayoutGapY * 0.5f;
+        const float below = std::max(fromCard.y + fromCard.height, toCard.y + toCard.height) +
+            kLayoutGapY * 0.5f;
+        const float left = std::min(fromCard.x, toCard.x) - kLayoutGapX * 0.5f;
+        const float right = std::max(fromCard.x + fromCard.width, toCard.x + toCard.width) +
+            kLayoutGapX * 0.5f;
+
+        {
+            std::vector<Vector2> path;
+            path.push_back(start);
+            path.push_back({start.x, above});
+            path.push_back({end.x, above});
+            path.push_back(end);
+            candidates.push_back(path);
+        }
+        {
+            std::vector<Vector2> path;
+            path.push_back(start);
+            path.push_back({start.x, below});
+            path.push_back({end.x, below});
+            path.push_back(end);
+            candidates.push_back(path);
+        }
+        {
+            std::vector<Vector2> path;
+            path.push_back(start);
+            path.push_back({left, start.y});
+            path.push_back({left, end.y});
+            path.push_back(end);
+            candidates.push_back(path);
+        }
+        {
+            std::vector<Vector2> path;
+            path.push_back(start);
+            path.push_back({right, start.y});
+            path.push_back({right, end.y});
+            path.push_back(end);
+            candidates.push_back(path);
+        }
+        {
+            std::vector<Vector2> path;
+            path.push_back(start);
+            path.push_back({midX, start.y});
+            path.push_back({midX, end.y});
+            path.push_back(end);
+            candidates.push_back(path);
+        }
+        {
+            std::vector<Vector2> path;
+            path.push_back(start);
+            path.push_back({start.x, midY});
+            path.push_back({end.x, midY});
+            path.push_back(end);
+            candidates.push_back(path);
+        }
+
+        for (size_t i = 0; i < candidates.size(); ++i)
+        {
+            if (!pathHitsObstacle(candidates[i], obstacles))
+                return candidates[i];
+        }
+
+        // Last resort: L-route even if blocked (should be rare with grid gutters).
+        std::vector<Vector2> fallback;
+        fallback.push_back(start);
+        fallback.push_back({end.x, start.y});
+        fallback.push_back(end);
+        return fallback;
+    }
+
     void drawExitArrows(Rectangle canvasBounds)
     {
         if (!scenesDoc.isLoaded())
             return;
 
-        const std::vector<std::string> ids = scenesDoc.sceneIds();
-        for (const std::string& fromId : ids)
+        const std::vector<std::string> levelIds = scenesOnLevel(canvasLevel);
+        std::vector<Rectangle> allCards;
+        allCards.reserve(levelIds.size());
+        for (const std::string& id : levelIds)
+            allCards.push_back(sceneCardBounds(id, canvasBounds));
+
+        for (size_t i = 0; i < levelIds.size(); ++i)
         {
-            const SceneLayout fromLayout = scenesDoc.getLayout(fromId);
-            if (fromLayout.level != canvasLevel)
-                continue;
-
-            const nlohmann::json* scene = scenesDoc.sceneJson(fromId);
-            if (scene == nullptr || !scene->contains("exits") || !(*scene)["exits"].is_object())
-                continue;
-
-            const Vector2 fromCenter = {
-                sceneCardScreenPos(fromLayout, canvasBounds).x + kSceneCardWidth * 0.5f,
-                sceneCardScreenPos(fromLayout, canvasBounds).y + kSceneCardHeight * 0.5f
-            };
-
-            for (auto it = (*scene)["exits"].begin(); it != (*scene)["exits"].end(); ++it)
+            const std::string& fromId = levelIds[i];
+            const char* dirs[] = {"forward", "backward", "left", "right"};
+            for (size_t d = 0; d < 4; ++d)
             {
-                if (!it.value().is_string())
+                const std::string toId = getExitTarget(fromId, dirs[d]);
+                if (toId.empty() || !isSameLevelLink(fromId, toId))
                     continue;
 
-                const std::string toId = it.value().get<std::string>();
-                if (!scenesDoc.hasScene(toId))
-                    continue;
+                // Draw each undirected pair once (prefer lexicographically smaller source).
+                if (fromId > toId)
+                {
+                    bool hasReverseAny = false;
+                    const char* reverseDirs[] = {"forward", "backward", "left", "right"};
+                    for (size_t r = 0; r < 4; ++r)
+                    {
+                        if (getExitTarget(toId, reverseDirs[r]) == fromId)
+                        {
+                            hasReverseAny = true;
+                            break;
+                        }
+                    }
+                    if (hasReverseAny)
+                        continue;
+                }
 
-                const SceneLayout toLayout = scenesDoc.getLayout(toId);
-                if (toLayout.level != canvasLevel)
-                    continue;
+                const Rectangle fromCard = sceneCardBounds(fromId, canvasBounds);
+                const Rectangle toCard = sceneCardBounds(toId, canvasBounds);
 
-                const Vector2 toCenter = {
-                    sceneCardScreenPos(toLayout, canvasBounds).x + kSceneCardWidth * 0.5f,
-                    sceneCardScreenPos(toLayout, canvasBounds).y + kSceneCardHeight * 0.5f
-                };
+                std::vector<Rectangle> obstacles;
+                for (size_t c = 0; c < levelIds.size(); ++c)
+                {
+                    if (levelIds[c] == fromId || levelIds[c] == toId)
+                        continue;
+                    obstacles.push_back(allCards[c]);
+                }
 
-                DrawLineEx(fromCenter, toCenter, 2.0f, kExitArrow);
-
-                const Vector2 direction = Vector2Normalize(Vector2Subtract(toCenter, fromCenter));
-                const Vector2 arrowTip = Vector2Subtract(toCenter, Vector2Scale(direction, 24.0f));
-                const Vector2 ortho = {-direction.y, direction.x};
-                const Vector2 p1 = Vector2Add(arrowTip, Vector2Scale(ortho, 6.0f));
-                const Vector2 p2 = Vector2Subtract(arrowTip, Vector2Scale(ortho, 6.0f));
-                DrawTriangle(p1, toCenter, p2, kExitArrow);
+                const std::vector<Vector2> route =
+                    buildOrthogonalRoute(fromCard, toCard, dirs[d], obstacles);
+                drawPolyline(route);
             }
         }
     }
