@@ -1287,7 +1287,9 @@ struct SceneEditorApp
             DrawRectangleRec(tab, active ? kPanelAccent : Color{40, 36, 48, 255});
             DrawRectangleLinesEx(tab, 1.0f, kPanelBorder);
 
-            const std::string& label = jsonTabs[i];
+            std::string label = jsonTabs[i];
+            if (label.size() > 5 && label.compare(label.size() - 5, 5, ".json") == 0)
+                label.resize(label.size() - 5);
             const float fontSize = 12.0f;
             const Vector2 textSize = MeasureTextEx(textFont(), label.c_str(), fontSize, 1.0f);
             DrawTextEx(
