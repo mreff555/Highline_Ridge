@@ -1,5 +1,6 @@
 #include "ImageCompression.h"
 #include "PlatformPath.h"
+#include "RaylibCompat.h"
 #include "SceneDocument.h"
 
 #include <raylib.h>
@@ -30,6 +31,10 @@ namespace
 const Color kPanelFill = {28, 26, 34, 255};
 const Color kPanelBorder = {168, 138, 72, 255};
 const Color kPanelAccent = {96, 78, 48, 255};
+const Color kPanelInnerEdge = {48, 42, 54, 255};
+const Color kDividerTrack = {16, 14, 20, 255};
+const Color kDividerGrip = {110, 92, 52, 255};
+const Color kDividerGripActive = {188, 158, 88, 255};
 const Color kTextPrimary = {220, 212, 196, 255};
 const Color kTextMuted = {132, 122, 104, 255};
 const Color kCanvasBg = {18, 17, 22, 255};
@@ -40,7 +45,9 @@ const Color kTextDisabled = {90, 86, 96, 255};
 const Color kModalOverlay = {0, 0, 0, 160};
 const Color kModalFill = {32, 30, 40, 255};
 
-const float kDividerSize = 6.0f;
+const float kDividerSize = 8.0f;
+const float kPanelRoundness = 0.03f;
+const float kPanelBorderThick = 2.0f;
 const float kMinLeftWidth = 180.0f;
 const float kMinTopHeight = 200.0f;
 const float kMinBottomHeight = 140.0f;
@@ -865,8 +872,63 @@ struct SceneEditorApp
 
     void drawPanel(Rectangle bounds) const
     {
-        DrawRectangleRounded(bounds, 0.02f, 8, kPanelFill);
-        DrawRectangleLinesEx(bounds, 1.0f, kPanelBorder);
+        DrawRectangleRounded(bounds, kPanelRoundness, 10, kPanelFill);
+        DrawRoundedBorder(bounds, kPanelRoundness, 10, kPanelBorderThick, kPanelBorder);
+        // Subtle inner edge so pane chrome reads cleanly against dark content.
+        const Rectangle inner = {
+            bounds.x + kPanelBorderThick + 1.0f,
+            bounds.y + kPanelBorderThick + 1.0f,
+            bounds.width - (kPanelBorderThick + 1.0f) * 2.0f,
+            bounds.height - (kPanelBorderThick + 1.0f) * 2.0f};
+        if (inner.width > 4.0f && inner.height > 4.0f)
+            DrawRoundedBorder(inner, kPanelRoundness, 10, 1.0f, kPanelInnerEdge);
+    }
+
+    void drawDivider(Rectangle bounds, bool active, bool vertical) const
+    {
+        DrawRectangleRec(bounds, kDividerTrack);
+
+        if (vertical)
+        {
+            const float midX = bounds.x + bounds.width * 0.5f;
+            DrawLineEx(
+                {midX, bounds.y + 10.0f},
+                {midX, bounds.y + bounds.height - 10.0f},
+                active ? 2.0f : 1.5f,
+                active ? kDividerGripActive : kDividerGrip);
+
+            // Grip ticks in the middle of the vertical split.
+            const float midY = bounds.y + bounds.height * 0.5f;
+            for (int i = -1; i <= 1; ++i)
+            {
+                const float y = midY + static_cast<float>(i) * 6.0f;
+                DrawLineEx(
+                    {bounds.x + 1.5f, y},
+                    {bounds.x + bounds.width - 1.5f, y},
+                    1.5f,
+                    active ? kDividerGripActive : kDividerGrip);
+            }
+        }
+        else
+        {
+            const float midY = bounds.y + bounds.height * 0.5f;
+            DrawLineEx(
+                {bounds.x + 10.0f, midY},
+                {bounds.x + bounds.width - 10.0f, midY},
+                active ? 2.0f : 1.5f,
+                active ? kDividerGripActive : kDividerGrip);
+
+            const float midX = bounds.x + bounds.width * 0.5f;
+            for (int i = -1; i <= 1; ++i)
+            {
+                const float x = midX + static_cast<float>(i) * 6.0f;
+                DrawLineEx(
+                    {x, bounds.y + 1.5f},
+                    {x, bounds.y + bounds.height - 1.5f},
+                    1.5f,
+                    active ? kDividerGripActive : kDividerGrip);
+            }
+        }
     }
 
     void drawTabs(Rectangle leftBounds)
@@ -1534,8 +1596,11 @@ struct SceneEditorApp
                                         bottomBounds.x + bottomBounds.width - splitX - 2.0f,
                                         bottomBounds.height};
 
-        DrawLineEx({splitX, bottomBounds.y + 8.0f}, {splitX, bottomBounds.y + bottomBounds.height - 8.0f},
-                   1.0f, kPanelAccent);
+        DrawLineEx(
+            {splitX, bottomBounds.y + 12.0f},
+            {splitX, bottomBounds.y + bottomBounds.height - 12.0f},
+            1.5f,
+            kDividerGrip);
 
         drawVariablesPane(variablesBounds);
         drawActorsPane(actorsBounds);
@@ -1569,8 +1634,8 @@ struct SceneEditorApp
 
         clampLayout(screenWidth, screenHeight);
 
-        DrawRectangleRec(vDiv, draggingVerticalDivider ? kPanelBorder : kPanelAccent);
-        DrawRectangleRec(hDiv, draggingHorizontalDivider ? kPanelBorder : kPanelAccent);
+        drawDivider(vDiv, draggingVerticalDivider, true);
+        drawDivider(hDiv, draggingHorizontalDivider, false);
     }
 
     void drawStatusBar(int screenWidth, int screenHeight)
