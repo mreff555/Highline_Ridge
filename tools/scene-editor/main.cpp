@@ -1435,22 +1435,39 @@ struct SceneEditorApp
                 1.0f,
                 kTextMuted);
 
-            const bool hovered = CheckCollisionPointRec(GetMousePosition(), row);
-            if (!stackDialogOpen &&
-                !isDraggingDivider() &&
-                hovered &&
-                IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-            {
-                selectedSceneId = id;
-                dragSource = DragSource::SceneList;
-                dragSceneId = id;
-                dragOffset = {GetMouseX() - row.x, GetMouseY() - row.y};
-            }
-
             y += kListRowHeight;
         }
 
         EndScissorMode();
+
+        // Hit-test only within the visible list (scissor-safe index math).
+        const Vector2 mouse = GetMousePosition();
+        if (!stackDialogOpen &&
+            !variableEditorOpen &&
+            !isDraggingDivider() &&
+            CheckCollisionPointRec(mouse, listBounds) &&
+            IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+            const float localY = (mouse.y - listBounds.y) + leftScroll;
+            if (localY >= 0.0f)
+            {
+                const int index = static_cast<int>(localY / kListRowHeight);
+                if (index >= 0 && index < static_cast<int>(ids.size()))
+                {
+                    const std::string& id = ids[static_cast<size_t>(index)];
+                    if (selectedSceneId != id)
+                    {
+                        selectedSceneId = id;
+                        selectedVariableKey.clear();
+                        variablesScroll = 0.0f;
+                    }
+                    dragSource = DragSource::SceneList;
+                    dragSceneId = id;
+                    const float rowTop = listBounds.y - leftScroll + static_cast<float>(index) * kListRowHeight;
+                    dragOffset = {mouse.x - listBounds.x - 4.0f, mouse.y - rowTop};
+                }
+            }
+        }
 
         if (CheckCollisionPointRec(GetMousePosition(), listBounds))
             leftScroll -= GetMouseWheelMove() * 24.0f;
@@ -2318,6 +2335,7 @@ struct SceneEditorApp
                        12.0f, 1.0f, kTextPrimary);
 
             if (!stackDialogOpen &&
+                !variableEditorOpen &&
                 !isDraggingDivider() &&
                 !draggingHScroll &&
                 !draggingVScroll)
@@ -2325,7 +2343,12 @@ struct SceneEditorApp
                 const bool hovered = CheckCollisionPointRec(GetMousePosition(), card);
                 if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
                 {
-                    selectedSceneId = id;
+                    if (selectedSceneId != id)
+                    {
+                        selectedSceneId = id;
+                        selectedVariableKey.clear();
+                        variablesScroll = 0.0f;
+                    }
                     dragSource = DragSource::Canvas;
                     dragSceneId = id;
                     dragOffset = {GetMouseX() - card.x, GetMouseY() - card.y};
@@ -2559,6 +2582,7 @@ struct SceneEditorApp
         selectedVariableKey = key;
         TraceLog(LOG_INFO, "SCENE EDITOR: editing %s.%s", sceneId.c_str(), key.c_str());
 
+        // Copy by value immediately so we never hold a dangling json reference.
         if (value.is_string())
         {
             variableEditorKind = VariableKindString;
@@ -2813,7 +2837,8 @@ struct SceneEditorApp
         DrawRectangleRounded(dialog, 0.03f, 8, kModalFill);
         DrawRectangleLinesEx(dialog, 2.0f, kPanelBorder);
 
-        const std::string title = "Edit: " + variableEditorKey;
+        const std::string title =
+            "Edit \"" + variableEditorKey + "\"  —  scene: " + variableEditorSceneId;
         DrawTextEx(
             textFont(),
             title.c_str(),
@@ -2992,13 +3017,26 @@ struct SceneEditorApp
 
     void drawVariablesPane(Rectangle paneBounds)
     {
+        // Capture once so list + editor always use the same scene for this frame.
+        const std::string sceneId = selectedSceneId;
+
         DrawTextEx(textFont(), "Scene Variables", {paneBounds.x + 12.0f, paneBounds.y + 8.0f},
                    15.0f, 1.0f, kTextMuted);
+        if (!sceneId.empty())
+        {
+            DrawTextEx(
+                textFont(),
+                sceneId.c_str(),
+                {paneBounds.x + 150.0f, paneBounds.y + 10.0f},
+                12.0f,
+                1.0f,
+                kPanelBorder);
+        }
         DrawTextEx(
             textFont(),
             "Click a row to edit",
-            {paneBounds.x + 160.0f, paneBounds.y + 10.0f},
-            12.0f,
+            {paneBounds.x + 12.0f, paneBounds.y + paneBounds.height - 18.0f},
+            11.0f,
             1.0f,
             kTextMuted);
 
@@ -3011,7 +3049,7 @@ struct SceneEditorApp
         DrawRectangleLinesEx(editBtn, 1.0f, kPanelBorder);
         DrawTextEx(textFont(), "Edit", {editBtn.x + 16.0f, editBtn.y + 3.0f}, 12.0f, 1.0f, kTextPrimary);
 
-        if (selectedSceneId.empty() || !scenesDoc.hasScene(selectedSceneId))
+        if (sceneId.empty() || !scenesDoc.hasScene(sceneId))
         {
             DrawTextEx(textFont(), "Select a scene", {paneBounds.x + 12.0f, paneBounds.y + 36.0f},
                        14.0f, 1.0f, kTextMuted);
@@ -3019,7 +3057,7 @@ struct SceneEditorApp
         }
 
         const std::vector<std::pair<std::string, std::string>> rows =
-            scenesDoc.sceneVariableRows(selectedSceneId);
+            scenesDoc.sceneVariableRows(sceneId);
         if (rows.empty())
         {
             DrawTextEx(textFont(), "No variables on this scene", {paneBounds.x + 12.0f, paneBounds.y + 36.0f},
@@ -3036,7 +3074,7 @@ struct SceneEditorApp
 
         const float rowHeight = 24.0f;
         const float listTop = paneBounds.y + 28.0f;
-        const float listHeight = paneBounds.height - 28.0f;
+        const float listHeight = paneBounds.height - 36.0f;
         const float contentHeight = static_cast<float>(rows.size()) * rowHeight + 8.0f;
         const float maxScroll = std::max(0.0f, contentHeight - listHeight);
         if (variablesScroll > maxScroll)
@@ -3044,18 +3082,16 @@ struct SceneEditorApp
 
         const Rectangle listBounds = {paneBounds.x, listTop, paneBounds.width, listHeight};
         const Vector2 mouse = GetMousePosition();
-        // Always allow interaction unless a modal is open (ignore stuck divider state).
         const bool canInteract = !variableEditorOpen && !stackDialogOpen;
 
         if (canInteract && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
         {
             if (CheckCollisionPointRec(mouse, editBtn) && !selectedVariableKey.empty())
             {
-                openVariableEditor(selectedSceneId, selectedVariableKey);
+                openVariableEditor(sceneId, selectedVariableKey);
             }
             else if (CheckCollisionPointRec(mouse, listBounds))
             {
-                // Hit-test rows using scroll-adjusted Y (not draw order).
                 const float localY = (mouse.y - listTop - 8.0f) + variablesScroll;
                 if (localY >= 0.0f)
                 {
@@ -3063,8 +3099,7 @@ struct SceneEditorApp
                     if (index >= 0 && index < static_cast<int>(rows.size()))
                     {
                         selectedVariableKey = rows[static_cast<size_t>(index)].first;
-                        // Single click opens the editor (double-click was unreliable).
-                        openVariableEditor(selectedSceneId, selectedVariableKey);
+                        openVariableEditor(sceneId, selectedVariableKey);
                     }
                 }
             }
@@ -3074,7 +3109,7 @@ struct SceneEditorApp
             !selectedVariableKey.empty() &&
             (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER) || IsKeyPressed(KEY_F2)))
         {
-            openVariableEditor(selectedSceneId, selectedVariableKey);
+            openVariableEditor(sceneId, selectedVariableKey);
         }
 
         BeginScissorMode(
@@ -3280,15 +3315,18 @@ struct SceneEditorApp
         syncLayoutToWindow(screenWidth, screenHeight);
 
         handleShortcuts();
-        if (!stackDialogOpen && !variableEditorOpen)
-            handleDividerInput(screenWidth, screenHeight);
-        else
+
+        // Always clear divider drag when the mouse is up (avoids stuck drag blocking selection).
+        if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT))
         {
-            SetMouseCursor(MOUSE_CURSOR_DEFAULT);
-            // Prevent a stuck divider drag from blocking the variable list forever.
             draggingVerticalDivider = false;
             draggingHorizontalDivider = false;
         }
+
+        if (!stackDialogOpen && !variableEditorOpen)
+            handleDividerInput(screenWidth, screenHeight);
+        else
+            SetMouseCursor(MOUSE_CURSOR_DEFAULT);
 
         // Don't start scene drags while resizing panes or editing variables.
         if (isDraggingDivider() || variableEditorOpen)
