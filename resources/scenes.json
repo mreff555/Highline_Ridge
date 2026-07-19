@@ -90,19 +90,19 @@
       "description": "You haul yourself onto the summit through deep snow that lies in hard wind-packed drifts across the small peak. The top is modest — a cramped crown of ice and stone barely wide enough for two men to stand — but the world it opens is not. Mountains fill the horizon in every direction, white and blue and enormous. On the opposite face, about five feet below the crown, a sawtoothed ridge runs away into the distance like the spine of some buried beast, each tooth catching light and shadow. The air is so thin it feels borrowed. Beauty and menace share the same breath up here.",
       "examineDetails": "You turn slowly, boots planted in the crust, and let the altitude take its inventory of you.\n\nSnow lies deep everywhere the wind allows it to rest — sastrugi along the crown, soft powder in the lee of the peak's small shoulders. The summit itself is not grand. A man could cross it in twenty paces. But no one comes here for grandeur of floor space. They come for what the floor reveals.\n\nEvery compass point delivers mountains. Ridge upon ridge, glacier and rock, the valley a distant rumor far below timberline. The sky is pale and close. Your thoughts feel thin, as though the height is editing them.\n\nOn the far side, the ground drops roughly five feet to a sawtoothed ridge that marches into the distance — jagged teeth of rock and ice, each point sharp enough to cut the light. Old crampon marks cross the lip where someone else stood and chose not to go farther today.\n\nYou shield your eyes against the glare and study the ridge longer than comfort allows. Far along the opposite face, where the snow lies thick in the lee of a tooth, something breaks the white field — dark, stiff, and wrong in its angle. You cannot make out detail at this distance, but the shape resembles a boot sticking out of the drift, sole skyward, as though the mountain swallowed a man to the knee and grew bored with the rest.\n\nBelow and behind you, the face you climbed falls away toward the high alpine trail. No other way off the crown presents itself yet.",
       "exits": {
-        "backward": "high_alpine_trail",
+        "down": "high_alpine_trail",
         "forward": "sawtooth_ridge_body"
       },
       "highAltitude": true,
       "image": "resources/images/alpine_summit.png",
       "layout": {
-        "level": 0,
+        "level": 1,
         "x": 1928.0,
         "y": 440.0
       },
       "movement": {
-        "backward": true,
-        "down": false,
+        "backward": false,
+        "down": true,
         "forward": true,
         "left": false,
         "right": false,
@@ -2144,7 +2144,7 @@
         }
       ],
       "layout": {
-        "level": 0,
+        "level": 1,
         "x": 1928.0,
         "y": 244.0
       },

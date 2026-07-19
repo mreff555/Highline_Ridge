@@ -635,14 +635,33 @@ struct SceneEditorApp
             return;
 
         const std::vector<std::string> ids = scenesDoc.sceneIds();
-        std::map<std::string, std::vector<std::pair<std::string, int> > > edges;
+        // Prefer vertical (non-zero) level deltas when both exist between a pair
+        // (e.g. up to summit must win over a mistaken same-floor back link).
+        std::map<std::string, int> directedDelta;
+
+        auto edgeKey = [](const std::string& fromId, const std::string& toId) -> std::string
+        {
+            return fromId + "\n" + toId;
+        };
 
         auto addEdge = [&](const std::string& fromId, const std::string& toId, int delta)
         {
             if (toId.empty() || !scenesDoc.hasScene(toId))
                 return;
-            edges[fromId].push_back(std::make_pair(toId, delta));
-            edges[toId].push_back(std::make_pair(fromId, -delta));
+
+            const std::string key = edgeKey(fromId, toId);
+            std::map<std::string, int>::iterator existing = directedDelta.find(key);
+            if (existing == directedDelta.end())
+            {
+                directedDelta[key] = delta;
+                return;
+            }
+
+            // Keep vertical relationships over same-floor links.
+            if (existing->second == 0 && delta != 0)
+                existing->second = delta;
+            else if (existing->second != 0 && delta != 0 && existing->second != delta)
+                existing->second = delta; // last non-zero wins; rare conflict
         };
 
         for (const std::string& id : ids)
@@ -654,6 +673,26 @@ struct SceneEditorApp
             addEdge(id, getExitTarget(id, "backward"), 0);
             addEdge(id, getExitTarget(id, "left"), 0);
             addEdge(id, getExitTarget(id, "right"), 0);
+        }
+
+        std::map<std::string, std::vector<std::pair<std::string, int> > > edges;
+        for (std::map<std::string, int>::const_iterator it = directedDelta.begin();
+             it != directedDelta.end();
+             ++it)
+        {
+            const std::string& key = it->first;
+            const size_t split = key.find('\n');
+            if (split == std::string::npos)
+                continue;
+            const std::string fromId = key.substr(0, split);
+            const std::string toId = key.substr(split + 1);
+            const int delta = it->second;
+            edges[fromId].push_back(std::make_pair(toId, delta));
+
+            // Bidirectional connectivity for BFS; reverse may already be explicit.
+            const std::string reverseKey = edgeKey(toId, fromId);
+            if (directedDelta.count(reverseKey) == 0)
+                edges[toId].push_back(std::make_pair(fromId, -delta));
         }
 
         std::map<std::string, int> levels;
