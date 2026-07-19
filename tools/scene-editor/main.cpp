@@ -336,6 +336,9 @@ struct SceneEditorApp
     float variableEditorScrollY = 0.0f;
     double variableLastClickTime = -1.0;
     std::string variableLastClickKey;
+    Vector2 variableLastClickPos{0.0f, 0.0f};
+    std::string selectedVariableKey;
+    std::string variableEditorError;
 
     std::map<std::string, ThumbnailEntry> thumbnails;
     bool dirty = false;
@@ -2537,18 +2540,25 @@ struct SceneEditorApp
         variableEditorBuffer.clear();
         variableEditorCursor = 0;
         variableEditorScrollY = 0.0f;
+        variableEditorError.clear();
     }
 
     void openVariableEditor(const std::string& sceneId, const std::string& key)
     {
         const nlohmann::json* scene = scenesDoc.sceneJson(sceneId);
         if (scene == nullptr || !scene->contains(key))
+        {
+            TraceLog(LOG_WARNING, "SCENE EDITOR: cannot edit missing key %s", key.c_str());
             return;
+        }
 
         const nlohmann::json& value = (*scene)[key];
         variableEditorSceneId = sceneId;
         variableEditorKey = key;
         variableEditorScrollY = 0.0f;
+        variableEditorError.clear();
+        selectedVariableKey = key;
+        TraceLog(LOG_INFO, "SCENE EDITOR: editing %s.%s", sceneId.c_str(), key.c_str());
 
         if (value.is_string())
         {
@@ -2635,6 +2645,13 @@ struct SceneEditorApp
         }
 
         markDirty();
+        // Persist immediately so Save in the popup has an obvious effect.
+        if (!scenesDoc.save())
+        {
+            variableEditorError = "Applied in memory, but failed to write scenes.json";
+            return false;
+        }
+        dirty = false;
         closeVariableEditor();
         return true;
     }
@@ -2922,6 +2939,17 @@ struct SceneEditorApp
         drawButton(saveBtn, "Save", true);
         drawButton(cancelBtn, "Cancel", false);
 
+        if (!variableEditorError.empty())
+        {
+            DrawTextEx(
+                textFont(),
+                variableEditorError.c_str(),
+                {dialog.x + 18.0f, btnY - 22.0f},
+                12.0f,
+                1.0f,
+                Color{220, 120, 100, 255});
+        }
+
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
         {
             const Vector2 mouse = GetMousePosition();
@@ -2929,7 +2957,8 @@ struct SceneEditorApp
             {
                 if (!saveVariableEditor())
                 {
-                    // Keep open on parse failure; flash is omitted for simplicity.
+                    if (variableEditorError.empty())
+                        variableEditorError = "Could not parse value — check type and try again";
                 }
             }
             else if (CheckCollisionPointRec(mouse, cancelBtn))
@@ -2942,7 +2971,8 @@ struct SceneEditorApp
         if (!variableEditorMultiline &&
             (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)))
         {
-            saveVariableEditor();
+            if (!saveVariableEditor() && variableEditorError.empty())
+                variableEditorError = "Could not parse value — check type and try again";
         }
     }
 
@@ -2952,7 +2982,7 @@ struct SceneEditorApp
                    15.0f, 1.0f, kTextMuted);
         DrawTextEx(
             textFont(),
-            "Double-click a field to edit",
+            "Double-click or press Enter to edit",
             {paneBounds.x + 160.0f, paneBounds.y + 10.0f},
             12.0f,
             1.0f,
@@ -2967,7 +2997,7 @@ struct SceneEditorApp
 
         const std::vector<std::pair<std::string, std::string>> rows =
             scenesDoc.sceneVariableRows(selectedSceneId);
-        const float rowHeight = 22.0f;
+        const float rowHeight = 24.0f;
         const float listTop = paneBounds.y + 28.0f;
         const float listHeight = paneBounds.height - 28.0f;
         const float contentHeight = static_cast<float>(rows.size()) * rowHeight + 8.0f;
@@ -2976,6 +3006,61 @@ struct SceneEditorApp
             variablesScroll = maxScroll;
 
         const Rectangle listBounds = {paneBounds.x, listTop, paneBounds.width, listHeight};
+        const Vector2 mouse = GetMousePosition();
+        const bool canInteract =
+            !variableEditorOpen && !stackDialogOpen && !isDraggingDivider();
+
+        // Resolve which row is under the mouse (hit-test in list space).
+        std::string clickedKey;
+        if (canInteract &&
+            CheckCollisionPointRec(mouse, listBounds) &&
+            (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)))
+        {
+            const float localY = mouse.y - listTop + variablesScroll - 8.0f;
+            if (localY >= 0.0f)
+            {
+                const int index = static_cast<int>(localY / rowHeight);
+                if (index >= 0 && index < static_cast<int>(rows.size()))
+                    clickedKey = rows[static_cast<size_t>(index)].first;
+            }
+        }
+
+        if (!clickedKey.empty())
+        {
+            selectedVariableKey = clickedKey;
+            const double now = GetTime();
+            const float dx = mouse.x - variableLastClickPos.x;
+            const float dy = mouse.y - variableLastClickPos.y;
+            const bool nearLast =
+                (dx * dx + dy * dy) < (12.0f * 12.0f);
+            const bool isDouble =
+                IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
+                variableLastClickKey == clickedKey &&
+                nearLast &&
+                (now - variableLastClickTime) > 0.02 &&
+                (now - variableLastClickTime) < 0.55;
+            const bool isRightClick = IsMouseButtonPressed(MOUSE_BUTTON_RIGHT);
+
+            if (isDouble || isRightClick)
+            {
+                openVariableEditor(selectedSceneId, clickedKey);
+                variableLastClickKey.clear();
+                variableLastClickTime = -1.0;
+            }
+            else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+            {
+                variableLastClickKey = clickedKey;
+                variableLastClickTime = now;
+                variableLastClickPos = mouse;
+            }
+        }
+
+        if (canInteract &&
+            !selectedVariableKey.empty() &&
+            (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER) || IsKeyPressed(KEY_F2)))
+        {
+            openVariableEditor(selectedSceneId, selectedVariableKey);
+        }
 
         BeginScissorMode(
             static_cast<int>(listBounds.x),
@@ -2984,7 +3069,6 @@ struct SceneEditorApp
             static_cast<int>(listBounds.height));
 
         float y = listTop + 8.0f - variablesScroll;
-        const Vector2 mouse = GetMousePosition();
         for (const std::pair<std::string, std::string>& row : rows)
         {
             const Rectangle rowBounds = {
@@ -2993,40 +3077,26 @@ struct SceneEditorApp
                 paneBounds.width - 16.0f,
                 rowHeight - 2.0f};
             const bool hovered =
-                !variableEditorOpen &&
-                !stackDialogOpen &&
+                canInteract &&
                 CheckCollisionPointRec(mouse, listBounds) &&
                 CheckCollisionPointRec(mouse, rowBounds);
+            const bool selected = row.first == selectedVariableKey;
 
-            if (hovered)
+            if (selected)
                 DrawRectangleRec(rowBounds, kSelection);
+            else if (hovered)
+                DrawRectangleRec(rowBounds, Color{60, 54, 72, 180});
 
             const std::string line = row.first + ": " + truncate(row.second, 80);
-            DrawTextEx(textFont(), line.c_str(), {rowBounds.x + 4.0f, rowBounds.y + 2.0f},
+            DrawTextEx(textFont(), line.c_str(), {rowBounds.x + 4.0f, rowBounds.y + 4.0f},
                        13.0f, 1.0f, kTextPrimary);
-
-            if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-            {
-                const double now = GetTime();
-                if (variableLastClickKey == row.first && (now - variableLastClickTime) < 0.4)
-                {
-                    openVariableEditor(selectedSceneId, row.first);
-                    variableLastClickKey.clear();
-                    variableLastClickTime = -1.0;
-                }
-                else
-                {
-                    variableLastClickKey = row.first;
-                    variableLastClickTime = now;
-                }
-            }
 
             y += rowHeight;
         }
 
         EndScissorMode();
 
-        if (!variableEditorOpen && CheckCollisionPointRec(GetMousePosition(), listBounds))
+        if (canInteract && CheckCollisionPointRec(mouse, listBounds))
             variablesScroll -= GetMouseWheelMove() * 18.0f;
         if (variablesScroll < 0.0f)
             variablesScroll = 0.0f;
