@@ -7,6 +7,7 @@
 #include <raymath.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <filesystem>
 #include <map>
@@ -316,6 +317,25 @@ struct SceneEditorApp
     std::string stackTargetId;
     float stackPendingX = 0.0f;
     float stackPendingY = 0.0f;
+
+    bool variableEditorOpen = false;
+    std::string variableEditorSceneId;
+    std::string variableEditorKey;
+    std::string variableEditorBuffer;
+    enum VariableValueKind
+    {
+        VariableKindString,
+        VariableKindBool,
+        VariableKindInteger,
+        VariableKindFloat,
+        VariableKindJson
+    };
+    VariableValueKind variableEditorKind = VariableKindString;
+    bool variableEditorMultiline = false;
+    int variableEditorCursor = 0;
+    float variableEditorScrollY = 0.0f;
+    double variableLastClickTime = -1.0;
+    std::string variableLastClickKey;
 
     std::map<std::string, ThumbnailEntry> thumbnails;
     bool dirty = false;
@@ -2509,10 +2529,434 @@ struct SceneEditorApp
         return text.substr(0, maxLen - 3) + "...";
     }
 
+    void closeVariableEditor()
+    {
+        variableEditorOpen = false;
+        variableEditorSceneId.clear();
+        variableEditorKey.clear();
+        variableEditorBuffer.clear();
+        variableEditorCursor = 0;
+        variableEditorScrollY = 0.0f;
+    }
+
+    void openVariableEditor(const std::string& sceneId, const std::string& key)
+    {
+        const nlohmann::json* scene = scenesDoc.sceneJson(sceneId);
+        if (scene == nullptr || !scene->contains(key))
+            return;
+
+        const nlohmann::json& value = (*scene)[key];
+        variableEditorSceneId = sceneId;
+        variableEditorKey = key;
+        variableEditorScrollY = 0.0f;
+
+        if (value.is_string())
+        {
+            variableEditorKind = VariableKindString;
+            variableEditorBuffer = value.get<std::string>();
+        }
+        else if (value.is_boolean())
+        {
+            variableEditorKind = VariableKindBool;
+            variableEditorBuffer = value.get<bool>() ? "true" : "false";
+        }
+        else if (value.is_number_integer())
+        {
+            variableEditorKind = VariableKindInteger;
+            variableEditorBuffer = std::to_string(value.get<long long>());
+        }
+        else if (value.is_number_float())
+        {
+            variableEditorKind = VariableKindFloat;
+            std::ostringstream stream;
+            stream << value.get<double>();
+            variableEditorBuffer = stream.str();
+        }
+        else if (value.is_null())
+        {
+            variableEditorKind = VariableKindString;
+            variableEditorBuffer.clear();
+        }
+        else
+        {
+            variableEditorKind = VariableKindJson;
+            variableEditorBuffer = value.dump(2);
+        }
+
+        variableEditorMultiline =
+            variableEditorKind == VariableKindJson ||
+            variableEditorBuffer.find('\n') != std::string::npos ||
+            variableEditorBuffer.size() > 80;
+        variableEditorCursor = static_cast<int>(variableEditorBuffer.size());
+        variableEditorOpen = true;
+    }
+
+    bool saveVariableEditor()
+    {
+        nlohmann::json* scene = scenesDoc.sceneJson(variableEditorSceneId);
+        if (scene == nullptr)
+            return false;
+
+        nlohmann::json& value = (*scene)[variableEditorKey];
+        try
+        {
+            if (variableEditorKind == VariableKindBool)
+            {
+                std::string lowered = variableEditorBuffer;
+                for (size_t i = 0; i < lowered.size(); ++i)
+                    lowered[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(lowered[i])));
+                if (lowered == "true" || lowered == "1" || lowered == "yes")
+                    value = true;
+                else if (lowered == "false" || lowered == "0" || lowered == "no")
+                    value = false;
+                else
+                    return false;
+            }
+            else if (variableEditorKind == VariableKindInteger)
+            {
+                value = std::stoll(variableEditorBuffer);
+            }
+            else if (variableEditorKind == VariableKindFloat)
+            {
+                value = std::stod(variableEditorBuffer);
+            }
+            else if (variableEditorKind == VariableKindJson)
+            {
+                value = nlohmann::json::parse(variableEditorBuffer);
+            }
+            else
+            {
+                value = variableEditorBuffer;
+            }
+        }
+        catch (...)
+        {
+            return false;
+        }
+
+        markDirty();
+        closeVariableEditor();
+        return true;
+    }
+
+    void handleVariableEditorTextInput()
+    {
+        if (!variableEditorOpen)
+            return;
+
+        // Codepoint input
+        int codepoint = GetCharPressed();
+        while (codepoint > 0)
+        {
+            if (codepoint >= 32 && codepoint != 127)
+            {
+                // Encode UTF-8 roughly for BMP-ish chars used in game text
+                std::string encoded;
+                if (codepoint < 0x80)
+                {
+                    encoded.push_back(static_cast<char>(codepoint));
+                }
+                else if (codepoint < 0x800)
+                {
+                    encoded.push_back(static_cast<char>(0xC0 | (codepoint >> 6)));
+                    encoded.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
+                }
+                else
+                {
+                    encoded.push_back(static_cast<char>(0xE0 | (codepoint >> 12)));
+                    encoded.push_back(static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F)));
+                    encoded.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
+                }
+
+                if (variableEditorCursor < 0)
+                    variableEditorCursor = 0;
+                if (variableEditorCursor > static_cast<int>(variableEditorBuffer.size()))
+                    variableEditorCursor = static_cast<int>(variableEditorBuffer.size());
+                variableEditorBuffer.insert(
+                    static_cast<size_t>(variableEditorCursor),
+                    encoded);
+                variableEditorCursor += static_cast<int>(encoded.size());
+            }
+            codepoint = GetCharPressed();
+        }
+
+        if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE))
+        {
+            if (variableEditorCursor > 0 && !variableEditorBuffer.empty())
+            {
+                // Delete one UTF-8 leading byte / simple previous char
+                int eraseAt = variableEditorCursor - 1;
+                while (eraseAt > 0 &&
+                       (static_cast<unsigned char>(variableEditorBuffer[static_cast<size_t>(eraseAt)]) & 0xC0) == 0x80)
+                {
+                    --eraseAt;
+                }
+                variableEditorBuffer.erase(
+                    static_cast<size_t>(eraseAt),
+                    static_cast<size_t>(variableEditorCursor - eraseAt));
+                variableEditorCursor = eraseAt;
+            }
+        }
+
+        if (IsKeyPressed(KEY_DELETE) || IsKeyPressedRepeat(KEY_DELETE))
+        {
+            if (variableEditorCursor < static_cast<int>(variableEditorBuffer.size()))
+            {
+                int eraseEnd = variableEditorCursor + 1;
+                while (eraseEnd < static_cast<int>(variableEditorBuffer.size()) &&
+                       (static_cast<unsigned char>(variableEditorBuffer[static_cast<size_t>(eraseEnd)]) & 0xC0) == 0x80)
+                {
+                    ++eraseEnd;
+                }
+                variableEditorBuffer.erase(
+                    static_cast<size_t>(variableEditorCursor),
+                    static_cast<size_t>(eraseEnd - variableEditorCursor));
+            }
+        }
+
+        if (IsKeyPressed(KEY_LEFT) || IsKeyPressedRepeat(KEY_LEFT))
+        {
+            if (variableEditorCursor > 0)
+            {
+                --variableEditorCursor;
+                while (variableEditorCursor > 0 &&
+                       (static_cast<unsigned char>(
+                            variableEditorBuffer[static_cast<size_t>(variableEditorCursor)]) &
+                        0xC0) == 0x80)
+                {
+                    --variableEditorCursor;
+                }
+            }
+        }
+
+        if (IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_RIGHT))
+        {
+            if (variableEditorCursor < static_cast<int>(variableEditorBuffer.size()))
+            {
+                ++variableEditorCursor;
+                while (variableEditorCursor < static_cast<int>(variableEditorBuffer.size()) &&
+                       (static_cast<unsigned char>(
+                            variableEditorBuffer[static_cast<size_t>(variableEditorCursor)]) &
+                        0xC0) == 0x80)
+                {
+                    ++variableEditorCursor;
+                }
+            }
+        }
+
+        if (IsKeyPressed(KEY_HOME))
+            variableEditorCursor = 0;
+        if (IsKeyPressed(KEY_END))
+            variableEditorCursor = static_cast<int>(variableEditorBuffer.size());
+
+        if (variableEditorMultiline &&
+            (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)))
+        {
+            if (variableEditorCursor < 0)
+                variableEditorCursor = 0;
+            if (variableEditorCursor > static_cast<int>(variableEditorBuffer.size()))
+                variableEditorCursor = static_cast<int>(variableEditorBuffer.size());
+            variableEditorBuffer.insert(static_cast<size_t>(variableEditorCursor), "\n");
+            ++variableEditorCursor;
+        }
+
+        if (IsKeyPressed(KEY_ESCAPE))
+            closeVariableEditor();
+    }
+
+    void drawVariableEditor(int screenWidth, int screenHeight)
+    {
+        if (!variableEditorOpen)
+            return;
+
+        handleVariableEditorTextInput();
+
+        DrawRectangle(0, 0, screenWidth, screenHeight, kModalOverlay);
+
+        const float dialogW = variableEditorMultiline ? 760.0f : 520.0f;
+        const float dialogH = variableEditorMultiline ? 520.0f : 190.0f;
+        const Rectangle dialog = {
+            (static_cast<float>(screenWidth) - dialogW) * 0.5f,
+            (static_cast<float>(screenHeight) - dialogH) * 0.5f,
+            dialogW,
+            dialogH};
+        DrawRectangleRounded(dialog, 0.03f, 8, kModalFill);
+        DrawRectangleLinesEx(dialog, 2.0f, kPanelBorder);
+
+        const std::string title = "Edit: " + variableEditorKey;
+        DrawTextEx(
+            textFont(),
+            title.c_str(),
+            {dialog.x + 18.0f, dialog.y + 14.0f},
+            16.0f,
+            1.0f,
+            kTextPrimary);
+
+        const float btnH = 34.0f;
+        const float btnW = 110.0f;
+        const float btnY = dialog.y + dialogH - btnH - 16.0f;
+        const Rectangle field = {
+            dialog.x + 18.0f,
+            dialog.y + 44.0f,
+            dialogW - 36.0f,
+            btnY - (dialog.y + 44.0f) - 14.0f};
+
+        DrawRectangleRec(field, Color{18, 16, 24, 255});
+        DrawRectangleLinesEx(field, 1.0f, kPanelBorder);
+
+        const float fontSize = 14.0f;
+        const float lineHeight = fontSize + 4.0f;
+        const float pad = 8.0f;
+
+        // Cursor blink
+        const bool caretOn = (static_cast<int>(GetTime() * 2.0) % 2) == 0;
+        const int caret = std::max(0, std::min(variableEditorCursor, static_cast<int>(variableEditorBuffer.size())));
+
+        if (!variableEditorMultiline)
+        {
+            const std::string display = variableEditorBuffer;
+            DrawTextEx(
+                textFont(),
+                display.c_str(),
+                {field.x + pad, field.y + (field.height - fontSize) * 0.5f},
+                fontSize,
+                1.0f,
+                kTextPrimary);
+
+            if (caretOn)
+            {
+                const std::string before = display.substr(0, static_cast<size_t>(caret));
+                const float caretX = field.x + pad + MeasureTextEx(textFont(), before.c_str(), fontSize, 1.0f).x;
+                const float caretY = field.y + (field.height - fontSize) * 0.5f;
+                DrawLineEx({caretX, caretY}, {caretX, caretY + fontSize}, 1.5f, kTextPrimary);
+            }
+        }
+        else
+        {
+            // Split into lines for wrapped display (character wrap by measuring).
+            std::vector<std::string> lines;
+            std::string currentLine;
+            const float maxTextW = field.width - pad * 2.0f;
+            for (size_t i = 0; i < variableEditorBuffer.size(); ++i)
+            {
+                const char ch = variableEditorBuffer[i];
+                if (ch == '\n')
+                {
+                    lines.push_back(currentLine);
+                    currentLine.clear();
+                    continue;
+                }
+                const std::string trial = currentLine + ch;
+                if (MeasureTextEx(textFont(), trial.c_str(), fontSize, 1.0f).x > maxTextW && !currentLine.empty())
+                {
+                    lines.push_back(currentLine);
+                    currentLine = std::string(1, ch);
+                }
+                else
+                {
+                    currentLine.push_back(ch);
+                }
+            }
+            lines.push_back(currentLine);
+
+            const float contentH = static_cast<float>(lines.size()) * lineHeight;
+            const float maxScroll = std::max(0.0f, contentH - (field.height - pad * 2.0f));
+            if (CheckCollisionPointRec(GetMousePosition(), field))
+                variableEditorScrollY -= GetMouseWheelMove() * lineHeight;
+            if (variableEditorScrollY < 0.0f)
+                variableEditorScrollY = 0.0f;
+            if (variableEditorScrollY > maxScroll)
+                variableEditorScrollY = maxScroll;
+
+            BeginScissorMode(
+                static_cast<int>(field.x),
+                static_cast<int>(field.y),
+                static_cast<int>(field.width),
+                static_cast<int>(field.height));
+
+            float y = field.y + pad - variableEditorScrollY;
+            for (size_t lineIndex = 0; lineIndex < lines.size(); ++lineIndex)
+            {
+                DrawTextEx(
+                    textFont(),
+                    lines[lineIndex].c_str(),
+                    {field.x + pad, y},
+                    fontSize,
+                    1.0f,
+                    kTextPrimary);
+                y += lineHeight;
+            }
+
+            // Approximate caret at end of buffer for multiline (stable and readable).
+            if (caretOn)
+            {
+                const float caretY =
+                    field.y + pad - variableEditorScrollY +
+                    static_cast<float>(lines.empty() ? 0 : lines.size() - 1) * lineHeight;
+                const std::string lastLine = lines.empty() ? "" : lines.back();
+                const float caretX =
+                    field.x + pad + MeasureTextEx(textFont(), lastLine.c_str(), fontSize, 1.0f).x;
+                DrawLineEx({caretX, caretY}, {caretX, caretY + fontSize}, 1.5f, kTextPrimary);
+            }
+
+            EndScissorMode();
+        }
+
+        const Rectangle saveBtn = {dialog.x + dialogW - btnW * 2.0f - 28.0f, btnY, btnW, btnH};
+        const Rectangle cancelBtn = {dialog.x + dialogW - btnW - 18.0f, btnY, btnW, btnH};
+
+        auto drawButton = [&](Rectangle bounds, const char* label, bool accent)
+        {
+            DrawRectangleRec(bounds, accent ? kPanelAccent : Color{44, 42, 52, 255});
+            DrawRectangleLinesEx(bounds, 1.0f, kPanelBorder);
+            const Vector2 size = MeasureTextEx(textFont(), label, 14.0f, 1.0f);
+            DrawTextEx(
+                textFont(),
+                label,
+                {bounds.x + (bounds.width - size.x) * 0.5f, bounds.y + 9.0f},
+                14.0f,
+                1.0f,
+                kTextPrimary);
+        };
+
+        drawButton(saveBtn, "Save", true);
+        drawButton(cancelBtn, "Cancel", false);
+
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+            const Vector2 mouse = GetMousePosition();
+            if (CheckCollisionPointRec(mouse, saveBtn))
+            {
+                if (!saveVariableEditor())
+                {
+                    // Keep open on parse failure; flash is omitted for simplicity.
+                }
+            }
+            else if (CheckCollisionPointRec(mouse, cancelBtn))
+            {
+                closeVariableEditor();
+            }
+        }
+
+        // Enter saves single-line fields; multiline uses Enter for newlines.
+        if (!variableEditorMultiline &&
+            (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)))
+        {
+            saveVariableEditor();
+        }
+    }
+
     void drawVariablesPane(Rectangle paneBounds)
     {
         DrawTextEx(textFont(), "Scene Variables", {paneBounds.x + 12.0f, paneBounds.y + 8.0f},
                    15.0f, 1.0f, kTextMuted);
+        DrawTextEx(
+            textFont(),
+            "Double-click a field to edit",
+            {paneBounds.x + 160.0f, paneBounds.y + 10.0f},
+            12.0f,
+            1.0f,
+            kTextMuted);
 
         if (selectedSceneId.empty() || !scenesDoc.hasScene(selectedSceneId))
         {
@@ -2524,28 +2968,65 @@ struct SceneEditorApp
         const std::vector<std::pair<std::string, std::string>> rows =
             scenesDoc.sceneVariableRows(selectedSceneId);
         const float rowHeight = 22.0f;
-        const float contentHeight = static_cast<float>(rows.size()) * rowHeight + 36.0f;
-        const float maxScroll = std::max(0.0f, contentHeight - paneBounds.height);
+        const float listTop = paneBounds.y + 28.0f;
+        const float listHeight = paneBounds.height - 28.0f;
+        const float contentHeight = static_cast<float>(rows.size()) * rowHeight + 8.0f;
+        const float maxScroll = std::max(0.0f, contentHeight - listHeight);
         if (variablesScroll > maxScroll)
             variablesScroll = maxScroll;
 
-        BeginScissorMode(
-            static_cast<int>(paneBounds.x),
-            static_cast<int>(paneBounds.y + 28.0f),
-            static_cast<int>(paneBounds.width),
-            static_cast<int>(paneBounds.height - 28.0f));
+        const Rectangle listBounds = {paneBounds.x, listTop, paneBounds.width, listHeight};
 
-        float y = paneBounds.y + 36.0f - variablesScroll;
+        BeginScissorMode(
+            static_cast<int>(listBounds.x),
+            static_cast<int>(listBounds.y),
+            static_cast<int>(listBounds.width),
+            static_cast<int>(listBounds.height));
+
+        float y = listTop + 8.0f - variablesScroll;
+        const Vector2 mouse = GetMousePosition();
         for (const std::pair<std::string, std::string>& row : rows)
         {
+            const Rectangle rowBounds = {
+                paneBounds.x + 8.0f,
+                y,
+                paneBounds.width - 16.0f,
+                rowHeight - 2.0f};
+            const bool hovered =
+                !variableEditorOpen &&
+                !stackDialogOpen &&
+                CheckCollisionPointRec(mouse, listBounds) &&
+                CheckCollisionPointRec(mouse, rowBounds);
+
+            if (hovered)
+                DrawRectangleRec(rowBounds, kSelection);
+
             const std::string line = row.first + ": " + truncate(row.second, 80);
-            DrawTextEx(textFont(), line.c_str(), {paneBounds.x + 12.0f, y}, 13.0f, 1.0f, kTextPrimary);
+            DrawTextEx(textFont(), line.c_str(), {rowBounds.x + 4.0f, rowBounds.y + 2.0f},
+                       13.0f, 1.0f, kTextPrimary);
+
+            if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+            {
+                const double now = GetTime();
+                if (variableLastClickKey == row.first && (now - variableLastClickTime) < 0.4)
+                {
+                    openVariableEditor(selectedSceneId, row.first);
+                    variableLastClickKey.clear();
+                    variableLastClickTime = -1.0;
+                }
+                else
+                {
+                    variableLastClickKey = row.first;
+                    variableLastClickTime = now;
+                }
+            }
+
             y += rowHeight;
         }
 
         EndScissorMode();
 
-        if (CheckCollisionPointRec(GetMousePosition(), paneBounds))
+        if (!variableEditorOpen && CheckCollisionPointRec(GetMousePosition(), listBounds))
             variablesScroll -= GetMouseWheelMove() * 18.0f;
         if (variablesScroll < 0.0f)
             variablesScroll = 0.0f;
@@ -2697,6 +3178,9 @@ struct SceneEditorApp
 
     void handleShortcuts()
     {
+        if (variableEditorOpen || stackDialogOpen)
+            return;
+
         if (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL))
         {
             if (IsKeyPressed(KEY_S))
@@ -2711,13 +3195,13 @@ struct SceneEditorApp
         syncLayoutToWindow(screenWidth, screenHeight);
 
         handleShortcuts();
-        if (!stackDialogOpen)
+        if (!stackDialogOpen && !variableEditorOpen)
             handleDividerInput(screenWidth, screenHeight);
         else
             SetMouseCursor(MOUSE_CURSOR_DEFAULT);
 
-        // Don't start scene drags while resizing panes.
-        if (isDraggingDivider())
+        // Don't start scene drags while resizing panes or editing variables.
+        if (isDraggingDivider() || variableEditorOpen)
         {
             dragSource = DragSource::None;
             dragSceneId.clear();
@@ -2750,6 +3234,7 @@ struct SceneEditorApp
         drawDividers(screenWidth, screenHeight);
         drawStatusBar(screenWidth, screenHeight);
         drawStackDialog(screenWidth, screenHeight);
+        drawVariableEditor(screenWidth, screenHeight);
 
         EndDrawing();
     }
