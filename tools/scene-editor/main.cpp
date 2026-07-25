@@ -81,6 +81,7 @@ const float kLinkStubLength = 28.0f;
 const float kArrowHeadLength = 12.0f;
 const float kArrowHeadHalfWidth = 5.0f;
 const float kLinkEndCapRadius = 7.0f;
+const float kWireHopRadius = 8.0f; // schematic-style jump at wire crossings
 const float kLayoutOriginX = 40.0f;
 const float kLayoutOriginY = 48.0f;
 const float kListThumbSize = 96.0f; // doubled for the left scene browser
@@ -1815,20 +1816,181 @@ struct SceneEditorApp
         DrawLineEx(a, b, 2.0f, kPanelBorder);
     }
 
+    bool isHorizontalSeg(Vector2 a, Vector2 b) const
+    {
+        return std::fabs(a.y - b.y) < 0.75f && std::fabs(a.x - b.x) > 0.75f;
+    }
+
+    bool isVerticalSeg(Vector2 a, Vector2 b) const
+    {
+        return std::fabs(a.x - b.x) < 0.75f && std::fabs(a.y - b.y) > 0.75f;
+    }
+
+    // Orthogonal H×V interior crossing (not at endpoints).
+    bool findOrthogonalCrossing(
+        Vector2 a1,
+        Vector2 a2,
+        Vector2 b1,
+        Vector2 b2,
+        Vector2& outCross) const
+    {
+        const bool aH = isHorizontalSeg(a1, a2);
+        const bool aV = isVerticalSeg(a1, a2);
+        const bool bH = isHorizontalSeg(b1, b2);
+        const bool bV = isVerticalSeg(b1, b2);
+        if (!(aH && bV) && !(aV && bH))
+            return false;
+
+        Vector2 h1, h2, v1, v2;
+        if (aH && bV)
+        {
+            h1 = a1;
+            h2 = a2;
+            v1 = b1;
+            v2 = b2;
+        }
+        else
+        {
+            h1 = b1;
+            h2 = b2;
+            v1 = a1;
+            v2 = a2;
+        }
+
+        const float y = h1.y;
+        const float x = v1.x;
+        const float hMinX = std::min(h1.x, h2.x);
+        const float hMaxX = std::max(h1.x, h2.x);
+        const float vMinY = std::min(v1.y, v2.y);
+        const float vMaxY = std::max(v1.y, v2.y);
+        const float margin = kWireHopRadius + 2.0f;
+        if (x <= hMinX + margin || x >= hMaxX - margin)
+            return false;
+        if (y <= vMinY + margin || y >= vMaxY - margin)
+            return false;
+
+        outCross = {x, y};
+        return true;
+    }
+
+    void drawWireLine(Vector2 a, Vector2 b, float thick, Color color) const
+    {
+        DrawLineEx(a, b, thick, color);
+    }
+
+    // Semicircle hop so one wire jumps over another (P&ID / electrical style).
+    void drawWireHop(Vector2 center, bool hopIsOnHorizontal, Vector2 travelDir) const
+    {
+        const float r = kWireHopRadius;
+        const int segments = 12;
+        Vector2 prev{};
+        for (int i = 0; i <= segments; ++i)
+        {
+            const float t = static_cast<float>(i) / static_cast<float>(segments);
+            Vector2 p;
+            if (hopIsOnHorizontal)
+            {
+                // Upper semicircle (bulges toward smaller y). Traverse with travel direction.
+                // Standard angle 0=right, CCW; y-down screen uses y = center.y - r*sin.
+                const float a = (travelDir.x >= 0.0f)
+                    ? (PI - t * PI)   // left -> up -> right
+                    : (t * PI);       // right -> up -> left
+                p = {center.x + r * std::cos(a), center.y - r * std::sin(a)};
+            }
+            else
+            {
+                // Right semicircle (bulges toward larger x).
+                const float a = (travelDir.y >= 0.0f)
+                    ? (-PI * 0.5f + t * PI)  // up -> right -> down
+                    : (PI * 0.5f + t * PI);  // down -> right -> up
+                p = {center.x + r * std::cos(a), center.y - r * std::sin(a)};
+            }
+
+            if (i > 0)
+            {
+                drawWireLine(prev, p, 4.0f, Color{8, 7, 12, 220});
+                drawWireLine(prev, p, 2.0f, kExitArrow);
+            }
+            prev = p;
+        }
+    }
+
+    void drawOrthogonalSegWithHops(
+        Vector2 a,
+        Vector2 b,
+        std::vector<Vector2> hops) const
+    {
+        if (std::fabs(a.x - b.x) < 0.5f && std::fabs(a.y - b.y) < 0.5f)
+            return;
+
+        const bool horizontal = isHorizontalSeg(a, b);
+        const bool vertical = isVerticalSeg(a, b);
+        if (!horizontal && !vertical)
+        {
+            drawWireLine(a, b, 4.0f, Color{8, 7, 12, 220});
+            drawWireLine(a, b, 2.0f, kExitArrow);
+            return;
+        }
+
+        // Sort hops along travel from a -> b.
+        std::sort(hops.begin(), hops.end(), [&](const Vector2& p, const Vector2& q)
+        {
+            if (horizontal)
+                return (a.x <= b.x) ? (p.x < q.x) : (p.x > q.x);
+            return (a.y <= b.y) ? (p.y < q.y) : (p.y > q.y);
+        });
+
+        Vector2 dir = Vector2Subtract(b, a);
+        const float len = Vector2Length(dir);
+        if (len < 1.0f)
+            return;
+        dir = Vector2Scale(dir, 1.0f / len);
+
+        Vector2 prev = a;
+        for (size_t i = 0; i < hops.size(); ++i)
+        {
+            const Vector2& hop = hops[i];
+            // Skip hops too close to ends or to previous hop.
+            const float distA = Vector2Distance(hop, a);
+            const float distB = Vector2Distance(hop, b);
+            if (distA < kWireHopRadius * 2.0f || distB < kWireHopRadius * 2.0f)
+                continue;
+
+            const Vector2 before = Vector2Subtract(hop, Vector2Scale(dir, kWireHopRadius));
+            const Vector2 after = Vector2Add(hop, Vector2Scale(dir, kWireHopRadius));
+
+            // Ensure before is still ahead of prev along the path.
+            if (Vector2DotProduct(Vector2Subtract(before, prev), dir) < 0.0f)
+                continue;
+
+            drawWireLine(prev, before, 4.0f, Color{8, 7, 12, 220});
+            drawWireLine(prev, before, 2.0f, kExitArrow);
+            drawWireHop(hop, horizontal, dir);
+            prev = after;
+        }
+
+        drawWireLine(prev, b, 4.0f, Color{8, 7, 12, 220});
+        drawWireLine(prev, b, 2.0f, kExitArrow);
+    }
+
     void drawPolyline(
         const std::vector<Vector2>& points,
         bool arrowAtStart,
         bool arrowAtEnd,
         bool semicircleAtStart,
-        const std::string& fromSide) const
+        const std::string& fromSide,
+        const std::vector<std::vector<Vector2> >& hopsPerSegment) const
     {
         if (points.size() < 2)
             return;
 
         for (size_t i = 0; i + 1 < points.size(); ++i)
-            DrawLineEx(points[i], points[i + 1], 4.0f, Color{8, 7, 12, 220});
-        for (size_t i = 0; i + 1 < points.size(); ++i)
-            DrawLineEx(points[i], points[i + 1], 2.0f, kExitArrow);
+        {
+            std::vector<Vector2> hops;
+            if (i < hopsPerSegment.size())
+                hops = hopsPerSegment[i];
+            drawOrthogonalSegWithHops(points[i], points[i + 1], hops);
+        }
 
         const Vector2& p0 = points[0];
         const Vector2& p1 = points[1];
@@ -2018,7 +2180,17 @@ struct SceneEditorApp
         for (const std::string& id : levelIds)
             allCards.push_back(sceneCardBounds(id, canvasBounds));
 
-        // Obstacles exclude the two endpoints of each link (stubs leave those cards).
+        struct LinkRoute
+        {
+            std::vector<Vector2> points;
+            bool arrowAtStart = false;
+            bool arrowAtEnd = true;
+            bool semicircleAtStart = false;
+            std::string fromSide;
+        };
+
+        std::vector<LinkRoute> routes;
+
         for (size_t i = 0; i < levelIds.size(); ++i)
         {
             const std::string& fromId = levelIds[i];
@@ -2031,8 +2203,6 @@ struct SceneEditorApp
                     continue;
 
                 const bool reciprocalOpposite = isOppositeReciprocal(fromId, direction, toId);
-
-                // Mutual opposite pair: draw once with arrows on both ends.
                 if (reciprocalOpposite && fromId > toId)
                     continue;
 
@@ -2047,38 +2217,89 @@ struct SceneEditorApp
                     obstacles.push_back(allCards[c]);
                 }
 
-                const std::vector<Vector2> route =
-                    buildOrthogonalRoute(fromCard, toCard, direction, obstacles);
+                LinkRoute route;
+                route.points = buildOrthogonalRoute(fromCard, toCard, direction, obstacles);
+                route.arrowAtStart = reciprocalOpposite;
+                route.arrowAtEnd = true;
+                route.semicircleAtStart = !reciprocalOpposite;
 
-                std::string fromSide = "right";
                 int dCol = 0;
                 int dRow = 0;
                 if (directionDelta(direction, dCol, dRow))
                 {
                     if (dCol > 0)
-                        fromSide = "right";
+                        route.fromSide = "right";
                     else if (dCol < 0)
-                        fromSide = "left";
+                        route.fromSide = "left";
                     else if (dRow < 0)
-                        fromSide = "top";
+                        route.fromSide = "top";
                     else
-                        fromSide = "bottom";
+                        route.fromSide = "bottom";
                 }
                 else
                 {
-                    fromSide = facingSide(fromCard, toCard);
+                    route.fromSide = facingSide(fromCard, toCard);
                 }
 
-                if (reciprocalOpposite)
+                routes.push_back(route);
+            }
+        }
+
+        // hopsPerRoute[route][seg] = hop centers on that segment
+        std::vector<std::vector<std::vector<Vector2> > > hopsPerRoute(routes.size());
+        for (size_t r = 0; r < routes.size(); ++r)
+            hopsPerRoute[r].assign(
+                routes[r].points.empty() ? 0 : routes[r].points.size() - 1,
+                std::vector<Vector2>());
+
+        // Detect H×V crossings between different routes; hop the later route's segment
+        // (schematic jump) so crossings stay readable.
+        for (size_t r0 = 0; r0 < routes.size(); ++r0)
+        {
+            const std::vector<Vector2>& p0 = routes[r0].points;
+            for (size_t s0 = 0; s0 + 1 < p0.size(); ++s0)
+            {
+                for (size_t r1 = r0 + 1; r1 < routes.size(); ++r1)
                 {
-                    drawPolyline(route, true, true, false, fromSide);
-                }
-                else
-                {
-                    // One-way: semicircle at source edge, arrow into destination.
-                    drawPolyline(route, false, true, true, fromSide);
+                    const std::vector<Vector2>& p1 = routes[r1].points;
+                    for (size_t s1 = 0; s1 + 1 < p1.size(); ++s1)
+                    {
+                        Vector2 cross;
+                        if (!findOrthogonalCrossing(p0[s0], p0[s0 + 1], p1[s1], p1[s1 + 1], cross))
+                            continue;
+
+                        // Prefer hopping the horizontal segment (classic P&ID style).
+                        // If neither or both, hop the higher-index route's segment.
+                        const bool h0 = isHorizontalSeg(p0[s0], p0[s0 + 1]);
+                        const bool h1 = isHorizontalSeg(p1[s1], p1[s1 + 1]);
+                        size_t hopRoute = r1;
+                        size_t hopSeg = s1;
+                        if (h0 && !h1)
+                        {
+                            hopRoute = r0;
+                            hopSeg = s0;
+                        }
+                        else if (h1 && !h0)
+                        {
+                            hopRoute = r1;
+                            hopSeg = s1;
+                        }
+
+                        hopsPerRoute[hopRoute][hopSeg].push_back(cross);
+                    }
                 }
             }
+        }
+
+        for (size_t r = 0; r < routes.size(); ++r)
+        {
+            drawPolyline(
+                routes[r].points,
+                routes[r].arrowAtStart,
+                routes[r].arrowAtEnd,
+                routes[r].semicircleAtStart,
+                routes[r].fromSide,
+                hopsPerRoute[r]);
         }
     }
 
