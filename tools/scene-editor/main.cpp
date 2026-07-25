@@ -341,6 +341,8 @@ struct SceneEditorApp
     std::string variableEditorError;
     int variableEditorIgnoreInputFrames = 0;
     Rectangle variableEditorField{0, 0, 0, 0};
+    Rectangle variableEditorSaveBtn{0, 0, 0, 0};
+    Rectangle variableEditorCancelBtn{0, 0, 0, 0};
     float variableEditorFontSize = 14.0f;
     float variableEditorLineHeight = 18.0f;
     float variableEditorPad = 8.0f;
@@ -3059,12 +3061,34 @@ struct SceneEditorApp
         const bool shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
         const bool ctrl = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL) ||
             IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER);
+        const Vector2 mouse = GetMousePosition();
 
-        // Click to place caret; drag to extend selection.
-        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetMousePosition(), field))
+        // Buttons take priority over the text field (handled here in update).
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+            if (CheckCollisionPointRec(mouse, variableEditorSaveBtn))
+            {
+                variableEditorMouseSelecting = false;
+                if (!saveVariableEditor())
+                {
+                    if (variableEditorError.empty())
+                        variableEditorError = "Could not parse value — check type and try again";
+                }
+                return;
+            }
+            if (CheckCollisionPointRec(mouse, variableEditorCancelBtn))
+            {
+                variableEditorMouseSelecting = false;
+                closeVariableEditor();
+                return;
+            }
+        }
+
+        // Click to place caret; drag to extend selection (field only).
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, field))
         {
             const int pos = editorCursorFromClick(
-                lines, field, pad, fontSize, lineHeight, GetMousePosition());
+                lines, field, pad, fontSize, lineHeight, mouse);
             setVariableCursor(pos, shift);
             variableEditorMouseSelecting = !shift;
             if (!shift)
@@ -3078,17 +3102,21 @@ struct SceneEditorApp
         }
         else if (variableEditorMouseSelecting && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
         {
-            if (variableEditorSelectAnchor < 0)
-                variableEditorSelectAnchor = variableEditorCursor;
-            variableEditorCursor = editorCursorFromClick(
-                lines, field, pad, fontSize, lineHeight, GetMousePosition());
-            clampVariableCursor();
-            const int lineIndex = editorLineIndexForCursor(lines, variableEditorCursor);
-            variableEditorPreferX = editorCaretXOnLine(
-                lines[static_cast<size_t>(lineIndex)],
-                variableEditorCursor,
-                fontSize);
-            ensureCursorVisible(lines, field.height, pad, lineHeight);
+            // Only extend selection while the pointer is over the field.
+            if (CheckCollisionPointRec(mouse, field))
+            {
+                if (variableEditorSelectAnchor < 0)
+                    variableEditorSelectAnchor = variableEditorCursor;
+                variableEditorCursor = editorCursorFromClick(
+                    lines, field, pad, fontSize, lineHeight, mouse);
+                clampVariableCursor();
+                const int lineIndex = editorLineIndexForCursor(lines, variableEditorCursor);
+                variableEditorPreferX = editorCaretXOnLine(
+                    lines[static_cast<size_t>(lineIndex)],
+                    variableEditorCursor,
+                    fontSize);
+                ensureCursorVisible(lines, field.height, pad, lineHeight);
+            }
         }
         if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
             variableEditorMouseSelecting = false;
@@ -3408,6 +3436,10 @@ struct SceneEditorApp
                 kTextPrimary);
         };
 
+        // Keep rects identical to update() hit-testing.
+        variableEditorSaveBtn = saveBtn;
+        variableEditorCancelBtn = cancelBtn;
+
         drawButton(saveBtn, "Save", true);
         drawButton(cancelBtn, "Cancel", false);
 
@@ -3420,23 +3452,6 @@ struct SceneEditorApp
                 12.0f,
                 1.0f,
                 Color{220, 120, 100, 255});
-        }
-
-        if (variableEditorIgnoreInputFrames <= 0 && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-        {
-            const Vector2 mouse = GetMousePosition();
-            if (CheckCollisionPointRec(mouse, saveBtn))
-            {
-                if (!saveVariableEditor())
-                {
-                    if (variableEditorError.empty())
-                        variableEditorError = "Could not parse value — check type and try again";
-                }
-            }
-            else if (CheckCollisionPointRec(mouse, cancelBtn))
-            {
-                closeVariableEditor();
-            }
         }
 
         // Enter saves single-line fields; multiline uses Enter for newlines.
@@ -3762,24 +3777,38 @@ struct SceneEditorApp
             if (variableEditorIgnoreInputFrames > 0)
                 --variableEditorIgnoreInputFrames;
 
-            // Compute field rect here so input works even before the first draw.
+            // Keep dialog layout metrics in sync so buttons and field hit-tests match.
             const float dialogW = variableEditorMultiline ? 760.0f : 520.0f;
             const float dialogH = variableEditorMultiline ? 520.0f : 190.0f;
             const float dialogX = (static_cast<float>(screenWidth) - dialogW) * 0.5f;
             const float dialogY = (static_cast<float>(screenHeight) - dialogH) * 0.5f;
             const float btnH = 34.0f;
+            const float btnW = 110.0f;
             const float btnY = dialogY + dialogH - btnH - 16.0f;
             variableEditorField = {
                 dialogX + 18.0f,
                 dialogY + 44.0f,
                 dialogW - 36.0f,
                 btnY - (dialogY + 44.0f) - 14.0f};
+            variableEditorSaveBtn = {
+                dialogX + dialogW - btnW * 2.0f - 28.0f,
+                btnY,
+                btnW,
+                btnH};
+            variableEditorCancelBtn = {
+                dialogX + dialogW - btnW - 18.0f,
+                btnY,
+                btnW,
+                btnH};
             variableEditorFontSize = 14.0f;
             variableEditorLineHeight = 18.0f;
             variableEditorPad = 8.0f;
 
             handleVariableEditorTextInput();
-            SetMouseCursor(MOUSE_CURSOR_IBEAM);
+            if (CheckCollisionPointRec(GetMousePosition(), variableEditorField))
+                SetMouseCursor(MOUSE_CURSOR_IBEAM);
+            else
+                SetMouseCursor(MOUSE_CURSOR_DEFAULT);
         }
         else if (!stackDialogOpen)
         {
