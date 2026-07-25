@@ -59,7 +59,7 @@ const float kMinLeftWidth = 320.0f;
 const float kMinMainWidth = 280.0f;
 const float kMinTopHeight = 200.0f;
 const float kMinBottomHeight = 140.0f;
-const float kTabHeight = 32.0f;
+const float kTabHeight = 34.0f;
 const float kSceneCardWidth = 160.0f;
 const float kSceneCardMinHeight = 110.0f;
 const float kSceneCardThumbHeight = 68.0f;
@@ -83,8 +83,11 @@ const float kArrowHeadHalfWidth = 5.0f;
 const float kLinkEndCapRadius = 7.0f;
 const float kLayoutOriginX = 40.0f;
 const float kLayoutOriginY = 48.0f;
-const float kListThumbSize = 48.0f;
-const float kListRowHeight = 60.0f;
+const float kListThumbSize = 96.0f; // doubled for the left scene browser
+const float kListRowHeight = 108.0f;
+const float kListNameFont = 18.0f;   // +2 from prior list body size
+const float kListMetaFont = 16.0f;
+const float kListTabFont = 16.0f;
 const float kCanvasChromeHeight = 36.0f;
 const float kScrollBarSize = 14.0f;
 const float kScrollContentPad = 48.0f;
@@ -1367,7 +1370,7 @@ struct SceneEditorApp
         if (jsonTabs.empty())
         {
             DrawTextEx(textFont(), "No resource JSON files",
-                       {leftBounds.x + 8.0f, leftBounds.y + 8.0f}, kFontTiny, 1.0f, kTextMuted);
+                       {leftBounds.x + 8.0f, leftBounds.y + 8.0f}, kListTabFont, 1.0f, kTextMuted);
             return;
         }
 
@@ -1383,7 +1386,7 @@ struct SceneEditorApp
             std::string label = jsonTabs[i];
             if (label.size() > 5 && label.compare(label.size() - 5, 5, ".json") == 0)
                 label.resize(label.size() - 5);
-            const float fontSize = kFontTiny;
+            const float fontSize = kListTabFont;
             const Vector2 textSize = MeasureTextEx(textFont(), label.c_str(), fontSize, 1.0f);
             DrawTextEx(
                 textFont(),
@@ -1416,7 +1419,7 @@ struct SceneEditorApp
                 message,
                 {listBounds.x + 12.0f, listBounds.y + 12.0f},
                 listBounds.width - 24.0f,
-                13.0f,
+                kListMetaFont,
                 4.0f,
                 kTextMuted);
             return;
@@ -1443,7 +1446,7 @@ struct SceneEditorApp
                 DrawRectangleRec(row, kSelection);
 
             const ThumbnailEntry& thumb = ensureThumbnail(id);
-            const Rectangle thumbRect = {row.x + 6.0f, row.y + 4.0f, kListThumbSize, kListThumbSize};
+            const Rectangle thumbRect = {row.x + 6.0f, row.y + 6.0f, kListThumbSize, kListThumbSize};
             DrawRectangleRec(thumbRect, Color{48, 44, 58, 255});
             if (thumb.loaded)
             {
@@ -1457,13 +1460,15 @@ struct SceneEditorApp
             }
 
             const int sceneLevel = scenesDoc.getLayout(id).level;
-            DrawTextEx(textFont(), id.c_str(), {row.x + kListThumbSize + 12.0f, row.y + 8.0f},
-                       kFontBody, 1.0f, kTextPrimary);
+            const float textX = row.x + kListThumbSize + 14.0f;
+            const float textY = row.y + (kListRowHeight - kListNameFont - kListMetaFont - 8.0f) * 0.5f;
+            DrawTextEx(textFont(), id.c_str(), {textX, textY},
+                       kListNameFont, 1.0f, kTextPrimary);
             DrawTextEx(
                 textFont(),
                 TextFormat("L%d", sceneLevel),
-                {row.x + kListThumbSize + 12.0f, row.y + 28.0f},
-                kFontTiny,
+                {textX, textY + kListNameFont + 6.0f},
+                kListMetaFont,
                 1.0f,
                 kTextMuted);
 
