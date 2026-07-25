@@ -338,6 +338,13 @@ struct SceneEditorApp
     std::string selectedVariableKey;
     std::string variableEditorError;
     int variableEditorIgnoreInputFrames = 0;
+    Rectangle variableEditorField{0, 0, 0, 0};
+    float variableEditorFontSize = 14.0f;
+    float variableEditorLineHeight = 18.0f;
+    float variableEditorPad = 8.0f;
+    float variableEditorPreferX = 0.0f; // visual column for up/down
+    float variableKeyRepeatTimer = 0.0f;
+    int variableKeyRepeatKey = 0;
 
     std::map<std::string, ThumbnailEntry> thumbnails;
     bool dirty = false;
@@ -2874,7 +2881,91 @@ struct SceneEditorApp
             variableEditorScrollY = 0.0f;
     }
 
-    void handleVariableEditorTextInput(Rectangle field, float pad, float fontSize, float lineHeight)
+    bool editorNavKeyTriggered(int key)
+    {
+        // Use IsKeyDown (not only IsKeyPressed) so arrows work reliably on macOS.
+        // First frame of hold fires immediately; after a short delay, repeats.
+        if (!IsKeyDown(key))
+        {
+            if (variableKeyRepeatKey == key)
+            {
+                variableKeyRepeatKey = 0;
+                variableKeyRepeatTimer = 0.0f;
+            }
+            return false;
+        }
+
+        if (variableKeyRepeatKey != key)
+        {
+            variableKeyRepeatKey = key;
+            variableKeyRepeatTimer = 0.0f;
+            return true;
+        }
+
+        variableKeyRepeatTimer += GetFrameTime();
+        if (variableKeyRepeatTimer < 0.40f)
+            return false;
+
+        // Repeat cadence after initial delay.
+        const float repeatEvery = 0.045f;
+        if (variableKeyRepeatTimer >= 0.40f + repeatEvery)
+        {
+            variableKeyRepeatTimer = 0.40f;
+            return true;
+        }
+        return false;
+    }
+
+    int cursorOnLineAtPreferX(const EditorVisualLine& line, float preferX, float fontSize) const
+    {
+        int best = line.start;
+        float bestDist = 1.0e9f;
+        for (int pos = line.start; pos <= line.end; ++pos)
+        {
+            if (pos > line.start && pos < line.end &&
+                (static_cast<unsigned char>(variableEditorBuffer[static_cast<size_t>(pos)]) & 0xC0) == 0x80)
+            {
+                continue;
+            }
+            const float x = editorCaretXOnLine(line, pos, fontSize);
+            const float dist = std::fabs(x - preferX);
+            if (dist < bestDist)
+            {
+                bestDist = dist;
+                best = pos;
+            }
+        }
+        return best;
+    }
+
+    void moveVariableCursorVertical(int direction, const std::vector<EditorVisualLine>& lines, float fontSize)
+    {
+        if (lines.empty())
+            return;
+
+        const int lineIndex = editorLineIndexForCursor(lines, variableEditorCursor);
+        const EditorVisualLine& cur = lines[static_cast<size_t>(lineIndex)];
+        variableEditorPreferX = editorCaretXOnLine(cur, variableEditorCursor, fontSize);
+
+        const int targetLine = lineIndex + direction;
+        if (targetLine < 0)
+        {
+            variableEditorCursor = 0;
+            return;
+        }
+        if (targetLine >= static_cast<int>(lines.size()))
+        {
+            variableEditorCursor = static_cast<int>(variableEditorBuffer.size());
+            return;
+        }
+
+        variableEditorCursor = cursorOnLineAtPreferX(
+            lines[static_cast<size_t>(targetLine)],
+            variableEditorPreferX,
+            fontSize);
+    }
+
+    void handleVariableEditorTextInput()
     {
         if (!variableEditorOpen)
             return;
@@ -2884,22 +2975,42 @@ struct SceneEditorApp
             while (GetCharPressed() > 0)
             {
             }
+            // Drain key queue so the activating key cannot act later.
+            while (GetKeyPressed() != 0)
+            {
+            }
             return;
         }
 
+        if (variableEditorField.width <= 1.0f || variableEditorField.height <= 1.0f)
+            return;
+
+        const Rectangle field = variableEditorField;
+        const float pad = variableEditorPad;
+        const float fontSize = variableEditorFontSize;
+        const float lineHeight = variableEditorLineHeight;
         const float maxTextW = field.width - pad * 2.0f;
         std::vector<EditorVisualLine> lines = buildEditorVisualLines(maxTextW, fontSize);
 
-        // Click to place caret.
-        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetMousePosition(), field))
+        // Click (or drag) to place caret inside the field.
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) ||
+            (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetMousePosition(), field)))
         {
-            variableEditorCursor = editorCursorFromClick(
-                lines, field, pad, fontSize, lineHeight, GetMousePosition());
-            clampVariableCursor();
-            ensureCursorVisible(lines, field.height, pad, lineHeight);
+            if (CheckCollisionPointRec(GetMousePosition(), field))
+            {
+                variableEditorCursor = editorCursorFromClick(
+                    lines, field, pad, fontSize, lineHeight, GetMousePosition());
+                clampVariableCursor();
+                const int lineIndex = editorLineIndexForCursor(lines, variableEditorCursor);
+                variableEditorPreferX = editorCaretXOnLine(
+                    lines[static_cast<size_t>(lineIndex)],
+                    variableEditorCursor,
+                    fontSize);
+                ensureCursorVisible(lines, field.height, pad, lineHeight);
+            }
         }
 
-        // Codepoint input
+        // Text insertion
         int codepoint = GetCharPressed();
         while (codepoint > 0)
         {
@@ -2930,7 +3041,42 @@ struct SceneEditorApp
             codepoint = GetCharPressed();
         }
 
-        if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE))
+        // Navigation / editing via IsKeyDown (works for arrows on macOS).
+        if (editorNavKeyTriggered(KEY_LEFT))
+            variableEditorCursor = utf8PrevIndex(variableEditorCursor);
+        if (editorNavKeyTriggered(KEY_RIGHT))
+            variableEditorCursor = utf8NextIndex(variableEditorCursor);
+        if (editorNavKeyTriggered(KEY_UP))
+            moveVariableCursorVertical(-1, lines, fontSize);
+        if (editorNavKeyTriggered(KEY_DOWN))
+            moveVariableCursorVertical(1, lines, fontSize);
+
+        const bool ctrl = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL) ||
+            IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER);
+
+        if (IsKeyPressed(KEY_HOME))
+        {
+            if (ctrl || !variableEditorMultiline)
+                variableEditorCursor = 0;
+            else
+            {
+                const int lineIndex = editorLineIndexForCursor(lines, variableEditorCursor);
+                variableEditorCursor = lines[static_cast<size_t>(lineIndex)].start;
+            }
+        }
+
+        if (IsKeyPressed(KEY_END))
+        {
+            if (ctrl || !variableEditorMultiline)
+                variableEditorCursor = static_cast<int>(variableEditorBuffer.size());
+            else
+            {
+                const int lineIndex = editorLineIndexForCursor(lines, variableEditorCursor);
+                variableEditorCursor = lines[static_cast<size_t>(lineIndex)].end;
+            }
+        }
+
+        if (editorNavKeyTriggered(KEY_BACKSPACE))
         {
             if (variableEditorCursor > 0 && !variableEditorBuffer.empty())
             {
@@ -2943,7 +3089,7 @@ struct SceneEditorApp
             }
         }
 
-        if (IsKeyPressed(KEY_DELETE) || IsKeyPressedRepeat(KEY_DELETE))
+        if (editorNavKeyTriggered(KEY_DELETE))
         {
             if (variableEditorCursor < static_cast<int>(variableEditorBuffer.size()))
             {
@@ -2955,109 +3101,7 @@ struct SceneEditorApp
             }
         }
 
-        if (IsKeyPressed(KEY_LEFT) || IsKeyPressedRepeat(KEY_LEFT))
-            variableEditorCursor = utf8PrevIndex(variableEditorCursor);
-
-        if (IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_RIGHT))
-            variableEditorCursor = utf8NextIndex(variableEditorCursor);
-
-        if (IsKeyPressed(KEY_UP) || IsKeyPressedRepeat(KEY_UP))
-        {
-            const int lineIndex = editorLineIndexForCursor(lines, variableEditorCursor);
-            if (lineIndex > 0)
-            {
-                const EditorVisualLine& cur = lines[static_cast<size_t>(lineIndex)];
-                const float preferX = editorCaretXOnLine(cur, variableEditorCursor, fontSize);
-                const EditorVisualLine& above = lines[static_cast<size_t>(lineIndex - 1)];
-                int best = above.start;
-                float bestDist = 1.0e9f;
-                for (int pos = above.start; pos <= above.end; ++pos)
-                {
-                    if (pos > above.start && pos < above.end &&
-                        (static_cast<unsigned char>(variableEditorBuffer[static_cast<size_t>(pos)]) & 0xC0) == 0x80)
-                    {
-                        continue;
-                    }
-                    const float x = editorCaretXOnLine(above, pos, fontSize);
-                    const float dist = std::fabs(x - preferX);
-                    if (dist < bestDist)
-                    {
-                        bestDist = dist;
-                        best = pos;
-                    }
-                }
-                variableEditorCursor = best;
-            }
-            else
-            {
-                variableEditorCursor = 0;
-            }
-        }
-
-        if (IsKeyPressed(KEY_DOWN) || IsKeyPressedRepeat(KEY_DOWN))
-        {
-            const int lineIndex = editorLineIndexForCursor(lines, variableEditorCursor);
-            if (lineIndex + 1 < static_cast<int>(lines.size()))
-            {
-                const EditorVisualLine& cur = lines[static_cast<size_t>(lineIndex)];
-                const float preferX = editorCaretXOnLine(cur, variableEditorCursor, fontSize);
-                const EditorVisualLine& below = lines[static_cast<size_t>(lineIndex + 1)];
-                int best = below.start;
-                float bestDist = 1.0e9f;
-                for (int pos = below.start; pos <= below.end; ++pos)
-                {
-                    if (pos > below.start && pos < below.end &&
-                        (static_cast<unsigned char>(variableEditorBuffer[static_cast<size_t>(pos)]) & 0xC0) == 0x80)
-                    {
-                        continue;
-                    }
-                    const float x = editorCaretXOnLine(below, pos, fontSize);
-                    const float dist = std::fabs(x - preferX);
-                    if (dist < bestDist)
-                    {
-                        bestDist = dist;
-                        best = pos;
-                    }
-                }
-                variableEditorCursor = best;
-            }
-            else
-            {
-                variableEditorCursor = static_cast<int>(variableEditorBuffer.size());
-            }
-        }
-
-        const bool ctrl = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL) ||
-            IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER);
-
-        if (IsKeyPressed(KEY_HOME))
-        {
-            if (ctrl || !variableEditorMultiline)
-            {
-                variableEditorCursor = 0;
-            }
-            else
-            {
-                const int lineIndex = editorLineIndexForCursor(lines, variableEditorCursor);
-                variableEditorCursor = lines[static_cast<size_t>(lineIndex)].start;
-            }
-        }
-
-        if (IsKeyPressed(KEY_END))
-        {
-            if (ctrl || !variableEditorMultiline)
-            {
-                variableEditorCursor = static_cast<int>(variableEditorBuffer.size());
-            }
-            else
-            {
-                const int lineIndex = editorLineIndexForCursor(lines, variableEditorCursor);
-                variableEditorCursor = lines[static_cast<size_t>(lineIndex)].end;
-            }
-        }
-
-        if (variableEditorMultiline &&
-            (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)))
+        if (variableEditorMultiline && editorNavKeyTriggered(KEY_ENTER))
         {
             clampVariableCursor();
             variableEditorBuffer.insert(static_cast<size_t>(variableEditorCursor), "\n");
@@ -3065,20 +3109,21 @@ struct SceneEditorApp
             lines = buildEditorVisualLines(maxTextW, fontSize);
         }
 
-        clampVariableCursor();
-        ensureCursorVisible(lines, field.height, pad, lineHeight);
-
         if (IsKeyPressed(KEY_ESCAPE))
+        {
             closeVariableEditor();
+            return;
+        }
+
+        clampVariableCursor();
+        lines = buildEditorVisualLines(maxTextW, fontSize);
+        ensureCursorVisible(lines, field.height, pad, lineHeight);
     }
 
     void drawVariableEditor(int screenWidth, int screenHeight)
     {
         if (!variableEditorOpen)
             return;
-
-        if (variableEditorIgnoreInputFrames > 0)
-            --variableEditorIgnoreInputFrames;
 
         DrawRectangle(0, 0, screenWidth, screenHeight, Color{0, 0, 0, 200});
 
@@ -3114,12 +3159,16 @@ struct SceneEditorApp
         DrawRectangleRec(field, Color{18, 16, 24, 255});
         DrawRectangleLinesEx(field, 1.0f, kPanelBorder);
 
-        const float fontSize = 14.0f;
-        const float lineHeight = fontSize + 4.0f;
-        const float pad = 8.0f;
-        const float maxTextW = field.width - pad * 2.0f;
+        // Publish field metrics so update() can process click/arrow input.
+        variableEditorField = field;
+        variableEditorFontSize = 14.0f;
+        variableEditorLineHeight = variableEditorFontSize + 4.0f;
+        variableEditorPad = 8.0f;
 
-        handleVariableEditorTextInput(field, pad, fontSize, lineHeight);
+        const float fontSize = variableEditorFontSize;
+        const float lineHeight = variableEditorLineHeight;
+        const float pad = variableEditorPad;
+        const float maxTextW = field.width - pad * 2.0f;
 
         const std::vector<EditorVisualLine> lines = buildEditorVisualLines(maxTextW, fontSize);
         const float contentH = static_cast<float>(lines.size()) * lineHeight;
@@ -3536,10 +3585,38 @@ struct SceneEditorApp
             draggingHorizontalDivider = false;
         }
 
-        if (!stackDialogOpen && !variableEditorOpen)
+        if (variableEditorOpen)
+        {
+            if (variableEditorIgnoreInputFrames > 0)
+                --variableEditorIgnoreInputFrames;
+
+            // Compute field rect here so input works even before the first draw.
+            const float dialogW = variableEditorMultiline ? 760.0f : 520.0f;
+            const float dialogH = variableEditorMultiline ? 520.0f : 190.0f;
+            const float dialogX = (static_cast<float>(screenWidth) - dialogW) * 0.5f;
+            const float dialogY = (static_cast<float>(screenHeight) - dialogH) * 0.5f;
+            const float btnH = 34.0f;
+            const float btnY = dialogY + dialogH - btnH - 16.0f;
+            variableEditorField = {
+                dialogX + 18.0f,
+                dialogY + 44.0f,
+                dialogW - 36.0f,
+                btnY - (dialogY + 44.0f) - 14.0f};
+            variableEditorFontSize = 14.0f;
+            variableEditorLineHeight = 18.0f;
+            variableEditorPad = 8.0f;
+
+            handleVariableEditorTextInput();
+            SetMouseCursor(MOUSE_CURSOR_IBEAM);
+        }
+        else if (!stackDialogOpen)
+        {
             handleDividerInput(screenWidth, screenHeight);
+        }
         else
+        {
             SetMouseCursor(MOUSE_CURSOR_DEFAULT);
+        }
 
         // Don't start scene drags while resizing panes or editing variables.
         if (isDraggingDivider() || variableEditorOpen)
