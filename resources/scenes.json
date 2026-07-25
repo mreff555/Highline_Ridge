@@ -714,7 +714,7 @@
       "description": "The path opens onto grassy hills so green they feel borrowed from another country. An enormous cottonwood rises from the slope ahead, its silver-white bark bright in the sun, its limbs spread wide over rolling turf. The land lifts and swells around the tree like a natural amphitheater. Roughly thirty feet beyond the trunk the plateau ends without warning, dropping away in a sharp edge that turns grass into empty air. Past that brink, mountain after mountain stacks against the sky - blue-gray ridges fading into distance without end.",
       "examineDetails": "You study the mountains the way a man studies a problem he cannot yet name.\n\nThe nearest peaks are timbered to the line, dark spruce giving way to bare rock and late snow in the highest cols. Farther out, the ranges fold into one another, each ridge stealing depth from the next until the horizon is only atmosphere and silhouette. No city smoke. No rail cut. Only wilderness layered to the edge of sight.\n\nThe cottonwood stands on the breast of the hill, trunk thick enough that two men could not span it, roots buried deep in the living turf. About thirty feet out from the tree the grassy plateau simply stops. The ground falls away fast - not a gradual slope but a hard break, as though the mountain shrugged off its shoulder and left this shelf behind.\n\nOne patch of grass catches your eye before anything else does: a stretch roughly ten feet from the trunk, greener and thicker than the grass around it, vivid enough to feel wrong in all this open light. The grass beneath the tree itself is trampled flat in a rough circle, as though generations of travelers have paused here and never quite agreed to leave.",
       "exits": {
-        "backward": "winding_alpine_path"
+        "left": "winding_alpine_path"
       },
       "image": "resources/images/cottonwood_meadow.png",
       "interactions": [
@@ -731,13 +731,13 @@
       ],
       "layout": {
         "level": 0,
-        "x": 1064.0,
-        "y": 912.0
+        "x": 1264.0,
+        "y": 952.0
       },
       "movement": {
-        "backward": true,
+        "backward": false,
         "forward": false,
-        "left": false,
+        "left": true,
         "right": false
       },
       "start": false,
@@ -1184,18 +1184,18 @@
       "examineDetails": "The bench is rough pine, weather-gray, iron bolts sunk deep into the granite. Carved into the seat back, letters worn by rain and hands:\n\nFOR M- WAIT FOR THE FOG\n\nThe name stops mid-letter, as though the carver lost patience or nerve. Boot scuffs mark the rock before the bench. Not many - this is not a popular place. A place for appointments kept in weather, not daylight.\n\nYou stand at the edge and let the view assemble itself. The same city the cowboy named. The same cloud deck the mountain road shows tourists from behind a safety wall. But here there is no rail, no warning, only height and the cold honesty of open air. When the fog thickens, the city vanishes - and the carved instruction on the bench reads less like poetry and more like a rule someone once made you swear to keep.\n\nIf you mean to tell anyone what you found up here, the saloon still holds the men who already know your face.",
       "examineFlag": "path_c:overlook",
       "exits": {
-        "backward": "steep_mountain_trail"
+        "left": "steep_mountain_trail"
       },
       "image": "resources/images/private_overlook.png",
       "layout": {
         "level": 0,
         "x": 1064.0,
-        "y": 696.0
+        "y": 667.199951171875
       },
       "movement": {
-        "backward": true,
+        "backward": false,
         "forward": false,
-        "left": false,
+        "left": true,
         "right": false
       },
       "start": false,
@@ -1267,8 +1267,8 @@
       "description": "The left-hand path opens onto a small snowy plateau where a cabin looks no older than ten years and far better made than most ridge construction. Squared timber walls rise from a stone foundation, corners tight, roof metal and true. A covered porch faces the valley with two rockers and a braided rug. Windows are clean. The chimney is swept. The place is quaint without being precious - the work of someone who knew how to build and did not need to boast about it.",
       "examineDetails": "You walk the perimeter slowly, reading the details the way you read a room.\n\nThe logs are dressed and fitted, not the slap-and-chink work of a mining camp. Chinking is neat. The foundation is river stone set in mortar, level on the plateau despite the mountain's tilt all around it. A brass house number - 7 - is nailed beside the door with a carpenter's straightness. The porch boards are recent, still pale where sun has not yet darkened them. Two rockers sit under the eave, cushions faded but dry. A braided rug lies square on the boards as though someone straightened it before leaving.\n\nNo name on the mailbox. No horse in a lean-to. No wash on the line. And yet the cabin is not abandoned: window glass unbroken, door hardware oiled, a faint scent of woodsmoke in the stone chimney though no fire burns now. Whoever lives here keeps a small, orderly life above the fog line.\n\nThe branch path drops away behind you toward the steep mountain trail below. Through the front door you catch the warm smell of coffee and the deeper hearth-light of the living room beyond the kitchen. This feels like a different kind of appointment - private, domestic, recently chosen.",
       "exits": {
-        "backward": "steep_mountain_trail",
-        "forward": "cabin_kitchen"
+        "forward": "cabin_kitchen",
+        "right": "steep_mountain_trail"
       },
       "image": "resources/images/ridge_cabin_exterior.png",
       "layout": {
@@ -1277,10 +1277,10 @@
         "y": 696.0
       },
       "movement": {
-        "backward": true,
+        "backward": false,
         "forward": true,
         "left": false,
-        "right": false
+        "right": true
       },
       "start": false,
       "useDetails": ""
@@ -2396,7 +2396,7 @@
       "layout": {
         "level": 0,
         "x": 808.0,
-        "y": 696.0
+        "y": 699.199951171875
       },
       "movement": {
         "backward": true,
@@ -2626,19 +2626,19 @@
       "description": "You push through the narrow door at the side of the chancel into the vestry - a modest paneled room that smells of ink, lamp oil, and old wool. Vestments hang from a peg beside a shelf crowded with ledgers, hymnals, and church records. A single window throws soft daylight across a worn desk where an aging man in religious garments bends over an open journal, pen moving in careful strokes.",
       "examineDetails": "The vestry is the church's working heart, smaller than the sanctuary but kept with the same stubborn care.\n\nThe desk dominates the room: scarred pine, ink stains in the grain, a journal open to a page of tight clerical hand, an iron nib resting in a ceramic tray. Beside it sit a ledger of baptisms and burials, a bottle of ink, and a kerosene lamp trimmed for evening work.\n\nThe minister's garments on the peg are plain black, brushed clean, collar pressed with the patience of a man who still believes presentation is part of devotion. His face, when he looks up, is weathered and kind - silver hair, deep lines, eyes that have buried more ridge settlers than he cares to count aloud.\n\nThe wood here, like the nave outside, carries the recent sheen of linseed oil. Whoever tends this church does the unglamorous work as faithfully as the visible work.",
       "exits": {
-        "backward": "white_baptist_church_interior"
+        "right": "white_baptist_church_interior"
       },
       "image": "resources/images/white_baptist_church_vestry.png",
       "layout": {
         "level": 0,
-        "x": 40.0,
-        "y": 480.0
+        "x": 50.0,
+        "y": 486.7999572753906
       },
       "movement": {
-        "backward": true,
+        "backward": false,
         "forward": false,
         "left": false,
-        "right": false
+        "right": true
       },
       "start": false,
       "useDetails": ""

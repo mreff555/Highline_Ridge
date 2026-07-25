@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
-project(HighlineRidgeSceneEditor CXX)
+# Timberline Resource Editor (scene / conversation tooling for the Timberline engine).
+project(TimberlineResourceEditor CXX)
 
 # Match the game target: ImageCompression uses std::filesystem.
 set(CMAKE_CXX_STANDARD 17)

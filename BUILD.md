@@ -1,4 +1,6 @@
-# Building Highline Ridge
+# Building Highline Ridge (Timberline engine)
+
+**Highline Ridge** is the showcase game; it runs on the **Timberline** engine. Build the game from the repo root and the **Timberline Resource Editor** from `tools/scene-editor`.
 
 The game uses CMake, bundled raylib 5.5, and three native libraries for assets/audio:
 

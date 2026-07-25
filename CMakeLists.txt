@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
+# Highline Ridge — showcase game on the Timberline narrative engine.
 project(HighlineRidge CXX)
 set(CMAKE_BUILD_TYPE Release)
 

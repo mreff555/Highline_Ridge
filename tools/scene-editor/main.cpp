@@ -1,3 +1,22 @@
+/*******************************************************************************
+ * Timberline engine
+ * Copyright (C) 2026 Dan Feerst
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public
+ * License along with this library; if not, write to the Free
+ * Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ ******************************************************************************/
+
 #include "ImageCompression.h"
 #include "PlatformPath.h"
 #include "RaylibCompat.h"
@@ -20,14 +39,14 @@
 #include <utility>
 #include <vector>
 
-using highline_ridge::SceneActor;
-using highline_ridge::SceneDocument;
-using highline_ridge::SceneLayout;
-using highline_ridge::buildAssetSearchPaths;
-using highline_ridge::compressedAssetPath;
-using highline_ridge::listDirectoryFileNames;
-using highline_ridge::loadTextureFromAssetFile;
-using highline_ridge::pathJoin;
+using timberline_engine::SceneActor;
+using timberline_engine::SceneDocument;
+using timberline_engine::SceneLayout;
+using timberline_engine::buildAssetSearchPaths;
+using timberline_engine::compressedAssetPath;
+using timberline_engine::listDirectoryFileNames;
+using timberline_engine::loadTextureFromAssetFile;
+using timberline_engine::pathJoin;
 
 namespace
 {
@@ -572,6 +591,8 @@ struct SceneEditorApp
     int variableEditorCursor = 0;
     int variableEditorSelectAnchor = -1; // -1 = no selection; else selection is [min,max) with cursor
     bool variableEditorMouseSelecting = false;
+    double variableEditorLastClickTime = -1.0;
+    int variableEditorLastClickPos = -1;
     float variableEditorScrollY = 0.0f;
     std::string selectedVariableKey;
     std::string variableEditorError;
@@ -617,7 +638,7 @@ struct SceneEditorApp
                 continue;
 
             SetTextureFilter(font.texture, TEXTURE_FILTER_BILINEAR);
-            TraceLog(LOG_INFO, "SCENE EDITOR: loaded UI font %s", path.c_str());
+            TraceLog(LOG_INFO, "TIMBERLINE: loaded UI font %s", path.c_str());
             return font;
         }
 
@@ -657,9 +678,9 @@ struct SceneEditorApp
         uiFontBold = tryLoadFont(boldCandidates, sizeof(boldCandidates) / sizeof(boldCandidates[0]));
 
         if (uiFont.texture.id == 0)
-            TraceLog(LOG_WARNING, "SCENE EDITOR: UI font not found; using default");
+            TraceLog(LOG_WARNING, "TIMBERLINE: UI font not found; using default");
         if (uiFontBold.texture.id == 0)
-            TraceLog(LOG_WARNING, "SCENE EDITOR: bold UI font not found; stair icons use regular");
+            TraceLog(LOG_WARNING, "TIMBERLINE: bold UI font not found; stair icons use regular");
     }
 
     void unloadUiFont()
@@ -4020,6 +4041,8 @@ struct SceneEditorApp
         variableEditorCursor = 0;
         variableEditorSelectAnchor = -1;
         variableEditorMouseSelecting = false;
+        variableEditorLastClickTime = -1.0;
+        variableEditorLastClickPos = -1;
         variableEditorScrollY = 0.0f;
         variableEditorError.clear();
         variableKeyRepeatKey = 0;
@@ -4225,7 +4248,7 @@ struct SceneEditorApp
         std::ifstream file(themePath.c_str());
         if (!file.is_open())
         {
-            TraceLog(LOG_INFO, "SCENE EDITOR: TTS theme not found (%s); using defaults", themePath.c_str());
+            TraceLog(LOG_INFO, "TIMBERLINE: TTS theme not found (%s); using defaults", themePath.c_str());
             return;
         }
 
@@ -4250,11 +4273,11 @@ struct SceneEditorApp
                 ttsSyntaxTheme.voiceDialog =
                     colorFromJsonRgba(syntax["voiceDialog"], ttsSyntaxTheme.voiceDialog);
 
-            TraceLog(LOG_INFO, "SCENE EDITOR: loaded TTS syntax theme %s", themePath.c_str());
+            TraceLog(LOG_INFO, "TIMBERLINE: loaded TTS syntax theme %s", themePath.c_str());
         }
         catch (const nlohmann::json::exception& ex)
         {
-            TraceLog(LOG_WARNING, "SCENE EDITOR: failed to parse TTS theme: %s", ex.what());
+            TraceLog(LOG_WARNING, "TIMBERLINE: failed to parse TTS theme: %s", ex.what());
         }
     }
 
@@ -4714,7 +4737,7 @@ struct SceneEditorApp
         {
             TraceLog(
                 LOG_WARNING,
-                "SCENE EDITOR: edit path missing %s",
+                "TIMBERLINE: edit path missing %s",
                 node.jsonPointer.c_str());
             return;
         }
@@ -4726,7 +4749,7 @@ struct SceneEditorApp
         variableEditorScrollY = 0.0f;
         variableEditorError.clear();
         selectedConversationKey = node.key;
-        TraceLog(LOG_INFO, "SCENE EDITOR: editing %s", node.jsonPointer.c_str());
+        TraceLog(LOG_INFO, "TIMBERLINE: editing %s", node.jsonPointer.c_str());
 
         if (value->is_string())
         {
@@ -4839,12 +4862,80 @@ struct SceneEditorApp
         variableEditorCursor = pos;
     }
 
+    static bool editorIsWordChar(unsigned char ch)
+    {
+        // ASCII word characters plus UTF-8 continuation / lead bytes so multi-byte
+        // letters stay part of the same "word" for selection.
+        if (ch >= 0x80)
+            return true;
+        return std::isalnum(ch) != 0 || ch == '_' || ch == '\'';
+    }
+
+    void selectWordAtCursor(int pos)
+    {
+        const int n = static_cast<int>(variableEditorBuffer.size());
+        if (n <= 0)
+        {
+            variableEditorSelectAnchor = 0;
+            variableEditorCursor = 0;
+            return;
+        }
+
+        if (pos < 0)
+            pos = 0;
+        if (pos > n)
+            pos = n;
+
+        // Click past end of a word: select the word to the left when possible.
+        int at = pos;
+        if (at >= n || !editorIsWordChar(static_cast<unsigned char>(variableEditorBuffer[static_cast<size_t>(at)])))
+        {
+            if (at > 0 &&
+                editorIsWordChar(static_cast<unsigned char>(variableEditorBuffer[static_cast<size_t>(at - 1)])))
+            {
+                at = at - 1;
+            }
+            else
+            {
+                // Non-word: select a single character (or nothing at EOF).
+                if (at >= n)
+                {
+                    variableEditorSelectAnchor = n;
+                    variableEditorCursor = n;
+                    return;
+                }
+                variableEditorSelectAnchor = at;
+                variableEditorCursor = at + 1;
+                return;
+            }
+        }
+
+        int start = at;
+        while (start > 0 &&
+               editorIsWordChar(static_cast<unsigned char>(
+                   variableEditorBuffer[static_cast<size_t>(start - 1)])))
+        {
+            --start;
+        }
+
+        int end = at + 1;
+        while (end < n &&
+               editorIsWordChar(static_cast<unsigned char>(
+                   variableEditorBuffer[static_cast<size_t>(end)])))
+        {
+            ++end;
+        }
+
+        variableEditorSelectAnchor = start;
+        variableEditorCursor = end;
+    }
+
     void openVariableEditor(const std::string& sceneId, const std::string& key)
     {
         const nlohmann::json* scene = scenesDoc.sceneJson(sceneId);
         if (scene == nullptr || !scene->contains(key))
         {
-            TraceLog(LOG_WARNING, "SCENE EDITOR: cannot edit missing key %s", key.c_str());
+            TraceLog(LOG_WARNING, "TIMBERLINE: cannot edit missing key %s", key.c_str());
             return;
         }
 
@@ -4862,7 +4953,7 @@ struct SceneEditorApp
         variableEditorScrollY = 0.0f;
         variableEditorError.clear();
         selectedVariableKey = key;
-        TraceLog(LOG_INFO, "SCENE EDITOR: editing %s.%s", sceneId.c_str(), key.c_str());
+        TraceLog(LOG_INFO, "TIMBERLINE: editing %s.%s", sceneId.c_str(), key.c_str());
 
         // Copy by value immediately so we never hold a dangling json reference.
         if (value.is_string())
@@ -5423,15 +5514,35 @@ struct SceneEditorApp
             }
         }
 
-        // Click to place caret; drag to extend selection (field only).
+        // Click to place caret; double-click selects word; drag extends selection.
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, field))
         {
             const int pos = editorCursorFromClick(
                 lines(), field, pad, fontSize, lineHeight, mouse);
-            setVariableCursor(pos, shift);
-            variableEditorMouseSelecting = !shift;
-            if (!shift)
-                variableEditorSelectAnchor = variableEditorCursor;
+            const double now = GetTime();
+            const bool isDoubleClick =
+                !shift &&
+                variableEditorLastClickTime >= 0.0 &&
+                (now - variableEditorLastClickTime) <= 0.4 &&
+                std::abs(pos - variableEditorLastClickPos) <= 2;
+
+            if (isDoubleClick)
+            {
+                selectWordAtCursor(pos);
+                variableEditorMouseSelecting = false;
+                variableEditorLastClickTime = -1.0;
+                variableEditorLastClickPos = -1;
+            }
+            else
+            {
+                setVariableCursor(pos, shift);
+                variableEditorMouseSelecting = !shift;
+                if (!shift)
+                    variableEditorSelectAnchor = variableEditorCursor;
+                variableEditorLastClickTime = now;
+                variableEditorLastClickPos = pos;
+            }
+
             const int lineIndex = editorLineIndexForCursor(lines(), variableEditorCursor);
             variableEditorPreferX = editorCaretXOnLine(
                 lines()[static_cast<size_t>(lineIndex)],
@@ -5878,18 +5989,41 @@ struct SceneEditorApp
         // Capture once so list + editor always use the same scene for this frame.
         const std::string sceneId = selectedSceneId;
 
-        DrawTextEx(textFont(), "Scene Variables", {paneBounds.x + 12.0f, paneBounds.y + 8.0f},
-                   kFontLabel, 1.0f, kTextMuted);
+        const Rectangle editBtn = {
+            paneBounds.x + paneBounds.width - 72.0f,
+            paneBounds.y + 6.0f,
+            60.0f,
+            20.0f};
+
+        const char* title = "Scene Variables";
+        const float titleX = paneBounds.x + 12.0f;
+        const float titleY = paneBounds.y + 8.0f;
+        DrawTextEx(textFont(), title, {titleX, titleY}, kFontLabel, 1.0f, kTextMuted);
+
         if (!sceneId.empty())
         {
+            const float titleW = measureUiTextWidth(title, kFontLabel);
+            const float sceneX = titleX + titleW + 14.0f;
+            const float sceneMaxW = std::max(40.0f, editBtn.x - 12.0f - sceneX);
+            std::string sceneLabel = sceneId;
+            if (measureUiTextWidth(sceneLabel, kFontTiny) > sceneMaxW)
+            {
+                while (!sceneLabel.empty() &&
+                       measureUiTextWidth(sceneLabel + "...", kFontTiny) > sceneMaxW)
+                {
+                    sceneLabel.pop_back();
+                }
+                sceneLabel += "...";
+            }
             DrawTextEx(
                 textFont(),
-                sceneId.c_str(),
-                {paneBounds.x + 150.0f, paneBounds.y + 10.0f},
+                sceneLabel.c_str(),
+                {sceneX, paneBounds.y + 10.0f},
                 kFontTiny,
                 1.0f,
                 kPanelBorder);
         }
+
         DrawTextEx(
             textFont(),
             "Click a row to edit",
@@ -5898,11 +6032,6 @@ struct SceneEditorApp
             1.0f,
             kTextMuted);
 
-        const Rectangle editBtn = {
-            paneBounds.x + paneBounds.width - 72.0f,
-            paneBounds.y + 6.0f,
-            60.0f,
-            20.0f};
         DrawRectangleRec(editBtn, kPanelAccent);
         DrawRectangleLinesEx(editBtn, 1.0f, kPanelBorder);
         DrawTextEx(textFont(), "Edit", {editBtn.x + 16.0f, editBtn.y + 3.0f}, kFontTiny, 1.0f, kTextPrimary);
@@ -6293,7 +6422,7 @@ int main(int argc, char** argv)
     const int screenHeight = 900;
 
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
-    InitWindow(screenWidth, screenHeight, "Highline Ridge Resource Editor");
+    InitWindow(screenWidth, screenHeight, "Timberline Resource Editor");
     SetTargetFPS(60);
 
     SceneEditorApp app;
@@ -6308,14 +6437,14 @@ int main(int argc, char** argv)
     {
         TraceLog(
             LOG_WARNING,
-            "SCENE EDITOR: scenes.json not found under resources (%s)",
+            "TIMBERLINE: scenes.json not found under resources (%s)",
             app.resourceDir.c_str());
     }
     else
     {
         TraceLog(
             LOG_INFO,
-            "SCENE EDITOR: using resources at %s",
+            "TIMBERLINE: using resources at %s",
             app.resourceDir.c_str());
     }
 
