@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <fstream>
 #include <functional>
 #include <filesystem>
 #include <map>
@@ -283,6 +284,42 @@ enum class DragSource
     Canvas
 };
 
+enum class ConversationNodeKind
+{
+    Section,   // virtual group (e.g. Main Character, Actors)
+    Actor,
+    Milestone,
+    Dialog,
+    Narrative  // scene description / examine / speak text for the PC
+};
+
+enum class ConversationEditDoc
+{
+    None,
+    Conversations,
+    Scenes
+};
+
+struct ConversationTreeNode
+{
+    ConversationNodeKind kind = ConversationNodeKind::Actor;
+    std::string key;          // stable expand/select id
+    std::string label;
+    std::string detail;       // secondary text (scene, type, etc.)
+    ConversationEditDoc editDoc = ConversationEditDoc::None;
+    std::string jsonPointer;  // conversations root pointer, or path under a scene object
+    std::string editSceneId;  // when editDoc == Scenes
+    std::vector<ConversationTreeNode> children;
+};
+
+struct ConversationVisibleRow
+{
+    const ConversationTreeNode* node = nullptr;
+    int depth = 0;
+    bool isLastChild = false;
+    std::vector<bool> ancestorContinues; // true = draw vertical line past this depth
+};
+
 struct ThumbnailEntry
 {
     Texture2D texture{};
@@ -290,12 +327,139 @@ struct ThumbnailEntry
     bool missing = false;
 };
 
+const float kTreeRowHeight = 24.0f;
+const float kTreeIndent = 18.0f;
+const float kTreeToggleSize = 14.0f;
+const float kTreeTogglePad = 4.0f;
+
+std::string conversationJsonEscape(const std::string& key)
+{
+    std::string out;
+    out.reserve(key.size());
+    for (char ch : key)
+    {
+        if (ch == '~')
+            out += "~0";
+        else if (ch == '/')
+            out += "~1";
+        else
+            out += ch;
+    }
+    return out;
+}
+
+std::string conversationPointerJoin(const std::string& parent, const std::string& token)
+{
+    return parent + "/" + conversationJsonEscape(token);
+}
+
+std::string conversationPointerIndex(const std::string& parent, size_t index)
+{
+    return parent + "/" + std::to_string(index);
+}
+
+std::string phaseActorId(const nlohmann::json& phase)
+{
+    if (phase.contains("actorId") && phase["actorId"].is_string())
+        return phase["actorId"].get<std::string>();
+
+    if (phase.contains("actor"))
+    {
+        const nlohmann::json& actor = phase["actor"];
+        if (actor.is_string())
+            return actor.get<std::string>();
+        if (actor.is_object() && actor.contains("id") && actor["id"].is_string())
+            return actor["id"].get<std::string>();
+    }
+
+    if (phase.contains("id") && phase["id"].is_string())
+        return phase["id"].get<std::string>();
+
+    return "(unknown)";
+}
+
+std::string phaseActorName(const nlohmann::json& phase, const std::string& actorId)
+{
+    if (phase.contains("actorName") && phase["actorName"].is_string())
+    {
+        const std::string name = phase["actorName"].get<std::string>();
+        if (!name.empty())
+            return name;
+    }
+
+    if (phase.contains("actor") && phase["actor"].is_object() &&
+        phase["actor"].contains("name") && phase["actor"]["name"].is_string())
+    {
+        const std::string name = phase["actor"]["name"].get<std::string>();
+        if (!name.empty())
+            return name;
+    }
+
+    return actorId;
+}
+
+std::string choiceTreeLabel(const nlohmann::json& choice)
+{
+    if (choice.contains("label") && choice["label"].is_string())
+    {
+        const std::string label = choice["label"].get<std::string>();
+        if (!label.empty())
+            return label;
+    }
+    if (choice.contains("id") && choice["id"].is_string())
+    {
+        const std::string id = choice["id"].get<std::string>();
+        if (!id.empty())
+            return id;
+    }
+    if (choice.contains("text") && choice["text"].is_string())
+    {
+        const std::string text = choice["text"].get<std::string>();
+        if (!text.empty())
+            return text;
+    }
+    return "(dialog)";
+}
+
+ConversationTreeNode buildChoiceTreeNode(const nlohmann::json& choice, const std::string& pointer)
+{
+    ConversationTreeNode node;
+    node.kind = ConversationNodeKind::Dialog;
+    node.key = "choice:" + pointer;
+    node.editDoc = ConversationEditDoc::Conversations;
+    node.jsonPointer = pointer;
+    node.label = choiceTreeLabel(choice);
+
+    if (choice.contains("id") && choice["id"].is_string())
+        node.detail = choice["id"].get<std::string>();
+
+    if (choice.contains("choices") && choice["choices"].is_array())
+    {
+        const nlohmann::json& nested = choice["choices"];
+        for (size_t i = 0; i < nested.size(); ++i)
+        {
+            if (!nested[i].is_object())
+                continue;
+            node.children.push_back(
+                buildChoiceTreeNode(nested[i], conversationPointerIndex(pointer + "/choices", i)));
+        }
+    }
+
+    return node;
+}
+
 struct SceneEditorApp
 {
     std::string resourceDir = "../../../resources";
     std::string assetRoot = "../../..";
     std::string loadError;
     SceneDocument scenesDoc;
+    nlohmann::json conversationsRoot = nlohmann::json::object();
+    std::string conversationsPath;
+    bool conversationsLoaded = false;
+    std::vector<ConversationTreeNode> conversationTree;
+    std::set<std::string> conversationExpanded;
+    std::string selectedConversationKey;
     Font uiFont{};
     Font uiFontBold{};
 
@@ -335,9 +499,42 @@ struct SceneEditorApp
     float stackPendingY = 0.0f;
 
     bool variableEditorOpen = false;
+    // Reuse the variable editor popup for conversation JSON and scene narrative text.
+    ConversationEditDoc editorDocTarget = ConversationEditDoc::None;
+    std::string editorJsonPointer;
     std::string variableEditorSceneId;
     std::string variableEditorKey;
     std::string variableEditorBuffer;
+    // Dual-pane text / TTS editing (conversation dialog only).
+    bool editorTextTtsEnabled = false;
+    bool editorShowTts = false; // false = text side, true = TTS side
+    std::string editorTextSideBuffer;
+    std::string editorTtsSideBuffer;
+    std::string editorGlobalDefaultVoice = "leo";
+    bool editorGlobalDefaultVoiceLoaded = false;
+
+    // TTS syntax highlighting theme (resources/editor_tts_theme.json).
+    struct TtsSyntaxTheme
+    {
+        Color defaultColor = {220, 212, 196, 255};
+        Color command = {230, 140, 50, 255};      // [pause], [long-pause], …
+        Color voiceMarkup = {235, 210, 70, 255};  // {{voice:eve}} / {{/voice}}
+        Color voiceDialog = {140, 195, 235, 255}; // speech inside voice markup
+    };
+    TtsSyntaxTheme ttsSyntaxTheme{};
+    bool ttsSyntaxThemeLoaded = false;
+    std::string ttsHighlightCacheSource;
+    std::vector<Color> ttsHighlightColors; // per-byte colors for variableEditorBuffer
+
+    enum class TextTtsPairMode
+    {
+        None,
+        StringWithSiblingTtsText,   // text field + parent.ttsText
+        StringWithTtsObject,        // description + descriptionTts.ttsText
+        ObjectSplit                 // object split into non-TTS JSON vs TTS JSON
+    };
+    TextTtsPairMode editorTextTtsMode = TextTtsPairMode::None;
+    std::string editorTtsObjectKey; // e.g. descriptionTts when using StringWithTtsObject
     enum VariableValueKind
     {
         VariableKindString,
@@ -358,6 +555,7 @@ struct SceneEditorApp
     Rectangle variableEditorField{0, 0, 0, 0};
     Rectangle variableEditorSaveBtn{0, 0, 0, 0};
     Rectangle variableEditorCancelBtn{0, 0, 0, 0};
+    Rectangle variableEditorTextTtsToggle{0, 0, 0, 0};
     float variableEditorFontSize = 16.0f;
     float variableEditorLineHeight = 20.0f;
     float variableEditorPad = 8.0f;
@@ -601,15 +799,468 @@ struct SceneEditorApp
         return files;
     }
 
+    std::string activeTabFilename() const
+    {
+        if (activeTabIndex < 0 || activeTabIndex >= static_cast<int>(jsonTabs.size()))
+            return "";
+        return jsonTabs[static_cast<size_t>(activeTabIndex)];
+    }
+
+    bool isConversationsTab() const
+    {
+        return activeTabFilename() == "conversations.json";
+    }
+
+    bool isScenesTab() const
+    {
+        return activeTabFilename() == "scenes.json";
+    }
+
+    bool loadConversationsDocument()
+    {
+        conversationsLoaded = false;
+        conversationsRoot = nlohmann::json::object();
+        conversationTree.clear();
+        conversationsPath = pathJoin(resourceDir, "conversations.json");
+
+        std::ifstream file(conversationsPath.c_str());
+        if (!file.is_open())
+        {
+            loadError = "Failed to open conversations.json:\n" + conversationsPath;
+            return false;
+        }
+
+        nlohmann::json parsed;
+        try
+        {
+            file >> parsed;
+        }
+        catch (const nlohmann::json::exception& ex)
+        {
+            loadError = std::string("Failed to parse conversations.json:\n") + ex.what();
+            return false;
+        }
+
+        if (!parsed.is_object())
+        {
+            loadError = "conversations.json root must be an object.";
+            return false;
+        }
+
+        conversationsRoot = std::move(parsed);
+        conversationsLoaded = true;
+        rebuildConversationTree();
+        return true;
+    }
+
+    bool saveConversationsDocument()
+    {
+        if (!conversationsLoaded || conversationsPath.empty())
+            return false;
+
+        std::ofstream out(conversationsPath.c_str());
+        if (!out.is_open())
+            return false;
+
+        out << conversationsRoot.dump(2) << '\n';
+        return out.good();
+    }
+
+    nlohmann::json* conversationJsonAt(const std::string& pointer)
+    {
+        if (!conversationsLoaded || pointer.empty())
+            return nullptr;
+        try
+        {
+            return &conversationsRoot.at(nlohmann::json::json_pointer(pointer));
+        }
+        catch (const nlohmann::json::exception&)
+        {
+            return nullptr;
+        }
+    }
+
+    const nlohmann::json* conversationJsonAt(const std::string& pointer) const
+    {
+        if (!conversationsLoaded || pointer.empty())
+            return nullptr;
+        try
+        {
+            return &conversationsRoot.at(nlohmann::json::json_pointer(pointer));
+        }
+        catch (const nlohmann::json::exception&)
+        {
+            return nullptr;
+        }
+    }
+
+    static std::string truncateForTree(const std::string& text, size_t maxLen)
+    {
+        std::string compact;
+        compact.reserve(text.size());
+        bool lastSpace = false;
+        for (char ch : text)
+        {
+            if (ch == '\n' || ch == '\r' || ch == '\t')
+            {
+                if (!lastSpace && !compact.empty())
+                {
+                    compact.push_back(' ');
+                    lastSpace = true;
+                }
+                continue;
+            }
+            compact.push_back(ch);
+            lastSpace = (ch == ' ');
+        }
+        if (compact.size() <= maxLen)
+            return compact;
+        return compact.substr(0, maxLen - 1) + "…";
+    }
+
+    ConversationTreeNode makeNarrativeFieldNode(
+        const std::string& sceneId,
+        const std::string& label,
+        const std::string& pointerUnderScene,
+        const nlohmann::json& value) const
+    {
+        ConversationTreeNode node;
+        node.kind = ConversationNodeKind::Narrative;
+        node.key = "narrative:" + sceneId + ":" + pointerUnderScene;
+        node.label = label;
+        node.editDoc = ConversationEditDoc::Scenes;
+        node.editSceneId = sceneId;
+        node.jsonPointer = pointerUnderScene;
+        if (value.is_string())
+        {
+            const std::string text = value.get<std::string>();
+            node.detail = text.empty() ? "(empty)" : truncateForTree(text, 40);
+        }
+        else if (value.is_null())
+            node.detail = "(null)";
+        else
+            node.detail = "{…}";
+        return node;
+    }
+
+    void appendNarrativeFieldsFromObject(
+        ConversationTreeNode& parent,
+        const std::string& sceneId,
+        const nlohmann::json& object,
+        const std::string& pointerPrefix) const
+    {
+        static const char* kNarrativeKeys[] = {
+            "description",
+            "examineDetails",
+            "speakDetails",
+            "useDetails"
+        };
+        static const char* kNarrativeLabels[] = {
+            "Description",
+            "Examine",
+            "Speak",
+            "Use"
+        };
+
+        for (size_t i = 0; i < sizeof(kNarrativeKeys) / sizeof(kNarrativeKeys[0]); ++i)
+        {
+            const char* key = kNarrativeKeys[i];
+            if (!object.contains(key))
+                continue;
+            const nlohmann::json& value = object[key];
+            if (!value.is_string() && !value.is_null())
+                continue;
+            const std::string pointer = pointerPrefix.empty()
+                ? std::string("/") + key
+                : conversationPointerJoin(pointerPrefix, key);
+            parent.children.push_back(makeNarrativeFieldNode(
+                sceneId,
+                kNarrativeLabels[i],
+                pointer,
+                value));
+        }
+    }
+
+    void rebuildConversationTree()
+    {
+        conversationTree.clear();
+        if (selectedSceneId.empty())
+            return;
+
+        // --- Main character (scene narrative from scenes.json) ---
+        ConversationTreeNode mainCharacter;
+        mainCharacter.kind = ConversationNodeKind::Section;
+        mainCharacter.key = "section:main_character:" + selectedSceneId;
+        mainCharacter.label = "Main Character";
+        mainCharacter.detail = selectedSceneId;
+
+        if (scenesDoc.isLoaded())
+        {
+            const nlohmann::json* scene = scenesDoc.sceneJson(selectedSceneId);
+            if (scene != nullptr && scene->is_object())
+            {
+                appendNarrativeFieldsFromObject(mainCharacter, selectedSceneId, *scene, "");
+
+                if (scene->contains("subScenes") && (*scene)["subScenes"].is_object())
+                {
+                    const nlohmann::json& subScenes = (*scene)["subScenes"];
+                    std::vector<std::string> subIds;
+                    for (auto it = subScenes.begin(); it != subScenes.end(); ++it)
+                        subIds.push_back(it.key());
+                    std::sort(subIds.begin(), subIds.end());
+
+                    for (const std::string& subId : subIds)
+                    {
+                        if (!subScenes[subId].is_object())
+                            continue;
+                        ConversationTreeNode subNode;
+                        subNode.kind = ConversationNodeKind::Section;
+                        subNode.key = "section:subscene:" + selectedSceneId + ":" + subId;
+                        subNode.label = "Sub-scene: " + subId;
+                        subNode.detail = "focus / variant";
+                        appendNarrativeFieldsFromObject(
+                            subNode,
+                            selectedSceneId,
+                            subScenes[subId],
+                            conversationPointerJoin("/subScenes", subId));
+                        if (!subNode.children.empty())
+                            mainCharacter.children.push_back(std::move(subNode));
+                    }
+                }
+            }
+        }
+
+        if (!mainCharacter.children.empty())
+            conversationTree.push_back(std::move(mainCharacter));
+
+        // --- Actor conversations for this scene (conversations.json) ---
+        if (conversationsLoaded && conversationsRoot.is_object() &&
+            conversationsRoot.contains(selectedSceneId) &&
+            conversationsRoot[selectedSceneId].is_object())
+        {
+            const nlohmann::json& sceneNode = conversationsRoot[selectedSceneId];
+            const std::string scenePointer = conversationPointerJoin("", selectedSceneId);
+            if (sceneNode.contains("speakPhases") && sceneNode["speakPhases"].is_array())
+            {
+                std::map<std::string, ConversationTreeNode> actorsById;
+                const nlohmann::json& phases = sceneNode["speakPhases"];
+                for (size_t phaseIndex = 0; phaseIndex < phases.size(); ++phaseIndex)
+                {
+                    const nlohmann::json& phase = phases[phaseIndex];
+                    if (!phase.is_object())
+                        continue;
+
+                    const std::string actorId = phaseActorId(phase);
+                    const std::string actorName = phaseActorName(phase, actorId);
+                    const std::string phasePointer = conversationPointerIndex(
+                        conversationPointerJoin(scenePointer, "speakPhases"),
+                        phaseIndex);
+
+                    if (actorsById.find(actorId) == actorsById.end())
+                    {
+                        ConversationTreeNode actor;
+                        actor.kind = ConversationNodeKind::Actor;
+                        actor.key = "actor:" + selectedSceneId + ":" + actorId;
+                        actor.label = actorName;
+                        actor.detail = actorId;
+                        actorsById[actorId] = actor;
+                    }
+                    else if (actorsById[actorId].label == actorsById[actorId].detail &&
+                             actorName != actorId)
+                    {
+                        actorsById[actorId].label = actorName;
+                    }
+
+                    ConversationTreeNode milestone;
+                    milestone.kind = ConversationNodeKind::Milestone;
+                    milestone.key = "phase:" + phasePointer;
+                    milestone.editDoc = ConversationEditDoc::Conversations;
+                    milestone.jsonPointer = phasePointer;
+                    if (phase.contains("id") && phase["id"].is_string())
+                        milestone.label = phase["id"].get<std::string>();
+                    else
+                        milestone.label = "(unnamed phase)";
+
+                    milestone.detail = phase.value("type", "once");
+
+                    // Phase-level narrative for quick text edit (also full phase via milestone row)
+                    {
+                        const char* phaseKeys[] = {"intro", "resumeIntro", "text"};
+                        const char* phaseLabels[] = {"Intro", "Resume intro", "Text"};
+                        for (size_t ki = 0; ki < 3; ++ki)
+                        {
+                            if (!phase.contains(phaseKeys[ki]) || !phase[phaseKeys[ki]].is_string())
+                                continue;
+                            ConversationTreeNode n;
+                            n.kind = ConversationNodeKind::Narrative;
+                            n.key = "narrative-conv:" + phasePointer + "/" + phaseKeys[ki];
+                            n.label = phaseLabels[ki];
+                            n.editDoc = ConversationEditDoc::Conversations;
+                            n.jsonPointer = conversationPointerJoin(phasePointer, phaseKeys[ki]);
+                            const std::string text = phase[phaseKeys[ki]].get<std::string>();
+                            n.detail = text.empty() ? "(empty)" : truncateForTree(text, 40);
+                            milestone.children.push_back(std::move(n));
+                        }
+                    }
+
+                    if (phase.contains("choices") && phase["choices"].is_array())
+                    {
+                        const nlohmann::json& choices = phase["choices"];
+                        for (size_t i = 0; i < choices.size(); ++i)
+                        {
+                            if (!choices[i].is_object())
+                                continue;
+                            ConversationTreeNode choiceNode = buildChoiceTreeNode(
+                                choices[i],
+                                conversationPointerIndex(
+                                    conversationPointerJoin(phasePointer, "choices"), i));
+                            stampConversationEditDoc(choiceNode);
+                            milestone.children.push_back(std::move(choiceNode));
+                        }
+                    }
+
+                    if (phase.contains("lines") && phase["lines"].is_array())
+                    {
+                        const nlohmann::json& lines = phase["lines"];
+                        for (size_t i = 0; i < lines.size(); ++i)
+                        {
+                            if (!lines[i].is_object())
+                                continue;
+                            ConversationTreeNode lineNode = buildChoiceTreeNode(
+                                lines[i],
+                                conversationPointerIndex(
+                                    conversationPointerJoin(phasePointer, "lines"), i));
+                            if (lineNode.label == "(dialog)")
+                            {
+                                if (lines[i].contains("id") && lines[i]["id"].is_string())
+                                    lineNode.label = lines[i]["id"].get<std::string>();
+                                else
+                                    lineNode.label = "line " + std::to_string(i);
+                            }
+                            stampConversationEditDoc(lineNode);
+                            milestone.children.push_back(std::move(lineNode));
+                        }
+                    }
+
+                    actorsById[actorId].children.push_back(std::move(milestone));
+                }
+
+                ConversationTreeNode actorsSection;
+                actorsSection.kind = ConversationNodeKind::Section;
+                actorsSection.key = "section:actors:" + selectedSceneId;
+                actorsSection.label = "Actors";
+                actorsSection.detail = "conversations";
+
+                for (auto& entry : actorsById)
+                {
+                    std::sort(
+                        entry.second.children.begin(),
+                        entry.second.children.end(),
+                        [](const ConversationTreeNode& a, const ConversationTreeNode& b)
+                        {
+                            if (a.label != b.label)
+                                return a.label < b.label;
+                            return a.detail < b.detail;
+                        });
+                    actorsSection.children.push_back(std::move(entry.second));
+                }
+
+                std::sort(
+                    actorsSection.children.begin(),
+                    actorsSection.children.end(),
+                    [](const ConversationTreeNode& a, const ConversationTreeNode& b)
+                    {
+                        if (a.label != b.label)
+                            return a.label < b.label;
+                        return a.detail < b.detail;
+                    });
+
+                if (!actorsSection.children.empty())
+                    conversationTree.push_back(std::move(actorsSection));
+            }
+        }
+    }
+
+    static void stampConversationEditDoc(ConversationTreeNode& node)
+    {
+        node.editDoc = ConversationEditDoc::Conversations;
+        for (ConversationTreeNode& child : node.children)
+            stampConversationEditDoc(child);
+    }
+
+    bool isConversationExpanded(const std::string& key) const
+    {
+        return conversationExpanded.count(key) > 0;
+    }
+
+    void toggleConversationExpanded(const std::string& key)
+    {
+        if (conversationExpanded.count(key) > 0)
+            conversationExpanded.erase(key);
+        else
+            conversationExpanded.insert(key);
+    }
+
+    void collectVisibleConversationRows(
+        const ConversationTreeNode& node,
+        int depth,
+        bool isLastChild,
+        std::vector<bool> ancestorContinues,
+        std::vector<ConversationVisibleRow>& out) const
+    {
+        ConversationVisibleRow row;
+        row.node = &node;
+        row.depth = depth;
+        row.isLastChild = isLastChild;
+        row.ancestorContinues = ancestorContinues;
+        out.push_back(row);
+
+        if (!node.children.empty() && isConversationExpanded(node.key))
+        {
+            std::vector<bool> childAncestors = ancestorContinues;
+            childAncestors.push_back(!isLastChild);
+            for (size_t i = 0; i < node.children.size(); ++i)
+            {
+                const bool childLast = (i + 1 == node.children.size());
+                collectVisibleConversationRows(
+                    node.children[i],
+                    depth + 1,
+                    childLast,
+                    childAncestors,
+                    out);
+            }
+        }
+    }
+
+    std::vector<ConversationVisibleRow> visibleConversationRows() const
+    {
+        std::vector<ConversationVisibleRow> rows;
+        for (size_t i = 0; i < conversationTree.size(); ++i)
+        {
+            const bool last = (i + 1 == conversationTree.size());
+            collectVisibleConversationRows(
+                conversationTree[i],
+                0,
+                last,
+                {},
+                rows);
+        }
+        return rows;
+    }
+
     bool loadActiveDocument()
     {
         loadError.clear();
+        closeVariableEditor();
 
         if (!resourceDirectoryExists(resourceDir))
         {
             loadError = "Resources folder not found:\n" + resourceDir +
                 "\n\nLaunch with:\n./scene-editor /path/to/resources";
             scenesDoc = SceneDocument{};
+            conversationsLoaded = false;
+            conversationsRoot = nlohmann::json::object();
+            conversationTree.clear();
             selectedSceneId.clear();
             return false;
         }
@@ -618,38 +1269,74 @@ struct SceneEditorApp
         {
             loadError = "No .json files found in:\n" + resourceDir;
             scenesDoc = SceneDocument{};
+            conversationsLoaded = false;
+            conversationsRoot = nlohmann::json::object();
+            conversationTree.clear();
             selectedSceneId.clear();
             return false;
         }
 
-        const std::string filename = jsonTabs[static_cast<size_t>(activeTabIndex)];
-        if (filename != "scenes.json")
+        const std::string filename = activeTabFilename();
+        if (filename != "scenes.json" && filename != "conversations.json")
         {
-            loadError = filename + " editing is not implemented yet.\nSelect the scenes.json tab.";
-            scenesDoc = SceneDocument{};
-            selectedSceneId.clear();
+            loadError = filename + " editing is not implemented yet.\nSelect the scenes.json or conversations.json tab.";
             return false;
         }
 
-        const std::string path = pathJoin(resourceDir, filename);
-        if (!scenesDoc.load(path))
+        // Both tabs need the scene map; conversations also needs conversations.json.
+        const std::string scenesPath = pathJoin(resourceDir, "scenes.json");
+        if (!scenesDoc.load(scenesPath))
         {
-            loadError = "Failed to load scenes.json:\n" + path;
+            loadError = "Failed to load scenes.json:\n" + scenesPath;
             scenesDoc = SceneDocument{};
             selectedSceneId.clear();
+            conversationTree.clear();
             return false;
         }
 
         dirty = false;
-        if (selectedSceneId.empty() && scenesDoc.isLoaded())
+        if (selectedSceneId.empty() || !scenesDoc.hasScene(selectedSceneId))
         {
             const std::vector<std::string> ids = scenesDoc.sceneIds();
-            if (!ids.empty())
-                selectedSceneId = ids.front();
+            selectedSceneId = ids.empty() ? "" : ids.front();
         }
 
         ensureDefaultLayouts();
+
+        if (filename == "conversations.json")
+        {
+            if (!loadConversationsDocument())
+            {
+                conversationTree.clear();
+                return false;
+            }
+            dirty = false;
+            leftScroll = 0.0f;
+            rebuildConversationTree();
+            // Expand top-level sections by default for the selected scene.
+            for (const ConversationTreeNode& root : conversationTree)
+                conversationExpanded.insert(root.key);
+            return true;
+        }
+
         return true;
+    }
+
+    void selectSceneForEditor(const std::string& id)
+    {
+        if (id.empty() || selectedSceneId == id)
+            return;
+        selectedSceneId = id;
+        selectedVariableKey.clear();
+        variablesScroll = 0.0f;
+        if (isConversationsTab())
+        {
+            leftScroll = 0.0f;
+            selectedConversationKey.clear();
+            rebuildConversationTree();
+            for (const ConversationTreeNode& root : conversationTree)
+                conversationExpanded.insert(root.key);
+        }
     }
 
     std::string getExitTarget(const std::string& sceneId, const std::string& direction) const
@@ -1295,14 +1982,14 @@ struct SceneEditorApp
 
     bool saveDocument()
     {
-        if (!scenesDoc.isLoaded())
-            return false;
-        if (scenesDoc.save())
-        {
+        bool ok = true;
+        if (conversationsLoaded)
+            ok = saveConversationsDocument() && ok;
+        if (scenesDoc.isLoaded())
+            ok = scenesDoc.save() && ok;
+        if (ok)
             dirty = false;
-            return true;
-        }
-        return false;
+        return ok && (scenesDoc.isLoaded() || conversationsLoaded);
     }
 
     void drawPanel(Rectangle bounds) const
@@ -1493,12 +2180,7 @@ struct SceneEditorApp
                 if (index >= 0 && index < static_cast<int>(ids.size()))
                 {
                     const std::string& id = ids[static_cast<size_t>(index)];
-                    if (selectedSceneId != id)
-                    {
-                        selectedSceneId = id;
-                        selectedVariableKey.clear();
-                        variablesScroll = 0.0f;
-                    }
+                    selectSceneForEditor(id);
                     dragSource = DragSource::SceneList;
                     dragSceneId = id;
                     const float rowTop = listBounds.y - leftScroll + static_cast<float>(index) * kListRowHeight;
@@ -1508,6 +2190,275 @@ struct SceneEditorApp
         }
 
         if (CheckCollisionPointRec(GetMousePosition(), listBounds))
+            leftScroll -= GetMouseWheelMove() * 24.0f;
+        if (leftScroll < 0.0f)
+            leftScroll = 0.0f;
+        if (leftScroll > maxScroll)
+            leftScroll = maxScroll;
+    }
+
+    void drawConversationTree(Rectangle listBounds)
+    {
+        if (!scenesDoc.isLoaded())
+        {
+            const std::string message = loadError.empty()
+                ? "Loading..."
+                : loadError;
+            drawWrappedText(
+                textFont(),
+                message,
+                {listBounds.x + 12.0f, listBounds.y + 12.0f},
+                listBounds.width - 24.0f,
+                kListMetaFont,
+                4.0f,
+                kTextMuted);
+            return;
+        }
+
+        if (selectedSceneId.empty())
+        {
+            DrawTextEx(
+                textFont(),
+                "Select a scene on the map",
+                {listBounds.x + 12.0f, listBounds.y + 12.0f},
+                kFontBody,
+                1.0f,
+                kTextMuted);
+            return;
+        }
+
+        if (conversationTree.empty())
+        {
+            DrawTextEx(
+                textFont(),
+                "No narrative or conversations for this scene",
+                {listBounds.x + 12.0f, listBounds.y + 36.0f},
+                kFontBody,
+                1.0f,
+                kTextMuted);
+            DrawTextEx(
+                textFont(),
+                selectedSceneId.c_str(),
+                {listBounds.x + 12.0f, listBounds.y + 12.0f},
+                kFontSmall,
+                1.0f,
+                kPanelBorder);
+            return;
+        }
+
+        const std::vector<ConversationVisibleRow> rows = visibleConversationRows();
+        const float contentHeight = static_cast<float>(rows.size()) * kTreeRowHeight + 8.0f;
+        const float maxScroll = std::max(0.0f, contentHeight - listBounds.height);
+        if (leftScroll > maxScroll)
+            leftScroll = maxScroll;
+
+        const Vector2 mouse = GetMousePosition();
+        const bool canInteract =
+            !stackDialogOpen &&
+            !variableEditorOpen &&
+            !isDraggingDivider();
+
+        // Header: selected scene
+        DrawTextEx(
+            textFont(),
+            truncate(selectedSceneId, 42).c_str(),
+            {listBounds.x + 10.0f, listBounds.y + 4.0f},
+            kFontTiny,
+            1.0f,
+            kPanelBorder);
+
+        const Rectangle treeBounds = {
+            listBounds.x,
+            listBounds.y + 20.0f,
+            listBounds.width,
+            listBounds.height - 20.0f};
+
+        BeginScissorMode(
+            static_cast<int>(treeBounds.x),
+            static_cast<int>(treeBounds.y),
+            static_cast<int>(treeBounds.width),
+            static_cast<int>(treeBounds.height));
+
+        float y = treeBounds.y + 4.0f - leftScroll;
+        for (const ConversationVisibleRow& row : rows)
+        {
+            if (row.node == nullptr)
+                continue;
+
+            const ConversationTreeNode& node = *row.node;
+            const float rowTop = y;
+            const Rectangle rowBounds = {
+                treeBounds.x + 2.0f,
+                rowTop,
+                treeBounds.width - 4.0f,
+                kTreeRowHeight - 1.0f};
+
+            const bool selected = node.key == selectedConversationKey;
+            const bool hovered =
+                canInteract &&
+                CheckCollisionPointRec(mouse, treeBounds) &&
+                CheckCollisionPointRec(mouse, rowBounds);
+
+            if (selected)
+                DrawRectangleRec(rowBounds, kSelection);
+            else if (hovered)
+                DrawRectangleRec(rowBounds, Color{60, 54, 72, 180});
+
+            // Indent guides / tree lines
+            const float baseX = treeBounds.x + 8.0f;
+            const Color lineColor = {96, 86, 72, 220};
+            for (int d = 0; d < row.depth; ++d)
+            {
+                if (d >= static_cast<int>(row.ancestorContinues.size()))
+                    break;
+                if (!row.ancestorContinues[static_cast<size_t>(d)])
+                    continue;
+                const float guideX = baseX + static_cast<float>(d) * kTreeIndent + kTreeToggleSize * 0.5f;
+                DrawLineEx(
+                    {guideX, rowTop},
+                    {guideX, rowTop + kTreeRowHeight},
+                    1.0f,
+                    lineColor);
+            }
+
+            const float toggleX = baseX + static_cast<float>(row.depth) * kTreeIndent;
+            const float midY = rowTop + kTreeRowHeight * 0.5f;
+            if (row.depth > 0)
+            {
+                const float parentGuideX =
+                    baseX + static_cast<float>(row.depth - 1) * kTreeIndent + kTreeToggleSize * 0.5f;
+                const float elbowY = midY;
+                // Vertical segment from parent rail to this row
+                if (!row.isLastChild || row.ancestorContinues.empty() ||
+                    (row.depth - 1 < static_cast<int>(row.ancestorContinues.size()) &&
+                     row.ancestorContinues[static_cast<size_t>(row.depth - 1)]))
+                {
+                    // short vertical into elbow
+                }
+                DrawLineEx(
+                    {parentGuideX, rowTop},
+                    {parentGuideX, elbowY},
+                    1.0f,
+                    lineColor);
+                DrawLineEx(
+                    {parentGuideX, elbowY},
+                    {toggleX + kTreeToggleSize * 0.5f, elbowY},
+                    1.0f,
+                    lineColor);
+            }
+
+            const bool hasChildren = !node.children.empty();
+            const Rectangle toggleBounds = {
+                toggleX,
+                midY - kTreeToggleSize * 0.5f,
+                kTreeToggleSize,
+                kTreeToggleSize};
+
+            if (hasChildren)
+            {
+                DrawRectangleRec(toggleBounds, Color{40, 36, 48, 255});
+                DrawRectangleLinesEx(toggleBounds, 1.0f, kPanelBorder);
+                const bool expanded = isConversationExpanded(node.key);
+                const char* glyph = expanded ? "-" : "+";
+                const Vector2 glyphSize = MeasureTextEx(textFont(), glyph, kFontSmall, 1.0f);
+                DrawTextEx(
+                    textFont(),
+                    glyph,
+                    {
+                        toggleBounds.x + (toggleBounds.width - glyphSize.x) * 0.5f,
+                        toggleBounds.y + (toggleBounds.height - glyphSize.y) * 0.5f - 1.0f
+                    },
+                    kFontSmall,
+                    1.0f,
+                    kTextPrimary);
+            }
+            else
+            {
+                // Leaf marker on the rail
+                DrawCircleV({toggleX + kTreeToggleSize * 0.5f, midY}, 2.0f, lineColor);
+            }
+
+            const float textX = toggleX + kTreeToggleSize + kTreeTogglePad + 2.0f;
+            Color labelColor = kTextPrimary;
+            if (node.kind == ConversationNodeKind::Section)
+                labelColor = kPanelBorder;
+            else if (node.kind == ConversationNodeKind::Actor)
+                labelColor = Color{200, 180, 120, 255};
+            else if (node.kind == ConversationNodeKind::Milestone)
+                labelColor = kTextPrimary;
+            else if (node.kind == ConversationNodeKind::Narrative)
+                labelColor = Color{180, 200, 190, 255};
+            else
+                labelColor = kTextMuted;
+
+            const std::string display = truncate(node.label, 48);
+            DrawTextEx(
+                textFont(),
+                display.c_str(),
+                {textX, rowTop + 4.0f},
+                kFontSmall,
+                1.0f,
+                labelColor);
+
+            if (!node.detail.empty() && node.kind != ConversationNodeKind::Dialog)
+            {
+                const float labelW = MeasureTextEx(textFont(), display.c_str(), kFontSmall, 1.0f).x;
+                const std::string detail = truncate(node.detail, 36);
+                DrawTextEx(
+                    textFont(),
+                    detail.c_str(),
+                    {textX + labelW + 8.0f, rowTop + 5.0f},
+                    kFontTiny,
+                    1.0f,
+                    kTextMuted);
+            }
+
+            y += kTreeRowHeight;
+        }
+
+        EndScissorMode();
+
+        if (canInteract &&
+            CheckCollisionPointRec(mouse, treeBounds) &&
+            IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+            const float localY = (mouse.y - treeBounds.y - 4.0f) + leftScroll;
+            if (localY >= 0.0f)
+            {
+                const int index = static_cast<int>(localY / kTreeRowHeight);
+                if (index >= 0 && index < static_cast<int>(rows.size()) && rows[static_cast<size_t>(index)].node != nullptr)
+                {
+                    const ConversationVisibleRow& hit = rows[static_cast<size_t>(index)];
+                    const ConversationTreeNode& node = *hit.node;
+                    selectedConversationKey = node.key;
+
+                    const float rowTop = treeBounds.y + 4.0f - leftScroll + static_cast<float>(index) * kTreeRowHeight;
+                    const float toggleX = treeBounds.x + 8.0f + static_cast<float>(hit.depth) * kTreeIndent;
+                    const float midY = rowTop + kTreeRowHeight * 0.5f;
+                    const Rectangle toggleBounds = {
+                        toggleX,
+                        midY - kTreeToggleSize * 0.5f,
+                        kTreeToggleSize,
+                        kTreeToggleSize};
+
+                    if (!node.children.empty() && CheckCollisionPointRec(mouse, toggleBounds))
+                    {
+                        toggleConversationExpanded(node.key);
+                    }
+                    else if (node.editDoc != ConversationEditDoc::None && !node.jsonPointer.empty())
+                    {
+                        openConversationNodeEditor(node);
+                    }
+                    else if (!node.children.empty())
+                    {
+                        // Section / actor group: click expands/collapses
+                        toggleConversationExpanded(node.key);
+                    }
+                }
+            }
+        }
+
+        if (canInteract && CheckCollisionPointRec(mouse, treeBounds))
             leftScroll -= GetMouseWheelMove() * 24.0f;
         if (leftScroll < 0.0f)
             leftScroll = 0.0f;
@@ -2638,7 +3589,7 @@ struct SceneEditorApp
         if (!scenesDoc.isLoaded())
         {
             const std::string message = loadError.empty()
-                ? "Select the scenes.json tab to edit the scene map."
+                ? "Select the scenes.json or conversations.json tab."
                 : loadError;
             drawWrappedText(
                 textFont(),
@@ -2731,15 +3682,14 @@ struct SceneEditorApp
                 const bool hovered = CheckCollisionPointRec(GetMousePosition(), card);
                 if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
                 {
-                    if (selectedSceneId != id)
+                    selectSceneForEditor(id);
+                    // Allow layout drag on scenes tab; conversations tab is selection-only.
+                    if (!isConversationsTab())
                     {
-                        selectedSceneId = id;
-                        selectedVariableKey.clear();
-                        variablesScroll = 0.0f;
+                        dragSource = DragSource::Canvas;
+                        dragSceneId = id;
+                        dragOffset = {GetMouseX() - card.x, GetMouseY() - card.y};
                     }
-                    dragSource = DragSource::Canvas;
-                    dragSceneId = id;
-                    dragOffset = {GetMouseX() - card.x, GetMouseY() - card.y};
                 }
             }
         }
@@ -2947,9 +3897,17 @@ struct SceneEditorApp
     void closeVariableEditor()
     {
         variableEditorOpen = false;
+        editorDocTarget = ConversationEditDoc::None;
+        editorJsonPointer.clear();
         variableEditorSceneId.clear();
         variableEditorKey.clear();
         variableEditorBuffer.clear();
+        editorTextTtsEnabled = false;
+        editorShowTts = false;
+        editorTextSideBuffer.clear();
+        editorTtsSideBuffer.clear();
+        editorTextTtsMode = TextTtsPairMode::None;
+        editorTtsObjectKey.clear();
         variableEditorCursor = 0;
         variableEditorSelectAnchor = -1;
         variableEditorMouseSelecting = false;
@@ -2957,6 +3915,761 @@ struct SceneEditorApp
         variableEditorError.clear();
         variableKeyRepeatKey = 0;
         variableKeyRepeatTimer = 0.0f;
+        variableEditorTextTtsToggle = {0, 0, 0, 0};
+    }
+
+    static std::string unescapeJsonPointerToken(const std::string& token)
+    {
+        std::string out;
+        out.reserve(token.size());
+        for (size_t i = 0; i < token.size(); ++i)
+        {
+            if (token[i] == '~' && i + 1 < token.size())
+            {
+                if (token[i + 1] == '0')
+                {
+                    out.push_back('~');
+                    ++i;
+                    continue;
+                }
+                if (token[i + 1] == '1')
+                {
+                    out.push_back('/');
+                    ++i;
+                    continue;
+                }
+            }
+            out.push_back(token[i]);
+        }
+        return out;
+    }
+
+    static bool splitJsonPointer(
+        const std::string& pointer,
+        std::string& parentOut,
+        std::string& leafOut)
+    {
+        if (pointer.empty() || pointer[0] != '/')
+            return false;
+        const size_t last = pointer.find_last_of('/');
+        if (last == std::string::npos)
+            return false;
+        parentOut = pointer.substr(0, last);
+        leafOut = unescapeJsonPointerToken(pointer.substr(last + 1));
+        return !leafOut.empty();
+    }
+
+    static bool isTtsJsonKey(const std::string& key)
+    {
+        if (key == "tts" || key == "ttsVoice" || key == "ttsText" || key == "ttsAudio" ||
+            key == "ttsAudioSegments" || key == "ttsTextSha256" ||
+            key == "ttsAfter" || key == "ttsAfterVoice" || key == "ttsAfterText" ||
+            key == "ttsAfterAudio" || key == "ttsAfterAudioSegments" ||
+            key == "resumeTts" || key == "resumeTtsVoice" || key == "resumeTtsText" ||
+            key == "resumeTtsAudio")
+            return true;
+        // Nested TTS bags on scene narrative fields
+        if (key.size() >= 3 && key.compare(key.size() - 3, 3, "Tts") == 0)
+            return true;
+        return false;
+    }
+
+    static nlohmann::json stripTtsKeys(const nlohmann::json& object)
+    {
+        nlohmann::json out = nlohmann::json::object();
+        if (!object.is_object())
+            return out;
+        for (auto it = object.begin(); it != object.end(); ++it)
+        {
+            if (!isTtsJsonKey(it.key()))
+                out[it.key()] = it.value();
+        }
+        return out;
+    }
+
+    static nlohmann::json onlyTtsKeys(const nlohmann::json& object)
+    {
+        nlohmann::json out = nlohmann::json::object();
+        if (!object.is_object())
+            return out;
+        for (auto it = object.begin(); it != object.end(); ++it)
+        {
+            if (isTtsJsonKey(it.key()))
+                out[it.key()] = it.value();
+        }
+        return out;
+    }
+
+    static std::string narrativeTtsObjectKey(const std::string& fieldLeaf)
+    {
+        if (fieldLeaf == "description")
+            return "descriptionTts";
+        if (fieldLeaf == "examineDetails")
+            return "examineTts";
+        if (fieldLeaf == "speakDetails")
+            return "speakTts";
+        if (fieldLeaf == "useDetails")
+            return "useTts";
+        return "";
+    }
+
+    nlohmann::json* resolveEditorParentObject(const std::string& parentPointer)
+    {
+        if (editorDocTarget == ConversationEditDoc::Conversations)
+        {
+            if (parentPointer.empty())
+                return conversationsLoaded ? &conversationsRoot : nullptr;
+            return conversationJsonAt(parentPointer);
+        }
+        if (editorDocTarget == ConversationEditDoc::Scenes)
+        {
+            if (parentPointer.empty())
+                return scenesDoc.sceneJson(variableEditorSceneId);
+            return sceneFieldAt(variableEditorSceneId, parentPointer);
+        }
+        return nullptr;
+    }
+
+    void syncActiveBufferFromSide()
+    {
+        variableEditorBuffer = editorShowTts ? editorTtsSideBuffer : editorTextSideBuffer;
+        if (editorTextTtsMode == TextTtsPairMode::ObjectSplit)
+            variableEditorKind = VariableKindJson;
+        else
+            variableEditorKind = VariableKindString;
+        variableEditorMultiline = true;
+        variableEditorCursor = static_cast<int>(variableEditorBuffer.size());
+        variableEditorSelectAnchor = -1;
+        variableEditorMouseSelecting = false;
+        variableEditorScrollY = 0.0f;
+        variableEditorError.clear();
+    }
+
+    void stashActiveBufferToSide()
+    {
+        if (editorShowTts)
+            editorTtsSideBuffer = variableEditorBuffer;
+        else
+            editorTextSideBuffer = variableEditorBuffer;
+    }
+
+    void ensureGlobalDefaultVoiceLoaded()
+    {
+        if (editorGlobalDefaultVoiceLoaded)
+            return;
+        editorGlobalDefaultVoiceLoaded = true;
+        editorGlobalDefaultVoice = "leo";
+
+        const std::string configPath = pathJoin(resourceDir, "game_config.json");
+        std::ifstream file(configPath.c_str());
+        if (!file.is_open())
+            return;
+
+        try
+        {
+            nlohmann::json config;
+            file >> config;
+            if (config.is_object() && config.contains("tts") && config["tts"].is_object())
+            {
+                const std::string voice = config["tts"].value("voice", editorGlobalDefaultVoice);
+                if (!voice.empty())
+                    editorGlobalDefaultVoice = voice;
+            }
+        }
+        catch (const nlohmann::json::exception&)
+        {
+        }
+    }
+
+    static Color colorFromJsonRgba(const nlohmann::json& node, Color fallback)
+    {
+        if (!node.is_array() || node.size() < 3)
+            return fallback;
+        Color c = fallback;
+        try
+        {
+            c.r = static_cast<unsigned char>(std::max(0, std::min(255, node[0].get<int>())));
+            c.g = static_cast<unsigned char>(std::max(0, std::min(255, node[1].get<int>())));
+            c.b = static_cast<unsigned char>(std::max(0, std::min(255, node[2].get<int>())));
+            if (node.size() >= 4)
+                c.a = static_cast<unsigned char>(std::max(0, std::min(255, node[3].get<int>())));
+            else
+                c.a = 255;
+        }
+        catch (...)
+        {
+            return fallback;
+        }
+        return c;
+    }
+
+    void ensureTtsSyntaxThemeLoaded()
+    {
+        if (ttsSyntaxThemeLoaded)
+            return;
+        ttsSyntaxThemeLoaded = true;
+
+        // Built-in defaults match editor_tts_theme.json.
+        ttsSyntaxTheme = TtsSyntaxTheme{};
+
+        const std::string themePath = pathJoin(resourceDir, "editor_tts_theme.json");
+        std::ifstream file(themePath.c_str());
+        if (!file.is_open())
+        {
+            TraceLog(LOG_INFO, "SCENE EDITOR: TTS theme not found (%s); using defaults", themePath.c_str());
+            return;
+        }
+
+        try
+        {
+            nlohmann::json root;
+            file >> root;
+            const nlohmann::json& syntax = root.contains("ttsSyntax") && root["ttsSyntax"].is_object()
+                ? root["ttsSyntax"]
+                : root;
+            if (!syntax.is_object())
+                return;
+
+            if (syntax.contains("default"))
+                ttsSyntaxTheme.defaultColor = colorFromJsonRgba(syntax["default"], ttsSyntaxTheme.defaultColor);
+            if (syntax.contains("command"))
+                ttsSyntaxTheme.command = colorFromJsonRgba(syntax["command"], ttsSyntaxTheme.command);
+            if (syntax.contains("voiceMarkup"))
+                ttsSyntaxTheme.voiceMarkup =
+                    colorFromJsonRgba(syntax["voiceMarkup"], ttsSyntaxTheme.voiceMarkup);
+            if (syntax.contains("voiceDialog"))
+                ttsSyntaxTheme.voiceDialog =
+                    colorFromJsonRgba(syntax["voiceDialog"], ttsSyntaxTheme.voiceDialog);
+
+            TraceLog(LOG_INFO, "SCENE EDITOR: loaded TTS syntax theme %s", themePath.c_str());
+        }
+        catch (const nlohmann::json::exception& ex)
+        {
+            TraceLog(LOG_WARNING, "SCENE EDITOR: failed to parse TTS theme: %s", ex.what());
+        }
+    }
+
+    static bool isTtsCommandBodyChar(unsigned char ch)
+    {
+        return std::isalnum(ch) || ch == '-' || ch == '_' || ch == ' ' || ch == '.';
+    }
+
+    static bool looksLikeTtsCommandBody(const std::string& body)
+    {
+        if (body.empty())
+            return false;
+        // xAI style: pause, long-pause, sigh, …
+        bool hasLetter = false;
+        for (char ch : body)
+        {
+            const unsigned char c = static_cast<unsigned char>(ch);
+            if (!isTtsCommandBodyChar(c))
+                return false;
+            if (std::isalpha(c))
+                hasLetter = true;
+        }
+        return hasLetter;
+    }
+
+    static bool isVoiceOpenTagBody(const std::string& body)
+    {
+        std::string trimmed = body;
+        while (!trimmed.empty() && std::isspace(static_cast<unsigned char>(trimmed.front())))
+            trimmed.erase(trimmed.begin());
+        while (!trimmed.empty() && std::isspace(static_cast<unsigned char>(trimmed.back())))
+            trimmed.pop_back();
+        if (trimmed.empty() || trimmed[0] == '/')
+            return false;
+
+        std::string lower;
+        lower.reserve(trimmed.size());
+        for (char ch : trimmed)
+            lower.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
+
+        if (lower.rfind("voice:", 0) == 0)
+            return lower.size() > 6;
+        // Short form: {{eve}}, {{leo}}, …
+        return lower == "eve" || lower == "ara" || lower == "rex" || lower == "sal" || lower == "leo";
+    }
+
+    static bool isVoiceCloseTagBody(const std::string& body)
+    {
+        std::string trimmed = body;
+        while (!trimmed.empty() && std::isspace(static_cast<unsigned char>(trimmed.front())))
+            trimmed.erase(trimmed.begin());
+        while (!trimmed.empty() && std::isspace(static_cast<unsigned char>(trimmed.back())))
+            trimmed.pop_back();
+        if (trimmed.empty() || trimmed[0] != '/')
+            return false;
+
+        std::string name = trimmed.substr(1);
+        while (!name.empty() && std::isspace(static_cast<unsigned char>(name.front())))
+            name.erase(name.begin());
+        for (char& ch : name)
+            ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+        return name == "voice" || name == "eve" || name == "ara" || name == "rex" ||
+            name == "sal" || name == "leo";
+    }
+
+    void rebuildTtsHighlightColors()
+    {
+        ensureTtsSyntaxThemeLoaded();
+        const std::string& text = variableEditorBuffer;
+        if (ttsHighlightCacheSource == text &&
+            ttsHighlightColors.size() == text.size())
+            return;
+
+        ttsHighlightCacheSource = text;
+        ttsHighlightColors.assign(text.size(), ttsSyntaxTheme.defaultColor);
+        if (text.empty())
+            return;
+
+        bool inVoiceDialog = false;
+        size_t i = 0;
+        while (i < text.size())
+        {
+            // Voice markup: {{…}}
+            if (i + 1 < text.size() && text[i] == '{' && text[i + 1] == '{')
+            {
+                const size_t close = text.find("}}", i + 2);
+                const size_t end = (close == std::string::npos) ? text.size() : close + 2;
+                const size_t bodyStart = i + 2;
+                const size_t bodyEnd = (close == std::string::npos) ? text.size() : close;
+                const std::string body = text.substr(bodyStart, bodyEnd - bodyStart);
+
+                for (size_t j = i; j < end; ++j)
+                    ttsHighlightColors[j] = ttsSyntaxTheme.voiceMarkup;
+
+                if (close != std::string::npos)
+                {
+                    if (isVoiceOpenTagBody(body))
+                        inVoiceDialog = true;
+                    else if (isVoiceCloseTagBody(body))
+                        inVoiceDialog = false;
+                }
+                i = end;
+                continue;
+            }
+
+            // Bracket commands: [pause], [long-pause], [sigh], …
+            if (text[i] == '[')
+            {
+                const size_t close = text.find(']', i + 1);
+                if (close != std::string::npos)
+                {
+                    const std::string body = text.substr(i + 1, close - (i + 1));
+                    if (looksLikeTtsCommandBody(body))
+                    {
+                        for (size_t j = i; j <= close; ++j)
+                            ttsHighlightColors[j] = ttsSyntaxTheme.command;
+                        i = close + 1;
+                        continue;
+                    }
+                }
+            }
+
+            ttsHighlightColors[i] = inVoiceDialog
+                ? ttsSyntaxTheme.voiceDialog
+                : ttsSyntaxTheme.defaultColor;
+            ++i;
+        }
+    }
+
+    Color ttsColorAtBufferIndex(int index) const
+    {
+        if (index < 0 || index >= static_cast<int>(ttsHighlightColors.size()))
+            return ttsSyntaxTheme.defaultColor;
+        return ttsHighlightColors[static_cast<size_t>(index)];
+    }
+
+    static bool colorsEqual(Color a, Color b)
+    {
+        return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
+    }
+
+    std::string readTtsVoiceFromObject(const nlohmann::json& object) const
+    {
+        if (!object.is_object())
+            return "";
+        if (object.contains("ttsVoice") && object["ttsVoice"].is_string())
+        {
+            const std::string voice = object["ttsVoice"].get<std::string>();
+            if (!voice.empty())
+                return voice;
+        }
+        return "";
+    }
+
+    std::string editorDefaultVoiceLabel() const
+    {
+        // Prefer the voice on the object being edited, then parent / TTS bag, then game config.
+        if (editorTextTtsEnabled && editorTextTtsMode == TextTtsPairMode::ObjectSplit)
+        {
+            try
+            {
+                const nlohmann::json ttsPart = editorShowTts
+                    ? (variableEditorBuffer.empty()
+                           ? nlohmann::json::object()
+                           : nlohmann::json::parse(variableEditorBuffer))
+                    : (editorTtsSideBuffer.empty()
+                           ? nlohmann::json::object()
+                           : nlohmann::json::parse(editorTtsSideBuffer));
+                const std::string fromTts = readTtsVoiceFromObject(ttsPart);
+                if (!fromTts.empty())
+                    return fromTts;
+            }
+            catch (const nlohmann::json::exception&)
+            {
+            }
+        }
+
+        if (editorDocTarget == ConversationEditDoc::Conversations ||
+            editorDocTarget == ConversationEditDoc::Scenes)
+        {
+            std::string parentPointer;
+            std::string leaf;
+            if (splitJsonPointer(editorJsonPointer, parentPointer, leaf))
+            {
+                // Mutable helper used as const via const_cast pattern avoided —
+                // resolve parent through document reads only.
+                const nlohmann::json* parent = nullptr;
+                if (editorDocTarget == ConversationEditDoc::Conversations)
+                {
+                    if (parentPointer.empty())
+                        parent = conversationsLoaded ? &conversationsRoot : nullptr;
+                    else
+                        parent = conversationJsonAt(parentPointer);
+                }
+                else
+                {
+                    if (parentPointer.empty())
+                        parent = scenesDoc.sceneJson(variableEditorSceneId);
+                    else
+                        parent = sceneFieldAt(variableEditorSceneId, parentPointer);
+                }
+
+                if (parent != nullptr && parent->is_object())
+                {
+                    if (editorTextTtsMode == TextTtsPairMode::StringWithTtsObject &&
+                        !editorTtsObjectKey.empty() &&
+                        parent->contains(editorTtsObjectKey) &&
+                        (*parent)[editorTtsObjectKey].is_object())
+                    {
+                        const std::string fromBag =
+                            readTtsVoiceFromObject((*parent)[editorTtsObjectKey]);
+                        if (!fromBag.empty())
+                            return fromBag;
+                    }
+
+                    const std::string fromParent = readTtsVoiceFromObject(*parent);
+                    if (!fromParent.empty())
+                        return fromParent;
+                }
+            }
+
+            // Direct object at pointer (milestone / choice).
+            const nlohmann::json* direct = nullptr;
+            if (editorDocTarget == ConversationEditDoc::Conversations)
+                direct = conversationJsonAt(editorJsonPointer);
+            else
+                direct = sceneFieldAt(variableEditorSceneId, editorJsonPointer);
+            if (direct != nullptr && direct->is_object())
+            {
+                const std::string fromDirect = readTtsVoiceFromObject(*direct);
+                if (!fromDirect.empty())
+                    return fromDirect;
+            }
+        }
+
+        return editorGlobalDefaultVoice;
+    }
+
+    void toggleTextTtsSide()
+    {
+        if (!editorTextTtsEnabled)
+            return;
+        stashActiveBufferToSide();
+        editorShowTts = !editorShowTts;
+        syncActiveBufferFromSide();
+    }
+
+    void setupTextTtsForOpenedValue(const nlohmann::json& value)
+    {
+        editorTextTtsEnabled = false;
+        editorShowTts = false;
+        editorTextSideBuffer.clear();
+        editorTtsSideBuffer.clear();
+        editorTextTtsMode = TextTtsPairMode::None;
+        editorTtsObjectKey.clear();
+
+        // Only conversation-tab editors get the text/TTS switch.
+        if (editorDocTarget != ConversationEditDoc::Conversations &&
+            editorDocTarget != ConversationEditDoc::Scenes)
+            return;
+
+        if (value.is_object())
+        {
+            editorTextTtsMode = TextTtsPairMode::ObjectSplit;
+            editorTextSideBuffer = stripTtsKeys(value).dump(2);
+            editorTtsSideBuffer = onlyTtsKeys(value).dump(2);
+            editorTextTtsEnabled = true;
+            editorShowTts = false;
+            syncActiveBufferFromSide();
+            return;
+        }
+
+        if (!value.is_string() && !value.is_null())
+            return;
+
+        std::string parentPointer;
+        std::string leaf;
+        if (!splitJsonPointer(editorJsonPointer, parentPointer, leaf))
+            return;
+
+        editorTextSideBuffer = value.is_string() ? value.get<std::string>() : "";
+
+        const std::string ttsObjKey = narrativeTtsObjectKey(leaf);
+        nlohmann::json* parent = resolveEditorParentObject(parentPointer);
+
+        if (!ttsObjKey.empty() && parent != nullptr && parent->is_object())
+        {
+            editorTextTtsMode = TextTtsPairMode::StringWithTtsObject;
+            editorTtsObjectKey = ttsObjKey;
+            if (parent->contains(ttsObjKey) && (*parent)[ttsObjKey].is_object() &&
+                (*parent)[ttsObjKey].contains("ttsText") &&
+                (*parent)[ttsObjKey]["ttsText"].is_string())
+            {
+                editorTtsSideBuffer = (*parent)[ttsObjKey]["ttsText"].get<std::string>();
+            }
+            else if (parent->contains("ttsText") && (*parent)["ttsText"].is_string())
+            {
+                // Fall back to flat ttsText on same object if nested bag missing.
+                editorTtsSideBuffer = (*parent)["ttsText"].get<std::string>();
+            }
+            editorTextTtsEnabled = true;
+            editorShowTts = false;
+            syncActiveBufferFromSide();
+            return;
+        }
+
+        // Sibling ttsText on parent (conversation intro/response/text, etc.)
+        if (parent != nullptr && parent->is_object())
+        {
+            editorTextTtsMode = TextTtsPairMode::StringWithSiblingTtsText;
+            if (parent->contains("ttsText") && (*parent)["ttsText"].is_string())
+                editorTtsSideBuffer = (*parent)["ttsText"].get<std::string>();
+            editorTextTtsEnabled = true;
+            editorShowTts = false;
+            syncActiveBufferFromSide();
+        }
+    }
+
+    bool applyTextTtsSidesToDocument()
+    {
+        stashActiveBufferToSide();
+
+        if (editorTextTtsMode == TextTtsPairMode::ObjectSplit)
+        {
+            nlohmann::json* target = nullptr;
+            if (editorDocTarget == ConversationEditDoc::Conversations)
+                target = conversationJsonAt(editorJsonPointer);
+            else
+                target = sceneFieldAt(variableEditorSceneId, editorJsonPointer);
+            if (target == nullptr || !target->is_object())
+                return false;
+
+            nlohmann::json textPart;
+            nlohmann::json ttsPart;
+            try
+            {
+                textPart = editorTextSideBuffer.empty()
+                    ? nlohmann::json::object()
+                    : nlohmann::json::parse(editorTextSideBuffer);
+                ttsPart = editorTtsSideBuffer.empty()
+                    ? nlohmann::json::object()
+                    : nlohmann::json::parse(editorTtsSideBuffer);
+            }
+            catch (const nlohmann::json::exception&)
+            {
+                return false;
+            }
+            if (!textPart.is_object() || !ttsPart.is_object())
+                return false;
+
+            // Drop previous TTS keys, then merge both sides.
+            nlohmann::json merged = stripTtsKeys(*target);
+            for (auto it = textPart.begin(); it != textPart.end(); ++it)
+            {
+                if (!isTtsJsonKey(it.key()))
+                    merged[it.key()] = it.value();
+            }
+            // Remove TTS keys not present in the TTS side (allows clearing).
+            for (auto it = merged.begin(); it != merged.end();)
+            {
+                if (isTtsJsonKey(it.key()))
+                    it = merged.erase(it);
+                else
+                    ++it;
+            }
+            for (auto it = ttsPart.begin(); it != ttsPart.end(); ++it)
+                merged[it.key()] = it.value();
+
+            *target = merged;
+            return true;
+        }
+
+        if (editorTextTtsMode == TextTtsPairMode::StringWithTtsObject ||
+            editorTextTtsMode == TextTtsPairMode::StringWithSiblingTtsText)
+        {
+            nlohmann::json* textTarget = nullptr;
+            if (editorDocTarget == ConversationEditDoc::Conversations)
+                textTarget = conversationJsonAt(editorJsonPointer);
+            else
+                textTarget = sceneFieldAt(variableEditorSceneId, editorJsonPointer);
+            if (textTarget == nullptr)
+                return false;
+            *textTarget = editorTextSideBuffer;
+
+            std::string parentPointer;
+            std::string leaf;
+            if (!splitJsonPointer(editorJsonPointer, parentPointer, leaf))
+                return false;
+            nlohmann::json* parent = resolveEditorParentObject(parentPointer);
+            if (parent == nullptr || !parent->is_object())
+                return false;
+
+            if (editorTextTtsMode == TextTtsPairMode::StringWithTtsObject &&
+                !editorTtsObjectKey.empty())
+            {
+                if (!parent->contains(editorTtsObjectKey) || !(*parent)[editorTtsObjectKey].is_object())
+                    (*parent)[editorTtsObjectKey] = nlohmann::json::object();
+                nlohmann::json& bag = (*parent)[editorTtsObjectKey];
+                bag["ttsText"] = editorTtsSideBuffer;
+                bag["tts"] = !editorTtsSideBuffer.empty();
+                if (!bag.contains("ttsVoice") || !bag["ttsVoice"].is_string())
+                    bag["ttsVoice"] = "";
+            }
+            else
+            {
+                (*parent)["ttsText"] = editorTtsSideBuffer;
+                (*parent)["tts"] = !editorTtsSideBuffer.empty();
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    nlohmann::json* sceneFieldAt(const std::string& sceneId, const std::string& pointerUnderScene)
+    {
+        nlohmann::json* scene = scenesDoc.sceneJson(sceneId);
+        if (scene == nullptr || pointerUnderScene.empty())
+            return nullptr;
+        try
+        {
+            return &scene->at(nlohmann::json::json_pointer(pointerUnderScene));
+        }
+        catch (const nlohmann::json::exception&)
+        {
+            return nullptr;
+        }
+    }
+
+    const nlohmann::json* sceneFieldAt(const std::string& sceneId, const std::string& pointerUnderScene) const
+    {
+        const nlohmann::json* scene = scenesDoc.sceneJson(sceneId);
+        if (scene == nullptr || pointerUnderScene.empty())
+            return nullptr;
+        try
+        {
+            return &scene->at(nlohmann::json::json_pointer(pointerUnderScene));
+        }
+        catch (const nlohmann::json::exception&)
+        {
+            return nullptr;
+        }
+    }
+
+    void openConversationNodeEditor(const ConversationTreeNode& node)
+    {
+        if (node.editDoc == ConversationEditDoc::None || node.jsonPointer.empty())
+            return;
+
+        const nlohmann::json* value = nullptr;
+        if (node.editDoc == ConversationEditDoc::Conversations)
+            value = conversationJsonAt(node.jsonPointer);
+        else if (node.editDoc == ConversationEditDoc::Scenes)
+            value = sceneFieldAt(node.editSceneId, node.jsonPointer);
+
+        if (value == nullptr)
+        {
+            TraceLog(
+                LOG_WARNING,
+                "SCENE EDITOR: edit path missing %s",
+                node.jsonPointer.c_str());
+            return;
+        }
+
+        editorDocTarget = node.editDoc;
+        editorJsonPointer = node.jsonPointer;
+        variableEditorSceneId = node.editSceneId;
+        variableEditorKey = node.label;
+        variableEditorScrollY = 0.0f;
+        variableEditorError.clear();
+        selectedConversationKey = node.key;
+        TraceLog(LOG_INFO, "SCENE EDITOR: editing %s", node.jsonPointer.c_str());
+
+        if (value->is_string())
+        {
+            variableEditorKind = VariableKindString;
+            variableEditorBuffer = value->get<std::string>();
+            variableEditorMultiline = true;
+        }
+        else if (value->is_boolean())
+        {
+            variableEditorKind = VariableKindBool;
+            variableEditorBuffer = value->get<bool>() ? "true" : "false";
+            variableEditorMultiline = false;
+        }
+        else if (value->is_number_integer())
+        {
+            variableEditorKind = VariableKindInteger;
+            variableEditorBuffer = std::to_string(value->get<long long>());
+            variableEditorMultiline = false;
+        }
+        else if (value->is_number_float())
+        {
+            variableEditorKind = VariableKindFloat;
+            std::ostringstream stream;
+            stream << value->get<double>();
+            variableEditorBuffer = stream.str();
+            variableEditorMultiline = false;
+        }
+        else if (value->is_null())
+        {
+            variableEditorKind = VariableKindString;
+            variableEditorBuffer.clear();
+            variableEditorMultiline = true;
+        }
+        else
+        {
+            variableEditorKind = VariableKindJson;
+            variableEditorBuffer = value->dump(2);
+            variableEditorMultiline = true;
+        }
+
+        ensureGlobalDefaultVoiceLoaded();
+        ensureTtsSyntaxThemeLoaded();
+        setupTextTtsForOpenedValue(*value);
+
+        if (!editorTextTtsEnabled)
+        {
+            variableEditorCursor = static_cast<int>(variableEditorBuffer.size());
+            variableEditorSelectAnchor = -1;
+            variableEditorMouseSelecting = false;
+        }
+        variableEditorOpen = true;
+        variableEditorIgnoreInputFrames = 1;
     }
 
     bool variableHasSelection() const
@@ -3027,6 +4740,14 @@ struct SceneEditorApp
         }
 
         const nlohmann::json& value = (*scene)[key];
+        editorDocTarget = ConversationEditDoc::None;
+        editorJsonPointer.clear();
+        editorTextTtsEnabled = false;
+        editorShowTts = false;
+        editorTextTtsMode = TextTtsPairMode::None;
+        editorTextSideBuffer.clear();
+        editorTtsSideBuffer.clear();
+        editorTtsObjectKey.clear();
         variableEditorSceneId = sceneId;
         variableEditorKey = key;
         variableEditorScrollY = 0.0f;
@@ -3080,13 +4801,8 @@ struct SceneEditorApp
         variableEditorIgnoreInputFrames = 1;
     }
 
-    bool saveVariableEditor()
+    bool applyEditorBufferToJson(nlohmann::json& value)
     {
-        nlohmann::json* scene = scenesDoc.sceneJson(variableEditorSceneId);
-        if (scene == nullptr)
-            return false;
-
-        nlohmann::json& value = (*scene)[variableEditorKey];
         try
         {
             if (variableEditorKind == VariableKindBool)
@@ -3122,6 +4838,74 @@ struct SceneEditorApp
         {
             return false;
         }
+        return true;
+    }
+
+    bool saveVariableEditor()
+    {
+        if (editorDocTarget == ConversationEditDoc::Conversations)
+        {
+            if (editorTextTtsEnabled)
+            {
+                if (!applyTextTtsSidesToDocument())
+                    return false;
+            }
+            else
+            {
+                nlohmann::json* target = conversationJsonAt(editorJsonPointer);
+                if (target == nullptr)
+                    return false;
+                if (!applyEditorBufferToJson(*target))
+                    return false;
+            }
+
+            markDirty();
+            if (!saveConversationsDocument())
+            {
+                variableEditorError = "Applied in memory, but failed to write conversations.json";
+                return false;
+            }
+            dirty = false;
+            rebuildConversationTree();
+            closeVariableEditor();
+            return true;
+        }
+
+        if (editorDocTarget == ConversationEditDoc::Scenes)
+        {
+            if (editorTextTtsEnabled)
+            {
+                if (!applyTextTtsSidesToDocument())
+                    return false;
+            }
+            else
+            {
+                nlohmann::json* target = sceneFieldAt(variableEditorSceneId, editorJsonPointer);
+                if (target == nullptr)
+                    return false;
+                if (!applyEditorBufferToJson(*target))
+                    return false;
+            }
+
+            markDirty();
+            if (!scenesDoc.save())
+            {
+                variableEditorError = "Applied in memory, but failed to write scenes.json";
+                return false;
+            }
+            dirty = false;
+            rebuildConversationTree();
+            closeVariableEditor();
+            return true;
+        }
+
+        nlohmann::json* scene = scenesDoc.sceneJson(variableEditorSceneId);
+        if (scene == nullptr)
+            return false;
+
+        nlohmann::json& value = (*scene)[variableEditorKey];
+        if (!applyEditorBufferToJson(value))
+            return false;
 
         markDirty();
         // Persist immediately so Save in the popup has an obvious effect.
@@ -3141,6 +4925,54 @@ struct SceneEditorApp
         int end = 0;   // buffer index one past last drawn char (may point at '\n')
         std::string text;
     };
+
+    void drawEditorLineText(
+        const EditorVisualLine& line,
+        float x,
+        float y,
+        float fontSize,
+        bool highlightTts) const
+    {
+        if (line.text.empty())
+            return;
+
+        if (!highlightTts)
+        {
+            DrawTextEx(
+                textFont(),
+                line.text.c_str(),
+                {x, y},
+                fontSize,
+                1.0f,
+                kTextPrimary);
+            return;
+        }
+
+        float drawX = x;
+        size_t i = 0;
+        while (i < line.text.size())
+        {
+            const int bufIdx = line.start + static_cast<int>(i);
+            const Color runColor = ttsColorAtBufferIndex(bufIdx);
+            size_t j = i + 1;
+            while (j < line.text.size() &&
+                   colorsEqual(ttsColorAtBufferIndex(line.start + static_cast<int>(j)), runColor))
+            {
+                ++j;
+            }
+
+            const std::string run = line.text.substr(i, j - i);
+            DrawTextEx(
+                textFont(),
+                run.c_str(),
+                {drawX, y},
+                fontSize,
+                1.0f,
+                runColor);
+            drawX += MeasureTextEx(textFont(), run.c_str(), fontSize, 1.0f).x;
+            i = j;
+        }
+    }
 
     void clampVariableCursor()
     {
@@ -3461,6 +5293,14 @@ struct SceneEditorApp
                 closeVariableEditor();
                 return;
             }
+            if (editorTextTtsEnabled &&
+                variableEditorTextTtsToggle.width > 1.0f &&
+                CheckCollisionPointRec(mouse, variableEditorTextTtsToggle))
+            {
+                variableEditorMouseSelecting = false;
+                toggleTextTtsSide();
+                return;
+            }
         }
 
         // Click to place caret; drag to extend selection (field only).
@@ -3687,8 +5527,15 @@ struct SceneEditorApp
         DrawRectangleRounded(dialog, 0.03f, 8, kModalFill);
         DrawRectangleLinesEx(dialog, 2.0f, kPanelBorder);
 
-        const std::string title =
-            "Edit \"" + variableEditorKey + "\"  —  scene: " + variableEditorSceneId;
+        std::string title = "Edit \"" + variableEditorKey + "\"";
+        if (editorDocTarget == ConversationEditDoc::Conversations)
+            title = "Edit conversation  —  " + variableEditorKey;
+        else if (editorDocTarget == ConversationEditDoc::Scenes)
+            title = "Edit narrative  —  " + variableEditorKey + "  (" + variableEditorSceneId + ")";
+        else if (!variableEditorSceneId.empty())
+            title = "Edit \"" + variableEditorKey + "\"  —  scene: " + variableEditorSceneId;
+        if (editorTextTtsEnabled)
+            title += editorShowTts ? "  [TTS]" : "  [text]";
         DrawTextEx(
             textFont(),
             title.c_str(),
@@ -3696,6 +5543,21 @@ struct SceneEditorApp
             kFontTitle,
             1.0f,
             kTextPrimary);
+
+        // Upper-right: default voice for this line (or game_config tts.voice).
+        if (editorDocTarget == ConversationEditDoc::Conversations ||
+            editorDocTarget == ConversationEditDoc::Scenes)
+        {
+            const std::string voiceLine = "default voice: " + editorDefaultVoiceLabel();
+            const Vector2 voiceSize = MeasureTextEx(textFont(), voiceLine.c_str(), kFontBody, 1.0f);
+            DrawTextEx(
+                textFont(),
+                voiceLine.c_str(),
+                {dialog.x + dialogW - voiceSize.x - 18.0f, dialog.y + 16.0f},
+                kFontBody,
+                1.0f,
+                kPanelBorder);
+        }
 
         const float btnH = 34.0f;
         const float btnW = 110.0f;
@@ -3729,6 +5591,10 @@ struct SceneEditorApp
             variableEditorScrollY = 0.0f;
         if (variableEditorScrollY > maxScroll)
             variableEditorScrollY = maxScroll;
+
+        const bool highlightTts = editorShowTts && editorTextTtsEnabled;
+        if (highlightTts)
+            rebuildTtsHighlightColors();
 
         const bool caretOn = (static_cast<int>(GetTime() * 2.0) % 2) == 0;
         clampVariableCursor();
@@ -3769,13 +5635,7 @@ struct SceneEditorApp
                 }
             }
 
-            DrawTextEx(
-                textFont(),
-                line.text.c_str(),
-                {field.x + pad, y},
-                fontSize,
-                1.0f,
-                kTextPrimary);
+            drawEditorLineText(line, field.x + pad, y, fontSize, highlightTts);
 
             if (caretOn && !hasSel && static_cast<int>(lineIndex) == caretLine)
             {
@@ -3818,6 +5678,69 @@ struct SceneEditorApp
         // Keep rects identical to update() hit-testing.
         variableEditorSaveBtn = saveBtn;
         variableEditorCancelBtn = cancelBtn;
+
+        // Lower-left text/TTS switch (conversation dialog editors only).
+        if (editorTextTtsEnabled)
+        {
+            const float toggleW = 56.0f;
+            const float toggleH = 22.0f;
+            const float trackX = dialog.x + 18.0f; // align with dialog content left edge
+            const Rectangle track = {
+                trackX,
+                btnY + (btnH - toggleH) * 0.5f,
+                toggleW,
+                toggleH};
+            variableEditorTextTtsToggle = {
+                track.x,
+                btnY,
+                track.width,
+                btnH};
+
+            // Track: left half = text, right half = TTS (knob position matches).
+            DrawRectangleRounded(track, 0.5f, 6, Color{44, 42, 52, 255});
+            DrawRectangleLinesEx(track, 1.0f, kPanelBorder);
+            if (editorShowTts)
+            {
+                // Highlight right half when TTS is active.
+                DrawRectangleRec(
+                    {track.x + track.width * 0.5f, track.y + 1.0f,
+                     track.width * 0.5f - 1.0f, track.height - 2.0f},
+                    kPanelAccent);
+            }
+            else
+            {
+                // Highlight left half when text is active.
+                DrawRectangleRec(
+                    {track.x + 1.0f, track.y + 1.0f,
+                     track.width * 0.5f - 1.0f, track.height - 2.0f},
+                    kPanelAccent);
+            }
+
+            const float knobSize = toggleH - 6.0f;
+            // Left = text, right = TTS
+            const float knobX = editorShowTts
+                ? (track.x + track.width - knobSize - 3.0f)
+                : (track.x + 3.0f);
+            DrawRectangleRounded(
+                {knobX, track.y + 3.0f, knobSize, knobSize},
+                0.5f,
+                6,
+                kTextPrimary);
+
+            const char* sideLabel = editorShowTts ? "TTS" : "text";
+            const Vector2 sideSize = MeasureTextEx(textFont(), sideLabel, kFontTiny, 1.0f);
+            DrawTextEx(
+                textFont(),
+                sideLabel,
+                {track.x + track.width + 8.0f, track.y + (track.height - sideSize.y) * 0.5f},
+                kFontTiny,
+                1.0f,
+                kPanelBorder);
+        }
+        else
+        {
+            variableEditorTextTtsToggle = {0, 0, 0, 0};
+        }
 
         drawButton(saveBtn, "Save", true);
         drawButton(cancelBtn, "Cancel", false);
@@ -4114,9 +6037,11 @@ struct SceneEditorApp
     void drawStatusBar(int screenWidth, int screenHeight)
     {
         const std::string status = dirty ? "Modified" : "Saved";
-        const std::string pathLabel = scenesDoc.isLoaded()
-            ? scenesDoc.path()
-            : "Resources: " + resourceDir;
+        std::string pathLabel = "Resources: " + resourceDir;
+        if (isConversationsTab() && conversationsLoaded)
+            pathLabel = conversationsPath;
+        else if (scenesDoc.isLoaded())
+            pathLabel = scenesDoc.path();
         DrawTextEx(textFont(), pathLabel.c_str(), {8.0f, static_cast<float>(screenHeight) - 18.0f},
                    kFontTiny, 1.0f, kTextMuted);
         DrawTextEx(textFont(), status.c_str(),
@@ -4222,7 +6147,10 @@ struct SceneEditorApp
         drawPanel(left);
         drawTabs(left);
         const Rectangle listBounds = {left.x, left.y + kTabHeight + 4.0f, left.width, left.height - kTabHeight - 8.0f};
-        drawSceneList(listBounds);
+        if (isConversationsTab())
+            drawConversationTree(listBounds);
+        else
+            drawSceneList(listBounds);
 
         drawPanel(main);
         const Rectangle canvasBounds = {main.x + 4.0f, main.y + 4.0f, main.width - 8.0f, main.height - 8.0f};
@@ -4285,7 +6213,8 @@ int main(int argc, char** argv)
 
     app.unloadThumbnails();
     app.unloadUiFont();
-    app.saveDocument();
+    if (app.dirty)
+        app.saveDocument();
     CloseWindow();
     return 0;
 }

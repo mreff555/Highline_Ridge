@@ -1653,7 +1653,7 @@
           "resources/audio/tts/saloon_balcony/blue_woman_intro.seg2.mp3",
           "resources/audio/tts/saloon_balcony/blue_woman_intro.seg3.mp3"
         ],
-        "ttsText": "The woman in blue does not startle when you approach. She finishes her thought with the two at the rail, lets them laugh without her, and turns as though you were expected. She takes a slow drag from her cigarette, exhales through the side of her mouth, and studies you with that same focused calm. {{voice:eve}}[pause]You disappeared this morning,{{/voice}} [pause] she says. {{voice:eve}}[pause]Not accusation. [pause] Inventory.[/pause]{{/voice}}",
+        "ttsText": "The woman in blue does not startle when you approach. She finishes her thought with the two at the rail, lets them laugh without her, and turns as though you were expected. She takes a slow drag from her cigarette, exhales through the side of her mouth, and studies you with that same focused calm. {{voice:eve}}[pause]You disappeared this morning,{{/voice}} [pause] she says. {{voice:eve}}[pause]Not accusation. [pause] Inventory.[pause]{{/voice}}",
         "ttsTextSha256": "864d7f5a2ab70ca8e4685baf83ea14c3a7c360a6ff653d77bf0161e90a5744b5",
         "ttsVoice": "leo",
         "type": "scripted"
