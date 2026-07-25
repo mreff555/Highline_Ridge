@@ -59,12 +59,23 @@ const float kMinLeftWidth = 320.0f;
 const float kMinMainWidth = 280.0f;
 const float kMinTopHeight = 200.0f;
 const float kMinBottomHeight = 140.0f;
-const float kTabHeight = 30.0f;
-const float kSceneCardWidth = 140.0f;
-const float kSceneCardHeight = 100.0f;
+const float kTabHeight = 32.0f;
+const float kSceneCardWidth = 160.0f;
+const float kSceneCardMinHeight = 110.0f;
+const float kSceneCardThumbHeight = 68.0f;
+const float kSceneCardTitleFont = 14.0f; // was 12
+const float kSceneCardTitleLineHeight = 17.0f;
+const int kSceneCardMaxTitleLines = 4;
 // Corridors between cards for mid-route turns (endpoints stay flush with card edges).
 const float kLayoutGapX = 96.0f;
 const float kLayoutGapY = 96.0f;
+// UI body fonts are ~2pt larger than the original defaults.
+const float kFontTiny = 14.0f;
+const float kFontSmall = 15.0f;
+const float kFontBody = 16.0f;
+const float kFontLabel = 17.0f;
+const float kFontTitle = 18.0f;
+const float kFontHeading = 20.0f;
 // How far into the corridor the perpendicular exit/enter stubs travel before turning.
 const float kLinkStubLength = 28.0f;
 const float kArrowHeadLength = 12.0f;
@@ -73,7 +84,7 @@ const float kLinkEndCapRadius = 7.0f;
 const float kLayoutOriginX = 40.0f;
 const float kLayoutOriginY = 48.0f;
 const float kListThumbSize = 48.0f;
-const float kListRowHeight = 56.0f;
+const float kListRowHeight = 60.0f;
 const float kCanvasChromeHeight = 36.0f;
 const float kScrollBarSize = 14.0f;
 const float kScrollContentPad = 48.0f;
@@ -343,8 +354,8 @@ struct SceneEditorApp
     Rectangle variableEditorField{0, 0, 0, 0};
     Rectangle variableEditorSaveBtn{0, 0, 0, 0};
     Rectangle variableEditorCancelBtn{0, 0, 0, 0};
-    float variableEditorFontSize = 14.0f;
-    float variableEditorLineHeight = 18.0f;
+    float variableEditorFontSize = 16.0f;
+    float variableEditorLineHeight = 20.0f;
     float variableEditorPad = 8.0f;
     float variableEditorPreferX = 0.0f; // visual column for up/down
     float variableKeyRepeatTimer = 0.0f;
@@ -1079,8 +1090,18 @@ struct SceneEditorApp
             }
         }
 
+        float cellHeight = kSceneCardMinHeight;
+        for (std::map<std::string, std::pair<int, int> >::const_iterator it = grid.begin();
+             it != grid.end();
+             ++it)
+        {
+            const float h = measureSceneCard(it->first).height;
+            if (h > cellHeight)
+                cellHeight = h;
+        }
+
         const float pitchX = kSceneCardWidth + kLayoutGapX;
-        const float pitchY = kSceneCardHeight + kLayoutGapY;
+        const float pitchY = cellHeight + kLayoutGapY;
         for (std::map<std::string, std::pair<int, int> >::const_iterator it = grid.begin();
              it != grid.end();
              ++it)
@@ -1346,7 +1367,7 @@ struct SceneEditorApp
         if (jsonTabs.empty())
         {
             DrawTextEx(textFont(), "No resource JSON files",
-                       {leftBounds.x + 8.0f, leftBounds.y + 8.0f}, 12.0f, 1.0f, kTextMuted);
+                       {leftBounds.x + 8.0f, leftBounds.y + 8.0f}, kFontTiny, 1.0f, kTextMuted);
             return;
         }
 
@@ -1362,7 +1383,7 @@ struct SceneEditorApp
             std::string label = jsonTabs[i];
             if (label.size() > 5 && label.compare(label.size() - 5, 5, ".json") == 0)
                 label.resize(label.size() - 5);
-            const float fontSize = 12.0f;
+            const float fontSize = kFontTiny;
             const Vector2 textSize = MeasureTextEx(textFont(), label.c_str(), fontSize, 1.0f);
             DrawTextEx(
                 textFont(),
@@ -1437,12 +1458,12 @@ struct SceneEditorApp
 
             const int sceneLevel = scenesDoc.getLayout(id).level;
             DrawTextEx(textFont(), id.c_str(), {row.x + kListThumbSize + 12.0f, row.y + 8.0f},
-                       14.0f, 1.0f, kTextPrimary);
+                       kFontBody, 1.0f, kTextPrimary);
             DrawTextEx(
                 textFont(),
                 TextFormat("L%d", sceneLevel),
                 {row.x + kListThumbSize + 12.0f, row.y + 28.0f},
-                12.0f,
+                kFontTiny,
                 1.0f,
                 kTextMuted);
 
@@ -1496,11 +1517,125 @@ struct SceneEditorApp
         };
     }
 
+    std::vector<std::string> wrapTextToWidth(
+        const std::string& text,
+        float maxWidth,
+        float fontSize) const
+    {
+        std::vector<std::string> lines;
+        if (text.empty())
+        {
+            lines.push_back("");
+            return lines;
+        }
+
+        // Prefer wrapping on '_' and word boundaries for scene ids.
+        std::string current;
+        std::string token;
+        auto flushToken = [&]()
+        {
+            if (token.empty())
+                return;
+            const std::string candidate = current.empty() ? token : current + token;
+            if (!current.empty() &&
+                MeasureTextEx(textFont(), candidate.c_str(), fontSize, 1.0f).x > maxWidth)
+            {
+                lines.push_back(current);
+                current = token;
+            }
+            else
+            {
+                current = candidate;
+            }
+            token.clear();
+        };
+
+        for (size_t i = 0; i < text.size(); ++i)
+        {
+            const char ch = text[i];
+            token.push_back(ch);
+            const bool breakAfter =
+                ch == '_' || ch == '-' || ch == ' ' || ch == '/' || ch == '.';
+            if (breakAfter)
+                flushToken();
+        }
+        flushToken();
+        if (!current.empty())
+            lines.push_back(current);
+
+        // Hard-break any leftover token longer than the width.
+        std::vector<std::string> fitted;
+        for (size_t li = 0; li < lines.size(); ++li)
+        {
+            std::string line = lines[li];
+            while (MeasureTextEx(textFont(), line.c_str(), fontSize, 1.0f).x > maxWidth &&
+                   line.size() > 1)
+            {
+                size_t cut = line.size();
+                while (cut > 1 &&
+                       MeasureTextEx(textFont(), line.substr(0, cut).c_str(), fontSize, 1.0f).x >
+                           maxWidth)
+                {
+                    --cut;
+                }
+                if (cut < 1)
+                    cut = 1;
+                fitted.push_back(line.substr(0, cut));
+                line = line.substr(cut);
+            }
+            if (!line.empty())
+                fitted.push_back(line);
+        }
+        if (fitted.empty())
+            fitted.push_back(text);
+        return fitted;
+    }
+
+    struct SceneCardMetrics
+    {
+        float width = kSceneCardWidth;
+        float height = kSceneCardMinHeight;
+        float thumbHeight = kSceneCardThumbHeight;
+        std::vector<std::string> titleLines;
+    };
+
+    SceneCardMetrics measureSceneCard(const std::string& sceneId) const
+    {
+        SceneCardMetrics metrics;
+        metrics.width = kSceneCardWidth;
+        const float titleWidth = metrics.width - 12.0f;
+        metrics.titleLines = wrapTextToWidth(sceneId, titleWidth, kSceneCardTitleFont);
+        if (static_cast<int>(metrics.titleLines.size()) > kSceneCardMaxTitleLines)
+            metrics.titleLines.resize(static_cast<size_t>(kSceneCardMaxTitleLines));
+
+        const float titleBlock =
+            static_cast<float>(metrics.titleLines.size()) * kSceneCardTitleLineHeight;
+        metrics.thumbHeight = kSceneCardThumbHeight;
+        metrics.height = 6.0f + metrics.thumbHeight + 6.0f + titleBlock + 6.0f;
+        if (metrics.height < kSceneCardMinHeight)
+            metrics.height = kSceneCardMinHeight;
+        return metrics;
+    }
+
+    float maxSceneCardHeightOnLevel(int level) const
+    {
+        float maxH = kSceneCardMinHeight;
+        const std::vector<std::string> ids = scenesOnLevel(level);
+        for (size_t i = 0; i < ids.size(); ++i)
+        {
+            const float h = measureSceneCard(ids[i]).height;
+            if (h > maxH)
+                maxH = h;
+        }
+        return maxH;
+    }
+
     Rectangle sceneCardBounds(const std::string& sceneId, Rectangle canvasBounds) const
     {
         const SceneLayout layout = scenesDoc.getLayout(sceneId);
         const Vector2 pos = sceneCardScreenPos(layout, canvasBounds);
-        return {pos.x, pos.y, kSceneCardWidth, kSceneCardHeight};
+        const SceneCardMetrics metrics = measureSceneCard(sceneId);
+        return {pos.x, pos.y, metrics.width, metrics.height};
     }
 
     bool segmentIntersectsRect(Vector2 a, Vector2 b, Rectangle rect, float pad) const
@@ -2006,7 +2141,7 @@ struct SceneEditorApp
             textFont(),
             levelLabel.c_str(),
             {canvasBounds.x + 12.0f, canvasBounds.y + 10.0f},
-            14.0f,
+            kFontBody,
             1.0f,
             kTextPrimary);
 
@@ -2029,14 +2164,14 @@ struct SceneEditorApp
             textFont(),
             "-",
             {levelDownBtn.x + 10.0f, levelDownBtn.y + 3.0f},
-            16.0f,
+            kFontTitle,
             1.0f,
             canGoDown ? kTextPrimary : kTextDisabled);
         DrawTextEx(
             textFont(),
             "+",
             {levelUpBtn.x + 9.0f, levelUpBtn.y + 3.0f},
-            16.0f,
+            kFontTitle,
             1.0f,
             canGoUp ? kTextPrimary : kTextDisabled);
 
@@ -2069,8 +2204,9 @@ struct SceneEditorApp
         for (size_t i = 0; i < ids.size(); ++i)
         {
             const SceneLayout layout = scenesDoc.getLayout(ids[i]);
-            const float right = layout.x + kSceneCardWidth;
-            const float bottom = layout.y + kSceneCardHeight;
+            const SceneCardMetrics metrics = measureSceneCard(ids[i]);
+            const float right = layout.x + metrics.width;
+            const float bottom = layout.y + metrics.height;
             if (!bounds.valid)
             {
                 bounds.minX = layout.x;
@@ -2323,13 +2459,18 @@ struct SceneEditorApp
             if (layout.level != canvasLevel)
                 continue;
 
+            const SceneCardMetrics metrics = measureSceneCard(id);
             const Rectangle card = sceneCardBounds(id, canvasBounds);
             const bool selected = id == selectedSceneId;
             DrawRectangleRec(card, selected ? Color{52, 46, 62, 255} : Color{36, 32, 44, 255});
             DrawRectangleLinesEx(card, selected ? 2.0f : 1.0f, selected ? kPanelBorder : kPanelAccent);
 
             const ThumbnailEntry& thumb = ensureThumbnail(id);
-            const Rectangle thumbRect = {card.x + 6.0f, card.y + 6.0f, card.width - 12.0f, card.height - 34.0f};
+            const Rectangle thumbRect = {
+                card.x + 6.0f,
+                card.y + 6.0f,
+                card.width - 12.0f,
+                metrics.thumbHeight};
             DrawRectangleRec(thumbRect, Color{24, 22, 30, 255});
             if (thumb.loaded)
             {
@@ -2342,8 +2483,18 @@ struct SceneEditorApp
                     WHITE);
             }
 
-            DrawTextEx(textFont(), id.c_str(), {card.x + 6.0f, card.y + card.height - 22.0f},
-                       12.0f, 1.0f, kTextPrimary);
+            float titleY = thumbRect.y + thumbRect.height + 4.0f;
+            for (size_t lineIndex = 0; lineIndex < metrics.titleLines.size(); ++lineIndex)
+            {
+                DrawTextEx(
+                    textFont(),
+                    metrics.titleLines[lineIndex].c_str(),
+                    {card.x + 6.0f, titleY},
+                    kSceneCardTitleFont,
+                    1.0f,
+                    kTextPrimary);
+                titleY += kSceneCardTitleLineHeight;
+            }
 
             if (!stackDialogOpen &&
                 !variableEditorOpen &&
@@ -2375,11 +2526,12 @@ struct SceneEditorApp
             !dragSceneId.empty() &&
             IsMouseButtonDown(MOUSE_BUTTON_LEFT))
         {
+            const SceneCardMetrics dragMetrics = measureSceneCard(dragSceneId);
             const Rectangle ghost = {
                 static_cast<float>(GetMouseX()) - dragOffset.x,
                 static_cast<float>(GetMouseY()) - dragOffset.y,
-                kSceneCardWidth,
-                kSceneCardHeight};
+                dragMetrics.width,
+                dragMetrics.height};
             DrawRectangleRec(ghost, Color{80, 70, 50, 120});
             DrawRectangleLinesEx(ghost, 1.0f, kPanelBorder);
 
@@ -2392,7 +2544,7 @@ struct SceneEditorApp
                     textFont(),
                     "Drop for Up / Down / Cancel",
                     {targetCard.x, targetCard.y - 18.0f},
-                    12.0f,
+                    kFontTiny,
                     1.0f,
                     kPanelBorder);
             }
@@ -2409,11 +2561,12 @@ struct SceneEditorApp
                     static_cast<float>(GetMouseX()) - canvasBounds.x - dragOffset.x - canvasScroll.x;
                 const float dropY =
                     static_cast<float>(GetMouseY()) - canvasBounds.y - dragOffset.y - canvasScroll.y;
+                const SceneCardMetrics dropMetrics = measureSceneCard(dragSceneId);
                 const Rectangle ghost = {
                     static_cast<float>(GetMouseX()) - dragOffset.x,
                     static_cast<float>(GetMouseY()) - dragOffset.y,
-                    kSceneCardWidth,
-                    kSceneCardHeight};
+                    dropMetrics.width,
+                    dropMetrics.height};
                 const std::string targetId = findStackTarget(ghost, canvasBounds, dragSceneId);
 
                 if (!targetId.empty())
@@ -2485,7 +2638,7 @@ struct SceneEditorApp
             textFont(),
             "Stack scene floors",
             {dialog.x + 20.0f, dialog.y + 18.0f},
-            18.0f,
+            kFontHeading,
             1.0f,
             kTextPrimary);
 
@@ -2498,7 +2651,7 @@ struct SceneEditorApp
             body,
             {dialog.x + 20.0f, dialog.y + 52.0f},
             dialogW - 40.0f,
-            14.0f,
+            kFontBody,
             4.0f,
             kTextMuted);
 
@@ -2506,7 +2659,7 @@ struct SceneEditorApp
             textFont(),
             "Up = one floor above  |  Down = one floor below",
             {dialog.x + 20.0f, dialog.y + 100.0f},
-            12.0f,
+            kFontTiny,
             1.0f,
             kTextMuted);
 
@@ -2521,12 +2674,12 @@ struct SceneEditorApp
         {
             DrawRectangleRec(bounds, accent ? kPanelAccent : Color{44, 42, 52, 255});
             DrawRectangleLinesEx(bounds, 1.0f, kPanelBorder);
-            const Vector2 size = MeasureTextEx(textFont(), label, 14.0f, 1.0f);
+            const Vector2 size = MeasureTextEx(textFont(), label, kFontBody, 1.0f);
             DrawTextEx(
                 textFont(),
                 label,
                 {bounds.x + (bounds.width - size.x) * 0.5f, bounds.y + 9.0f},
-                14.0f,
+                kFontBody,
                 1.0f,
                 kTextPrimary);
         };
@@ -3314,7 +3467,7 @@ struct SceneEditorApp
             textFont(),
             title.c_str(),
             {dialog.x + 18.0f, dialog.y + 14.0f},
-            16.0f,
+            kFontTitle,
             1.0f,
             kTextPrimary);
 
@@ -3332,7 +3485,7 @@ struct SceneEditorApp
 
         // Publish field metrics so update() can process click/arrow input.
         variableEditorField = field;
-        variableEditorFontSize = 14.0f;
+        variableEditorFontSize = kFontBody;
         variableEditorLineHeight = variableEditorFontSize + 4.0f;
         variableEditorPad = 8.0f;
 
@@ -3426,12 +3579,12 @@ struct SceneEditorApp
         {
             DrawRectangleRec(bounds, accent ? kPanelAccent : Color{44, 42, 52, 255});
             DrawRectangleLinesEx(bounds, 1.0f, kPanelBorder);
-            const Vector2 size = MeasureTextEx(textFont(), label, 14.0f, 1.0f);
+            const Vector2 size = MeasureTextEx(textFont(), label, kFontBody, 1.0f);
             DrawTextEx(
                 textFont(),
                 label,
                 {bounds.x + (bounds.width - size.x) * 0.5f, bounds.y + 9.0f},
-                14.0f,
+                kFontBody,
                 1.0f,
                 kTextPrimary);
         };
@@ -3449,7 +3602,7 @@ struct SceneEditorApp
                 textFont(),
                 variableEditorError.c_str(),
                 {dialog.x + 18.0f, btnY - 22.0f},
-                12.0f,
+                kFontTiny,
                 1.0f,
                 Color{220, 120, 100, 255});
         }
@@ -3470,14 +3623,14 @@ struct SceneEditorApp
         const std::string sceneId = selectedSceneId;
 
         DrawTextEx(textFont(), "Scene Variables", {paneBounds.x + 12.0f, paneBounds.y + 8.0f},
-                   15.0f, 1.0f, kTextMuted);
+                   kFontLabel, 1.0f, kTextMuted);
         if (!sceneId.empty())
         {
             DrawTextEx(
                 textFont(),
                 sceneId.c_str(),
                 {paneBounds.x + 150.0f, paneBounds.y + 10.0f},
-                12.0f,
+                kFontTiny,
                 1.0f,
                 kPanelBorder);
         }
@@ -3485,7 +3638,7 @@ struct SceneEditorApp
             textFont(),
             "Click a row to edit",
             {paneBounds.x + 12.0f, paneBounds.y + paneBounds.height - 18.0f},
-            11.0f,
+            kFontTiny,
             1.0f,
             kTextMuted);
 
@@ -3496,12 +3649,12 @@ struct SceneEditorApp
             20.0f};
         DrawRectangleRec(editBtn, kPanelAccent);
         DrawRectangleLinesEx(editBtn, 1.0f, kPanelBorder);
-        DrawTextEx(textFont(), "Edit", {editBtn.x + 16.0f, editBtn.y + 3.0f}, 12.0f, 1.0f, kTextPrimary);
+        DrawTextEx(textFont(), "Edit", {editBtn.x + 16.0f, editBtn.y + 3.0f}, kFontTiny, 1.0f, kTextPrimary);
 
         if (sceneId.empty() || !scenesDoc.hasScene(sceneId))
         {
             DrawTextEx(textFont(), "Select a scene", {paneBounds.x + 12.0f, paneBounds.y + 36.0f},
-                       14.0f, 1.0f, kTextMuted);
+                       kFontBody, 1.0f, kTextMuted);
             return;
         }
 
@@ -3510,7 +3663,7 @@ struct SceneEditorApp
         if (rows.empty())
         {
             DrawTextEx(textFont(), "No variables on this scene", {paneBounds.x + 12.0f, paneBounds.y + 36.0f},
-                       14.0f, 1.0f, kTextMuted);
+                       kFontBody, 1.0f, kTextMuted);
             return;
         }
 
@@ -3588,7 +3741,7 @@ struct SceneEditorApp
 
             const std::string line = row.first + ": " + truncate(row.second, 80);
             DrawTextEx(textFont(), line.c_str(), {rowBounds.x + 4.0f, rowBounds.y + 4.0f},
-                       13.0f, 1.0f, kTextPrimary);
+                       kFontSmall, 1.0f, kTextPrimary);
 
             y += rowHeight;
         }
@@ -3606,12 +3759,12 @@ struct SceneEditorApp
     void drawActorsPane(Rectangle paneBounds)
     {
         DrawTextEx(textFont(), "Actors", {paneBounds.x + 12.0f, paneBounds.y + 8.0f},
-                   15.0f, 1.0f, kTextMuted);
+                   kFontLabel, 1.0f, kTextMuted);
 
         if (selectedSceneId.empty() || !scenesDoc.hasScene(selectedSceneId))
         {
             DrawTextEx(textFont(), "Select a scene", {paneBounds.x + 12.0f, paneBounds.y + 36.0f},
-                       14.0f, 1.0f, kTextMuted);
+                       kFontBody, 1.0f, kTextMuted);
             return;
         }
 
@@ -3632,7 +3785,7 @@ struct SceneEditorApp
         if (actors.empty())
         {
             DrawTextEx(textFont(), "(no actors)", {paneBounds.x + 12.0f, y},
-                       13.0f, 1.0f, kTextMuted);
+                       kFontSmall, 1.0f, kTextMuted);
             y += rowHeight;
         }
         else
@@ -3642,7 +3795,7 @@ struct SceneEditorApp
                 const std::string line = actor.id + " — " + actor.name +
                     (actor.role.empty() ? "" : " (" + actor.role + ")");
                 DrawTextEx(textFont(), line.c_str(), {paneBounds.x + 12.0f, y},
-                           13.0f, 1.0f, kTextPrimary);
+                           kFontSmall, 1.0f, kTextPrimary);
                 y += rowHeight;
             }
         }
@@ -3739,10 +3892,10 @@ struct SceneEditorApp
             ? scenesDoc.path()
             : "Resources: " + resourceDir;
         DrawTextEx(textFont(), pathLabel.c_str(), {8.0f, static_cast<float>(screenHeight) - 18.0f},
-                   12.0f, 1.0f, kTextMuted);
+                   kFontTiny, 1.0f, kTextMuted);
         DrawTextEx(textFont(), status.c_str(),
                    {static_cast<float>(screenWidth) - 70.0f, static_cast<float>(screenHeight) - 18.0f},
-                   12.0f, 1.0f, dirty ? Color{200, 140, 80, 255} : kTextMuted);
+                   kFontTiny, 1.0f, dirty ? Color{200, 140, 80, 255} : kTextMuted);
     }
 
     void handleShortcuts()
@@ -3800,8 +3953,8 @@ struct SceneEditorApp
                 btnY,
                 btnW,
                 btnH};
-            variableEditorFontSize = 14.0f;
-            variableEditorLineHeight = 18.0f;
+            variableEditorFontSize = kFontBody;
+            variableEditorLineHeight = 20.0f;
             variableEditorPad = 8.0f;
 
             handleVariableEditorTextInput();
