@@ -320,6 +320,13 @@ struct ConversationVisibleRow
     std::vector<bool> ancestorContinues; // true = draw vertical line past this depth
 };
 
+struct EditorVisualLine
+{
+    int start = 0; // buffer index of first char on this visual line
+    int end = 0;   // buffer index one past last drawn char (may point at '\n')
+    std::string text;
+};
+
 struct ThumbnailEntry
 {
     Texture2D texture{};
@@ -460,8 +467,25 @@ struct SceneEditorApp
     std::vector<ConversationTreeNode> conversationTree;
     std::set<std::string> conversationExpanded;
     std::string selectedConversationKey;
+    // Cached visible tree rows (invalidated on expand/rebuild).
+    mutable std::vector<ConversationVisibleRow> conversationVisibleRowsCache;
+    mutable bool conversationVisibleRowsDirty = true;
+    // Last left-pane list bounds for input in update() (before draw).
+    Rectangle conversationListBounds{0, 0, 0, 0};
+    bool conversationListBoundsValid = false;
     Font uiFont{};
     Font uiFontBold{};
+
+    // Text measurement cache — MeasureTextEx is expensive in hot loops.
+    mutable float measureCacheFontSize = -1.0f;
+    mutable float measureCacheAscii[128]{};
+    mutable bool measureCacheAsciiReady = false;
+    mutable std::map<std::string, float> measureCacheStrings;
+    // Editor visual-line layout cache.
+    mutable std::string visualLinesCacheBuffer;
+    mutable float visualLinesCacheMaxW = -1.0f;
+    mutable float visualLinesCacheFontSize = -1.0f;
+    mutable std::vector<EditorVisualLine> visualLinesCache;
 
     std::vector<std::string> jsonTabs;
     int activeTabIndex = 0;
@@ -981,9 +1005,75 @@ struct SceneEditorApp
         }
     }
 
+    void invalidateConversationVisibleRows()
+    {
+        conversationVisibleRowsDirty = true;
+    }
+
+    float measureUiTextWidth(const std::string& text, float fontSize) const
+    {
+        if (text.empty())
+            return 0.0f;
+
+        if (fontSize != measureCacheFontSize)
+        {
+            measureCacheFontSize = fontSize;
+            measureCacheAsciiReady = false;
+            measureCacheStrings.clear();
+        }
+
+        // Short strings (labels, glyphs) get a full-string cache.
+        if (text.size() <= 96)
+        {
+            std::map<std::string, float>::const_iterator it = measureCacheStrings.find(text);
+            if (it != measureCacheStrings.end())
+                return it->second;
+            const float w = MeasureTextEx(textFont(), text.c_str(), fontSize, 1.0f).x;
+            if (measureCacheStrings.size() < 4096)
+                measureCacheStrings[text] = w;
+            return w;
+        }
+
+        return MeasureTextEx(textFont(), text.c_str(), fontSize, 1.0f).x;
+    }
+
+    float measureUiCharWidth(unsigned char ch, float fontSize) const
+    {
+        if (fontSize != measureCacheFontSize)
+        {
+            measureCacheFontSize = fontSize;
+            measureCacheAsciiReady = false;
+            measureCacheStrings.clear();
+        }
+
+        if (ch < 128)
+        {
+            if (!measureCacheAsciiReady)
+            {
+                char sample[2] = {0, 0};
+                for (int i = 0; i < 128; ++i)
+                {
+                    sample[0] = static_cast<char>(i);
+                    if (i < 32)
+                        measureCacheAscii[i] = 0.0f;
+                    else
+                        measureCacheAscii[i] =
+                            MeasureTextEx(textFont(), sample, fontSize, 1.0f).x;
+                }
+                measureCacheAsciiReady = true;
+            }
+            return measureCacheAscii[ch];
+        }
+
+        char sample[5] = {0, 0, 0, 0, 0};
+        sample[0] = static_cast<char>(ch);
+        return MeasureTextEx(textFont(), sample, fontSize, 1.0f).x;
+    }
+
     void rebuildConversationTree()
     {
         conversationTree.clear();
+        invalidateConversationVisibleRows();
         if (selectedSceneId.empty())
             return;
 
@@ -1199,6 +1289,7 @@ struct SceneEditorApp
             conversationExpanded.erase(key);
         else
             conversationExpanded.insert(key);
+        invalidateConversationVisibleRows();
     }
 
     void collectVisibleConversationRows(
@@ -1232,9 +1323,12 @@ struct SceneEditorApp
         }
     }
 
-    std::vector<ConversationVisibleRow> visibleConversationRows() const
+    const std::vector<ConversationVisibleRow>& visibleConversationRows() const
     {
-        std::vector<ConversationVisibleRow> rows;
+        if (!conversationVisibleRowsDirty)
+            return conversationVisibleRowsCache;
+
+        conversationVisibleRowsCache.clear();
         for (size_t i = 0; i < conversationTree.size(); ++i)
         {
             const bool last = (i + 1 == conversationTree.size());
@@ -1243,9 +1337,10 @@ struct SceneEditorApp
                 0,
                 last,
                 {},
-                rows);
+                conversationVisibleRowsCache);
         }
-        return rows;
+        conversationVisibleRowsDirty = false;
+        return conversationVisibleRowsCache;
     }
 
     bool loadActiveDocument()
@@ -2197,8 +2292,76 @@ struct SceneEditorApp
             leftScroll = maxScroll;
     }
 
+    void handleConversationTreeInput(Rectangle listBounds)
+    {
+        conversationListBounds = listBounds;
+        conversationListBoundsValid = true;
+
+        if (!scenesDoc.isLoaded() || selectedSceneId.empty() || conversationTree.empty())
+            return;
+        if (stackDialogOpen || variableEditorOpen || isDraggingDivider())
+            return;
+
+        const std::vector<ConversationVisibleRow>& rows = visibleConversationRows();
+        const float contentHeight = static_cast<float>(rows.size()) * kTreeRowHeight + 8.0f;
+        const float maxScroll = std::max(0.0f, contentHeight - listBounds.height);
+        if (leftScroll > maxScroll)
+            leftScroll = maxScroll;
+
+        const Rectangle treeBounds = {
+            listBounds.x,
+            listBounds.y + 20.0f,
+            listBounds.width,
+            listBounds.height - 20.0f};
+        const Vector2 mouse = GetMousePosition();
+
+        if (CheckCollisionPointRec(mouse, treeBounds) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+            const float localY = (mouse.y - treeBounds.y - 4.0f) + leftScroll;
+            if (localY >= 0.0f)
+            {
+                const int index = static_cast<int>(localY / kTreeRowHeight);
+                if (index >= 0 && index < static_cast<int>(rows.size()) &&
+                    rows[static_cast<size_t>(index)].node != nullptr)
+                {
+                    const ConversationVisibleRow& hit = rows[static_cast<size_t>(index)];
+                    const ConversationTreeNode& node = *hit.node;
+                    selectedConversationKey = node.key;
+
+                    const float rowTop =
+                        treeBounds.y + 4.0f - leftScroll + static_cast<float>(index) * kTreeRowHeight;
+                    const float toggleX =
+                        treeBounds.x + 8.0f + static_cast<float>(hit.depth) * kTreeIndent;
+                    const float midY = rowTop + kTreeRowHeight * 0.5f;
+                    const Rectangle toggleBounds = {
+                        toggleX,
+                        midY - kTreeToggleSize * 0.5f,
+                        kTreeToggleSize,
+                        kTreeToggleSize};
+
+                    if (!node.children.empty() && CheckCollisionPointRec(mouse, toggleBounds))
+                        toggleConversationExpanded(node.key);
+                    else if (node.editDoc != ConversationEditDoc::None && !node.jsonPointer.empty())
+                        openConversationNodeEditor(node);
+                    else if (!node.children.empty())
+                        toggleConversationExpanded(node.key);
+                }
+            }
+        }
+
+        if (CheckCollisionPointRec(mouse, treeBounds))
+            leftScroll -= GetMouseWheelMove() * 24.0f;
+        if (leftScroll < 0.0f)
+            leftScroll = 0.0f;
+        if (leftScroll > maxScroll)
+            leftScroll = maxScroll;
+    }
+
     void drawConversationTree(Rectangle listBounds)
     {
+        conversationListBounds = listBounds;
+        conversationListBoundsValid = true;
+
         if (!scenesDoc.isLoaded())
         {
             const std::string message = loadError.empty()
@@ -2246,7 +2409,7 @@ struct SceneEditorApp
             return;
         }
 
-        const std::vector<ConversationVisibleRow> rows = visibleConversationRows();
+        const std::vector<ConversationVisibleRow>& rows = visibleConversationRows();
         const float contentHeight = static_cast<float>(rows.size()) * kTreeRowHeight + 8.0f;
         const float maxScroll = std::max(0.0f, contentHeight - listBounds.height);
         if (leftScroll > maxScroll)
@@ -2328,13 +2491,6 @@ struct SceneEditorApp
                 const float parentGuideX =
                     baseX + static_cast<float>(row.depth - 1) * kTreeIndent + kTreeToggleSize * 0.5f;
                 const float elbowY = midY;
-                // Vertical segment from parent rail to this row
-                if (!row.isLastChild || row.ancestorContinues.empty() ||
-                    (row.depth - 1 < static_cast<int>(row.ancestorContinues.size()) &&
-                     row.ancestorContinues[static_cast<size_t>(row.depth - 1)]))
-                {
-                    // short vertical into elbow
-                }
                 DrawLineEx(
                     {parentGuideX, rowTop},
                     {parentGuideX, elbowY},
@@ -2360,13 +2516,14 @@ struct SceneEditorApp
                 DrawRectangleLinesEx(toggleBounds, 1.0f, kPanelBorder);
                 const bool expanded = isConversationExpanded(node.key);
                 const char* glyph = expanded ? "-" : "+";
-                const Vector2 glyphSize = MeasureTextEx(textFont(), glyph, kFontSmall, 1.0f);
+                const float glyphW = measureUiTextWidth(glyph, kFontSmall);
+                const float glyphH = kFontSmall;
                 DrawTextEx(
                     textFont(),
                     glyph,
                     {
-                        toggleBounds.x + (toggleBounds.width - glyphSize.x) * 0.5f,
-                        toggleBounds.y + (toggleBounds.height - glyphSize.y) * 0.5f - 1.0f
+                        toggleBounds.x + (toggleBounds.width - glyphW) * 0.5f,
+                        toggleBounds.y + (toggleBounds.height - glyphH) * 0.5f - 1.0f
                     },
                     kFontSmall,
                     1.0f,
@@ -2374,7 +2531,6 @@ struct SceneEditorApp
             }
             else
             {
-                // Leaf marker on the rail
                 DrawCircleV({toggleX + kTreeToggleSize * 0.5f, midY}, 2.0f, lineColor);
             }
 
@@ -2402,7 +2558,7 @@ struct SceneEditorApp
 
             if (!node.detail.empty() && node.kind != ConversationNodeKind::Dialog)
             {
-                const float labelW = MeasureTextEx(textFont(), display.c_str(), kFontSmall, 1.0f).x;
+                const float labelW = measureUiTextWidth(display, kFontSmall);
                 const std::string detail = truncate(node.detail, 36);
                 DrawTextEx(
                     textFont(),
@@ -2417,53 +2573,6 @@ struct SceneEditorApp
         }
 
         EndScissorMode();
-
-        if (canInteract &&
-            CheckCollisionPointRec(mouse, treeBounds) &&
-            IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-        {
-            const float localY = (mouse.y - treeBounds.y - 4.0f) + leftScroll;
-            if (localY >= 0.0f)
-            {
-                const int index = static_cast<int>(localY / kTreeRowHeight);
-                if (index >= 0 && index < static_cast<int>(rows.size()) && rows[static_cast<size_t>(index)].node != nullptr)
-                {
-                    const ConversationVisibleRow& hit = rows[static_cast<size_t>(index)];
-                    const ConversationTreeNode& node = *hit.node;
-                    selectedConversationKey = node.key;
-
-                    const float rowTop = treeBounds.y + 4.0f - leftScroll + static_cast<float>(index) * kTreeRowHeight;
-                    const float toggleX = treeBounds.x + 8.0f + static_cast<float>(hit.depth) * kTreeIndent;
-                    const float midY = rowTop + kTreeRowHeight * 0.5f;
-                    const Rectangle toggleBounds = {
-                        toggleX,
-                        midY - kTreeToggleSize * 0.5f,
-                        kTreeToggleSize,
-                        kTreeToggleSize};
-
-                    if (!node.children.empty() && CheckCollisionPointRec(mouse, toggleBounds))
-                    {
-                        toggleConversationExpanded(node.key);
-                    }
-                    else if (node.editDoc != ConversationEditDoc::None && !node.jsonPointer.empty())
-                    {
-                        openConversationNodeEditor(node);
-                    }
-                    else if (!node.children.empty())
-                    {
-                        // Section / actor group: click expands/collapses
-                        toggleConversationExpanded(node.key);
-                    }
-                }
-            }
-        }
-
-        if (canInteract && CheckCollisionPointRec(mouse, treeBounds))
-            leftScroll -= GetMouseWheelMove() * 24.0f;
-        if (leftScroll < 0.0f)
-            leftScroll = 0.0f;
-        if (leftScroll > maxScroll)
-            leftScroll = maxScroll;
     }
 
     Vector2 sceneCardScreenPos(const SceneLayout& layout, Rectangle canvasBounds) const
@@ -4919,13 +5028,6 @@ struct SceneEditorApp
         return true;
     }
 
-    struct EditorVisualLine
-    {
-        int start = 0; // buffer index of first char on this visual line
-        int end = 0;   // buffer index one past last drawn char (may point at '\n')
-        std::string text;
-    };
-
     void drawEditorLineText(
         const EditorVisualLine& line,
         float x,
@@ -4969,7 +5071,7 @@ struct SceneEditorApp
                 fontSize,
                 1.0f,
                 runColor);
-            drawX += MeasureTextEx(textFont(), run.c_str(), fontSize, 1.0f).x;
+            drawX += measureUiTextWidth(run, fontSize);
             i = j;
         }
     }
@@ -5008,9 +5110,21 @@ struct SceneEditorApp
         return at;
     }
 
-    std::vector<EditorVisualLine> buildEditorVisualLines(float maxTextWidth, float fontSize) const
+    const std::vector<EditorVisualLine>& buildEditorVisualLines(float maxTextWidth, float fontSize) const
     {
-        std::vector<EditorVisualLine> lines;
+        if (visualLinesCacheBuffer == variableEditorBuffer &&
+            visualLinesCacheMaxW == maxTextWidth &&
+            visualLinesCacheFontSize == fontSize &&
+            !visualLinesCache.empty())
+        {
+            return visualLinesCache;
+        }
+
+        visualLinesCache.clear();
+        visualLinesCacheBuffer = variableEditorBuffer;
+        visualLinesCacheMaxW = maxTextWidth;
+        visualLinesCacheFontSize = fontSize;
+
         const std::string& buffer = variableEditorBuffer;
         int i = 0;
         const int n = static_cast<int>(buffer.size());
@@ -5020,8 +5134,8 @@ struct SceneEditorApp
             EditorVisualLine empty;
             empty.start = 0;
             empty.end = 0;
-            lines.push_back(empty);
-            return lines;
+            visualLinesCache.push_back(empty);
+            return visualLinesCache;
         }
 
         while (i < n)
@@ -5029,31 +5143,32 @@ struct SceneEditorApp
             EditorVisualLine line;
             line.start = i;
             std::string text;
+            float lineWidth = 0.0f;
 
             if (buffer[static_cast<size_t>(i)] == '\n')
             {
                 line.end = i; // caret sits before the newline
                 line.text.clear();
-                lines.push_back(line);
+                visualLinesCache.push_back(line);
                 ++i;
                 continue;
             }
 
             while (i < n && buffer[static_cast<size_t>(i)] != '\n')
             {
-                const std::string trial = text + buffer[static_cast<size_t>(i)];
-                if (!text.empty() &&
-                    MeasureTextEx(textFont(), trial.c_str(), fontSize, 1.0f).x > maxTextWidth)
-                {
+                const unsigned char ch =
+                    static_cast<unsigned char>(buffer[static_cast<size_t>(i)]);
+                const float cw = measureUiCharWidth(ch, fontSize);
+                if (!text.empty() && lineWidth + cw > maxTextWidth)
                     break;
-                }
                 text.push_back(buffer[static_cast<size_t>(i)]);
+                lineWidth += cw;
                 ++i;
             }
 
             line.end = i;
             line.text = text;
-            lines.push_back(line);
+            visualLinesCache.push_back(line);
 
             if (i < n && buffer[static_cast<size_t>(i)] == '\n')
                 ++i;
@@ -5065,10 +5180,10 @@ struct SceneEditorApp
             EditorVisualLine empty;
             empty.start = n;
             empty.end = n;
-            lines.push_back(empty);
+            visualLinesCache.push_back(empty);
         }
 
-        return lines;
+        return visualLinesCache;
     }
 
     int editorLineIndexForCursor(const std::vector<EditorVisualLine>& lines, int cursor) const
@@ -5092,8 +5207,10 @@ struct SceneEditorApp
         float fontSize) const
     {
         const int local = std::max(0, std::min(cursor, line.end) - line.start);
-        const std::string before = line.text.substr(0, static_cast<size_t>(std::min(local, static_cast<int>(line.text.size()))));
-        return MeasureTextEx(textFont(), before.c_str(), fontSize, 1.0f).x;
+        const std::string before = line.text.substr(
+            0,
+            static_cast<size_t>(std::min(local, static_cast<int>(line.text.size()))));
+        return measureUiTextWidth(before, fontSize);
     }
 
     int editorCursorFromClick(
@@ -5268,7 +5385,10 @@ struct SceneEditorApp
         const float fontSize = variableEditorFontSize;
         const float lineHeight = variableEditorLineHeight;
         const float maxTextW = field.width - pad * 2.0f;
-        std::vector<EditorVisualLine> lines = buildEditorVisualLines(maxTextW, fontSize);
+        auto lines = [&]() -> const std::vector<EditorVisualLine>&
+        {
+            return buildEditorVisualLines(maxTextW, fontSize);
+        };
         const bool shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
         const bool ctrl = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL) ||
             IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER);
@@ -5307,17 +5427,17 @@ struct SceneEditorApp
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, field))
         {
             const int pos = editorCursorFromClick(
-                lines, field, pad, fontSize, lineHeight, mouse);
+                lines(), field, pad, fontSize, lineHeight, mouse);
             setVariableCursor(pos, shift);
             variableEditorMouseSelecting = !shift;
             if (!shift)
                 variableEditorSelectAnchor = variableEditorCursor;
-            const int lineIndex = editorLineIndexForCursor(lines, variableEditorCursor);
+            const int lineIndex = editorLineIndexForCursor(lines(), variableEditorCursor);
             variableEditorPreferX = editorCaretXOnLine(
-                lines[static_cast<size_t>(lineIndex)],
+                lines()[static_cast<size_t>(lineIndex)],
                 variableEditorCursor,
                 fontSize);
-            ensureCursorVisible(lines, field.height, pad, lineHeight);
+            ensureCursorVisible(lines(), field.height, pad, lineHeight);
         }
         else if (variableEditorMouseSelecting && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
         {
@@ -5327,14 +5447,14 @@ struct SceneEditorApp
                 if (variableEditorSelectAnchor < 0)
                     variableEditorSelectAnchor = variableEditorCursor;
                 variableEditorCursor = editorCursorFromClick(
-                    lines, field, pad, fontSize, lineHeight, mouse);
+                    lines(), field, pad, fontSize, lineHeight, mouse);
                 clampVariableCursor();
-                const int lineIndex = editorLineIndexForCursor(lines, variableEditorCursor);
+                const int lineIndex = editorLineIndexForCursor(lines(), variableEditorCursor);
                 variableEditorPreferX = editorCaretXOnLine(
-                    lines[static_cast<size_t>(lineIndex)],
+                    lines()[static_cast<size_t>(lineIndex)],
                     variableEditorCursor,
                     fontSize);
-                ensureCursorVisible(lines, field.height, pad, lineHeight);
+                ensureCursorVisible(lines(), field.height, pad, lineHeight);
             }
         }
         if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
@@ -5360,7 +5480,6 @@ struct SceneEditorApp
             variableSelectionRange(start, end);
             SetClipboardText(variableEditorBuffer.substr(static_cast<size_t>(start), static_cast<size_t>(end - start)).c_str());
             deleteVariableSelection();
-            lines = buildEditorVisualLines(maxTextW, fontSize);
         }
         if (ctrl && IsKeyPressed(KEY_V))
         {
@@ -5373,7 +5492,6 @@ struct SceneEditorApp
                 variableEditorBuffer.insert(static_cast<size_t>(variableEditorCursor), paste);
                 variableEditorCursor += static_cast<int>(paste.size());
                 clearVariableSelection();
-                lines = buildEditorVisualLines(maxTextW, fontSize);
             }
         }
 
@@ -5405,7 +5523,6 @@ struct SceneEditorApp
                 variableEditorBuffer.insert(static_cast<size_t>(variableEditorCursor), encoded);
                 variableEditorCursor += static_cast<int>(encoded.size());
                 clearVariableSelection();
-                lines = buildEditorVisualLines(maxTextW, fontSize);
             }
             codepoint = GetCharPressed();
         }
@@ -5419,7 +5536,7 @@ struct SceneEditorApp
         {
             if (shift && variableEditorSelectAnchor < 0)
                 variableEditorSelectAnchor = variableEditorCursor;
-            moveVariableCursorVertical(-1, lines, fontSize);
+            moveVariableCursorVertical(-1, lines(), fontSize);
             if (!shift)
                 clearVariableSelection();
         }
@@ -5427,7 +5544,7 @@ struct SceneEditorApp
         {
             if (shift && variableEditorSelectAnchor < 0)
                 variableEditorSelectAnchor = variableEditorCursor;
-            moveVariableCursorVertical(1, lines, fontSize);
+            moveVariableCursorVertical(1, lines(), fontSize);
             if (!shift)
                 clearVariableSelection();
         }
@@ -5438,8 +5555,8 @@ struct SceneEditorApp
                 setVariableCursor(0, shift);
             else
             {
-                const int lineIndex = editorLineIndexForCursor(lines, variableEditorCursor);
-                setVariableCursor(lines[static_cast<size_t>(lineIndex)].start, shift);
+                const int lineIndex = editorLineIndexForCursor(lines(), variableEditorCursor);
+                setVariableCursor(lines()[static_cast<size_t>(lineIndex)].start, shift);
             }
         }
 
@@ -5449,18 +5566,15 @@ struct SceneEditorApp
                 setVariableCursor(static_cast<int>(variableEditorBuffer.size()), shift);
             else
             {
-                const int lineIndex = editorLineIndexForCursor(lines, variableEditorCursor);
-                setVariableCursor(lines[static_cast<size_t>(lineIndex)].end, shift);
+                const int lineIndex = editorLineIndexForCursor(lines(), variableEditorCursor);
+                setVariableCursor(lines()[static_cast<size_t>(lineIndex)].end, shift);
             }
         }
 
         if (editorNavKeyTriggered(KEY_BACKSPACE))
         {
-            if (deleteVariableSelection())
-            {
-                lines = buildEditorVisualLines(maxTextW, fontSize);
-            }
-            else if (variableEditorCursor > 0 && !variableEditorBuffer.empty())
+            if (!deleteVariableSelection() &&
+                variableEditorCursor > 0 && !variableEditorBuffer.empty())
             {
                 const int eraseAt = utf8PrevIndex(variableEditorCursor);
                 variableEditorBuffer.erase(
@@ -5468,24 +5582,19 @@ struct SceneEditorApp
                     static_cast<size_t>(variableEditorCursor - eraseAt));
                 variableEditorCursor = eraseAt;
                 clearVariableSelection();
-                lines = buildEditorVisualLines(maxTextW, fontSize);
             }
         }
 
         if (editorNavKeyTriggered(KEY_DELETE))
         {
-            if (deleteVariableSelection())
-            {
-                lines = buildEditorVisualLines(maxTextW, fontSize);
-            }
-            else if (variableEditorCursor < static_cast<int>(variableEditorBuffer.size()))
+            if (!deleteVariableSelection() &&
+                variableEditorCursor < static_cast<int>(variableEditorBuffer.size()))
             {
                 const int eraseEnd = utf8NextIndex(variableEditorCursor);
                 variableEditorBuffer.erase(
                     static_cast<size_t>(variableEditorCursor),
                     static_cast<size_t>(eraseEnd - variableEditorCursor));
                 clearVariableSelection();
-                lines = buildEditorVisualLines(maxTextW, fontSize);
             }
         }
 
@@ -5496,7 +5605,6 @@ struct SceneEditorApp
             variableEditorBuffer.insert(static_cast<size_t>(variableEditorCursor), "\n");
             ++variableEditorCursor;
             clearVariableSelection();
-            lines = buildEditorVisualLines(maxTextW, fontSize);
         }
 
         if (IsKeyPressed(KEY_ESCAPE))
@@ -5506,8 +5614,7 @@ struct SceneEditorApp
         }
 
         clampVariableCursor();
-        lines = buildEditorVisualLines(maxTextW, fontSize);
-        ensureCursorVisible(lines, field.height, pad, lineHeight);
+        ensureCursorVisible(lines(), field.height, pad, lineHeight);
     }
 
     void drawVariableEditor(int screenWidth, int screenHeight)
@@ -5582,7 +5689,7 @@ struct SceneEditorApp
         const float pad = variableEditorPad;
         const float maxTextW = field.width - pad * 2.0f;
 
-        const std::vector<EditorVisualLine> lines = buildEditorVisualLines(maxTextW, fontSize);
+        const std::vector<EditorVisualLine>& lines = buildEditorVisualLines(maxTextW, fontSize);
         const float contentH = static_cast<float>(lines.size()) * lineHeight;
         const float maxScroll = std::max(0.0f, contentH - (field.height - pad * 2.0f));
         if (CheckCollisionPointRec(GetMousePosition(), field))
@@ -6074,6 +6181,18 @@ struct SceneEditorApp
         {
             draggingVerticalDivider = false;
             draggingHorizontalDivider = false;
+        }
+
+        // Conversation tree input early (same layout math as draw; before heavy work).
+        if (isConversationsTab() && !variableEditorOpen && !stackDialogOpen)
+        {
+            const Rectangle left = leftPaneBounds(screenWidth);
+            const Rectangle listBounds = {
+                left.x,
+                left.y + kTabHeight + 4.0f,
+                left.width,
+                left.height - kTabHeight - 8.0f};
+            handleConversationTreeInput(listBounds);
         }
 
         if (variableEditorOpen)

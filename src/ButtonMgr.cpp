@@ -171,7 +171,8 @@ void ButtonMgr::relayout(Rectangle newButtonBox)
 
 void ButtonMgr::setClickHoldDuration(float seconds)
 {
-    clickHoldDurationSeconds = std::max(0.05f, std::min(seconds, 0.5f));
+    // Floor at 0 so authors can disable intentional click-hold lag if desired.
+    clickHoldDurationSeconds = std::max(0.0f, std::min(seconds, 0.5f));
 }
 
 ButtonMgr::~ButtonMgr()
