@@ -15,6 +15,8 @@ cd build
 cmake ..
 make
 ```
+Audio is enabled in a couple dialogs at the moment.  Until I have the storyline down, I am not inclined to do too much more with this.  It does work though.  There is a default voice and as well as markup text to switch for narrator to character voices.  Voices must be generated if you wish to use them.  You will need an x.ai key.  In the console, type "./Highline\ Ridge --help" for more info.
+
 
 ## About the Engine
 - No name yet.  Designed to be a rich story telling platform while using old-school fixed images to allow one developer, with the help of AI to generate scenes.
