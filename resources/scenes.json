@@ -42,8 +42,8 @@
       "image": "resources/images/alpine_hardware.png",
       "layout": {
         "level": 0,
-        "x": 984.0,
-        "y": 1224.0
+        "x": 1064.0,
+        "y": 1344.0
       },
       "movement": {
         "backward": true,
@@ -90,15 +90,15 @@
       "description": "You haul yourself onto the summit through deep snow that lies in hard wind-packed drifts across the small peak. The top is modest — a cramped crown of ice and stone barely wide enough for two men to stand — but the world it opens is not. Mountains fill the horizon in every direction, white and blue and enormous. On the opposite face, about five feet below the crown, a sawtoothed ridge runs away into the distance like the spine of some buried beast, each tooth catching light and shadow. The air is so thin it feels borrowed. Beauty and menace share the same breath up here.",
       "examineDetails": "You turn slowly, boots planted in the crust, and let the altitude take its inventory of you.\n\nSnow lies deep everywhere the wind allows it to rest — sastrugi along the crown, soft powder in the lee of the peak's small shoulders. The summit itself is not grand. A man could cross it in twenty paces. But no one comes here for grandeur of floor space. They come for what the floor reveals.\n\nEvery compass point delivers mountains. Ridge upon ridge, glacier and rock, the valley a distant rumor far below timberline. The sky is pale and close. Your thoughts feel thin, as though the height is editing them.\n\nOn the far side, the ground drops roughly five feet to a sawtoothed ridge that marches into the distance — jagged teeth of rock and ice, each point sharp enough to cut the light. Old crampon marks cross the lip where someone else stood and chose not to go farther today.\n\nYou shield your eyes against the glare and study the ridge longer than comfort allows. Far along the opposite face, where the snow lies thick in the lee of a tooth, something breaks the white field — dark, stiff, and wrong in its angle. You cannot make out detail at this distance, but the shape resembles a boot sticking out of the drift, sole skyward, as though the mountain swallowed a man to the knee and grew bored with the rest.\n\nBelow and behind you, the face you climbed falls away toward the high alpine trail. No other way off the crown presents itself yet.",
       "exits": {
-        "down": "high_alpine_trail",
-        "forward": "sawtooth_ridge_body"
+        "forward": "sawtooth_ridge_body",
+        "down": "high_alpine_trail"
       },
       "highAltitude": true,
       "image": "resources/images/alpine_summit.png",
       "layout": {
         "level": 1,
-        "x": 1928.0,
-        "y": 440.0
+        "x": 40.0,
+        "y": 264.0
       },
       "movement": {
         "backward": false,
@@ -160,7 +160,7 @@
       ],
       "layout": {
         "level": 0,
-        "x": 276.0,
+        "x": 296.0,
         "y": 48.0
       },
       "movement": {
@@ -202,8 +202,8 @@
       "image": "resources/images/cabin_cellar_open.png",
       "layout": {
         "level": 0,
-        "x": 2400.0,
-        "y": 440.0
+        "x": 2088.0,
+        "y": 480.0
       },
       "movement": {
         "backward": true,
@@ -254,7 +254,7 @@
         ]
       },
       "description": "You step inside from the porch into a humble country kitchen with warm wood cabinetry and copper accents. A heavy door behind you leads back out to the snowy plateau. Ahead, a doorway opens on the living room where lamplight and hearth warmth spill across the threshold. On the tiny counter sits an impressive espresso machine that looks far too sophisticated for this ridge cabin.",
-      "examineDetails": "You take your time and study the room properly. The exterior door is built from thick, hand-planed planks fitted tight enough to hold out the mountain cold. Its lock is a heavy iron box latch with a blackened steel bolt and worn brass keyhole, quality hardware, recently oiled. The espresso machine dominates the counter: polished steel body, twin pressure gauges, two group heads, a chrome steam wand, and a warmed cup rail with two white saucers still holding heat. The portafilter carries the faint bitter scent of a fresh pull. Beneath open shelves, cast iron pans hang in a neat row: a deep skillet, a dutch oven, and a smaller sauce pan, all seasoned to a dark gloss and clearly used often. You open the lower cabinets carefully. Inside are ordinary dry goods: flour in a paper sack, sugar, salt, a tin of crackers, rice in a cloth bag, and canned goods lined along the back. Tucked behind the flour, you find a mason jar filled to the brim with dark roasted coffee beans, their oily surface catching the lamplight. Beside the stove, another mason jar sits heavy with pale rendered lard, its waxed lid sealed tight. Whoever lives here eats simply, but drinks like a connoisseur. The living room lies forward. The plateau and steep mountain trail lie behind you through the porch door.",
+      "examineDetails": "The exterior door is built from thick, hand-planed planks fitted tight enough to hold out the mountain cold. Its lock is a heavy iron box latch with a blackened steel bolt and worn brass keyhole, quality hardware, recently oiled. The espresso machine dominates the counter: polished steel body, twin pressure gauges, two group heads, a chrome steam wand, and a warmed cup rail with two white saucers still holding heat. The portafilter carries the faint bitter scent of a fresh pull. Beneath open shelves, cast iron pans hang in a neat row: a deep skillet, a dutch oven, and a smaller sauce pan, all seasoned to a dark gloss and clearly used often. You open the lower cabinets carefully. Inside are ordinary dry goods: flour in a paper sack, sugar, salt, a tin of crackers, rice in a cloth bag, and canned goods lined along the back. Tucked behind the flour, you find a mason jar filled to the brim with dark roasted coffee beans, their oily surface catching the lamplight. Beside the stove, another mason jar sits heavy with pale rendered lard, its waxed lid sealed tight. Whoever lives here eats simply, but drinks like a connoisseur. The living room lies forward. The plateau and steep mountain trail lie behind you through the porch door.",
       "exits": {
         "backward": "ridge_cabin_exterior",
         "forward": "cabin"
@@ -262,8 +262,8 @@
       "image": "resources/images/cabin_kitchen.png",
       "layout": {
         "level": 0,
-        "x": 276.0,
-        "y": 244.0
+        "x": 296.0,
+        "y": 264.0
       },
       "movement": {
         "backward": true,
@@ -318,8 +318,8 @@
       "image": "resources/images/cabin_under_rug.png",
       "layout": {
         "level": 0,
-        "x": 2400.0,
-        "y": 636.0
+        "x": 2088.0,
+        "y": 696.0
       },
       "movement": {
         "backward": true,
@@ -424,7 +424,7 @@
       ],
       "layout": {
         "level": -1,
-        "x": 512.0,
+        "x": 552.0,
         "y": 48.0
       },
       "movement": {
@@ -475,7 +475,7 @@
       "layout": {
         "level": -1,
         "x": 40.0,
-        "y": 244.0
+        "y": 264.0
       },
       "movement": {
         "backward": true,
@@ -673,8 +673,8 @@
       "image": "resources/images/charcoal_burner_camp.png",
       "layout": {
         "level": 0,
-        "x": 748.0,
-        "y": 1420.0
+        "x": 808.0,
+        "y": 1560.0
       },
       "movement": {
         "backward": true,
@@ -731,8 +731,8 @@
       ],
       "layout": {
         "level": 0,
-        "x": 984.0,
-        "y": 832.0
+        "x": 1064.0,
+        "y": 912.0
       },
       "movement": {
         "backward": true,
@@ -794,8 +794,8 @@
       "image": "resources/images/high_alpine_trail.png",
       "layout": {
         "level": 0,
-        "x": 748.0,
-        "y": 244.0
+        "x": 808.0,
+        "y": 264.0
       },
       "movement": {
         "backward": true,
@@ -835,8 +835,8 @@
       "image": "resources/images/ice_house.png",
       "layout": {
         "level": 0,
-        "x": 748.0,
-        "y": 1028.0
+        "x": 808.0,
+        "y": 1128.0
       },
       "movement": {
         "backward": true,
@@ -899,8 +899,8 @@
       "image": "resources/images/ice_house_interior.png",
       "layout": {
         "level": 0,
-        "x": 512.0,
-        "y": 1028.0
+        "x": 552.0,
+        "y": 1128.0
       },
       "movement": {
         "backward": false,
@@ -956,8 +956,8 @@
       "image": "resources/images/mountain_road.png",
       "layout": {
         "level": 0,
-        "x": 748.0,
-        "y": 1812.0
+        "x": 808.0,
+        "y": 1992.0
       },
       "movement": {
         "backward": false,
@@ -1001,8 +1001,8 @@
       "image": "resources/images/mountain_road.png",
       "layout": {
         "level": 0,
-        "x": 276.0,
-        "y": 832.0
+        "x": 296.0,
+        "y": 912.0
       },
       "movement": {
         "backward": true,
@@ -1050,8 +1050,8 @@
       "image": "resources/images/mountain_road_supply_row.png",
       "layout": {
         "level": 0,
-        "x": 512.0,
-        "y": 1224.0
+        "x": 552.0,
+        "y": 1344.0
       },
       "movement": {
         "backward": true,
@@ -1096,8 +1096,8 @@
       "image": "resources/images/mountain_road_trade_row.png",
       "layout": {
         "level": 0,
-        "x": 512.0,
-        "y": 1420.0
+        "x": 552.0,
+        "y": 1560.0
       },
       "movement": {
         "backward": true,
@@ -1136,8 +1136,8 @@
       "image": "resources/images/narrow_path.png",
       "layout": {
         "level": 0,
-        "x": 748.0,
-        "y": 1616.0
+        "x": 808.0,
+        "y": 1776.0
       },
       "movement": {
         "backward": true,
@@ -1189,8 +1189,8 @@
       "image": "resources/images/private_overlook.png",
       "layout": {
         "level": 0,
-        "x": 984.0,
-        "y": 636.0
+        "x": 1064.0,
+        "y": 696.0
       },
       "movement": {
         "backward": true,
@@ -1227,7 +1227,7 @@
       "image": "resources/images/ridge_cabin_bedroom.png",
       "layout": {
         "level": 0,
-        "x": 512.0,
+        "x": 552.0,
         "y": 48.0
       },
       "movement": {
@@ -1273,8 +1273,8 @@
       "image": "resources/images/ridge_cabin_exterior.png",
       "layout": {
         "level": 0,
-        "x": 512.0,
-        "y": 636.0
+        "x": 552.0,
+        "y": 696.0
       },
       "movement": {
         "backward": true,
@@ -1318,8 +1318,8 @@
       "image": "resources/images/ridge_cabin_switchbacks.png",
       "layout": {
         "level": 0,
-        "x": 2872.0,
-        "y": 440.0
+        "x": 2600.0,
+        "y": 480.0
       },
       "movement": {
         "backward": true,
@@ -1363,8 +1363,8 @@
       "image": "resources/images/ridge_doctors_practice.png",
       "layout": {
         "level": 0,
-        "x": 3344.0,
-        "y": 440.0
+        "x": 3112.0,
+        "y": 480.0
       },
       "movement": {
         "backward": true,
@@ -1410,19 +1410,19 @@
       "description": "You push through the door and the Ridge Haberdashery closes around you like a well-tailored coat. Warm lamplight, the faint resin of wool and cedar, the civilized hush of a shop that expects better manners than the saloon down the road. A gentleman stands behind a counter that runs nearly the full width of the room, an opening at the left for a customer to pass around. He is dressed the part: vest, crisp collar, tie pinned with care, cuffs brushed clean. He greets you kindly, voice level and professional, though his face betrays the surprise of a man who did not expect someone like you to be a patron in his store.",
       "examineDetails": "You take the measure of the room the way you would a witness statement: what is displayed, what is guarded, what is meant to impress.\n\nThe shopkeeper first. He holds himself with the posture of a man who learned tailoring before he learned commerce. Vest cut close, shirt collar pressed, tie knotted with the same attention he would give a lapel. His hands are clean. His gaze is courteous. And still, when he looks at you, surprise flickers at the edges - not disdain, not fear, simply the reflex of a tradesman who stocks for church Sundays and timber deeds and did not picture you at his counter.\n\nBehind him, cloistered shelves climb the wall in neat ranks. Glass bottles of potions and oils catch the lamplight. Badger brushes, ivory-handled combs, cuff links in small trays, straight razors laid edge-up in felt-lined boxes, strops and soaps and the whole masculine vocabulary of a man who shaves by mirror-light and means to be presentable at altitude. Nothing frivolous. Everything priced for men who still pretend the ridge is civilization.\n\nThe counter itself is long dark wood, scarred only where honest trade has worn it. At the left end, a glass display case holds bow ties and ascots folded with museum patience: silk, satin, grosgrain, patterns sober enough for a funeral and sharp enough for a wedding. At the right corner sits an old brass cash register, ornate and heavy, angled toward the shopkeeper as though the machine and the man share a private understanding.\n\nAlong the left wall, bolts of cloth hang from mounted rolls - fine material in a dozen weights and weaves, wool, worsted, tweed, summer linen pale as chalk. The rolls are fixed to the wall at working height so a customer can examine the drape and the shopkeeper can cut without ceremony. This is not dry goods. This is suit-making stock for men who intend to be taken seriously.\n\nTo the right, a lavish iron clothing rack on casters holds ready-made merchandise: suit jackets on hangers, dress shirts folded and pinned, colors chosen by someone who trusts navy and charcoal more than he trusts fashion. Against the right wall leans a full-length mirror in an elaborately carved walnut frame, the glass clear enough to show a man where his shoulders fail him. Beside it, a small round stool with three walnut legs waits with a cloth measuring tape coiled on the seat, as though someone was measured here recently and the room has not yet reset itself.\n\nThe air smells of wool, cedar, lamp oil, and faint lavender from a drawer you cannot see. Quiet. Orderly. A haberdashery built for men who dress like arguments.",
       "exits": {
-        "backward": "mountain_road_supply_row"
+        "right": "mountain_road_supply_row"
       },
       "image": "resources/images/ridge_haberdashery.png",
       "layout": {
         "level": 0,
-        "x": 276.0,
-        "y": 1224.0
+        "x": 296.0,
+        "y": 1347.199951171875
       },
       "movement": {
-        "backward": true,
+        "backward": false,
         "forward": false,
         "left": false,
-        "right": false
+        "right": true
       },
       "speakDetails": "",
       "start": false,
@@ -1443,8 +1443,8 @@
       "image": "resources/images/scene_under_construction.png",
       "layout": {
         "level": 0,
-        "x": 1220.0,
-        "y": 1224.0
+        "x": 1320.0,
+        "y": 1344.0
       },
       "movement": {
         "backward": true,
@@ -1502,8 +1502,8 @@
       "image": "resources/images/saloon_balcony.png",
       "layout": {
         "level": 1,
-        "x": 40.0,
-        "y": 48.0
+        "x": 552.0,
+        "y": 264.0
       },
       "movement": {
         "backward": false,
@@ -1624,8 +1624,8 @@
       ],
       "layout": {
         "level": 1,
-        "x": 276.0,
-        "y": 48.0
+        "x": 808.0,
+        "y": 264.0
       },
       "movement": {
         "backward": false,
@@ -1678,8 +1678,8 @@
       "image": "resources/images/saloon_front.png",
       "layout": {
         "level": 0,
-        "x": 984.0,
-        "y": 1812.0
+        "x": 1064.0,
+        "y": 1992.0
       },
       "movement": {
         "backward": true,
@@ -1748,8 +1748,8 @@
       "image": "resources/images/saloon_interior.png",
       "layout": {
         "level": 0,
-        "x": 984.0,
-        "y": 1616.0
+        "x": 1064.0,
+        "y": 1776.0
       },
       "movement": {
         "backward": true,
@@ -1843,9 +1843,9 @@
       },
       "image": "resources/images/scene_under_construction.png",
       "layout": {
-        "level": 0,
-        "x": 3816.0,
-        "y": 440.0
+        "level": -1,
+        "x": 1064.0,
+        "y": 48.0
       },
       "movement": {
         "backward": true,
@@ -1881,8 +1881,8 @@
       "image": "resources/images/saloon_owner_office.png",
       "layout": {
         "level": 0,
-        "x": 984.0,
-        "y": 1420.0
+        "x": 1064.0,
+        "y": 1560.0
       },
       "movement": {
         "backward": true,
@@ -1920,8 +1920,8 @@
       "image": "resources/images/saloon_owner_office_desk.png",
       "layout": {
         "level": 0,
-        "x": 1220.0,
-        "y": 1028.0
+        "x": 1320.0,
+        "y": 1128.0
       },
       "movement": {
         "backward": true,
@@ -1972,8 +1972,8 @@
       "image": "resources/images/saloon_service_hall.png",
       "layout": {
         "level": 0,
-        "x": 1220.0,
-        "y": 1420.0
+        "x": 1320.0,
+        "y": 1560.0
       },
       "movement": {
         "backward": true,
@@ -2014,8 +2014,8 @@
       "image": "resources/images/saloon_side_passage.png",
       "layout": {
         "level": 0,
-        "x": 1220.0,
-        "y": 1616.0
+        "x": 1320.0,
+        "y": 1776.0
       },
       "movement": {
         "backward": false,
@@ -2055,8 +2055,8 @@
       "image": "resources/images/saloon_supply_closet.png",
       "layout": {
         "level": 0,
-        "x": 1456.0,
-        "y": 1420.0
+        "x": 1576.0,
+        "y": 1560.0
       },
       "movement": {
         "backward": true,
@@ -2145,8 +2145,8 @@
       ],
       "layout": {
         "level": 1,
-        "x": 1928.0,
-        "y": 244.0
+        "x": 40.0,
+        "y": 48.0
       },
       "movement": {
         "backward": true,
@@ -2191,7 +2191,7 @@
           "volume": 0.34
         }
       },
-      "description": "The steep trail brings you to a place the mountain seems to have kept off its maps. Wind howls across bare rock and deep snow, tearing at your coat and filling every lee with powder. Ahead, the path climbs on — a narrow tread punched through drifts, steep enough that each step is an argument with gravity. To your left, a cave mouth opens in the cliff face: small, low, and wrong in its proportions, rimed with ice and half-buried in snow. The rock around it is dark basalt gone slick with frost. No light reaches inside. Whatever breath the cave exhales is colder than the air outside and carries nothing human in it.",
+      "description": "The steep trail brings you to a place the mountain seems to have kept off its maps. Wind howls across bare rock and deep snow, tearing at your coat and filling every lee with powder. Ahead, the path climbs on — a narrow tread punched through drifts, steep enough that each step is an argument with gravity. To your left, a cave mouth opens in the cliff face: small, low, and wrong in its proportions, rimed with ice and half-buried in snow. The rock around it is dark basalt gone slick with frost. No light reaches inside. Whatever breath the cave exhales is colder than the air outside and carries nothing human in it...",
       "examineDetails": "You brace against the gust and take stock.\n\nForward, the alpine trail keeps climbing through snow above the last timber — steep, exposed, and honest about what it demands. Boot crust and wind-scoured patches mark where others passed and thought better of lingering.\n\nLeft, the cave entrance is barely shoulder-wide and low enough that you would have to duck. Snow has drifted across the threshold in a smooth lip, broken only by what might be old crampon scratches or might be imagination. The interior is absolute dark without a carried light. The rock lip weeps ice. You hear the wind change when it passes the mouth, as though the mountain has a second throat.\n\nBehind you, the trail falls away toward the steep switchbacks and, far below, the timberline. There is no shelter here. Only height, snow, and the feeling that the cave has been waiting longer than the trail has existed.",
       "exitRequirements": {
         "left": {
@@ -2208,8 +2208,8 @@
       "image": "resources/images/snow_cave_exterior.png",
       "layout": {
         "level": 0,
-        "x": 748.0,
-        "y": 440.0
+        "x": 808.0,
+        "y": 480.0
       },
       "movement": {
         "backward": true,
@@ -2262,8 +2262,8 @@
       "image": "resources/images/snow_cave_interior.png",
       "layout": {
         "level": 0,
-        "x": 512.0,
-        "y": 440.0
+        "x": 552.0,
+        "y": 480.0
       },
       "movement": {
         "backward": false,
@@ -2395,8 +2395,8 @@
       "image": "resources/images/steep_mountain_trail.png",
       "layout": {
         "level": 0,
-        "x": 748.0,
-        "y": 636.0
+        "x": 808.0,
+        "y": 696.0
       },
       "movement": {
         "backward": true,
@@ -2434,8 +2434,8 @@
       "image": "resources/images/survey_stake_line.png",
       "layout": {
         "level": 0,
-        "x": 748.0,
-        "y": 1224.0
+        "x": 808.0,
+        "y": 1344.0
       },
       "movement": {
         "backward": true,
@@ -2481,8 +2481,8 @@
       "image": "resources/images/white_baptist_church.png",
       "layout": {
         "level": 0,
-        "x": 512.0,
-        "y": 832.0
+        "x": 552.0,
+        "y": 912.0
       },
       "movement": {
         "backward": true,
@@ -2526,8 +2526,8 @@
       "image": "resources/images/white_baptist_church_cemetery.png",
       "layout": {
         "level": 0,
-        "x": 984.0,
-        "y": 1028.0
+        "x": 1064.0,
+        "y": 1128.0
       },
       "movement": {
         "backward": true,
@@ -2579,8 +2579,8 @@
       "image": "resources/images/white_baptist_church_interior.png",
       "layout": {
         "level": 0,
-        "x": 276.0,
-        "y": 440.0
+        "x": 296.0,
+        "y": 480.0
       },
       "movement": {
         "backward": true,
@@ -2632,7 +2632,7 @@
       "layout": {
         "level": 0,
         "x": 40.0,
-        "y": 440.0
+        "y": 480.0
       },
       "movement": {
         "backward": true,
@@ -2679,8 +2679,8 @@
       "image": "resources/images/winding_alpine_path.png",
       "layout": {
         "level": 0,
-        "x": 748.0,
-        "y": 832.0
+        "x": 808.0,
+        "y": 912.0
       },
       "movement": {
         "backward": true,
