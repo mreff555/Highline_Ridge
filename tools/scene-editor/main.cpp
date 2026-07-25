@@ -2681,18 +2681,222 @@ struct SceneEditorApp
         return true;
     }
 
-    void handleVariableEditorTextInput()
+    struct EditorVisualLine
+    {
+        int start = 0; // buffer index of first char on this visual line
+        int end = 0;   // buffer index one past last drawn char (may point at '\n')
+        std::string text;
+    };
+
+    void clampVariableCursor()
+    {
+        if (variableEditorCursor < 0)
+            variableEditorCursor = 0;
+        if (variableEditorCursor > static_cast<int>(variableEditorBuffer.size()))
+            variableEditorCursor = static_cast<int>(variableEditorBuffer.size());
+    }
+
+    int utf8PrevIndex(int cursor) const
+    {
+        if (cursor <= 0)
+            return 0;
+        int at = cursor - 1;
+        while (at > 0 &&
+               (static_cast<unsigned char>(variableEditorBuffer[static_cast<size_t>(at)]) & 0xC0) == 0x80)
+        {
+            --at;
+        }
+        return at;
+    }
+
+    int utf8NextIndex(int cursor) const
+    {
+        if (cursor >= static_cast<int>(variableEditorBuffer.size()))
+            return static_cast<int>(variableEditorBuffer.size());
+        int at = cursor + 1;
+        while (at < static_cast<int>(variableEditorBuffer.size()) &&
+               (static_cast<unsigned char>(variableEditorBuffer[static_cast<size_t>(at)]) & 0xC0) == 0x80)
+        {
+            ++at;
+        }
+        return at;
+    }
+
+    std::vector<EditorVisualLine> buildEditorVisualLines(float maxTextWidth, float fontSize) const
+    {
+        std::vector<EditorVisualLine> lines;
+        const std::string& buffer = variableEditorBuffer;
+        int i = 0;
+        const int n = static_cast<int>(buffer.size());
+
+        if (n == 0)
+        {
+            EditorVisualLine empty;
+            empty.start = 0;
+            empty.end = 0;
+            lines.push_back(empty);
+            return lines;
+        }
+
+        while (i < n)
+        {
+            EditorVisualLine line;
+            line.start = i;
+            std::string text;
+
+            if (buffer[static_cast<size_t>(i)] == '\n')
+            {
+                line.end = i; // caret sits before the newline
+                line.text.clear();
+                lines.push_back(line);
+                ++i;
+                continue;
+            }
+
+            while (i < n && buffer[static_cast<size_t>(i)] != '\n')
+            {
+                const std::string trial = text + buffer[static_cast<size_t>(i)];
+                if (!text.empty() &&
+                    MeasureTextEx(textFont(), trial.c_str(), fontSize, 1.0f).x > maxTextWidth)
+                {
+                    break;
+                }
+                text.push_back(buffer[static_cast<size_t>(i)]);
+                ++i;
+            }
+
+            line.end = i;
+            line.text = text;
+            lines.push_back(line);
+
+            if (i < n && buffer[static_cast<size_t>(i)] == '\n')
+                ++i;
+        }
+
+        // Trailing newline produces an extra empty line for caret placement.
+        if (!buffer.empty() && buffer[buffer.size() - 1] == '\n')
+        {
+            EditorVisualLine empty;
+            empty.start = n;
+            empty.end = n;
+            lines.push_back(empty);
+        }
+
+        return lines;
+    }
+
+    int editorLineIndexForCursor(const std::vector<EditorVisualLine>& lines, int cursor) const
+    {
+        if (lines.empty())
+            return 0;
+        for (size_t i = 0; i < lines.size(); ++i)
+        {
+            const int nextStart = (i + 1 < lines.size())
+                ? lines[i + 1].start
+                : (static_cast<int>(variableEditorBuffer.size()) + 1);
+            if (cursor >= lines[i].start && cursor < nextStart)
+                return static_cast<int>(i);
+        }
+        return static_cast<int>(lines.size()) - 1;
+    }
+
+    float editorCaretXOnLine(
+        const EditorVisualLine& line,
+        int cursor,
+        float fontSize) const
+    {
+        const int local = std::max(0, std::min(cursor, line.end) - line.start);
+        const std::string before = line.text.substr(0, static_cast<size_t>(std::min(local, static_cast<int>(line.text.size()))));
+        return MeasureTextEx(textFont(), before.c_str(), fontSize, 1.0f).x;
+    }
+
+    int editorCursorFromClick(
+        const std::vector<EditorVisualLine>& lines,
+        Rectangle field,
+        float pad,
+        float fontSize,
+        float lineHeight,
+        Vector2 mouse) const
+    {
+        if (lines.empty())
+            return 0;
+
+        const float relY = (mouse.y - (field.y + pad) + variableEditorScrollY) / lineHeight;
+        int lineIndex = static_cast<int>(std::floor(relY));
+        if (lineIndex < 0)
+            lineIndex = 0;
+        if (lineIndex >= static_cast<int>(lines.size()))
+            lineIndex = static_cast<int>(lines.size()) - 1;
+
+        const EditorVisualLine& line = lines[static_cast<size_t>(lineIndex)];
+        const float relX = mouse.x - (field.x + pad);
+        if (relX <= 0.0f)
+            return line.start;
+
+        int best = line.start;
+        float bestDist = relX;
+        for (int pos = line.start; pos <= line.end; ++pos)
+        {
+            // Skip placing mid-UTF-8 sequence.
+            if (pos > line.start && pos < line.end &&
+                (static_cast<unsigned char>(variableEditorBuffer[static_cast<size_t>(pos)]) & 0xC0) == 0x80)
+            {
+                continue;
+            }
+            const float x = editorCaretXOnLine(line, pos, fontSize);
+            const float dist = std::fabs(x - relX);
+            if (dist < bestDist)
+            {
+                bestDist = dist;
+                best = pos;
+            }
+        }
+        return best;
+    }
+
+    void ensureCursorVisible(
+        const std::vector<EditorVisualLine>& lines,
+        float fieldHeight,
+        float pad,
+        float lineHeight)
+    {
+        if (lines.empty())
+            return;
+        const int lineIndex = editorLineIndexForCursor(lines, variableEditorCursor);
+        const float caretTop = static_cast<float>(lineIndex) * lineHeight;
+        const float caretBottom = caretTop + lineHeight;
+        const float viewH = fieldHeight - pad * 2.0f;
+        if (caretTop < variableEditorScrollY)
+            variableEditorScrollY = caretTop;
+        if (caretBottom > variableEditorScrollY + viewH)
+            variableEditorScrollY = caretBottom - viewH;
+        if (variableEditorScrollY < 0.0f)
+            variableEditorScrollY = 0.0f;
+    }
+
+    void handleVariableEditorTextInput(Rectangle field, float pad, float fontSize, float lineHeight)
     {
         if (!variableEditorOpen)
             return;
 
         if (variableEditorIgnoreInputFrames > 0)
         {
-            // Drain any char events from the activating click/key.
             while (GetCharPressed() > 0)
             {
             }
             return;
+        }
+
+        const float maxTextW = field.width - pad * 2.0f;
+        std::vector<EditorVisualLine> lines = buildEditorVisualLines(maxTextW, fontSize);
+
+        // Click to place caret.
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetMousePosition(), field))
+        {
+            variableEditorCursor = editorCursorFromClick(
+                lines, field, pad, fontSize, lineHeight, GetMousePosition());
+            clampVariableCursor();
+            ensureCursorVisible(lines, field.height, pad, lineHeight);
         }
 
         // Codepoint input
@@ -2701,7 +2905,6 @@ struct SceneEditorApp
         {
             if (codepoint >= 32 && codepoint != 127)
             {
-                // Encode UTF-8 roughly for BMP-ish chars used in game text
                 std::string encoded;
                 if (codepoint < 0x80)
                 {
@@ -2719,14 +2922,10 @@ struct SceneEditorApp
                     encoded.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
                 }
 
-                if (variableEditorCursor < 0)
-                    variableEditorCursor = 0;
-                if (variableEditorCursor > static_cast<int>(variableEditorBuffer.size()))
-                    variableEditorCursor = static_cast<int>(variableEditorBuffer.size());
-                variableEditorBuffer.insert(
-                    static_cast<size_t>(variableEditorCursor),
-                    encoded);
+                clampVariableCursor();
+                variableEditorBuffer.insert(static_cast<size_t>(variableEditorCursor), encoded);
                 variableEditorCursor += static_cast<int>(encoded.size());
+                lines = buildEditorVisualLines(maxTextW, fontSize);
             }
             codepoint = GetCharPressed();
         }
@@ -2735,17 +2934,12 @@ struct SceneEditorApp
         {
             if (variableEditorCursor > 0 && !variableEditorBuffer.empty())
             {
-                // Delete one UTF-8 leading byte / simple previous char
-                int eraseAt = variableEditorCursor - 1;
-                while (eraseAt > 0 &&
-                       (static_cast<unsigned char>(variableEditorBuffer[static_cast<size_t>(eraseAt)]) & 0xC0) == 0x80)
-                {
-                    --eraseAt;
-                }
+                const int eraseAt = utf8PrevIndex(variableEditorCursor);
                 variableEditorBuffer.erase(
                     static_cast<size_t>(eraseAt),
                     static_cast<size_t>(variableEditorCursor - eraseAt));
                 variableEditorCursor = eraseAt;
+                lines = buildEditorVisualLines(maxTextW, fontSize);
             }
         }
 
@@ -2753,63 +2947,126 @@ struct SceneEditorApp
         {
             if (variableEditorCursor < static_cast<int>(variableEditorBuffer.size()))
             {
-                int eraseEnd = variableEditorCursor + 1;
-                while (eraseEnd < static_cast<int>(variableEditorBuffer.size()) &&
-                       (static_cast<unsigned char>(variableEditorBuffer[static_cast<size_t>(eraseEnd)]) & 0xC0) == 0x80)
-                {
-                    ++eraseEnd;
-                }
+                const int eraseEnd = utf8NextIndex(variableEditorCursor);
                 variableEditorBuffer.erase(
                     static_cast<size_t>(variableEditorCursor),
                     static_cast<size_t>(eraseEnd - variableEditorCursor));
+                lines = buildEditorVisualLines(maxTextW, fontSize);
             }
         }
 
         if (IsKeyPressed(KEY_LEFT) || IsKeyPressedRepeat(KEY_LEFT))
-        {
-            if (variableEditorCursor > 0)
-            {
-                --variableEditorCursor;
-                while (variableEditorCursor > 0 &&
-                       (static_cast<unsigned char>(
-                            variableEditorBuffer[static_cast<size_t>(variableEditorCursor)]) &
-                        0xC0) == 0x80)
-                {
-                    --variableEditorCursor;
-                }
-            }
-        }
+            variableEditorCursor = utf8PrevIndex(variableEditorCursor);
 
         if (IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_RIGHT))
+            variableEditorCursor = utf8NextIndex(variableEditorCursor);
+
+        if (IsKeyPressed(KEY_UP) || IsKeyPressedRepeat(KEY_UP))
         {
-            if (variableEditorCursor < static_cast<int>(variableEditorBuffer.size()))
+            const int lineIndex = editorLineIndexForCursor(lines, variableEditorCursor);
+            if (lineIndex > 0)
             {
-                ++variableEditorCursor;
-                while (variableEditorCursor < static_cast<int>(variableEditorBuffer.size()) &&
-                       (static_cast<unsigned char>(
-                            variableEditorBuffer[static_cast<size_t>(variableEditorCursor)]) &
-                        0xC0) == 0x80)
+                const EditorVisualLine& cur = lines[static_cast<size_t>(lineIndex)];
+                const float preferX = editorCaretXOnLine(cur, variableEditorCursor, fontSize);
+                const EditorVisualLine& above = lines[static_cast<size_t>(lineIndex - 1)];
+                int best = above.start;
+                float bestDist = 1.0e9f;
+                for (int pos = above.start; pos <= above.end; ++pos)
                 {
-                    ++variableEditorCursor;
+                    if (pos > above.start && pos < above.end &&
+                        (static_cast<unsigned char>(variableEditorBuffer[static_cast<size_t>(pos)]) & 0xC0) == 0x80)
+                    {
+                        continue;
+                    }
+                    const float x = editorCaretXOnLine(above, pos, fontSize);
+                    const float dist = std::fabs(x - preferX);
+                    if (dist < bestDist)
+                    {
+                        bestDist = dist;
+                        best = pos;
+                    }
                 }
+                variableEditorCursor = best;
+            }
+            else
+            {
+                variableEditorCursor = 0;
             }
         }
 
+        if (IsKeyPressed(KEY_DOWN) || IsKeyPressedRepeat(KEY_DOWN))
+        {
+            const int lineIndex = editorLineIndexForCursor(lines, variableEditorCursor);
+            if (lineIndex + 1 < static_cast<int>(lines.size()))
+            {
+                const EditorVisualLine& cur = lines[static_cast<size_t>(lineIndex)];
+                const float preferX = editorCaretXOnLine(cur, variableEditorCursor, fontSize);
+                const EditorVisualLine& below = lines[static_cast<size_t>(lineIndex + 1)];
+                int best = below.start;
+                float bestDist = 1.0e9f;
+                for (int pos = below.start; pos <= below.end; ++pos)
+                {
+                    if (pos > below.start && pos < below.end &&
+                        (static_cast<unsigned char>(variableEditorBuffer[static_cast<size_t>(pos)]) & 0xC0) == 0x80)
+                    {
+                        continue;
+                    }
+                    const float x = editorCaretXOnLine(below, pos, fontSize);
+                    const float dist = std::fabs(x - preferX);
+                    if (dist < bestDist)
+                    {
+                        bestDist = dist;
+                        best = pos;
+                    }
+                }
+                variableEditorCursor = best;
+            }
+            else
+            {
+                variableEditorCursor = static_cast<int>(variableEditorBuffer.size());
+            }
+        }
+
+        const bool ctrl = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL) ||
+            IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER);
+
         if (IsKeyPressed(KEY_HOME))
-            variableEditorCursor = 0;
+        {
+            if (ctrl || !variableEditorMultiline)
+            {
+                variableEditorCursor = 0;
+            }
+            else
+            {
+                const int lineIndex = editorLineIndexForCursor(lines, variableEditorCursor);
+                variableEditorCursor = lines[static_cast<size_t>(lineIndex)].start;
+            }
+        }
+
         if (IsKeyPressed(KEY_END))
-            variableEditorCursor = static_cast<int>(variableEditorBuffer.size());
+        {
+            if (ctrl || !variableEditorMultiline)
+            {
+                variableEditorCursor = static_cast<int>(variableEditorBuffer.size());
+            }
+            else
+            {
+                const int lineIndex = editorLineIndexForCursor(lines, variableEditorCursor);
+                variableEditorCursor = lines[static_cast<size_t>(lineIndex)].end;
+            }
+        }
 
         if (variableEditorMultiline &&
             (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)))
         {
-            if (variableEditorCursor < 0)
-                variableEditorCursor = 0;
-            if (variableEditorCursor > static_cast<int>(variableEditorBuffer.size()))
-                variableEditorCursor = static_cast<int>(variableEditorBuffer.size());
+            clampVariableCursor();
             variableEditorBuffer.insert(static_cast<size_t>(variableEditorCursor), "\n");
             ++variableEditorCursor;
+            lines = buildEditorVisualLines(maxTextW, fontSize);
         }
+
+        clampVariableCursor();
+        ensureCursorVisible(lines, field.height, pad, lineHeight);
 
         if (IsKeyPressed(KEY_ESCAPE))
             closeVariableEditor();
@@ -2822,8 +3079,6 @@ struct SceneEditorApp
 
         if (variableEditorIgnoreInputFrames > 0)
             --variableEditorIgnoreInputFrames;
-
-        handleVariableEditorTextInput();
 
         DrawRectangle(0, 0, screenWidth, screenHeight, Color{0, 0, 0, 200});
 
@@ -2862,100 +3117,58 @@ struct SceneEditorApp
         const float fontSize = 14.0f;
         const float lineHeight = fontSize + 4.0f;
         const float pad = 8.0f;
+        const float maxTextW = field.width - pad * 2.0f;
 
-        // Cursor blink
+        handleVariableEditorTextInput(field, pad, fontSize, lineHeight);
+
+        const std::vector<EditorVisualLine> lines = buildEditorVisualLines(maxTextW, fontSize);
+        const float contentH = static_cast<float>(lines.size()) * lineHeight;
+        const float maxScroll = std::max(0.0f, contentH - (field.height - pad * 2.0f));
+        if (CheckCollisionPointRec(GetMousePosition(), field))
+            variableEditorScrollY -= GetMouseWheelMove() * lineHeight;
+        if (variableEditorScrollY < 0.0f)
+            variableEditorScrollY = 0.0f;
+        if (variableEditorScrollY > maxScroll)
+            variableEditorScrollY = maxScroll;
+
         const bool caretOn = (static_cast<int>(GetTime() * 2.0) % 2) == 0;
-        const int caret = std::max(0, std::min(variableEditorCursor, static_cast<int>(variableEditorBuffer.size())));
+        clampVariableCursor();
+        const int caret = variableEditorCursor;
+        const int caretLine = editorLineIndexForCursor(lines, caret);
 
+        BeginScissorMode(
+            static_cast<int>(field.x),
+            static_cast<int>(field.y),
+            static_cast<int>(field.width),
+            static_cast<int>(field.height));
+
+        float y = field.y + pad - variableEditorScrollY;
         if (!variableEditorMultiline)
+            y = field.y + (field.height - fontSize) * 0.5f;
+
+        for (size_t lineIndex = 0; lineIndex < lines.size(); ++lineIndex)
         {
-            const std::string display = variableEditorBuffer;
             DrawTextEx(
                 textFont(),
-                display.c_str(),
-                {field.x + pad, field.y + (field.height - fontSize) * 0.5f},
+                lines[lineIndex].text.c_str(),
+                {field.x + pad, y},
                 fontSize,
                 1.0f,
                 kTextPrimary);
 
-            if (caretOn)
+            if (caretOn && static_cast<int>(lineIndex) == caretLine)
             {
-                const std::string before = display.substr(0, static_cast<size_t>(caret));
-                const float caretX = field.x + pad + MeasureTextEx(textFont(), before.c_str(), fontSize, 1.0f).x;
-                const float caretY = field.y + (field.height - fontSize) * 0.5f;
-                DrawLineEx({caretX, caretY}, {caretX, caretY + fontSize}, 1.5f, kTextPrimary);
-            }
-        }
-        else
-        {
-            // Split into lines for wrapped display (character wrap by measuring).
-            std::vector<std::string> lines;
-            std::string currentLine;
-            const float maxTextW = field.width - pad * 2.0f;
-            for (size_t i = 0; i < variableEditorBuffer.size(); ++i)
-            {
-                const char ch = variableEditorBuffer[i];
-                if (ch == '\n')
-                {
-                    lines.push_back(currentLine);
-                    currentLine.clear();
-                    continue;
-                }
-                const std::string trial = currentLine + ch;
-                if (MeasureTextEx(textFont(), trial.c_str(), fontSize, 1.0f).x > maxTextW && !currentLine.empty())
-                {
-                    lines.push_back(currentLine);
-                    currentLine = std::string(1, ch);
-                }
-                else
-                {
-                    currentLine.push_back(ch);
-                }
-            }
-            lines.push_back(currentLine);
-
-            const float contentH = static_cast<float>(lines.size()) * lineHeight;
-            const float maxScroll = std::max(0.0f, contentH - (field.height - pad * 2.0f));
-            if (CheckCollisionPointRec(GetMousePosition(), field))
-                variableEditorScrollY -= GetMouseWheelMove() * lineHeight;
-            if (variableEditorScrollY < 0.0f)
-                variableEditorScrollY = 0.0f;
-            if (variableEditorScrollY > maxScroll)
-                variableEditorScrollY = maxScroll;
-
-            BeginScissorMode(
-                static_cast<int>(field.x),
-                static_cast<int>(field.y),
-                static_cast<int>(field.width),
-                static_cast<int>(field.height));
-
-            float y = field.y + pad - variableEditorScrollY;
-            for (size_t lineIndex = 0; lineIndex < lines.size(); ++lineIndex)
-            {
-                DrawTextEx(
-                    textFont(),
-                    lines[lineIndex].c_str(),
-                    {field.x + pad, y},
-                    fontSize,
-                    1.0f,
-                    kTextPrimary);
-                y += lineHeight;
-            }
-
-            // Approximate caret at end of buffer for multiline (stable and readable).
-            if (caretOn)
-            {
-                const float caretY =
-                    field.y + pad - variableEditorScrollY +
-                    static_cast<float>(lines.empty() ? 0 : lines.size() - 1) * lineHeight;
-                const std::string lastLine = lines.empty() ? "" : lines.back();
                 const float caretX =
-                    field.x + pad + MeasureTextEx(textFont(), lastLine.c_str(), fontSize, 1.0f).x;
-                DrawLineEx({caretX, caretY}, {caretX, caretY + fontSize}, 1.5f, kTextPrimary);
+                    field.x + pad + editorCaretXOnLine(lines[lineIndex], caret, fontSize);
+                DrawLineEx({caretX, y}, {caretX, y + fontSize}, 1.5f, kTextPrimary);
             }
 
-            EndScissorMode();
+            y += lineHeight;
+            if (!variableEditorMultiline)
+                break;
         }
+
+        EndScissorMode();
 
         const Rectangle saveBtn = {dialog.x + dialogW - btnW * 2.0f - 28.0f, btnY, btnW, btnH};
         const Rectangle cancelBtn = {dialog.x + dialogW - btnW - 18.0f, btnY, btnW, btnH};
