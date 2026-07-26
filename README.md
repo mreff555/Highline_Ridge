@@ -4,6 +4,22 @@
 
 Storyboarding is still in progress; development focus is currently on Timberline as a reusable fixed-image narrative platform. A finished short game will showcase the engine. Contributions are welcome.
 
+## Build instructions
+
+The main third-party dependency is raylib (fetched by CMake). You need a C/C++ compiler. Builds have been tested on macOS (Intel). See [BUILD.md](BUILD.md) for platform details.
+
+```bash
+mkdir build
+cd build
+cmake ..
+make
+cd ../tools/scene-editor
+mkdir build
+cd build
+cmake ..
+make
+```
+Audio is enabled for some dialogs. Voices must be generated if you want TTS playback; see `--help` on the game binary.
 ## Timberline engine
 
 Timberline is a rich storytelling engine that uses old-school fixed images so a small team (or one developer, with AI-assisted art) can ship scene-driven adventures without a full 3D pipeline.
@@ -22,23 +38,16 @@ Timberline is a rich storytelling engine that uses old-school fixed images so a 
 
 For voice generation, supply an xAI API key and run `./Highline\ Ridge --help`.
 
-## Build instructions
-
-The main third-party dependency is raylib (fetched by CMake). You need a C/C++ compiler. Builds have been tested on macOS (Intel). See [BUILD.md](BUILD.md) for platform details.
-
-```bash
-mkdir build
-cd build
-cmake ..
-make
-cd ../tools/scene-editor
-mkdir build
-cd build
-cmake ..
-make
-```
-
-Audio is enabled for some dialogs. Voices must be generated if you want TTS playback; see `--help` on the game binary.
+### Architecture
+main.cpp
+   └─ SceneEditorApp          (shell: wire, fonts, selection, update/draw)
+         ├─ DocumentWorkspace   (scenes/conversations JSON, tabs, dirty)
+         ├─ EditorLayout        (panes / dividers)
+         ├─ ThumbnailCache
+         ├─ VariableEditor      (modal + TTS + text metrics)
+         ├─ ConversationTree    (tree model + view)
+         ├─ SceneGraphModel     (exits, levels, auto-layout, stack state)
+         └─ SceneMapCanvas      (list/map/chrome draw + interaction)
 
 ## The game
 
