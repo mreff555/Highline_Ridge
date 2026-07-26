@@ -39,15 +39,15 @@ Timberline is a rich storytelling engine that uses old-school fixed images so a 
 For voice generation, supply an xAI API key and run `./Highline\ Ridge --help`.
 
 ### Architecture
-main.cpp
-   └─ SceneEditorApp          (shell: wire, fonts, selection, update/draw)
-         ├─ DocumentWorkspace   (scenes/conversations JSON, tabs, dirty)
-         ├─ EditorLayout        (panes / dividers)
-         ├─ ThumbnailCache
-         ├─ VariableEditor      (modal + TTS + text metrics)
-         ├─ ConversationTree    (tree model + view)
-         ├─ SceneGraphModel     (exits, levels, auto-layout, stack state)
-         └─ SceneMapCanvas      (list/map/chrome draw + interaction)
+main.cpp  
+   └─ SceneEditorApp          (shell: wire, fonts, selection, update/draw)  
+         ├─ DocumentWorkspace   (scenes/conversations JSON, tabs, dirty)  
+         ├─ EditorLayout        (panes / dividers)  
+         ├─ ThumbnailCache  
+         ├─ VariableEditor      (modal + TTS + text metrics)  
+         ├─ ConversationTree    (tree model + view)  
+         ├─ SceneGraphModel     (exits, levels, auto-layout, stack state)  
+         └─ SceneMapCanvas      (list/map/chrome draw + interaction)  
 
 ## The game
 
