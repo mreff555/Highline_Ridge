@@ -22,6 +22,7 @@
 #include <GameConfig.h>
 #include <LocationStruct.h>
 #include <PlatformPath.h>
+#include <TtsContentValidator.h>
 #include <XaiTtsClient.h>
 #include <raylib.h>
 #include <cstdlib>
@@ -176,13 +177,23 @@ bool GameApplication::initializeWindow(const GameConfig& config)
 
 bool GameApplication::loadDatabases()
 {
+    std::string scenesPath = "resources/scenes.json";
+    std::string conversationsPath = "resources/conversations.json";
+    std::string itemsPath = "resources/items.json";
+
     const bool scenesLoaded =
-        sceneDatabase.load("resources/scenes.json", ".") ||
+        sceneDatabase.load(scenesPath, ".") ||
         sceneDatabase.load("../resources/scenes.json", "..");
     if (!scenesLoaded)
     {
         TraceLog(LOG_ERROR, "Failed to load scenes from resources/scenes.json");
         return false;
+    }
+    if (!FileExists(scenesPath.c_str()) && FileExists("../resources/scenes.json"))
+    {
+        scenesPath = "../resources/scenes.json";
+        conversationsPath = "../resources/conversations.json";
+        itemsPath = "../resources/items.json";
     }
 
     const bool milestonesLoaded =
@@ -197,11 +208,12 @@ bool GameApplication::loadDatabases()
     if (!itemsLoaded)
         TraceLog(LOG_WARNING, "Failed to load items from resources/items.json");
 
-    const bool combinationsLoaded =
-        itemCombinationDatabase.load("resources/item_combinations.json") ||
-        itemCombinationDatabase.load("../resources/item_combinations.json");
-    if (!combinationsLoaded)
-        TraceLog(LOG_WARNING, "Failed to load item combinations from resources/item_combinations.json");
+    // Craft recipes live on product items (components); no separate combinations file.
+    if (!validateTtsResourcesOrLog(scenesPath, conversationsPath, itemsPath, ""))
+    {
+        TraceLog(LOG_ERROR, "Aborting load: TTS resource validation failed");
+        return false;
+    }
 
     return true;
 }
@@ -257,12 +269,15 @@ int GameApplication::run(int argc, char* argv[])
             resourcePathForRefreshRead("resources/conversations.json");
         const std::string scenesPath =
             resourcePathForRefreshRead("resources/scenes.json");
+        const std::string itemsPath =
+            resourcePathForRefreshRead("resources/items.json");
         return XaiTtsClient::refreshBundledVoices(
             commandLine.apiKey,
             ".",
             conversationsPath,
             scenesPath,
-            gameConfig.tts.voiceId,
+            itemsPath,
+            "",
             commandLine.forceRefreshVoices,
             commandLine.refreshAllVoices ? "" : commandLine.refreshFilter);
     }

@@ -65,16 +65,13 @@ bool ItemInstance::hasFlag(const std::string& flag) const
 
 float computeItemWeightLb(const ItemDef& def, const ItemInstance& instance)
 {
-    if (def.quantity.stackable)
-    {
-        const float unitWeight = def.quantity.unitWeightLb > 0.0f
-            ? def.quantity.unitWeightLb
-            : def.weightLb;
-        const float remaining = std::max(0.0f, 1.0f - clamp01(instance.usedFraction));
-        return roundItemWeightLb(unitWeight * static_cast<float>(instance.quantity) * remaining);
-    }
-
-    return roundItemWeightLb(def.weightLb);
+    const float unitWeight = def.quantity.unitWeightLb > 0.0f
+        ? def.quantity.unitWeightLb
+        : def.weightLb;
+    const int qty = std::max(0, instance.quantity);
+    const float remaining = std::max(0.0f, 1.0f - clamp01(instance.usedFraction));
+    // All instances track weight by quantity (stacks and singles).
+    return roundItemWeightLb(unitWeight * static_cast<float>(qty) * remaining);
 }
 
 float computeContainerTotalWeightLb(

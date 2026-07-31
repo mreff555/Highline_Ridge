@@ -1654,7 +1654,7 @@
           "resources/audio/tts/saloon_balcony/blue_woman_intro.seg3.mp3"
         ],
         "ttsText": "The woman in blue does not startle when you approach. She finishes her thought with the two at the rail, lets them laugh without her, and turns as though you were expected. She takes a slow drag from her cigarette, exhales through the side of her mouth, and studies you with that same focused calm. {{voice:eve}}[pause]You disappeared this morning,{{/voice}} [pause] she says. {{voice:eve}}[pause]Not accusation. [pause] Inventory.[pause]{{/voice}}",
-        "ttsTextSha256": "864d7f5a2ab70ca8e4685baf83ea14c3a7c360a6ff653d77bf0161e90a5744b5",
+        "ttsTextSha256": "910a9b754fe5f9ac097b83d9ae39c4cab7917a091f2c8ba58251669d0c444f89",
         "ttsVoice": "leo",
         "type": "scripted"
       },
@@ -1673,9 +1673,11 @@
         "ttsAfter": true,
         "ttsAfterAudio": "resources/audio/tts/saloon_balcony/blue_woman_fedora_after.mp3",
         "ttsAfterText": "The hat settles into your grip with the weight of something that has already been yours.",
+        "ttsAfterTextSha256": "ff3d6a412ece2ba2e211c4d0a98a1cb4540545c9c6d8a0b0fa9305d158531d9b",
         "ttsAfterVoice": "leo",
         "ttsAudio": "resources/audio/tts/saloon_balcony/blue_woman_fedora.mp3",
         "ttsText": "The woman in blue catches your sleeve as you start to turn away. Oh, by the way, she says, mild as an afterthought. You left this in my room this morning. She draws a weathered felt fedora from behind her back and holds it out to you. It looks better on you than me, she says. You might as well keep it.",
+        "ttsTextSha256": "6237e8178c0f7043ee54d3a041294bf29f213203f80885248672da483f738fd5",
         "ttsVoice": "leo",
         "type": "once"
       },
@@ -1689,9 +1691,11 @@
         "ttsAfter": true,
         "ttsAfterAudio": "resources/audio/tts/saloon_balcony/burgundy_path_after.mp3",
         "ttsAfterText": "Then the room reclaims her. She leans over the rail and laughs for a patron below as though nothing happened, leaving you with the words like a splinter under the nail.",
+        "ttsAfterTextSha256": "eb015eb6c02d1f4349f1888e5e953fdd241877a1238b9e82f4839eaa7733a1f7",
         "ttsAfterVoice": "leo",
         "ttsAudio": "resources/audio/tts/saloon_balcony/burgundy_path.mp3",
         "ttsText": "The woman in blue listens while you tell her about the hanging tree marker, the charcoal ring, the stakes, the silk in the ice house. When you finish, she nods once. You went up the path, she says. It is not a question. You always do, and you always come back with that look, like the mountain showed you a face you refused to wear. They hung the wrong man. He was still breathing when they cut him down. He still is.",
+        "ttsTextSha256": "02f8a9365ad3df0b753c6ed4848b609d9b747121ceea1ddfe3d3458ce197b742",
         "ttsVoice": "leo",
         "type": "once"
       }
@@ -1808,7 +1812,6 @@
             "id": "water",
             "label": "> No, just a water",
             "response": "The bartender holds your gaze a beat longer than necessary, then turns away for a glass. He sets it on the bar without ceremony. Water, clear and cold. Under his breath, barely audible above the piano, he mutters that he is perfectly all right with you not drinking in his establishment. The words are flat. Not cruel. Not kind. Simply settled.\n\nYou lift the glass and drink. The water cuts clean through the smoke in your throat and the ash at the back of your tongue. Your head steadies. The room feels a fraction less unreal, as though someone has wiped a smear from a window you did not know was dirty.\n\nThe bartender sets the rag aside and looks at you again. \"Need anything else?\"",
-            "sketch": "resources/sketches/bartender_glass.png",
             "status": {
               "health": 5,
               "key": "saloon_interior:water",
@@ -2049,6 +2052,7 @@
         "tts": true,
         "ttsAudio": "resources/audio/tts/saloon_interior/bartender_intro.mp3",
         "ttsText": "You step to the bar. The noise closes around you, then parts. The bartender meets your eyes with a neutral expression that gives away nothing. He knows you. That much is clear. He is not inclined to tell a story about it. You want the usual, he says, rag finally moving again across the wood.",
+        "ttsTextSha256": "6becaabb69c80e7f23f9354af88514a7eb10279cf138342b266871f5c1305c7d",
         "ttsVoice": "leo",
         "type": "scripted"
       },
@@ -2308,6 +2312,7 @@
             "tts": true,
             "ttsAudio": "resources/audio/tts/saloon_interior/accept_company.mp3",
             "ttsText": "The woman in burgundy follows your answer with a small, knowing smile. I thought you might say that, she says. She lifts her chin toward the balcony and makes a subtle motion with two fingers, not a summons, exactly, but an introduction. The woman in blue sees it. Her smile deepens by half a degree. She touches the rail once, as though marking the spot where you are expected to find her, and lets the crowd swallow the rest of the message. The woman beside you releases your shoulder and melts back into the press of bodies, job done.",
+            "ttsTextSha256": "0e299097f870a1e5983480c284310ccdff16eb461f4c7ed650742b9be5e0466a",
             "ttsVoice": "leo"
           },
           {
@@ -2317,6 +2322,7 @@
             "tts": true,
             "ttsAudio": "resources/audio/tts/saloon_interior/alone_with_thoughts.mp3",
             "ttsText": "Her hand leaves your shoulder gently, without offense. Alright, she says, with a touch of concern in her voice. Take care of yourself. She turns and disappears into the crowd.",
+            "ttsTextSha256": "fbad2bd5caaef5d560be4f5c9ae9d97fede16f17149c1ad09589d1af2ccfe3fa",
             "ttsVoice": "leo"
           }
         ],
@@ -2328,6 +2334,7 @@
         "tts": true,
         "ttsAudio": "resources/audio/tts/saloon_interior/burgundy_woman_intro.mp3",
         "ttsText": "You are still gathering yourself when she appears. An aging but beautiful woman in a burgundy dress saunters up to the bar and leans against the scarred pine beside you. Up close she smells of rosewater and lamp smoke. She smiles. Need anything else tonight, she asks. Her hand comes to your shoulder in a tender, unhurried way, as though for one moment she is trying to comfort a man who has forgotten how to be comforted. Carrie has been watching you all night, she says. You follow her glance upward. On the balcony rail, the woman in blue stares down at you through the tobacco haze. She is beautiful in a way that has nothing to do with rouge or feathered fans, and when your eyes meet she offers an inviting smile. The piano keeps playing its broken phrase. The room does not stop. Only you do.",
+        "ttsTextSha256": "50f5bc69e902a354ee83f51696f717e9e6fa8971281a6a1ed36008f5a47091a2",
         "ttsVoice": "leo",
         "type": "scripted"
       },
@@ -2343,6 +2350,7 @@
             "tts": true,
             "ttsAudio": "resources/audio/tts/saloon_interior/burgundy_woman_mention_it.mp3",
             "ttsText": "She laughs and smiles. Carrie is on the house tonight, she says. My treat. Trust me, you can't afford her, or any of my other girls. She promptly turns her attention to other patrons.",
+            "ttsTextSha256": "52f3d586351635c04c856f387fa95e1243d0560d488b9c07899232dff54b585f",
             "ttsVoice": "leo"
           },
           {
@@ -2360,6 +2368,7 @@
         "tts": true,
         "ttsAudio": "resources/audio/tts/saloon_interior/burgundy_woman_after_blue_intro.mp3",
         "ttsText": "Ah, the wanderer. What are you still doing down here? Carrie is waiting for you upstairs. What's wrong? She's not enough? Do you need another?",
+        "ttsTextSha256": "b1f5fcca465454340082c6be971c16bfcc6f389b8dfb1e4ad357545c28f14ee1",
         "ttsVoice": "leo",
         "type": "scripted"
       },
@@ -2380,9 +2389,11 @@
         "ttsAfter": true,
         "ttsAfterAudio": "resources/audio/tts/saloon_interior/bartender_path_after.mp3",
         "ttsAfterText": "He turns away without watching to see whether you finished it. The sawdust takes a single fallen drop, as though the bar itself has marked the account paid.",
+        "ttsAfterTextSha256": "a05c5f35f9d30a6dcadc874678b8dda0703fd950ef437488ea71b4860f171408",
         "ttsAfterVoice": "leo",
         "ttsAudio": "resources/audio/tts/saloon_interior/bartender_path.mp3",
         "ttsText": "You lean on the bar and tell him what you found on the narrow path, the stakes, the ice house, the bench carved for a name you cannot finish. The piano does not stop, but the bartender does. He sets a glass of bourbon on the pine in front of you. Some stories you drink to forget on purpose, he says. You always did. You lift the glass. Fire and oak hit the back of your throat and the bench on the ridge flashes behind your eyes. The room steadies again, but the drink stays with you, heavy and certain.",
+        "ttsTextSha256": "ba0c4d5cbceea8a79aa9c01ddf6b05be972b804e0712550793ca5c691cdc0bb3",
         "ttsVoice": "leo",
         "type": "once"
       },
@@ -2398,6 +2409,7 @@
             "tts": true,
             "ttsAudio": "resources/audio/tts/saloon_interior/faro_player.mp3",
             "ttsText": "A faro player at the stove table looks up long enough to fan his cards. House always remembers, he says, and returns to his stack as though you are part of the furniture.",
+            "ttsTextSha256": "3712d16ce8eb3464cb3d4d7104c36aeb35fe9f074007a0865d9eaae46b09220d",
             "ttsVoice": "leo"
           },
           {
@@ -2406,6 +2418,7 @@
             "tts": true,
             "ttsAudio": "resources/audio/tts/saloon_interior/piano_player.mp3",
             "ttsText": "The piano player cuts a glance your way mid-phrase, fingers never stopping. Easy now, he says to the keys, but you suspect the advice is meant for you.",
+            "ttsTextSha256": "01ffab3dcff7ac1daf825930fb637a9b9773eebce4154de8bbe4d4e7af84e695",
             "ttsVoice": "leo"
           },
           {
@@ -2414,6 +2427,7 @@
             "tts": true,
             "ttsAudio": "resources/audio/tts/saloon_interior/miner.mp3",
             "ttsText": "A miner at the poker table rubs a thumb over a chipped ace. Luck ain't a debt you can outrun, he mutters, and the table laughs without warmth.",
+            "ttsTextSha256": "56421fbee1103745166014e87196705c24cb5df00dfc7f11865ca12c358acb9e",
             "ttsVoice": "leo"
           },
           {
@@ -2422,6 +2436,7 @@
             "tts": true,
             "ttsAudio": "resources/audio/tts/saloon_interior/barmaid.mp3",
             "ttsText": "A barmaid passes with an empty tray, eyes flicking over you once. Mind the stairs, she says, already gone into the crowd.",
+            "ttsTextSha256": "0b2bf6cdcba91517edbfce486b776d3b654aa5a319e18bd370c2e4e78c248649",
             "ttsVoice": "leo"
           },
           {
@@ -2443,9 +2458,11 @@
                 "ttsAfter": true,
                 "ttsAfterAudio": "resources/audio/tts/saloon_interior/buy_drink_after.mp3",
                 "ttsAfterText": "The crowd loses interest almost at once. Laughter loosens back into ordinary noise. The piano finds its broken phrase again. A woman on the balcony fans herself and says something you cannot hear. The moment passes, filed under free show averted by money. The drunk man drinks. He does not thank you. He does not need to. The room has already decided you knew how to handle him.",
+                "ttsAfterTextSha256": "b4680c6fbfd7786f0187bb2aabac1ffc92fe3cd87483d660f5ab8352c086a8f0",
                 "ttsAfterVoice": "leo",
                 "ttsAudio": "resources/audio/tts/saloon_interior/buy_drink.mp3",
                 "ttsText": "You raise both hands, palms out, the way men do when they want a dog to sit. Your voice stays level. Relax. It was an accident. Bartender, get this man another drink on me. For a moment the drunk man stares at you as though you spoke in a foreign tongue. Then the fight drains out of him in a sour wave. He blinks, looks at your hands, looks at the room that is still watching, and decides he has won enough. Damn right it was an accident, he mutters, but he takes the stool again. The bartender pours without comment and sets the glass in front of him. You slide five dollars across the scarred pine. The bartender sweeps the notes away with two fingers.",
+                "ttsTextSha256": "c1f3316cbd3ca4416879dc155815eb0f105f11fa4c0493122e65cd5cda184d2d",
                 "ttsVoice": "leo"
               },
               {
@@ -2462,19 +2479,21 @@
                 "ttsAfter": true,
                 "ttsAfterAudio": "resources/audio/tts/saloon_interior/back_down_after.mp3",
                 "ttsAfterText": "The drunk man shoves you again, lighter this time, a punctuation mark. Next time you walk, you walk around me, he says. He settles back onto his stool victorious. You stand in the sawdust with the room's amusement settling on your shoulders like ash. You said the right words for peace and got the wrong kind of it.",
+                "ttsAfterTextSha256": "1a36f75cbba4a0a7d43d53e86fb95c25da24a52dc000cab8e781386ac4bfc712",
                 "ttsAfterVoice": "leo",
                 "ttsAudio": "resources/audio/tts/saloon_interior/back_down.mp3",
                 "ttsText": "Your voice comes out tighter than you meant. Look, I don't want any trouble. The drunk man's face brightens as though you handed him a gift. He spreads his arms wide, inviting the room to witness. Don't want trouble, he repeats, pitching it for the balcony. Greenhorn don't want trouble. He bumped me and then he begged like a church mouse. Laughter rolls through the saloon, mean and delighted. Someone at the faro table claps once. The piano player leans into the keys with renewed appetite. Even the bartender's mouth twitches, not quite a smile, not quite sympathy.",
+                "ttsTextSha256": "65f29ada5690abf4f48bac62f903924d4002b4264562dd546a370391934dce3a",
                 "ttsVoice": "leo"
               }
             ],
             "id": "drunk_patron",
             "once": true,
-            "sketch": "resources/sketches/drunk_patron.png",
             "text": "You shoulder through the press near the bar, looking for a clear patch of pine to think. A miner in a stained duster is half-turned on his stool, elbow high, telling the room a story it has already heard. You brush his arm reaching for the rail. It is nothing. A half-second contact in a crowded room.\n\nHe comes off the stool like you struck him on purpose.\n\n\"The hell you think you're doing?\" he roars, breath hot with rye and spite. Spittle catches the lamplight. He shoves you hard in the chest with both hands. Your heel skids in sawdust. Glasses stop halfway to mouths. The piano player misses a note, then grins and keeps playing because this is better than music.\n\n\"I'll kill you,\" the drunk says, loud enough for the balcony to hear. \"I'll kill you right here and pay for the mess.\" He is not convincing as a killer. He is very convincing as entertainment. The room turns toward you the way a crowd turns toward a stage: not afraid, not helpful, only interested in what happens next.\n\nThe bartender does not intervene yet. He wipes the same glass and watches to see what kind of trouble you are.",
             "tts": true,
             "ttsAudio": "resources/audio/tts/saloon_interior/drunk_patron.mp3",
             "ttsText": "You shoulder through the press near the bar, looking for a clear patch of pine to think. A miner in a stained duster is half-turned on his stool, elbow high, telling the room a story it has already heard. You brush his arm reaching for the rail. It is nothing. A half-second contact in a crowded room. He comes off the stool like you struck him on purpose. The hell you think you're doing, he roars, breath hot with rye and spite. Spittle catches the lamplight. He shoves you hard in the chest with both hands. Your heel skids in sawdust. Glasses stop halfway to mouths. The piano player misses a note, then grins and keeps playing because this is better than music. I'll kill you, the drunk says, loud enough for the balcony to hear. I'll kill you right here and pay for the mess. He is not convincing as a killer. He is very convincing as entertainment. The room turns toward you the way a crowd turns toward a stage: not afraid, not helpful, only interested in what happens next. The bartender does not intervene yet. He wipes the same glass and watches to see what kind of trouble you are.",
+            "ttsTextSha256": "3f0be8908c97159834a274da7f53e5141f7446dd9b1387119e43f035b1b0fa7c",
             "ttsVoice": "leo",
             "weight": 3
           },

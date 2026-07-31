@@ -533,9 +533,45 @@ void InventoryMgr::handleItemGridInput()
     }
 }
 
+float InventoryMgr::totalCarryWeightLb() const
+{
+    if (itemDatabase == nullptr)
+        return 0.0f;
+    float total = 0.0f;
+    for (const InventoryItem& item : items)
+    {
+        const ItemDef* def = itemDatabase->getDef(item.id);
+        if (def == nullptr)
+            continue;
+        total += computeItemWeightLb(*def, item.instance);
+    }
+    return roundItemWeightLb(total);
+}
+
+void InventoryMgr::openCraftChooser(
+    const std::string& firstItemId,
+    const std::string& secondItemId,
+    std::vector<ItemCraftCandidate> candidates)
+{
+    craftChooserOpen = true;
+    craftChooserFirstId = firstItemId;
+    craftChooserSecondId = secondItemId;
+    craftChooserCandidates = std::move(candidates);
+}
+
+void InventoryMgr::closeCraftChooser()
+{
+    craftChooserOpen = false;
+    craftChooserFirstId.clear();
+    craftChooserSecondId.clear();
+    craftChooserCandidates.clear();
+}
+
 void InventoryMgr::handleItemCombineInput()
 {
     if (viewState != InventoryViewState::ItemList)
+        return;
+    if (craftChooserOpen)
         return;
 
     if (!IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
@@ -556,20 +592,34 @@ void InventoryMgr::handleItemCombineInput()
                     && itemCombinationDatabase != nullptr
                     && itemDatabase != nullptr)
                 {
-                    ItemCombineApplication application;
-                    if (itemCombinationDatabase->tryCombine(
+                    const std::vector<ItemCraftCandidate> products =
+                        itemCombinationDatabase->findAffordableCraftProducts(
+                            *itemDatabase,
                             dragItemId,
                             targetItemId,
                             sourceItem->instance,
-                            targetItem->instance,
-                            application)
-                        && applyItemCombination(application))
+                            targetItem->instance);
+
+                    if (products.size() > 1)
                     {
-                        selectedItemId.clear();
-                        for (const std::string& grantId : application.grantItemIds)
+                        openCraftChooser(dragItemId, targetItemId, products);
+                    }
+                    else
+                    {
+                        ItemCombineApplication application;
+                        if (itemCombinationDatabase->tryCombine(
+                                *itemDatabase,
+                                dragItemId,
+                                targetItemId,
+                                sourceItem->instance,
+                                targetItem->instance,
+                                application)
+                            && applyItemCombination(application))
                         {
-                            if (hasItem(grantId))
-                                selectedItemId = grantId;
+                            selectedItemId.clear();
+                            if (!application.grantProductId.empty()
+                                && hasItem(application.grantProductId))
+                                selectedItemId = application.grantProductId;
                         }
                     }
                 }
@@ -586,80 +636,236 @@ void InventoryMgr::handleItemCombineInput()
     isDraggingItem = false;
 }
 
+bool InventoryMgr::applyComponentSpends(const std::vector<ItemCombineComponentSpend>& spends)
+{
+    if (itemDatabase == nullptr)
+        return false;
+
+    for (const ItemCombineComponentSpend& spend : spends)
+    {
+        InventoryItem* item = findMutableItem(spend.itemId);
+        if (item == nullptr)
+            return false;
+        if (spend.spendQty > 0)
+        {
+            if (item->instance.quantity < spend.spendQty)
+                return false;
+            item->instance.quantity -= spend.spendQty;
+        }
+
+        // Cleanup owned by the component instance rules.
+        if (item->instance.quantity < 1)
+        {
+            if (spend.consume)
+            {
+                if (!removeItem(spend.itemId))
+                    return false;
+            }
+            else
+            {
+                item->instance.quantity = 1;
+                InventoryItem refreshed = itemDatabase->buildInventoryItem(item->instance);
+                // Keep loaded textures when possible.
+                refreshed.icon = item->icon;
+                refreshed.examineImage = item->examineImage;
+                *item = refreshed;
+            }
+        }
+        else
+        {
+            InventoryItem refreshed = itemDatabase->buildInventoryItem(item->instance);
+            refreshed.icon = item->icon;
+            refreshed.examineImage = item->examineImage;
+            *item = refreshed;
+        }
+    }
+    return true;
+}
+
 bool InventoryMgr::applyItemCombination(const ItemCombineApplication& application)
 {
     if (!application.success || itemDatabase == nullptr)
         return false;
 
-    for (const std::string& itemId : application.removeItemIds)
+    if (application.grantProductId.empty()
+        || !itemDatabase->hasDef(application.grantProductId))
+        return false;
+
+    for (const ItemCombineComponentSpend& spend : application.componentSpends)
     {
-        if (!hasItem(itemId))
+        if (findItem(spend.itemId) == nullptr)
             return false;
     }
 
-    for (const std::pair<std::string, std::string>& flagEntry : application.addFlags)
+    if (!applyComponentSpends(application.componentSpends))
+        return false;
+
+    ItemInstance instance = itemDatabase->createInstance(application.grantProductId);
+    instance.quantity = std::max(1, application.grantQuantity);
+    InventoryItem granted = itemDatabase->buildInventoryItem(instance);
+    InventoryItem* existing = findMutableItem(application.grantProductId);
+    if (existing != nullptr)
     {
-        const InventoryItem* item = findItem(flagEntry.first);
-        if (item == nullptr)
-            return false;
-        (void)item;
+        existing->instance.quantity += instance.quantity;
+        InventoryItem refreshed = itemDatabase->buildInventoryItem(existing->instance);
+        refreshed.icon = existing->icon;
+        refreshed.examineImage = existing->examineImage;
+        *existing = refreshed;
     }
-
-    for (const std::string& grantId : application.grantItemIds)
+    else
     {
-        if (grantId.empty() || hasItem(grantId) || !itemDatabase->hasDef(grantId))
-            return false;
-    }
-
-    for (const std::string& itemId : application.removeItemIds)
-        removeItem(itemId);
-
-    for (const std::pair<std::string, std::string>& flagEntry : application.addFlags)
-    {
-        InventoryItem* item = findMutableItem(flagEntry.first);
-        if (item == nullptr)
-            return false;
-
-        if (!item->instance.hasFlag(flagEntry.second))
-            item->instance.activeFlags.push_back(flagEntry.second);
-
-        const std::string previousIconPath = item->iconPath;
-        const std::string previousExaminePath = item->examineImagePath;
-        const Texture2D previousIcon = item->icon;
-        const Texture2D previousExamineImage = item->examineImage;
-
-        InventoryItem refreshed = itemDatabase->buildInventoryItem(item->instance);
-        refreshed.icon = previousIcon;
-        refreshed.examineImage = previousExamineImage;
-        *item = refreshed;
-
-        if (item->iconPath != previousIconPath)
-        {
-            if (item->icon.id != 0)
-                UnloadTexture(item->icon);
-            item->icon = Texture2D{};
-            loadItemIcon(*item);
-        }
-
-        if (item->examineImagePath != previousExaminePath)
-        {
-            if (item->examineImage.id != 0)
-                UnloadTexture(item->examineImage);
-            item->examineImage = Texture2D{};
-            loadItemExamineImage(*item);
-        }
-    }
-
-    for (const std::string& grantId : application.grantItemIds)
-    {
-        ItemInstance instance = itemDatabase->createInstance(grantId);
-        InventoryItem granted = itemDatabase->buildInventoryItem(instance);
         addItem(granted);
     }
 
     pendingCombinationNarrative = application.narrative;
+    pendingCombinationNarrativeTts = application.narrativeTts;
+    pendingCombinationTtsOwnerEnabled = application.ttsOwnerEnabled;
     pendingItemCombinationApplied = true;
     return true;
+}
+
+void InventoryMgr::handleCraftChooserInput()
+{
+    if (!craftChooserOpen)
+        return;
+
+    if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        return;
+
+    const float dialogW = 360.0f;
+    const float rowH = 52.0f;
+    const float cancelH = 36.0f;
+    const float pad = 16.0f;
+    const float dialogH =
+        pad + 28.0f
+        + rowH * static_cast<float>(craftChooserCandidates.size())
+        + cancelH + pad + 8.0f;
+    const Rectangle dialog = {
+        panelBounds.x + (panelBounds.width - dialogW) * 0.5f,
+        panelBounds.y + (panelBounds.height - dialogH) * 0.5f,
+        dialogW,
+        dialogH};
+    const Vector2 mouse = GetMousePosition();
+
+    const Rectangle cancelBtn = {
+        dialog.x + pad,
+        dialog.y + dialogH - pad - cancelH,
+        dialogW - pad * 2.0f,
+        cancelH};
+    if (CheckCollisionPointRec(mouse, cancelBtn))
+    {
+        closeCraftChooser();
+        return;
+    }
+
+    float y = dialog.y + pad + 28.0f;
+    for (const ItemCraftCandidate& candidate : craftChooserCandidates)
+    {
+        const Rectangle row = {dialog.x + pad, y, dialogW - pad * 2.0f, rowH - 4.0f};
+        if (CheckCollisionPointRec(mouse, row)
+            && itemDatabase != nullptr
+            && itemCombinationDatabase != nullptr)
+        {
+            const InventoryItem* first = findItem(craftChooserFirstId);
+            const InventoryItem* second = findItem(craftChooserSecondId);
+            if (first != nullptr && second != nullptr)
+            {
+                ItemCombineApplication application;
+                if (itemCombinationDatabase->buildProductCraftApplication(
+                        *itemDatabase,
+                        candidate.productId,
+                        craftChooserFirstId,
+                        craftChooserSecondId,
+                        first->instance,
+                        second->instance,
+                        application)
+                    && applyItemCombination(application))
+                {
+                    selectedItemId = candidate.productId;
+                }
+            }
+            closeCraftChooser();
+            return;
+        }
+        y += rowH;
+    }
+
+    // Click outside dialog cancels.
+    if (!CheckCollisionPointRec(mouse, dialog))
+        closeCraftChooser();
+}
+
+void InventoryMgr::drawCraftChooser() const
+{
+    if (!craftChooserOpen)
+        return;
+
+    DrawRectangle(
+        static_cast<int>(panelBounds.x),
+        static_cast<int>(panelBounds.y),
+        static_cast<int>(panelBounds.width),
+        static_cast<int>(panelBounds.height),
+        Color{0, 0, 0, 160});
+
+    const float dialogW = 360.0f;
+    const float rowH = 52.0f;
+    const float cancelH = 36.0f;
+    const float pad = 16.0f;
+    const float dialogH =
+        pad + 28.0f
+        + rowH * static_cast<float>(craftChooserCandidates.size())
+        + cancelH + pad + 8.0f;
+    const Rectangle dialog = {
+        panelBounds.x + (panelBounds.width - dialogW) * 0.5f,
+        panelBounds.y + (panelBounds.height - dialogH) * 0.5f,
+        dialogW,
+        dialogH};
+
+    DrawRectangleRec(dialog, Color{32, 30, 40, 255});
+    DrawRectangleLinesEx(dialog, 2.0f, Color{168, 138, 72, 255});
+    DrawTextEx(
+        panelFont.texture.id != 0 ? panelFont : GetFontDefault(),
+        "Choose product",
+        {dialog.x + pad, dialog.y + pad},
+        16.0f,
+        1.0f,
+        Color{220, 212, 196, 255});
+
+    float y = dialog.y + pad + 28.0f;
+    const Vector2 mouse = GetMousePosition();
+    for (const ItemCraftCandidate& candidate : craftChooserCandidates)
+    {
+        const Rectangle row = {dialog.x + pad, y, dialogW - pad * 2.0f, rowH - 4.0f};
+        const bool hover = CheckCollisionPointRec(mouse, row);
+        DrawRectangleRec(row, hover ? Color{60, 54, 72, 255} : Color{44, 42, 52, 255});
+        DrawRectangleLinesEx(row, 1.0f, Color{168, 138, 72, 255});
+
+        // Icon placeholder / path note (textures load via inventory items when held).
+        DrawTextEx(
+            panelFont.texture.id != 0 ? panelFont : GetFontDefault(),
+            candidate.productName.c_str(),
+            {row.x + 12.0f, row.y + 14.0f},
+            15.0f,
+            1.0f,
+            Color{220, 212, 196, 255});
+        y += rowH;
+    }
+
+    const Rectangle cancelBtn = {
+        dialog.x + pad,
+        dialog.y + dialogH - pad - cancelH,
+        dialogW - pad * 2.0f,
+        cancelH};
+    const bool cancelHover = CheckCollisionPointRec(mouse, cancelBtn);
+    DrawRectangleRec(cancelBtn, cancelHover ? Color{70, 60, 50, 255} : Color{44, 42, 52, 255});
+    DrawRectangleLinesEx(cancelBtn, 1.0f, Color{168, 138, 72, 255});
+    DrawTextEx(
+        panelFont.texture.id != 0 ? panelFont : GetFontDefault(),
+        "Cancel",
+        {cancelBtn.x + (cancelBtn.width - 48.0f) * 0.5f, cancelBtn.y + 10.0f},
+        15.0f,
+        1.0f,
+        Color{220, 212, 196, 255});
 }
 
 void InventoryMgr::handleInventoryScrollInput()
@@ -727,6 +933,12 @@ void InventoryMgr::update()
         return;
 
     layoutItemSlots();
+    if (craftChooserOpen)
+    {
+        handleCraftChooserInput();
+        return;
+    }
+
     handleCloseButtonInput();
     handleItemGridInput();
     handleItemCombineInput();
@@ -988,6 +1200,7 @@ void InventoryMgr::draw() const
     drawItemGrid();
     drawDragGhost();
     drawInventoryScrollbar();
+    drawCraftChooser();
 }
 
 const InventoryItem* InventoryMgr::getSelectedItem() const
@@ -1046,7 +1259,11 @@ bool InventoryMgr::consumeItemCombinationApplied()
     const bool applied = pendingItemCombinationApplied;
     pendingItemCombinationApplied = false;
     if (!applied)
+    {
         pendingCombinationNarrative.clear();
+        pendingCombinationNarrativeTts = ItemTtsDef{};
+        pendingCombinationTtsOwnerEnabled = false;
+    }
     return applied;
 }
 
@@ -1055,6 +1272,20 @@ std::string InventoryMgr::consumePendingCombinationNarrative()
     const std::string narrative = pendingCombinationNarrative;
     pendingCombinationNarrative.clear();
     return narrative;
+}
+
+ItemTtsDef InventoryMgr::consumePendingCombinationNarrativeTts()
+{
+    const ItemTtsDef tts = pendingCombinationNarrativeTts;
+    pendingCombinationNarrativeTts = ItemTtsDef{};
+    return tts;
+}
+
+bool InventoryMgr::consumePendingCombinationTtsOwnerEnabled()
+{
+    const bool enabled = pendingCombinationTtsOwnerEnabled;
+    pendingCombinationTtsOwnerEnabled = false;
+    return enabled;
 }
 
 std::vector<InventoryItem> InventoryMgr::exportItemSnapshots() const

@@ -75,9 +75,24 @@ endif()
 
 set(EDITOR_SOURCES
     main.cpp
+    EditorPaths.cpp
+    EditorUiDraw.cpp
+    ConversationHelpers.cpp
+    ThumbnailCache.cpp
+    EditorLayout.cpp
+    DocumentWorkspace.cpp
+    VariableEditor.cpp
+    ConversationTree.cpp
+    ItemAuthoring.cpp
+    ItemEditor.cpp
+    ItemEditorAuthoring.cpp
+    SceneGraphModel.cpp
+    SceneMapCanvas.cpp
+    SceneEditorApp.cpp
     ${CMAKE_SOURCE_DIR}/../../src/SceneDocument.cpp
     ${CMAKE_SOURCE_DIR}/../../src/ImageCompression.cpp
     ${CMAKE_SOURCE_DIR}/../../src/PlatformPath.cpp
+    ${CMAKE_SOURCE_DIR}/../../src/TtsVoiceMarkup.cpp
 )
 
 add_executable(scene-editor ${EDITOR_SOURCES})

@@ -4,12 +4,14 @@
     "default": [220, 212, 196, 255],
     "command": [230, 140, 50, 255],
     "voiceMarkup": [235, 210, 70, 255],
-    "voiceDialog": [140, 195, 235, 255]
+    "voiceDialog": [140, 195, 235, 255],
+    "voiceDialogError": [180, 40, 40, 255]
   },
   "notes": {
     "command": "xAI API bracket commands such as [pause], [long-pause], [sigh] (brackets included)",
     "voiceMarkup": "{{voice:eve}} … {{/voice}} and short forms like {{eve}}",
-    "voiceDialog": "Spoken text nested inside an open voice markup region",
+    "voiceDialog": "Spoken text nested inside a valid open voice markup region",
+    "voiceDialogError": "Dialog inside incomplete, unclosed, or unknown-voice markup",
     "default": "Narration and other text outside voice markup"
   }
 }

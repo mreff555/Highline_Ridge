@@ -136,6 +136,7 @@ class GameSession
     void clearItemExamineAudio();
     bool canTakeFromExaminedItem() const;
     void takeFromExaminedItem();
+    bool isCurrentSceneTtsEnabled() const;
     void playDialogAudio(const SpeakResult& result);
     void playInteractionTts(const SceneInteractionDef& interaction, bool includeAfter = false);
     void playSceneNarrativeTts(const ItemTtsDef& tts);

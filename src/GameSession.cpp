@@ -817,7 +817,9 @@ namespace
         if (def == nullptr)
             return;
 
-        if (def->examineTts.enabled && gameConfig.tts.enabled)
+        if (def->ttsPolicy.enabled
+            && def->examineTts.enabled
+            && gameConfig.tts.enabled)
         {
             if (!def->examineTts.audio.empty())
                 audioManager.playDialogAsset(def->examineTts.audio);
@@ -900,6 +902,13 @@ namespace
 
         if (!def->useNarrative.empty())
             appendNarrativeSection("Using:", def->useNarrative);
+        if (def->ttsPolicy.enabled
+            && def->useTts.enabled
+            && gameConfig.tts.enabled
+            && !def->useTts.audio.empty())
+        {
+            audioManager.playDialogAsset(def->useTts.audio);
+        }
 
         narrativeNotebook.resetInventoryExamineScroll();
         updateActionAvailability();
@@ -914,6 +923,16 @@ namespace
 
         if (extracted.id.empty())
             return;
+
+        const ItemDef* extractedDef = itemDatabase.getDef(extracted.id);
+        if (extractedDef != nullptr
+            && extractedDef->ttsPolicy.enabled
+            && extractedDef->takeTts.enabled
+            && gameConfig.tts.enabled
+            && !extractedDef->takeTts.audio.empty())
+        {
+            audioManager.playDialogAsset(extractedDef->takeTts.audio);
+        }
 
         inventoryMgr.addItem(extracted);
         evaluateMilestones();
@@ -1234,11 +1253,17 @@ namespace
         evaluateMilestones();
     }
 
+    bool GameSession::isCurrentSceneTtsEnabled() const
+    {
+        const SceneData* scene = sceneDatabase.getScene(worldState.currentSceneId);
+        return scene != nullptr && scene->ttsPolicy.enabled;
+    }
+
     void GameSession::playDialogAudio(const SpeakResult& result)
     {
         if (result.useTts && !result.ttsAudioPaths.empty())
         {
-            if (!gameConfig.tts.enabled)
+            if (!gameConfig.tts.enabled || !isCurrentSceneTtsEnabled())
                 return;
 
             if (audioManager.playDialogAssetSequence(result.ttsAudioPaths))
@@ -1256,7 +1281,7 @@ namespace
 
     void GameSession::playInteractionTts(const SceneInteractionDef& interaction, bool includeAfter)
     {
-        if (!interaction.tts || !gameConfig.tts.enabled)
+        if (!interaction.tts || !gameConfig.tts.enabled || !isCurrentSceneTtsEnabled())
             return;
 
         const bool useVariant =
@@ -1278,7 +1303,10 @@ namespace
 
     void GameSession::playSceneNarrativeTts(const ItemTtsDef& tts)
     {
-        if (!tts.enabled || !gameConfig.tts.enabled || tts.audio.empty())
+        if (!tts.enabled
+            || !gameConfig.tts.enabled
+            || !isCurrentSceneTtsEnabled()
+            || tts.audio.empty())
             return;
 
         playSceneNarrativeTtsSequence({ tts.audio });
@@ -1286,7 +1314,7 @@ namespace
 
     void GameSession::playSceneNarrativeTtsSequence(const std::vector<std::string>& audioPaths)
     {
-        if (!gameConfig.tts.enabled || audioPaths.empty())
+        if (!gameConfig.tts.enabled || !isCurrentSceneTtsEnabled() || audioPaths.empty())
             return;
 
         if (audioManager.playDialogAssetSequence(audioPaths))
@@ -1301,7 +1329,7 @@ namespace
         const std::vector<std::string>& audioPaths,
         float delaySeconds)
     {
-        if (!gameConfig.tts.enabled || audioPaths.empty())
+        if (!gameConfig.tts.enabled || !isCurrentSceneTtsEnabled() || audioPaths.empty())
             return;
 
         cancelDelayedSceneNarrativeTts();
@@ -2583,10 +2611,12 @@ namespace
         if (worldState.currentSceneId != "ice_house_interior" || direction != "right")
             return false;
 
-        if (!hasExaminedScene(worldState.currentSceneId))
+        // Always allow leaving once the badge has been revealed (or taken).
+        if (worldState.storyFlags.count("ice_house_interior:ranger_badge_revealed") > 0)
             return false;
 
-        if (worldState.storyFlags.count("ice_house_interior:ranger_badge_revealed") > 0)
+        // Until the room is examined, right still exits normally (no badge yet).
+        if (!hasExaminedScene(worldState.currentSceneId))
             return false;
 
         const std::string details =
@@ -2596,11 +2626,13 @@ namespace
             "Something answers the light - a brief, hard glint, too deliberate to be ice.\n\n"
             "You kneel. Your fingers close around a small circle of brass half-buried in the "
             "packed earth: a Texas Ranger badge, tarnished at the edges but not forgotten. Whoever "
-            "left it here did not mean for it to stay hidden forever.";
+            "left it here did not mean for it to stay hidden forever.\n\n"
+            "You can take it, or leave it where the light found it.";
 
         appendNarrativeSection("Examining:", details);
         worldState.storyFlags.insert("ice_house_interior:ranger_badge_revealed");
         evaluateMilestones();
+        refreshTakeItems();
         updateActionAvailability();
         recordPlayerAction();
         return true;
@@ -2983,6 +3015,11 @@ namespace
         LocationStruct locationStruct;
         const std::string fromSceneId = worldState.currentSceneId;
         const std::string fromSubSceneId = worldState.activeSubSceneId;
+
+        // Cut off any dialog/TTS still playing from the live session before the load.
+        cancelDelayedSceneNarrativeTts();
+        audioManager.stopDialog();
+
         audioManager.onRoomExit(
             sceneDatabase.getSceneAudio(fromSceneId, fromSubSceneId),
             state.sceneId);
@@ -3021,7 +3058,6 @@ namespace
 
         pendingOpeningHypoxiaSequence = false;
         lucidityCollapseSequenceActive = false;
-        cancelDelayedSceneNarrativeTts();
         overlayMgr.clear();
 
         conversationMgr.onEnterScene(worldState.currentSceneId, sceneDatabase.getSpeakConfig(worldState.currentSceneId));
@@ -3724,8 +3760,17 @@ namespace
             if (inventoryMgr.consumeItemCombinationApplied())
             {
                 const std::string narrative = inventoryMgr.consumePendingCombinationNarrative();
+                const bool combineTtsOwner = inventoryMgr.consumePendingCombinationTtsOwnerEnabled();
+                const ItemTtsDef combineTts = inventoryMgr.consumePendingCombinationNarrativeTts();
                 if (!narrative.empty())
                     appendNarrativeSection("Using:", narrative);
+                if (combineTtsOwner
+                    && combineTts.enabled
+                    && gameConfig.tts.enabled
+                    && !combineTts.audio.empty())
+                {
+                    audioManager.playDialogAsset(combineTts.audio);
+                }
                 recordPlayerAction();
             }
             handleInventoryDropInput();

@@ -57,6 +57,7 @@ set(SOURCES
     src/SaveGame.cpp
     src/TextDigest.cpp
     src/TtsVoiceMarkup.cpp
+    src/TtsContentValidator.cpp
     src/XaiTtsClient.cpp
     src/ItemInstance.cpp
     src/ItemDatabase.cpp
@@ -237,4 +238,35 @@ add_custom_target(sync_resources ALL
         "${CMAKE_BINARY_DIR}/resources"
     COMMENT "Syncing resources to build directory"
 )
+
+# 8. Hard-fail the build when TTS policy / markup is invalid (same rules as load/refresh).
+add_executable(validate_tts tools/validate_tts.cpp
+    src/TtsVoiceMarkup.cpp
+    src/TtsContentValidator.cpp
+)
+target_include_directories(validate_tts PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(validate_tts PRIVATE nlohmann_json::nlohmann_json raylib)
+if(APPLE)
+    target_link_libraries(validate_tts PRIVATE
+        "-framework Cocoa"
+        "-framework OpenGL"
+        "-framework IOKit"
+        "-framework CoreVideo"
+        "-framework CoreAudio"
+        "-framework AudioToolbox"
+        "-framework CoreFoundation"
+    )
+endif()
+
+add_custom_target(check_tts_resources ALL
+    COMMAND validate_tts
+        "${CMAKE_SOURCE_DIR}/resources/scenes.json"
+        "${CMAKE_SOURCE_DIR}/resources/conversations.json"
+        "${CMAKE_SOURCE_DIR}/resources/items.json"
+        ""
+    DEPENDS validate_tts
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    COMMENT "Validating TTS scene/item policies and voice markup"
+)
+add_dependencies(${PROJECT_NAME} check_tts_resources)
 add_dependencies(${PROJECT_NAME} sync_resources)

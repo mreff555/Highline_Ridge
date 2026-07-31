@@ -1563,6 +1563,11 @@ bool parseScene(const std::string& id, const nlohmann::json& sceneJson, SceneDat
         out.alternateImages.push_back(legacyAlternate);
     }
 
+    parseTtsOwnerPolicyFromJsonFields(
+        sceneJson.value("ttsEnabled", false),
+        sceneJson.value("ttsDefaultVoice", ""),
+        out.ttsPolicy);
+
     out.description = sceneJson.value("description", "");
     parseNarrativeTts(sceneJson.value("descriptionTts", nlohmann::json::object()), out.descriptionTts);
     out.wakeNarrative = sceneJson.value("wakeNarrative", "");

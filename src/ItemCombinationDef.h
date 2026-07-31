@@ -20,50 +20,38 @@
 #ifndef ITEM_COMBINATION_DEF_H
 #define ITEM_COMBINATION_DEF_H
 
+#include <ItemDef.h>
 #include <string>
 #include <vector>
 
 namespace timberline_engine
 {
 
-struct ItemCombineRequirements
+/** Runtime spend against a live inventory instance for product crafts. */
+struct ItemCombineComponentSpend
 {
-    std::vector<std::string> requiredFlags;
-    std::vector<std::string> forbiddenFlags;
-};
-
-struct ItemCombineEffect
-{
-    enum class Type
-    {
-        Remove,
-        AddFlag,
-        Grant
-    };
-
-    Type type = Type::Grant;
     std::string itemId;
-    std::string flag;
+    int spendQty = 0;
+    bool consume = true;
 };
 
-struct ItemCombineRecipe
-{
-    std::string id;
-    std::string itemA;
-    std::string itemB;
-    ItemCombineRequirements requirementsA;
-    ItemCombineRequirements requirementsB;
-    std::vector<ItemCombineEffect> effects;
-    std::string narrative;
-};
-
+/** Result of resolving a product craft from item.components. */
 struct ItemCombineApplication
 {
     bool success = false;
     std::string narrative;
-    std::vector<std::string> removeItemIds;
-    std::vector<std::pair<std::string, std::string>> addFlags;
-    std::vector<std::string> grantItemIds;
+    ItemTtsDef narrativeTts;
+    bool ttsOwnerEnabled = false;
+    std::string grantProductId;
+    int grantQuantity = 1;
+    std::vector<ItemCombineComponentSpend> componentSpends;
+};
+
+struct ItemCraftCandidate
+{
+    std::string productId;
+    std::string productName;
+    std::string iconPath;
 };
 
 }

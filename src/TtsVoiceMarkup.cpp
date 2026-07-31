@@ -55,16 +55,145 @@ void appendSegmentText(
         segments.push_back({ voiceId, trimmed });
 }
 
+bool isTtsCommandBodyChar(unsigned char ch)
+{
+    return std::isalnum(ch) != 0 || ch == '-' || ch == '_';
+}
+
+/** Exact allowlist of bracket tags eligible for editor syntax highlighting. */
+bool isAllowlistedTtsCommandTag(const std::string& body)
+{
+    // Normalize: trim + lowercase so [Pause] / " long-pause " still match.
+    std::string normalized;
+    normalized.reserve(body.size());
+    size_t begin = 0;
+    while (begin < body.size() && std::isspace(static_cast<unsigned char>(body[begin])))
+        ++begin;
+    size_t end = body.size();
+    while (end > begin && std::isspace(static_cast<unsigned char>(body[end - 1])))
+        --end;
+    for (size_t i = begin; i < end; ++i)
+        normalized.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(body[i]))));
+
+    static const char* kAllowed[] = {
+        "pause",
+        "long-pause",
+        "hum-tune",
+        "laugh",
+        "chuckle",
+        "giggle",
+        "cry",
+        "tsk",
+        "tongue-click",
+        "lip-smack",
+        "breath",
+        "inhale",
+        "exhale",
+        "sigh",
+    };
+    for (const char* tag : kAllowed)
+    {
+        if (normalized == tag)
+            return true;
+    }
+    return false;
+}
+
+bool looksLikeTtsCommandBody(const std::string& body)
+{
+    return isAllowlistedTtsCommandTag(body);
+}
+
+// Classify open tag body: returns true if it is a voice-open form.
+// knownVoice: true only when the voice id is recognized.
+bool classifyVoiceOpenTag(const std::string& body, bool& knownVoice, std::string& voiceIdOut)
+{
+    knownVoice = false;
+    voiceIdOut.clear();
+    const std::string trimmed = trimWhitespaceLocal(body);
+    if (trimmed.empty() || trimmed[0] == '/')
+        return false;
+
+    const std::string lower = normalizeVoiceId(trimmed);
+    const std::string voicePrefix = "voice:";
+    if (lower.rfind(voicePrefix, 0) == 0)
+    {
+        const std::string voiceName = trimWhitespaceLocal(trimmed.substr(voicePrefix.size()));
+        if (voiceName.empty())
+            return true; // open form, but missing id → unknown
+        voiceIdOut = normalizeVoiceId(voiceName);
+        knownVoice = isKnownBuiltinVoiceId(voiceIdOut);
+        return true;
+    }
+
+    if (isKnownBuiltinVoiceId(lower))
+    {
+        voiceIdOut = lower;
+        knownVoice = true;
+        return true;
+    }
+
+    // Looks like a short-form voice tag but unknown (single token, no spaces).
+    if (lower.find_first_of(" \t\r\n") == std::string::npos && !lower.empty())
+    {
+        voiceIdOut = lower;
+        knownVoice = false;
+        return true;
+    }
+
+    return false;
+}
+
+bool classifyVoiceCloseTag(const std::string& body, bool& knownClose)
+{
+    knownClose = false;
+    const std::string trimmed = trimWhitespaceLocal(body);
+    if (trimmed.empty() || trimmed[0] != '/')
+        return false;
+
+    const std::string name = normalizeVoiceId(trimWhitespaceLocal(trimmed.substr(1)));
+    if (name == "voice" || isKnownBuiltinVoiceId(name))
+    {
+        knownClose = true;
+        return true;
+    }
+
+    // Close form with unknown name
+    return !name.empty();
+}
+
+}
+
+const std::vector<std::string>& builtinVoiceIds()
+{
+    static const std::vector<std::string> kVoices = {
+        "ara", "eve", "leo", "rex", "sal"
+    };
+    return kVoices;
+}
+
+std::string formatBuiltinVoiceList()
+{
+    const std::vector<std::string>& voices = builtinVoiceIds();
+    std::string list;
+    for (size_t i = 0; i < voices.size(); ++i)
+    {
+        if (i > 0)
+            list += ", ";
+        list += voices[i];
+    }
+    return list;
 }
 
 bool isKnownBuiltinVoiceId(const std::string& voiceId)
 {
     const std::string normalized = normalizeVoiceId(voiceId);
-    return normalized == "eve"
-        || normalized == "ara"
-        || normalized == "rex"
-        || normalized == "sal"
-        || normalized == "leo";
+    for (const std::string& voice : builtinVoiceIds())
+    {
+        if (voice == normalized)
+            return true;
+    }
+    return false;
 }
 
 std::string normalizeVoiceId(const std::string& voiceId)
@@ -76,6 +205,32 @@ std::string normalizeVoiceId(const std::string& voiceId)
     return normalized;
 }
 
+std::string formatTtsEnabledMissingVoiceError(
+    const std::string& ownerLabel,
+    const char* defaultVoiceKeyName)
+{
+    const char* key = (defaultVoiceKeyName != nullptr && defaultVoiceKeyName[0] != '\0')
+        ? defaultVoiceKeyName
+        : "ttsDefaultVoice";
+
+    return ownerLabel
+        + " is TTS enabled and requires a valid default voice entry(\""
+        + key
+        + "\":=\"<valid default voice>\"). You could also choose to disable TTS for that scene "
+          "(or item / recipe) by setting ttsEnabled to false. "
+          "Current voices available are: "
+        + formatBuiltinVoiceList();
+}
+
+void parseTtsOwnerPolicyFromJsonFields(
+    bool ttsEnabledField,
+    const std::string& ttsDefaultVoiceField,
+    TtsOwnerPolicy& out)
+{
+    out.enabled = ttsEnabledField;
+    out.defaultVoice = normalizeVoiceId(ttsDefaultVoiceField);
+}
+
 bool parseVoiceMarkup(
     const std::string& text,
     const std::string& defaultVoiceId,
@@ -85,8 +240,20 @@ bool parseVoiceMarkup(
     outSegments.clear();
     outError.clear();
 
-    const std::string defaultVoice = normalizeVoiceId(
-        defaultVoiceId.empty() ? "leo" : defaultVoiceId);
+    if (defaultVoiceId.empty())
+    {
+        outError = "Default voice is empty; a known builtin voice is required";
+        return false;
+    }
+
+    const std::string defaultVoice = normalizeVoiceId(defaultVoiceId);
+    if (!isKnownBuiltinVoiceId(defaultVoice))
+    {
+        outError = "Unknown default voice \"" + defaultVoiceId
+            + "\". Current voices available are: " + formatBuiltinVoiceList();
+        return false;
+    }
+
     std::string currentVoice = defaultVoice;
     std::string pendingText;
     size_t position = 0;
@@ -148,8 +315,17 @@ bool parseVoiceMarkup(
                 return false;
             }
 
+            const std::string normalized = normalizeVoiceId(voiceName);
+            if (!isKnownBuiltinVoiceId(normalized))
+            {
+                outError = "Unknown voice \"" + voiceName
+                    + "\" in {{voice:" + voiceName + "}}. Current voices available are: "
+                    + formatBuiltinVoiceList();
+                return false;
+            }
+
             flushPendingText();
-            currentVoice = normalizeVoiceId(voiceName);
+            currentVoice = normalized;
             continue;
         }
 
@@ -173,6 +349,39 @@ bool parseVoiceMarkup(
     }
 
     return true;
+}
+
+void classifyTtsTextHighlight(
+    const std::string& text,
+    std::vector<TtsHighlightKind>& outKinds)
+{
+    outKinds.assign(text.size(), TtsHighlightKind::Default);
+    if (text.empty())
+        return;
+
+    // Editor highlighting is intentionally limited to the allowlisted
+    // bracket tags (pause, laugh, sigh, …). Voice {{…}} markup is not
+    // colorized here so authors only see the approved command set.
+    size_t i = 0;
+    while (i < text.size())
+    {
+        if (text[i] == '[')
+        {
+            const size_t close = text.find(']', i + 1);
+            if (close != std::string::npos)
+            {
+                const std::string body = text.substr(i + 1, close - (i + 1));
+                if (looksLikeTtsCommandBody(body))
+                {
+                    for (size_t j = i; j <= close; ++j)
+                        outKinds[j] = TtsHighlightKind::Command;
+                    i = close + 1;
+                    continue;
+                }
+            }
+        }
+        ++i;
+    }
 }
 
 std::string buildSegmentAudioPath(

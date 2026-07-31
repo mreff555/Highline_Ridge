@@ -129,6 +129,45 @@ bool SceneDocument::hasScene(const std::string& sceneId) const
     return isLoaded() && root["scenes"].contains(sceneId);
 }
 
+bool SceneDocument::removeScene(const std::string& sceneId)
+{
+    if (!hasScene(sceneId))
+        return false;
+
+    nlohmann::json& scenes = root["scenes"];
+    for (auto it = scenes.begin(); it != scenes.end(); ++it)
+    {
+        if (it.key() == sceneId || !it.value().is_object())
+            continue;
+
+        nlohmann::json& scene = it.value();
+        if (!scene.contains("exits") || !scene["exits"].is_object())
+            continue;
+
+        std::vector<std::string> directionsToClear;
+        for (auto exitIt = scene["exits"].begin(); exitIt != scene["exits"].end(); ++exitIt)
+        {
+            if (exitIt.value().is_string()
+                && exitIt.value().get<std::string>() == sceneId)
+            {
+                directionsToClear.push_back(exitIt.key());
+            }
+        }
+
+        for (const std::string& direction : directionsToClear)
+        {
+            scene["exits"].erase(direction);
+            if (scene.contains("movement") && scene["movement"].is_object())
+                scene["movement"][direction] = false;
+            if (scene.contains("exitRequirements") && scene["exitRequirements"].is_object())
+                scene["exitRequirements"].erase(direction);
+        }
+    }
+
+    scenes.erase(sceneId);
+    return true;
+}
+
 SceneLayout SceneDocument::getLayout(const std::string& sceneId) const
 {
     SceneLayout layout;

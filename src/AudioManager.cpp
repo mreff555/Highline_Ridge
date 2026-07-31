@@ -683,7 +683,13 @@ void AudioManager::stopDialog()
     for (ActiveSound& queuedClip : dialogQueue)
     {
         if (queuedClip.loaded)
+        {
+            // Stop first so a mid-line clip is cut off immediately on interrupt/load.
+            if (IsSoundPlaying(queuedClip.sound))
+                StopSound(queuedClip.sound);
             UnloadSound(queuedClip.sound);
+            queuedClip.loaded = false;
+        }
         removeTempFile(queuedClip.tempFilePath);
     }
 

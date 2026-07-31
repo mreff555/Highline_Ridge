@@ -37,18 +37,18 @@
       "description": "You step inside Alpine Hardware and Mining Supplies and the room answers with timber, iron, and lamp oil. Post-and-beam construction rises around you with a joiner's precision: braces cut true, pegs seated flush, every bearing face squared as though the building itself were a tool. Kerosene lanterns hang from posts and wall hooks, throwing a steady amber light across merchandise meant for men who work with their hands. A merchant stands behind the counter, tall and broad as an ox, shirt pressed, suspenders straight, beard trimmed with the same seriousness he brings to stock and shelf. He looks up as you enter, professional and unhurried, a man who obviously takes his job seriously.",
       "examineDetails": "You read the room the way you would a workshop: what is stored, how it is kept, what kind of man tends it.\n\nThe frame first. Post-and-beam timbers, hand-hewn and joined with a craftsman's patience. Cross braces cut to length, pegged mortises tight enough that the structure hums when a boot strikes the floor. This is not frontier slap construction. Someone built this room to stand through snow load and mine blast and the slow contempt of altitude.\n\nLight comes from kerosene lanterns hung on posts and wall hooks, glass chimneys trimmed, wicks recently cut. The air smells of lamp oil, iron, pine shavings, and the faint mineral tang of hardware stock kept dry against ridge damp.\n\nFloor space is honest mercantile clutter. Barrels hold rakes, hoes, and shovels standing handle-up like a stand of pale timber. Along the wall, picks and scythes hang from forged hooks in a row that keeps edge from edge. Hammers, hatchets, draw knives, augers, pry bars, and the other hand tools of 1891 line pegboards with labels written in a clerk's square hand. Rope in coils. Lanterns ready for filling. Mining candles in tins. Lime and blasting caps behind a counter drawer you are not meant to open without asking.\n\nBehind the merchant, open shelves carry the small necessities: nails sorted by penny weight in wooden bins, drill bits in cloth rolls, spools of copper and iron wire, hinges, hasps, stove bolts, and the thousand minor fasteners that keep a settlement from falling apart.\n\nThe counter is thick plank scarred by honest trade. At the right corner sits a brass cash register angled toward the merchant, as though the machine and the man share a private understanding of accounts.\n\nThe merchant himself is the room's other proof of competence. Tall, thick through the chest and arms, clean shirt, practical suspenders, eyes that measure you the way a man measures stock: weight, use, likelihood of return. He is not unfriendly. He is simply serious. This is a store built by someone who expects the ridge to dig, build, and stay.",
       "exits": {
-        "backward": "mountain_road_supply_row"
+        "left": "mountain_road_supply_row"
       },
       "image": "resources/images/alpine_hardware.png",
       "layout": {
         "level": 0,
         "x": 1064.0,
-        "y": 1344.0
+        "y": 2424.0
       },
       "movement": {
-        "backward": true,
+        "backward": false,
         "forward": false,
-        "left": false,
+        "left": true,
         "right": false
       },
       "speakDetails": "",
@@ -160,8 +160,8 @@
       ],
       "layout": {
         "level": 0,
-        "x": 296.0,
-        "y": 48.0
+        "x": 47.0,
+        "y": 488.0
       },
       "movement": {
         "backward": true,
@@ -202,8 +202,8 @@
       "image": "resources/images/cabin_cellar_open.png",
       "layout": {
         "level": 0,
-        "x": 2088.0,
-        "y": 480.0
+        "x": 552.0,
+        "y": 48.0
       },
       "movement": {
         "backward": true,
@@ -262,8 +262,8 @@
       "image": "resources/images/cabin_kitchen.png",
       "layout": {
         "level": 0,
-        "x": 296.0,
-        "y": 264.0
+        "x": 300.0,
+        "y": 665.0
       },
       "movement": {
         "backward": true,
@@ -318,8 +318,8 @@
       "image": "resources/images/cabin_under_rug.png",
       "layout": {
         "level": 0,
-        "x": 2088.0,
-        "y": 696.0
+        "x": 552.0,
+        "y": 264.0
       },
       "movement": {
         "backward": true,
@@ -424,8 +424,8 @@
       ],
       "layout": {
         "level": -1,
-        "x": 552.0,
-        "y": 48.0
+        "x": 40.0,
+        "y": 480.0
       },
       "movement": {
         "backward": false,
@@ -731,8 +731,8 @@
       ],
       "layout": {
         "level": 0,
-        "x": 1264.0,
-        "y": 952.0
+        "x": 1064.0,
+        "y": 912.0
       },
       "movement": {
         "backward": false,
@@ -899,8 +899,8 @@
       "image": "resources/images/ice_house_interior.png",
       "layout": {
         "level": 0,
-        "x": 552.0,
-        "y": 1128.0
+        "x": 554.0,
+        "y": 1256.0
       },
       "movement": {
         "backward": false,
@@ -916,6 +916,7 @@
           "icon": "resources/icons/texas_ranger_badge_icon.png",
           "id": "texas_ranger_badge",
           "name": "Texas Ranger Badge",
+          "requiresExamine": true,
           "requiresStoryFlag": "ice_house_interior:ranger_badge_revealed"
         }
       ],
@@ -949,8 +950,8 @@
       "description": "You step out onto a narrow dirt road cut along the flank of a mountain. Rough-hewn cabins line both sides, some with curtains drawn and firewood stacked neatly by the door, others with hand-painted signs and goods displayed in front windows. The air is thin and cold and carries the scent of pine resin and woodsmoke. Beyond the row of buildings the road falls away toward a sheer overlook, and there the world opens into impossible depth: clouds tower below you, slow and white as tides, parting here and there to reveal a small city far beneath: a grid of streets and rooftops swimming in silver mist, and beyond it, a dark mantle of forest spreading across the lower slopes. You are very high. High enough that the sky feels close and the earth feels far away.",
       "examineDetails": "You work methodically, the way detectives do when the scene is too large to trust at a glance. Start with the ground. The road is packed clay and coarse gravel mixed with crushed granite, alpine construction, drained by shallow ditches cut along the shoulders to carry snowmelt. Wildflowers cling to the embankment in stubborn clumps: alpine asters with violet petals, yellow arnica, and low mats of moss campion growing from cracks in the stone. The flora is subalpine to alpine transition zone; you are above the dense timberline but not yet in bare rock. That pins the elevation somewhere between nine and eleven thousand feet, perhaps higher.\n\nThe cabins tell a second story. To your left, smoke rises from a stone chimney and a wool blanket hangs airing on a porch rail, a residence. Next door, a hand-carved sign shows a crossed hammer and awl; through the window you see leather goods and metal fittings laid out on a counter, a smith or harness maker's shop. Across the road, warm lamplight bleeds through calico curtains, while farther down a wider frontage displays jars and bundled herbs on a trestle table. apothecary or general store. This is not an abandoned outpost. People live and trade here, high above the world.\n\nYou turn to the view and read the town below the way you would read a map at night. The city is small. perhaps twenty thousand souls at most. laid out in a neat grid with a central square whose lamps burn steady and yellow. A clock tower catches what little sun remains, its face just visible through the cloud deck. Rail yards glint along the eastern edge: freight cars parked in parallel lines, a roundhouse dome barely clearing the fog. To the south, a river bends cold and metallic between factory roofs and warehouse walls. The lights are not random. main thoroughfares burn brighter, residential blocks softer, the industrial quarter a low amber smear along the water. Whoever built this city expected commerce, not merely shelter.\n\nThe clouds themselves are orographic. piled against the leeward face of the range, pouring over the ridge like a slow waterfall and breaking apart as they descend. You are on the windward upper slope, standing on a mountain road above an inversion layer, looking down on a valley city wrapped in forest. The combination is rare but not impossible: a high-elevation settlement road servicing cabins and shops, overlooking a mill town or rail hub in the valley below.\n\nYou still cannot name the place. Your memory offers nothing. No signpost, no familiar peak profile, no voice to confirm what your eyes assemble. But you are somewhere in serious mountains, above a working city, on a road that expects travelers. The lights in the valley are coming on, one by one, as the afternoon fails. Whatever this town is, it is waking up beneath the clouds.",
       "exits": {
-        "forward": "mountain_road_trade_row",
-        "left": "narrow_path",
+        "backward": "mountain_road_trade_row",
+        "forward": "narrow_path",
         "right": "saloon_front"
       },
       "image": "resources/images/mountain_road.png",
@@ -960,9 +961,9 @@
         "y": 1992.0
       },
       "movement": {
-        "backward": false,
+        "backward": true,
         "forward": true,
-        "left": true,
+        "left": false,
         "right": true
       },
       "start": false,
@@ -995,17 +996,15 @@
       },
       "description": "The dirt road climbs to where the last cabins fall away and the mountain opens its palm to the sky. You stand at the crest of the row, plank porches and shopfronts behind you, the road narrowing as it runs toward a low stone wall meant to keep careless travelers from stepping into empty air. Beyond the wall the clouds move in slow procession, and the city below is clearer here, close enough to make out individual rooftops when the mist tears open, far enough that no voice could reach it. Wind combs the wildflowers flat against the ground. This is the end of the road, and the beginning of the drop.",
       "examineDetails": "The stone wall is mortared field granite capped with a timber rail darkened by weather. Carved into the keystone, nearly worn smooth: a date you cannot quite read and the words HIGH LINE ROAD. Boot scuffs mark the dust where others have come to look and turned back. From here the saloon's piano line carries faintly on the wind, mingled with the creak of a shop sign somewhere behind you.",
-      "exits": {
-        "backward": "mountain_road_supply_row"
-      },
+      "exits": {},
       "image": "resources/images/mountain_road.png",
       "layout": {
         "level": 0,
-        "x": 296.0,
-        "y": 912.0
+        "x": 2344.0,
+        "y": 480.0
       },
       "movement": {
-        "backward": true,
+        "backward": false,
         "forward": false,
         "left": false,
         "right": false
@@ -1042,16 +1041,15 @@
       "description": "The road continues into another row of ridge commerce, the air still thin and cold, the valley still far below. On your left, a haberdashery hangs coats and hats from its porch rail as though dressing the mountain itself: bolts of wool and calico in the window, a dress form in a dark suit jacket, notions and ribbon tucked into every corner. On your right, a hardware store displays the harder language of altitude: axes, shovels, picks, coils of rope, lanterns, and mining supplies stacked with the frank utility of men who expect to break ground or break ice before spring. Lanterns burn on both porches. The road runs forward toward whatever crest the High Line keeps for last.",
       "examineDetails": "You take the measure of the row the way you would a witness: what people buy when they live above the clouds.\n\nThe Ridge Haberdashery on your left is dry goods and notions dressed up as civilization. Hats on pegs, coats on the rail, folded cloth in the window glass still warm from the day's sun. A mannequin wears a suit jacket cut for a man who attends church in Graysmill on Sundays and keeps his timber deeds in an inside pocket. The stock is not frivolous. wool, canvas, boot hooks, sewing notions, the soft goods that keep a ridge settlement from looking like a camp.\n\nAlpine Hardware and Mining Supplies on your right speaks a different dialect. Axes with fresh edge grind, shovels, prospector's picks, rope in neat coils, lanterns filled and trimmed, crates of nails, barrels of lime. The sign claims est. 1893, which puts it in the same ambitious decade as the trading company down the road. Someone expected the High Line to dig, build, and stay.\n\nBetween the shops the road is worn pale by traffic. Haberdashery left, hardware right, valley below, crest ahead. The settlement is assembling itself in types: food, iron, cloth, tools.",
       "exits": {
-        "backward": "mountain_road_trade_row",
-        "forward": "mountain_road_forward",
+        "forward": "mountain_road_trade_row",
         "left": "ridge_haberdashery",
         "right": "alpine_hardware"
       },
       "image": "resources/images/mountain_road_supply_row.png",
       "layout": {
         "level": 0,
-        "x": 552.0,
-        "y": 1344.0
+        "x": 808.0,
+        "y": 2424.0
       },
       "movement": {
         "backward": true,
@@ -1090,14 +1088,14 @@
       "description": "The road widens into the busiest stretch of the High Line. On your left, a general store spreads its porch with the unapologetic abundance of a place that expects winter to last: flour sacks, mason jars, rope coils, lantern oil, and tinned goods arranged on trestle tables as though the mountain might run out of patience before it runs out of stock. On your right, a blacksmith's forge breathes orange against the failing light, smoke rising from the chimney and mingling with the cold alpine air. A saddled horse waits at the hitching rail, ears forward, breath steaming. Beyond the shops the road still runs forward, and below it the valley city keeps lighting its windows one by one.",
       "examineDetails": "You read the row the way you would a ledger: who trades, who makes, what the ridge cannot do without.\n\nThe general store on your left is honest frontier carpentry dressed up with mercantile habit. Glass jars in the window catch the last sun. Sacks stamped for flour and sugar sit on the porch boards beside lantern crates and coils of hemp rope. A painted sign advertises the Mountain Trading Company, est. 1891, which is recent enough to mean someone expected this settlement to last. The goods are not tourist trinkets. lamp chimneys, nails, salt, coffee, the dry architecture of a community that feeds itself at altitude.\n\nAcross the road the blacksmith shop tells a harder story. The forge is open to the street, fire alive in the coals, an anvil set on a stout stump, horseshoes and iron stock hung along the wall. A wagon wheel leans in the dirt beside leather bellows hose still warm from use. The smith is not at his work, or not visible, but the shop is not idle: a saddled horse waits at the rail, ears forward, breath steaming in the cold. Tools are laid out in the order of a job interrupted, not abandoned.\n\nThe road between them is beaten flat by boots, hooves, and iron-rimmed wheels. Whoever keeps the High Line running buys here and shoes here. This is not the overlook yet, but it is the reason the overlook has a name worth carving in stone.",
       "exits": {
-        "backward": "mountain_road",
-        "forward": "mountain_road_supply_row"
+        "backward": "mountain_road_supply_row",
+        "forward": "mountain_road"
       },
       "image": "resources/images/mountain_road_trade_row.png",
       "layout": {
         "level": 0,
-        "x": 552.0,
-        "y": 1560.0
+        "x": 808.0,
+        "y": 2208.0
       },
       "movement": {
         "backward": true,
@@ -1190,7 +1188,7 @@
       "layout": {
         "level": 0,
         "x": 1064.0,
-        "y": 667.199951171875
+        "y": 696.0
       },
       "movement": {
         "backward": false,
@@ -1227,8 +1225,8 @@
       "image": "resources/images/ridge_cabin_bedroom.png",
       "layout": {
         "level": 0,
-        "x": 552.0,
-        "y": 48.0
+        "x": 337.0,
+        "y": 473.9999694824219
       },
       "movement": {
         "backward": false,
@@ -1273,104 +1271,14 @@
       "image": "resources/images/ridge_cabin_exterior.png",
       "layout": {
         "level": 0,
-        "x": 552.0,
-        "y": 696.0
+        "x": 298.0,
+        "y": 788.0
       },
       "movement": {
         "backward": false,
         "forward": true,
         "left": false,
         "right": true
-      },
-      "start": false,
-      "useDetails": ""
-    },
-    "ridge_cabin_switchbacks": {
-      "actions": {
-        "examine": true,
-        "hit": false,
-        "speak": false,
-        "use": false
-      },
-      "audio": {
-        "ambient": [
-          {
-            "fade_in": 2.0,
-            "fade_out": 2.0,
-            "loop": true,
-            "path": "resources/audio/ambient/wind.mp3",
-            "volume": 0.42
-          },
-          {
-            "fade_in": 2.5,
-            "fade_out": 2.0,
-            "loop": true,
-            "path": "resources/audio/ambient/narrow_path_aspen_grove.mp3",
-            "volume": 0.12
-          }
-        ]
-      },
-      "description": "The switchbacks climb the mountainside in long patient turns, each leg punched through snow into frozen dirt where the slope wants to slide. The air grows thinner with every rise. Boot prints break the crust in the shaded corners of the tread. Above the last visible bend the trail keeps rising toward the peak, the main line up the mountain.",
-      "examineDetails": "You study the path the way you would a witness who does not know he is talking.\n\nThis is not timber staging or plank bridges - only dirt switchbacks cut into the grade and kept open by whoever still has business above the snow line. The steepest pitches show stone kicked through for footing. Drifts lean against the uphill shoulder. Someone has maintained the route recently: a sapling cut back, a slide scraped clear, fresh prints over older ones.\n\nBelow you the switchbacks drop away toward the steep mountain trail, the cabin plateau, and the cliff path you left behind. You came up the forward route. The mountain does not encourage hurry up here.",
-      "exits": {
-        "backward": "steep_mountain_trail"
-      },
-      "image": "resources/images/ridge_cabin_switchbacks.png",
-      "layout": {
-        "level": 0,
-        "x": 2600.0,
-        "y": 480.0
-      },
-      "movement": {
-        "backward": true,
-        "forward": false,
-        "left": false,
-        "right": false
-      },
-      "start": false,
-      "useDetails": ""
-    },
-    "ridge_doctors_practice": {
-      "actions": {
-        "examine": true,
-        "hit": false,
-        "speak": false,
-        "use": false
-      },
-      "audio": {
-        "ambient": [
-          {
-            "fade_in": 2.0,
-            "fade_out": 2.0,
-            "loop": true,
-            "path": "resources/audio/ambient/wind.mp3",
-            "volume": 0.22
-          },
-          {
-            "fade_in": 2.5,
-            "fade_out": 2.0,
-            "loop": true,
-            "path": "resources/audio/ambient/narrow_path_aspen_grove.mp3",
-            "volume": 0.14
-          }
-        ]
-      },
-      "description": "A small doctor's practice sits on a bench of the mountain road, white clapboard gone chalky with sun and winter, green trim at the windows and porch rail. A painted shingle hangs from the eave: DR. E. HALSTROM - PHYSICIAN & SURGEON. The front steps are swept. A brass knocker is polished. The building looks no older than the century's turn and maintained by someone who still believes patients may arrive on foot.",
-      "examineDetails": "You read the practice the way you would a man's credentials before you trust him with a wound.\n\nThe exterior is modest frontier medicine, not city charity. Clapboard siding, double-hung windows with clean glass, a narrow porch wide enough for a chair and a waiting patient. The shingle is hand-lettered and recently touched up. Beside the door, a slate board lists office hours in chalk that has been rewritten more than once.\n\nThrough the front window you catch a glimpse of the waiting room: two hard chairs, a side table with journals, a glass carafe of water, and a cabinet of instruments behind a curtain. No blood on the steps. No abandoned stretcher. Whoever Halstrom is, he keeps a professional face even this far above the valley.\n\nBehind you the steep mountain trail climbs toward the switchbacks and the cabin on the higher bench. The alpine road continues below toward the wider settlement.",
-      "exits": {
-        "backward": "steep_mountain_trail"
-      },
-      "image": "resources/images/ridge_doctors_practice.png",
-      "layout": {
-        "level": 0,
-        "x": 3112.0,
-        "y": 480.0
-      },
-      "movement": {
-        "backward": true,
-        "forward": false,
-        "left": false,
-        "right": false
       },
       "start": false,
       "useDetails": ""
@@ -1415,8 +1323,8 @@
       "image": "resources/images/ridge_haberdashery.png",
       "layout": {
         "level": 0,
-        "x": 296.0,
-        "y": 1344.0
+        "x": 552.0,
+        "y": 2424.0
       },
       "movement": {
         "backward": false,
@@ -1502,7 +1410,7 @@
       "image": "resources/images/saloon_balcony.png",
       "layout": {
         "level": 1,
-        "x": 552.0,
+        "x": 808.0,
         "y": 264.0
       },
       "movement": {
@@ -1515,6 +1423,8 @@
       },
       "speakDetails": "",
       "start": false,
+      "ttsDefaultVoice": "leo",
+      "ttsEnabled": true,
       "useDetails": ""
     },
     "saloon_bedroom": {
@@ -1556,6 +1466,7 @@
           "tts": true,
           "ttsAudio": "resources/audio/tts/saloon_bedroom/whiskey_shot.mp3",
           "ttsText": "You pour from the house bourbon into the heavy glass and drink it standing at the dresser. Fire and oak hit the back of your throat, then spread in a slow, honest warmth. The room does not improve, but your nerves stop arguing with the plaster cracks for a moment.",
+          "ttsTextSha256": "c55ff1ca3a0b286cb412576d788dae4d7b4a069b5b13d39c3d13b62802dd2628",
           "ttsVoice": "leo",
           "useDetails": "You pour from the house bourbon into the heavy glass and drink it standing at the dresser. Fire and oak hit the back of your throat, then spread in a slow, honest warmth. The room does not improve, but your nerves stop arguing with the plaster cracks for a moment.",
           "useLucidityDelta": -5,
@@ -1568,6 +1479,7 @@
           "tts": true,
           "ttsAudio": "resources/audio/tts/saloon_bedroom/wash_basin.mp3",
           "ttsText": "You work the soap into a thin lather and wash your face and hands over the basin, rinsing with water from the pitcher. The chill wakes your skin. You dry off with the rough towel on the stand and feel, for a few minutes, like a man who belongs in a room with a door that locks.",
+          "ttsTextSha256": "15f7c844638e4a1bff38394536cae720c3722ab7444eff685b81f62442202ea5",
           "ttsVoice": "leo",
           "useCharismaDelta": 5,
           "useDetails": "You work the soap into a thin lather and wash your face and hands over the basin, rinsing with water from the pitcher. The chill wakes your skin. You dry off with the rough towel on the stand and feel, for a few minutes, like a man who belongs in a room with a door that locks.",
@@ -1580,6 +1492,7 @@
           "tts": true,
           "ttsAudio": "resources/audio/tts/saloon_bedroom/read_newspaper.mp3",
           "ttsText": "You unfold the newspaper on the chair and smooth the creased mining briefs flat with your thumb. The masthead is printed in sober type above the fold. The date sits there without apology, as though the ridge and the valley below agreed on the same calendar for once. You read a line about ore shipments and weather over Graysmill, then fold the paper back the way you found it.",
+          "ttsTextSha256": "1a8da70022ae3862f488a3904cc83464161305bc7b4e874a1dc3d2b018058328",
           "ttsVoice": "leo",
           "useLucidityDelta": 2
         },
@@ -1613,9 +1526,11 @@
           "ttsAfterVoice": "leo",
           "ttsAudio": "resources/audio/tts/saloon_bedroom/sleep_bed.mp3",
           "ttsText": "You lie down in the iron bed and begin to collect your thoughts while staring at the cracked plaster ceiling. The cracks branch like slow lightning frozen above you, map lines with no legend. The saloon's muffled pulse travels through the floorboards, piano, laughter, a glass breaking somewhere far from your door. Sleep takes you the way it takes men who have been awake too long in the wrong country: without permission and without dreams you trust.",
+          "ttsTextSha256": "be7a062b9b87dbb4280fd652bf73a9a165b859f541bf678b64816b3b8e86bec8",
           "ttsVariantAudio": "resources/audio/tts/saloon_bedroom/sleep_bed_blue_woman.mp3",
           "ttsVariantFlag": "saloon_interior:blue_woman_hired",
           "ttsVariantText": "You lie down in the iron bed and begin to collect your thoughts while staring at the cracked plaster ceiling. The cracks branch like slow lightning frozen above you, map lines with no legend. The saloon's muffled pulse travels through the floorboards, piano, laughter, a glass breaking somewhere far from your door. Just then the door quietly cracks open. The woman in blue peers in, smiling, one hand still on the knob as though she might vanish if you looked away too long. She waits for permission to enter. You motion for her to come. She steps in and closes the door behind her with care, the latch settling soft as a held breath. Sleep takes you the way it takes men who have been awake too long in the wrong country: without permission and without dreams you trust.",
+          "ttsVariantTextSha256": "6c43da4ae70bcc9054ce8541b0c9800081ee340887ce07c0996b6f07731c05c4",
           "ttsVoice": "leo",
           "useEnergyDelta": 20,
           "useHealthDelta": 10,
@@ -1624,7 +1539,7 @@
       ],
       "layout": {
         "level": 1,
-        "x": 808.0,
+        "x": 1064.0,
         "y": 264.0
       },
       "movement": {
@@ -1635,7 +1550,9 @@
         "right": false,
         "up": false
       },
-      "start": false
+      "start": false,
+      "ttsDefaultVoice": "leo",
+      "ttsEnabled": true
     },
     "saloon_front": {
       "actions": {
@@ -1672,8 +1589,8 @@
       "description": "You turn off the mountain road and find yourself before a period saloon front, false-front facade rising two stories, batwing doors still swinging faintly from some recent passage. Warm lamplight spills through the windows into the alpine dark. Inside, silhouettes cluster at the bar and around a poker table; you catch the glint of a bottle raised, the slap of cards, laughter cut short by the deal. A plank walkway runs the length of the storefront, its boards cupped and silvery with age. Leaning against the wall beside the entrance, a cowboy occupies the shade as though he grew there. His hat is pulled low, shielding most of his face, but not the cigarette rolled between his lips nor the methodically trimmed beard beneath it. He does not look at you. He does not react to your presence at all.",
       "examineDetails": "The saloon is built in the territorial style: painted pine siding, carved cornice, double-hung windows with oil lamps behind rippled glass. Through the nearest pane you make out a faro layout on a round table, chips stacked in uneven columns, a dealer's hand frozen mid-turn. The plank walkway is held on rough-hewn joists; your boots ring hollow against it. The cowboy's duster is dust-faded at the hem, his spurs dull as if he has not ridden in days. The cigarette smoke rises in a thin unbroken thread, which means he is breathing slowly, evenly, without surprise. Whoever he is, he knew someone would come. He is simply waiting to see if you are worth noticing.",
       "exits": {
-        "backward": "mountain_road",
-        "forward": "saloon_interior"
+        "forward": "saloon_interior",
+        "left": "mountain_road"
       },
       "image": "resources/images/saloon_front.png",
       "layout": {
@@ -1682,9 +1599,9 @@
         "y": 1992.0
       },
       "movement": {
-        "backward": true,
+        "backward": false,
         "forward": true,
-        "left": false,
+        "left": true,
         "right": false
       },
       "speakDetails": "You square your shoulders and approach with the careful posture of a man who means to be taken seriously. Professional, unhurried, hard enough at the edges that no one mistakes you for lost. The cowboy still does not look at you until you are close enough to count the ash on his cigarette.\n\n\"Evening,\" you say.\n\nHe exhales through his nose. Not quite a laugh. \"Evening.\"\n\nYou try idle ground first. Weather, the road, the piano bleeding through the saloon walls. He lets you talk. When you mention the cold, he taps ash into the dust. When you mention the view, he says, \"Always there.\" It is the tone of a man answering a question he has already answered too many times. You realize, with a slow cold certainty, that he knows you. There is no warmth in it and no hostility either. Just recognition, flat and complete, as though your face is an old receipt he has been carrying in his pocket.\n\nYou stop circling and ask what you came to ask. \"Where am I?\"\n\nNow he looks at you. Hat brim lifting just enough to show eyes that are tired more than anything else.\n\n\"Highline,\" he says. \"You're on the Highline. Ridge settlement. cabins, shops, fools who think altitude makes them honest.\" He jerks his chin toward the drop where the clouds boil below. \"Graysmill's down there in the valley. Mill town, rail town, always was. They cut timber out of these slopes till the hills went bald, floated it downriver, built their factories, filled their streets. Highline stayed up here 'cause the air kept the timber from rotting and the men with money liked the view. Saloons came next. Then gamblers. Then people like you.\"\n\nHe studies you a moment longer, annoyed in the way of a man whose quiet has been interrupted by something he cannot simply walk away from.\n\n\"We had this same talk two days ago,\" he says. \"Same questions. Same look on your face when I said Graysmill. I'm not sure you heard me then either.\"\n\nThe cigarette glows again. He eyes you the way a man eyes a cracked axle, not angry, just certain something is going to give.\n\n\"You don't look quite right,\" he says. \"Pale. Jumping at nothing. You ought to take it easy on the drink, or whatever it is you've been taking. I'm not telling you twice.\"",
@@ -1827,6 +1744,8 @@
           "image": "resources/images/saloon_interior.png"
         }
       },
+      "ttsDefaultVoice": "leo",
+      "ttsEnabled": true,
       "useDetails": ""
     },
     "saloon_kitchen": {
@@ -1844,8 +1763,8 @@
       "image": "resources/images/scene_under_construction.png",
       "layout": {
         "level": -1,
-        "x": 1064.0,
-        "y": 48.0
+        "x": 808.0,
+        "y": 264.0
       },
       "movement": {
         "backward": true,
@@ -1875,8 +1794,8 @@
       "description": "The ornate door opens on a private office that should not exist behind a ridge saloon. The room is modest in footprint and extravagant in intention. Walnut paneling climbs the walls in raised fields and oiled curves, the work of a craftsman who charged by the hour and meant to be remembered. A wide window commands a clear view of the mountains, pale daylight washing the peaks while the valley below keeps its secrets. An ironwood desk anchors the room, the grain dark as cured tobacco, the front panel carved in layered scrollwork that catches the light. Behind it waits a walnut swivel club chair upholstered in top-grain leather pinned with brass studs. A Tiffany lamp on the desk throws a soft orange glow across an open planner laid precisely at center, the only deliberate light in the room besides the window. Across from the desk sits a small settee in burgundy velvet over walnut, brass studs marching its frame with the same disciplined vanity. Beneath both pieces spreads a Persian rug whose reds and umbers answer the furniture, far too fine for a service hall hidden behind kitchen steam. This must be the saloon owner's office. It is surprisingly lavish, and it is not meant for you to see.",
       "examineDetails": "You read the room the way you would a ledger: what is displayed, what is guarded, what is meant to impress.\n\nThe window first. Mountain sky, ridgeline snow catching afternoon, timber dark on the slopes. The glass is good plate, not saloon glazing. The view is the kind of prospect men build houses for, then pretend they earned by hard work alone. Below, the town is only suggestion, smoke, and geometry too small to judge.\n\nThe desk is ironwood, dense enough that the floorboards barely complain under its weight. The carving is not local. The motifs travel: vine and shell, a touch of Eastlake, a touch of something older brought back from somewhere with ports and money. The surface is cared for. No rings from careless glasses. A planner lies open at center, columns ruled in ink, appointments written in a hand that does not hurry. You do not touch the pages yet. The Tiffany lamp beside it is the real tell: leaded glass in bronze, dragonfly or peacock tones you cannot quite name in this light, casting warm orange across paper and wood. Turn it off and the room would fall into window-shadow and paneling, respectable and cold. Someone works late by this lamp alone.\n\nThe club chair behind the desk swivels on a brass pedestal with a soft click when you test it with two fingers. Leather worn only where elbows would rest. This is a chair for decisions, not for guests.\n\nThe settee across the room is smaller but no less deliberate. Burgundy velvet, walnut frame, brass studs set in rows precise enough to count. It faces the desk as though an audience chair, for one visitor at a time. No one sits with their back to the window here.\n\nThe rug is Persian, or close enough that only a dealer would argue. Deep field, border geometry, colors picked up in the velvet and the lamp glow. It cost more than most claims on the mountain. It says the owner does not think in sawdust and rye alone.\n\nThe paneling is walnut throughout, matched for grain, fitted tight at the corners. A room assembled from corners of the earth and shipped uphill at cruel expense. You smell varnish, leather, old paper, and cold mountain air at the window seam.\n\nNo photographs. No names on the planner from this distance. No safe in plain sight. A man's private kingdom, hidden behind the service hall like a king who prefers his crown in a drawer. Lavish. Controlled. And very much not an accident.",
       "exits": {
-        "backward": "saloon_service_hall",
-        "forward": "saloon_owner_office_desk"
+        "forward": "saloon_owner_office_desk",
+        "right": "saloon_service_hall"
       },
       "image": "resources/images/saloon_owner_office.png",
       "layout": {
@@ -1885,11 +1804,11 @@
         "y": 1560.0
       },
       "movement": {
-        "backward": true,
+        "backward": false,
         "down": false,
         "forward": true,
         "left": false,
-        "right": false,
+        "right": true,
         "up": false
       },
       "speakDetails": "",
@@ -1920,8 +1839,8 @@
       "image": "resources/images/saloon_owner_office_desk.png",
       "layout": {
         "level": 0,
-        "x": 1320.0,
-        "y": 1128.0
+        "x": 1064.0,
+        "y": 1344.0
       },
       "movement": {
         "backward": true,
@@ -2050,7 +1969,7 @@
       "description": "The plain pine door gives into a supply closet barely wider than a man's shoulders. A single bare bulb throws hard light on rough-built shelves that occupy the center of the room like an island of unfinished carpentry. Mops and brooms lean along the left wall, their handles dark with use and damp. The shelves are crowded with the unglamorous machinery of keeping a saloon running: glass bottles of cleaning chemicals with faded labels, spare kitchen tins, stacked boxes of nails, a tin of stove polish, coils of twine, and hand tools hung from nails where a carpenter stopped organizing and started surviving. On the front edge of the middle shelf sit a small jar of lamp oil and a hunting knife in a worn leather sheath, placed within easy reach as though someone meant to come back for them.",
       "examineDetails": "You take stock of the closet in practical terms.\n\nTop shelf: lye soap, stove blacking, unlabeled cleaning bottles sharp with ammonia, and kitchen overflow—enamel cups, a cracked bowl, flour gone hard at the corners.\n\nMiddle shelf: nails in rough wooden boxes, a hand plane with a chipped iron, baling wire, and on the front edge a half-full mason jar of lamp oil and a hunting knife in a worn leather sheath. The blade has been honed recently. The handle is polished where a palm has worried it. Neither item belongs to the housekeeping kit.\n\nLower shelf: rags in a lidded bucket, liniment, spare lamp chimneys in newsprint, and a match tin with a worn striker.\n\nMops and brooms lean along the left wall; one mop head is still damp. The floor is swept but stained where chemicals have dripped. The air is soap, metal, oil, and old mop water. Only muffled kitchen noise reaches in from the wall.",
       "exits": {
-        "backward": "saloon_service_hall"
+        "left": "saloon_service_hall"
       },
       "image": "resources/images/saloon_supply_closet.png",
       "layout": {
@@ -2059,10 +1978,10 @@
         "y": 1560.0
       },
       "movement": {
-        "backward": true,
+        "backward": false,
         "down": false,
         "forward": false,
-        "left": false,
+        "left": true,
         "right": false,
         "up": false
       },
@@ -2342,6 +2261,8 @@
           }
         }
       },
+      "ttsDefaultVoice": "leo",
+      "ttsEnabled": true,
       "useDetails": "",
       "wakeNarrative": "You come to in fragments — pain first, then cold stone, then the thin daylight at the cave mouth. Your mouth tastes of iron. You fumble for the notebook in your coat. The handwriting is yours, cramped and urgent. Names and places swim up from the page: the saloon, the ridge, Graysmill somewhere below. You do not remember writing half of it. You remember enough to know you have been here before.",
       "wakeTts": {
@@ -2396,7 +2317,7 @@
       "layout": {
         "level": 0,
         "x": 808.0,
-        "y": 699.199951171875
+        "y": 696.0
       },
       "movement": {
         "backward": true,
@@ -2474,20 +2395,20 @@
       "description": "The white Baptist church sits plain and patient on its rise, paint weathered to the color of old bone. Clapboard siding has gone chalky with sun and winter, corners softened, steeple standing honest against the sky without pretension. The path ends at a low gate. To the right, a small cemetery spreads over the slope in weathered stones and wooden crosses. The building looks worn from the outside - frontier modesty, mountain weather, decades of wind - but not abandoned. The walk is swept. The sanctuary doors stand slightly ajar. No voices carry from within. Whatever service was held here today has already ended.",
       "examineDetails": "You study the church the way you would a man who keeps his grief in order.\n\nThe exterior tells one story: humble white clapboard, modest steeple, paint gone thin at the eaves, nail heads rusted through in places where the ridge has worked its slow argument with timber. Window frames are sound but not new. The steps are worn hollow at the center where Sunday shoes have passed for years.\n\nAnd yet the place is tended. Weeds have been cut back from the path. The gate latch closes clean. To the right, the cemetery rows climb the slope in weathered stone and leaning crosses, some plots fresh enough to show recent grief. Through the open sanctuary doors you catch interior wood glowing warm with fresh oil, and colored light from stained glass that has not been allowed to go dark. No congregation remains. Whoever maintains this church does it without display. The building is worn on the outside because mountains wear everything. Inside, someone is still fighting back.",
       "exits": {
-        "backward": "winding_alpine_path",
         "forward": "white_baptist_church_interior",
-        "right": "white_baptist_church_cemetery"
+        "left": "white_baptist_church_cemetery",
+        "right": "winding_alpine_path"
       },
       "image": "resources/images/white_baptist_church.png",
       "layout": {
         "level": 0,
-        "x": 552.0,
-        "y": 912.0
+        "x": 304.0,
+        "y": 1297.0
       },
       "movement": {
-        "backward": true,
+        "backward": false,
         "forward": true,
-        "left": false,
+        "left": true,
         "right": true
       },
       "start": false,
@@ -2521,19 +2442,19 @@
       "description": "The cemetery spreads over the church rise in uneven rows, the dead laid out with frontier practicality and mountain weather for company. Headstones lean where frost has heaved the soil. Wooden crosses gray with age stand beside newer granite markers cut plain and honest. Wild grass and alpine flowers push up between the plots. Beyond the low fence, the mountains hold their distance - blue-gray ridges under a quiet sky. The church stands at your back, white paint gone chalky, steeple still pointing upward as though argument with death were worth continuing.",
       "examineDetails": "You walk the rows the way a man walks a ledger he is not yet ready to sign.\n\nThe oldest markers are wood, names weathered to ghosts. A few granite stones carry dates from the seventies and eighties - company men, infants, mothers lost in winter, a prospector who lasted one season and not two. Some plots are tended: weeds cut, pebbles laid flat, a jar of wildflowers gone dry but recent enough to mean someone still comes.\n\nOthers have surrendered to the ridge. Sink-holes at the feet of crosses. Names split by frost. A child's stone no larger than a Bible, tilted so far the grass has nearly claimed it.\n\nThe cemetery is not large. It is persistent. Highline buries its own because Graysmill is a long descent and the mountain prefers to keep what it takes within sight of the living.",
       "exits": {
-        "backward": "white_baptist_church"
+        "right": "white_baptist_church"
       },
       "image": "resources/images/white_baptist_church_cemetery.png",
       "layout": {
         "level": 0,
-        "x": 1064.0,
-        "y": 1128.0
+        "x": 76.00003051757813,
+        "y": 1294.0
       },
       "movement": {
-        "backward": true,
+        "backward": false,
         "forward": false,
         "left": false,
-        "right": false
+        "right": true
       },
       "start": false,
       "useDetails": ""
@@ -2579,8 +2500,8 @@
       "image": "resources/images/white_baptist_church_interior.png",
       "layout": {
         "level": 0,
-        "x": 296.0,
-        "y": 480.0
+        "x": 300.0,
+        "y": 1101.0
       },
       "movement": {
         "backward": true,
@@ -2631,8 +2552,8 @@
       "image": "resources/images/white_baptist_church_vestry.png",
       "layout": {
         "level": 0,
-        "x": 50.0,
-        "y": 486.7999572753906
+        "x": 76.9999771118164,
+        "y": 1093.0
       },
       "movement": {
         "backward": false,

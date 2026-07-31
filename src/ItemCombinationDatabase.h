@@ -21,6 +21,7 @@
 #define ITEM_COMBINATION_DATABASE_H
 
 #include <ItemCombinationDef.h>
+#include <ItemDatabase.h>
 #include <ItemInstance.h>
 #include <string>
 #include <vector>
@@ -28,12 +29,36 @@
 namespace timberline_engine
 {
 
+/**
+ * Product craft resolver. Recipes live on item defs (components);
+ * there is no separate combinations resource file.
+ */
 class ItemCombinationDatabase
 {
     public:
-    bool load(const std::string& path);
-
+    /**
+     * Build a craft application when exactly one affordable product matches.
+     * Returns false if none or more than one product matches (use the chooser).
+     */
     bool tryCombine(
+        const ItemDatabase& itemDatabase,
+        const std::string& firstItemId,
+        const std::string& secondItemId,
+        const ItemInstance& firstInstance,
+        const ItemInstance& secondInstance,
+        ItemCombineApplication& outApplication) const;
+
+    /** All product craft candidates that the two instances can afford. */
+    std::vector<ItemCraftCandidate> findAffordableCraftProducts(
+        const ItemDatabase& itemDatabase,
+        const std::string& firstItemId,
+        const std::string& secondItemId,
+        const ItemInstance& firstInstance,
+        const ItemInstance& secondInstance) const;
+
+    bool buildProductCraftApplication(
+        const ItemDatabase& itemDatabase,
+        const std::string& productId,
         const std::string& firstItemId,
         const std::string& secondItemId,
         const ItemInstance& firstInstance,
@@ -41,18 +66,22 @@ class ItemCombinationDatabase
         ItemCombineApplication& outApplication) const;
 
     private:
-    bool requirementsMet(
-        const ItemCombineRequirements& requirements,
-        const ItemInstance& instance) const;
-
-    bool recipeMatches(
-        const ItemCombineRecipe& recipe,
+    static int instanceQty(const ItemInstance& instance);
+    static int minRequiredQty(const ItemComponentDef& component);
+    static int spendQtyFor(const ItemComponentDef& component);
+    static const ItemInstance* instanceForComponent(
+        const ItemComponentDef& component,
         const std::string& firstItemId,
         const std::string& secondItemId,
         const ItemInstance& firstInstance,
-        const ItemInstance& secondInstance) const;
-
-    std::vector<ItemCombineRecipe> recipes;
+        const ItemInstance& secondInstance,
+        std::string* outMatchedItemId);
+    static bool productAffordable(
+        const ItemDef& product,
+        const std::string& firstItemId,
+        const std::string& secondItemId,
+        const ItemInstance& firstInstance,
+        const ItemInstance& secondInstance);
 };
 
 }

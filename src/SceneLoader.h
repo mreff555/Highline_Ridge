@@ -32,6 +32,7 @@
 #include <SceneOverlayDef.h>
 #include <SubSceneDef.h>
 #include <TakeableItemDef.h>
+#include <TtsVoiceMarkup.h>
 #include <raylib.h>
 #include <functional>
 #include <map>
@@ -53,6 +54,8 @@ struct SceneData
 {
     std::string id;
     std::string defaultSubSceneId;
+    /** Scene-level TTS gate. Off by default; when on, defaultVoice must be a known voice. */
+    TtsOwnerPolicy ttsPolicy;
     std::string imagePath;
     std::string alternateImagePath;
     std::string alternateImageFlag;

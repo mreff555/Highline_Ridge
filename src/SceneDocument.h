@@ -59,6 +59,9 @@ public:
     std::vector<std::string> sceneIds() const;
     bool hasScene(const std::string& sceneId) const;
 
+    // Remove a scene and clear inbound exits/movement/exitRequirements on others.
+    bool removeScene(const std::string& sceneId);
+
     SceneLayout getLayout(const std::string& sceneId) const;
     void setLayout(const std::string& sceneId, const SceneLayout& layout);
 
