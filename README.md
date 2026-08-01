@@ -19,9 +19,12 @@ cd build
 cmake ..
 make
 ```
-Audio is enabled for some dialogs. Voices must be generated if you want TTS playback; see `--help` on the game binary.
-## Timberline engine
+### TTS (text to speech)
+Audio is enabled for some dialogs. Voices must be generated if you want TTS playback; see `--help` on the game binary.  as a general overview you will need to go to:
+```https://console/x/ai```
+You will need to purchase credits to generate the TTS.  The cost should be minimal to regenerate voices.
 
+## Timberline engine
 Timberline is a rich storytelling engine that uses old-school fixed images so a small team (or one developer, with AI-assisted art) can ship scene-driven adventures without a full 3D pipeline.
 
 - **Fixed-image scenes** with JSON configuration for exits, movement, sub-scenes, and interactions
