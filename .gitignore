@@ -45,12 +45,18 @@
 /build-*/
 tools/scene-editor/build/
 compile_commands.json
+**/compile_commands.json
+CMakeUserPresets.json
 
 # Secrets and local runtime caches
 **/xai_api_key
 resources/xai_api_key
 .env
 **/cache/
+
+# Runtime / player data
+saves/
+**/*.sav
 
 # Item/scene authoring AI job sidecars (external gen tools)
 resources/.authoring/
@@ -79,7 +85,14 @@ storyboard.md
 tools/__pycache__/
 *.pyc
 *.dSYM/
+*~
+*.swp
+*.swo
+.idea/
 .vscode/detective-game-vscode-backup/
 
-# One-off restore dumps
+# One-off restore dumps and authoring source intermediates
 _github_restore/
+tools/hardware_sources/
+tools/**/*_src.jpg
+tools/**/*_source.jpg
