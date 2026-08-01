@@ -37,23 +37,8 @@ namespace
 {
     const float kDialogHeightShareWhenSidePanelOpen = 2.0f / 3.0f;
     const float kSidePanelHeightShare = 1.0f / 3.0f;
-    const Color kPaperShadow = {118, 98, 68, 255};
-    const Color kPaperEdge = {108, 88, 58, 255};
-    const Color kRuleLine = {132, 148, 168, 85};
-    const Color kMarginLine = {168, 78, 68, 150};
-    const Color kBindingRing = {98, 82, 62, 255};
-    const Color kBindingHole = {58, 48, 38, 255};
-    const Color kScrollTrack = {206, 186, 148, 255};
-    const Color kScrollThumb = {176, 148, 108, 255};
-    const Color kScrollThumbHover = {148, 118, 78, 255};
-    const Color kChoiceText = {92, 52, 22, 255};
+    // Dev overlay hover accent (notebook palette lives in NarrativeNotebook.cpp).
     const Color kChoiceHover = {148, 88, 28, 255};
-    const char kNarrativeSketchPrefix[] = "@sketch:";
-    const Color kNotebookHeader = {78, 54, 34, 255};
-    const Color kNotebookNavEnabled = {78, 54, 34, 255};
-    const Color kNotebookNavDisabled = {148, 132, 112, 255};
-    const Color kQuestComplete = {52, 92, 58, 255};
-    const Color kQuestFailed = {108, 72, 72, 255};
 
     struct ResolvedActorSpeakTarget
     {
@@ -216,56 +201,6 @@ namespace
         }
 
         return resolved;
-    }
-
-    Rectangle getNotebookHeaderBand(const Rectangle& bounds)
-    {
-        return {
-            bounds.x + 58.0f,
-            bounds.y,
-            bounds.width - 58.0f - 16.0f,
-            46.0f
-        };
-    }
-
-    void drawCenteredUnderlinedHeader(
-        Font font,
-        const char* title,
-        const Rectangle& band,
-        float fontSize,
-        Color color)
-    {
-        const Vector2 textSize = MeasureTextEx(font, title, fontSize, 1.0f);
-        const float textX = band.x + (band.width - textSize.x) / 2.0f;
-        const float textY = band.y + (band.height - textSize.y) / 2.0f - 2.0f;
-
-        DrawTextEx(font, title, { textX, textY }, fontSize, 1.0f, color);
-        DrawLineEx(
-            { textX, textY + textSize.y + 2.0f },
-            { textX + textSize.x, textY + textSize.y + 2.0f },
-            1.5f,
-            color);
-    }
-
-    void drawNotebookArrowButton(
-        Font font,
-        const char* label,
-        Rectangle bounds,
-        bool enabled,
-        bool hovered)
-    {
-        const float fontSize = bounds.height - 4.0f;
-        const Vector2 textSize = MeasureTextEx(font, label, fontSize, 1.0f);
-        const Vector2 textPos = {
-            bounds.x + (bounds.width - textSize.x) / 2.0f,
-            bounds.y + (bounds.height - textSize.y) / 2.0f
-        };
-
-        Color color = enabled ? kNotebookNavEnabled : kNotebookNavDisabled;
-        if (enabled && hovered)
-            color = kChoiceHover;
-
-        DrawTextEx(font, label, textPos, fontSize, 1.0f, color);
     }
 
     const char* kWakeOnFloorPrefix =
@@ -523,45 +458,6 @@ namespace
         if (ownsLocationImage && locationImage.id != 0)
             UnloadTexture(locationImage);
     }
-
-    Texture2D GameSession::getImage() const
-    {
-        return locationImage;
-    }
-    char* GameSession::getDescription() const
-    {
-        return (char*)narrativeNotebook.getNarrativeText().c_str();
-    }
-    const Font GameSession::getDescriptionFont() const
-    {
-        return descriptionFont;
-    }
-    bool GameSession::isUp() const
-    {
-        return up;
-    }
-    bool GameSession::isDown() const
-    {
-        return down;
-    }
-    bool GameSession::isForward() const
-    {
-        return forward;
-    }
-    bool GameSession::isBackward() const
-    {
-        return backward;
-    }
-    bool GameSession::isLeft() const
-    {
-        return left;
-    }
-    bool GameSession::isRight() const
-    {
-        return right;
-    }
-
-
 
     Rectangle GameSession::getMainImageBounds() const
     {

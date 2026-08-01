@@ -220,41 +220,12 @@ std::vector<SceneActor> SceneDocument::getActors(const std::string& sceneId) con
     return actors;
 }
 
-void SceneDocument::setActors(const std::string& sceneId, const std::vector<SceneActor>& actors)
-{
-    nlohmann::json* scene = sceneJson(sceneId);
-    if (scene == nullptr)
-        return;
-
-    nlohmann::json actorsJson = nlohmann::json::array();
-    for (const SceneActor& actor : actors)
-    {
-        actorsJson.push_back({
-            {"id", actor.id},
-            {"name", actor.name},
-            {"role", actor.role},
-            {"x", actor.x},
-            {"y", actor.y}
-        });
-    }
-
-    (*scene)["actors"] = actorsJson;
-}
-
 std::string SceneDocument::getSceneImagePath(const std::string& sceneId) const
 {
     const nlohmann::json* scene = sceneJson(sceneId);
     if (scene == nullptr)
         return "";
     return scene->value("image", "");
-}
-
-std::string SceneDocument::getSceneDescription(const std::string& sceneId) const
-{
-    const nlohmann::json* scene = sceneJson(sceneId);
-    if (scene == nullptr)
-        return "";
-    return scene->value("description", "");
 }
 
 nlohmann::json* SceneDocument::sceneJson(const std::string& sceneId)

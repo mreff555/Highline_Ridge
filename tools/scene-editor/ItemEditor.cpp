@@ -19,6 +19,7 @@
 
 #include "ItemEditor.h"
 
+#include "EditorButton.h"
 #include "EditorTheme.h"
 #include "EditorUiDraw.h"
 
@@ -29,107 +30,6 @@
 
 namespace timberline_editor
 {
-
-namespace
-{
-
-const float kNewItemHeaderBtnH = 22.0f;
-const float kNewItemHeaderBtnW = 78.0f;
-const float kEditItemHeaderBtnW = 78.0f;
-const float kIdBadgeFont = 12.0f;
-const float kIdBadgeHeight = 22.0f;
-const float kAuthoringFooterH = 58.0f;
-const float kAuthoringHeaderH = 56.0f;
-
-void appendUtf8Codepoint(std::string& buffer, int codepoint)
-{
-    if (codepoint <= 0)
-        return;
-    if (codepoint < 0x80)
-    {
-        buffer.push_back(static_cast<char>(codepoint));
-        return;
-    }
-    // Keep wizard simple: accept ASCII printable only for ids/weights;
-    // description/name may include limited UTF-8 via multi-byte if raylib gives full codepoints.
-    char bytes[5] = {};
-    int size = 0;
-    if (codepoint <= 0x7FF)
-    {
-        bytes[0] = static_cast<char>(0xC0 | ((codepoint >> 6) & 0x1F));
-        bytes[1] = static_cast<char>(0x80 | (codepoint & 0x3F));
-        size = 2;
-    }
-    else if (codepoint <= 0xFFFF)
-    {
-        bytes[0] = static_cast<char>(0xE0 | ((codepoint >> 12) & 0x0F));
-        bytes[1] = static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
-        bytes[2] = static_cast<char>(0x80 | (codepoint & 0x3F));
-        size = 3;
-    }
-    else if (codepoint <= 0x10FFFF)
-    {
-        bytes[0] = static_cast<char>(0xF0 | ((codepoint >> 18) & 0x07));
-        bytes[1] = static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F));
-        bytes[2] = static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
-        bytes[3] = static_cast<char>(0x80 | (codepoint & 0x3F));
-        size = 4;
-    }
-    for (int i = 0; i < size; ++i)
-        buffer.push_back(bytes[i]);
-}
-
-void drawEditorButton(Font font, Rectangle bounds, const char* label, bool accent, bool enabled)
-{
-    const Color fill = !enabled
-        ? kButtonDisabled
-        : (accent ? kPanelAccent : Color{44, 42, 52, 255});
-    DrawRectangleRec(bounds, fill);
-    DrawRectangleLinesEx(bounds, 1.0f, kPanelBorder);
-    const Vector2 size = MeasureTextEx(font, label, kFontBody, 1.0f);
-    DrawTextEx(
-        font,
-        label,
-        {bounds.x + (bounds.width - size.x) * 0.5f, bounds.y + (bounds.height - size.y) * 0.5f},
-        kFontBody,
-        1.0f,
-        enabled ? kTextPrimary : kTextDisabled);
-}
-
-void drawCheckboxRow(
-    Font font,
-    Rectangle row,
-    const char* label,
-    bool checked,
-    bool hovered)
-{
-    const float box = 16.0f;
-    const Rectangle boxRec = {
-        row.x,
-        row.y + (row.height - box) * 0.5f,
-        box,
-        box};
-    DrawRectangleRec(boxRec, hovered ? Color{50, 46, 58, 255} : Color{36, 34, 44, 255});
-    DrawRectangleLinesEx(boxRec, 1.0f, kPanelBorder);
-    if (checked)
-    {
-        DrawRectangle(
-            static_cast<int>(boxRec.x + 3),
-            static_cast<int>(boxRec.y + 3),
-            static_cast<int>(box - 6),
-            static_cast<int>(box - 6),
-            kPanelBorder);
-    }
-    DrawTextEx(
-        font,
-        label,
-        {boxRec.x + box + 8.0f, row.y + (row.height - kFontSmall) * 0.5f},
-        kFontSmall,
-        1.0f,
-        kTextPrimary);
-}
-
-} // namespace
 
 namespace
 {
@@ -664,31 +564,15 @@ void ItemEditor::draw(Rectangle listBounds)
     // Edit / New Item buttons (right side of header).
     if (docs->itemsLoaded)
     {
+        const Font headerFont =
+            (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
         const Rectangle newBtn = newItemBtnBounds(listBounds);
-        const bool newHover = canInteract && CheckCollisionPointRec(mouse, newBtn);
-        DrawRectangleRec(newBtn, newHover ? kPanelAccent : Color{40, 36, 48, 255});
-        DrawRectangleLinesEx(newBtn, 1.0f, kPanelBorder);
-        DrawTextEx(
-            (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
-            "New Item",
-            {newBtn.x + 8.0f, newBtn.y + 4.0f},
-            kFontTiny,
-            1.0f,
-            kTextPrimary);
+        drawEditorButton(headerFont, newBtn, "New Item", true, true);
 
         if (!selectedItemId.empty())
         {
             const Rectangle editBtn = editItemBtnBounds(listBounds);
-            const bool editHover = canInteract && CheckCollisionPointRec(mouse, editBtn);
-            DrawRectangleRec(editBtn, editHover ? kPanelAccent : Color{40, 36, 48, 255});
-            DrawRectangleLinesEx(editBtn, 1.0f, kPanelBorder);
-            DrawTextEx(
-                (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
-                "Edit Item",
-                {editBtn.x + 8.0f, editBtn.y + 4.0f},
-                kFontTiny,
-                1.0f,
-                kTextPrimary);
+            drawEditorButton(headerFont, editBtn, "Edit Item", true, true);
         }
     }
 

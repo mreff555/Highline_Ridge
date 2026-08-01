@@ -77,6 +77,7 @@ set(EDITOR_SOURCES
     main.cpp
     EditorPaths.cpp
     EditorUiDraw.cpp
+    EditorButton.cpp
     ConversationHelpers.cpp
     ThumbnailCache.cpp
     EditorLayout.cpp

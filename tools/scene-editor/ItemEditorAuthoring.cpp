@@ -7,6 +7,7 @@
 
 #include "ItemEditor.h"
 
+#include "EditorButton.h"
 #include "EditorTheme.h"
 #include "EditorUiDraw.h"
 #include "ImageCompression.h"
@@ -78,23 +79,6 @@ void appendUtf8Codepoint(std::string& buffer, int codepoint)
     }
     for (int i = 0; i < size; ++i)
         buffer.push_back(bytes[i]);
-}
-
-void drawEditorButton(Font font, Rectangle bounds, const char* label, bool accent, bool enabled)
-{
-    const Color fill = !enabled
-        ? kButtonDisabled
-        : (accent ? kPanelAccent : Color{44, 42, 52, 255});
-    DrawRectangleRec(bounds, fill);
-    DrawRectangleLinesEx(bounds, 1.0f, kPanelBorder);
-    const Vector2 size = MeasureTextEx(font, label, kFontBody, 1.0f);
-    DrawTextEx(
-        font,
-        label,
-        {bounds.x + (bounds.width - size.x) * 0.5f, bounds.y + (bounds.height - size.y) * 0.5f},
-        kFontBody,
-        1.0f,
-        enabled ? kTextPrimary : kTextDisabled);
 }
 
 void drawCheckboxRow(
@@ -2530,40 +2514,43 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
                 row.emptyHint,
                 kFontSmall,
                 2.0f);
-            drawEditorButton(
-                font, aiBtn, "Generate", true, !generateBusy);
+            EditorButton genBtn;
+            genBtn.preferred = aiBtn;
+            genBtn.label = "Generate";
+            genBtn.accent = true;
+            genBtn.enabled = !generateBusy;
+            genBtn.expandWidth = true;
+            genBtn.layout(font, editorButtons().config);
+            // Prefer the laid-out bounds for hit testing later.
+            hits.push_back({row.openKind, field, 0});
+            hits.push_back({row.assistKind, genBtn.bounds, 0});
+            // Defer draw until after scroll content? We're inside scissor — draw now.
+            genBtn.draw(font, editorButtons().config);
             if (generateBusy
                 && (busyTarget == row.generateTarget || busyTarget == 5))
-                drawWorkingLabel(aiBtn);
-            hits.push_back({row.openKind, field, 0});
-            hits.push_back({row.assistKind, aiBtn, 0});
+                drawWorkingLabel(genBtn.bounds);
             layoutY += rowH + 8.0f;
         }
 
         // Generate all — full form width (minus Working label), taller + wrapped label.
         {
-            const float genAllH = 44.0f;
-            const Rectangle genAllBtn = {
+            const float genAllH = 48.0f;
+            const Rectangle genAllSlot = {
                 fieldX,
                 virt(layoutY),
                 fieldW - workLabelW - 8.0f,
                 genAllH};
-            const Color fill = generateBusy
-                ? kButtonDisabled
-                : kPanelAccent;
-            DrawRectangleRec(genAllBtn, fill);
-            DrawRectangleLinesEx(genAllBtn, 1.0f, kPanelBorder);
-            drawClippedFieldPreview(
-                font,
-                genAllBtn,
-                content,
-                "Generate all assets",
-                "",
-                kFontBody,
-                3.0f);
+            EditorButton genAll;
+            genAll.preferred = genAllSlot;
+            genAll.label = "Generate all assets";
+            genAll.accent = true;
+            genAll.enabled = !generateBusy;
+            genAll.expandWidth = true;
+            genAll.layout(font, editorButtons().config);
+            genAll.draw(font, editorButtons().config);
             if (generateBusy && busyTarget == 5)
-                drawWorkingLabel(genAllBtn);
-            hits.push_back({Hit::Kind::GenerateAssetsNow, genAllBtn, 0});
+                drawWorkingLabel(genAll.bounds);
+            hits.push_back({Hit::Kind::GenerateAssetsNow, genAll.bounds, 0});
             layoutY += genAllH + 10.0f;
         }
 
@@ -2846,22 +2833,46 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
     }
 
     const float btnW = 120.0f;
-    const float btnH = 34.0f;
+    const float btnH = 36.0f;
     const float btnY = dialog.y + dialogH - btnH - 14.0f;
-    const Rectangle saveBtn = {dialog.x + dialogW - btnW * 2.0f - 32.0f, btnY, btnW, btnH};
-    const Rectangle cancelBtn = {dialog.x + dialogW - btnW - 20.0f, btnY, btnW, btnH};
-    drawEditorButton(
-        font, saveBtn, authoringIsModify ? "Save" : "Create", true, true);
-    drawEditorButton(font, cancelBtn, "Cancel", false, true);
+    const Rectangle saveSlot = {dialog.x + dialogW - btnW * 2.0f - 32.0f, btnY, btnW, btnH};
+    const Rectangle cancelSlot = {dialog.x + dialogW - btnW - 20.0f, btnY, btnW, btnH};
 
-    if (canClick && authoringDropdown == 0)
+    // Footer buttons: allow Cancel even while AI generate is busy so the user
+    // can always dismiss; Create/Save stays locked during generate.
+    const bool footerInputOk =
+        !authoringWaitMouseRelease && authoringIgnoreInputFrames <= 0 && !subEditOpen;
+
+    EditorButton saveBtn;
+    saveBtn.preferred = saveSlot;
+    saveBtn.label = authoringIsModify ? "Save" : "Create";
+    saveBtn.accent = true;
+    saveBtn.enabled = !generateBusy;
+    saveBtn.expandWidth = true;
+    saveBtn.layout(font, editorButtons().config);
+    const bool saveClicked =
+        footerInputOk && saveBtn.update(editorButtons().config);
+    saveBtn.draw(font, editorButtons().config);
+
+    EditorButton cancelBtn;
+    cancelBtn.preferred = cancelSlot;
+    cancelBtn.label = "Cancel";
+    cancelBtn.accent = false;
+    cancelBtn.enabled = true;
+    cancelBtn.expandWidth = true;
+    cancelBtn.layout(font, editorButtons().config);
+    const bool cancelClicked =
+        footerInputOk && cancelBtn.update(editorButtons().config);
+    cancelBtn.draw(font, editorButtons().config);
+
+    if (saveClicked)
+        commitAuthoringDialog();
+    else if (cancelClicked)
+        closeAuthoringDialog();
+    else if (canClick && authoringDropdown == 0)
     {
-        if (CheckCollisionPointRec(mouse, saveBtn))
-            commitAuthoringDialog();
-        else if (CheckCollisionPointRec(mouse, cancelBtn))
-            closeAuthoringDialog();
-        else if (!CheckCollisionPointRec(mouse, dialog)
-                 && !CheckCollisionPointRec(mouse, idBadge))
+        if (!CheckCollisionPointRec(mouse, dialog)
+            && !CheckCollisionPointRec(mouse, idBadge))
             closeAuthoringDialog();
         else if (CheckCollisionPointRec(mouse, content))
         {

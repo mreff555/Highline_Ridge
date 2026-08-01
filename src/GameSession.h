@@ -85,16 +85,6 @@ class GameSession
     void applyInputConfig();
     void persistDisplayConfig();
 
-    Texture2D getImage() const;
-     char* getDescription() const;
-    const Font getDescriptionFont() const;
-    bool isUp() const;
-    bool isDown() const;
-    bool isForward() const;
-    bool isBackward() const;
-    bool isLeft() const;
-    bool isRight() const;
-
     void update();
     void draw() const;
     void appendExamineDetails();

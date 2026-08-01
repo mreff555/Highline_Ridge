@@ -18,6 +18,7 @@
  ******************************************************************************/
 
 #include "SceneEditorApp.h"
+#include "EditorButton.h"
 #include "EditorPaths.h"
 
 #include <raylib.h>
@@ -25,6 +26,7 @@
 #include <string>
 
 using timberline_editor::SceneEditorApp;
+using timberline_editor::editorButtons;
 using timberline_editor::ensureValidResourcePaths;
 
 int main(int argc, char** argv)
@@ -60,6 +62,7 @@ int main(int argc, char** argv)
     }
 
     app.loadUiFont();
+    editorButtons().load(app.document.resourceDir, app.document.assetRoot);
     app.layout.init(GetScreenWidth(), GetScreenHeight());
     app.document.refreshTabs();
     app.loadActiveDocument();
@@ -70,6 +73,7 @@ int main(int argc, char** argv)
         app.draw();
     }
 
+    editorButtons().unload();
     app.unloadThumbnails();
     app.unloadUiFont();
     if (app.document.dirty)

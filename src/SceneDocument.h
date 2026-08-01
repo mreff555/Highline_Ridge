@@ -66,10 +66,8 @@ public:
     void setLayout(const std::string& sceneId, const SceneLayout& layout);
 
     std::vector<SceneActor> getActors(const std::string& sceneId) const;
-    void setActors(const std::string& sceneId, const std::vector<SceneActor>& actors);
 
     std::string getSceneImagePath(const std::string& sceneId) const;
-    std::string getSceneDescription(const std::string& sceneId) const;
 
     const nlohmann::json& document() const { return root; }
     nlohmann::json* sceneJson(const std::string& sceneId);

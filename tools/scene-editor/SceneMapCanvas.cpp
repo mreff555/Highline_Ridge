@@ -21,6 +21,7 @@
 
 #include "ConversationHelpers.h"
 #include "DocumentWorkspace.h"
+#include "EditorButton.h"
 #include "EditorPaths.h"
 #include "EditorTheme.h"
 #include "EditorTypes.h"
@@ -1696,23 +1697,10 @@ void SceneMapCanvas::drawStackDialog(int screenWidth, int screenHeight)
     const Rectangle downBtn = {dialog.x + 150.0f, btnY, btnW, btnH};
     const Rectangle cancelBtn = {dialog.x + 280.0f, btnY, btnW, btnH};
 
-    auto drawButton = [&](Rectangle bounds, const char* label, bool accent)
-    {
-        DrawRectangleRec(bounds, accent ? kPanelAccent : Color{44, 42, 52, 255});
-        DrawRectangleLinesEx(bounds, 1.0f, kPanelBorder);
-        const Vector2 size = MeasureTextEx((uiFont.texture.id != 0 ? uiFont : GetFontDefault()), label, kFontBody, 1.0f);
-        DrawTextEx(
-            (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
-            label,
-            {bounds.x + (bounds.width - size.x) * 0.5f, bounds.y + 9.0f},
-            kFontBody,
-            1.0f,
-            kTextPrimary);
-    };
-
-    drawButton(upBtn, "Up", true);
-    drawButton(downBtn, "Down", true);
-    drawButton(cancelBtn, "Cancel", false);
+    const Font stackFont = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
+    drawEditorButton(stackFont, upBtn, "Up", true, true);
+    drawEditorButton(stackFont, downBtn, "Down", true, true);
+    drawEditorButton(stackFont, cancelBtn, "Cancel", false, true);
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {

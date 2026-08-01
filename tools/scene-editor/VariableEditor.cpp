@@ -21,6 +21,7 @@
 
 #include "ConversationHelpers.h"
 #include "DocumentWorkspace.h"
+#include "EditorButton.h"
 #include "EditorPaths.h"
 #include "EditorTheme.h"
 #include "EditorTypes.h"
@@ -1525,20 +1526,6 @@ void VariableEditor::drawVariableEditor(int screenWidth, int screenHeight)
     const Rectangle localSaveBtn = {dialog.x + dialogW - btnW * 2.0f - 28.0f, btnY, btnW, btnH};
     const Rectangle localCancelBtn = {dialog.x + dialogW - btnW - 18.0f, btnY, btnW, btnH};
 
-    auto drawButton = [&](Rectangle bounds, const char* label, bool accent)
-    {
-        DrawRectangleRec(bounds, accent ? kPanelAccent : Color{44, 42, 52, 255});
-        DrawRectangleLinesEx(bounds, 1.0f, kPanelBorder);
-        const Vector2 size = MeasureTextEx((uiFont.texture.id != 0 ? uiFont : GetFontDefault()), label, kFontBody, 1.0f);
-        DrawTextEx(
-            (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
-            label,
-            {bounds.x + (bounds.width - size.x) * 0.5f, bounds.y + 9.0f},
-            kFontBody,
-            1.0f,
-            kTextPrimary);
-    };
-
     // Keep rects identical to update() hit-testing.
     saveBtn = localSaveBtn;
     cancelBtn = localCancelBtn;
@@ -1606,8 +1593,11 @@ void VariableEditor::drawVariableEditor(int screenWidth, int screenHeight)
         textTtsToggle = {0, 0, 0, 0};
     }
 
-    drawButton(localSaveBtn, "Save", true);
-    drawButton(localCancelBtn, "Cancel", false);
+    {
+        const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
+        drawEditorButton(font, localSaveBtn, "Save", true, true);
+        drawEditorButton(font, localCancelBtn, "Cancel", false, true);
+    }
 
     if (!error.empty())
     {
