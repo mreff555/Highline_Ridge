@@ -167,7 +167,7 @@ bool classifyVoiceCloseTag(const std::string& body, bool& knownClose)
 const std::vector<std::string>& builtinVoiceIds()
 {
     static const std::vector<std::string> kVoices = {
-        "ara", "eve", "leo", "rex", "sal"
+        "ara", "eve", "helios", "leo", "rex", "rigel", "sal"
     };
     return kVoices;
 }

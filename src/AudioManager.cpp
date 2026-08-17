@@ -1172,6 +1172,35 @@ void AudioManager::onRoomEnter(const RoomAudioConfig& roomAudio, const std::stri
     syncRoomStreams(roomAudio);
 }
 
+void AudioManager::startTitleScreenBed()
+{
+    RoomAudioConfig room;
+    room.hasMusic = true;
+    room.music.path = "resources/audio/music/title_theme.mp3";
+    room.music.volume = 0.55f;
+    room.music.loop = true;
+    room.music.fadeIn = 1.8f;
+    room.music.fadeOut = 1.2f;
+
+    AudioClipDef wind;
+    wind.path = "resources/audio/ambient/wind.mp3";
+    wind.volume = 0.28f; // muffled wind bed under the theme
+    wind.loop = true;
+    wind.fadeIn = 1.2f;
+    wind.fadeOut = 1.0f;
+    room.ambient.push_back(wind);
+
+    // Title bed should be audible even if gameplay was ducked.
+    setGameplayPaused(false, 0.01f);
+    onRoomEnter(room, "");
+}
+
+void AudioManager::stopTitleScreenBed()
+{
+    RoomAudioConfig empty;
+    onRoomEnter(empty, "");
+}
+
 void AudioManager::applyItemExamineAudio(const ItemAudioOverlayDef& overlay)
 {
     clearItemExamineAudio();

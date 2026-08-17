@@ -84,6 +84,7 @@ set(EDITOR_SOURCES
     DocumentWorkspace.cpp
     VariableEditor.cpp
     ConversationTree.cpp
+    DialogWalkthrough.cpp
     ItemAuthoring.cpp
     ItemEditor.cpp
     ItemEditorAuthoring.cpp

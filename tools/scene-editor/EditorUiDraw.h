@@ -19,8 +19,12 @@
 
 #ifndef TIMBERLINE_EDITOR_UI_DRAW_H
 #define TIMBERLINE_EDITOR_UI_DRAW_H
+#include "EditorTypes.h"
+#include "TtsVoiceMarkup.h"
+
 #include <raylib.h>
 #include <string>
+#include <vector>
 
 namespace timberline_editor
 {
@@ -33,6 +37,77 @@ void drawWrappedText(
     float fontSize,
     float lineSpacing,
     Color color);
+
+float measureUiTextWidth(Font font, const std::string& text, float fontSize);
+
+/**
+ * Word-wrap layout for caret/click mapping. Each line stores buffer [start, end)
+ * indices (end may equal start for empty hard-newline rows).
+ */
+std::vector<EditorVisualLine> layoutWrappedTextLines(
+    Font font,
+    const std::string& buffer,
+    float maxTextWidth,
+    float fontSize);
+
+int visualLineIndexForCursor(const std::vector<EditorVisualLine>& lines, int cursor, int bufferSize);
+
+float caretXOnVisualLine(
+    Font font,
+    const EditorVisualLine& line,
+    int cursor,
+    float fontSize);
+
+/** Map a mouse position in a padded field to a buffer cursor index. */
+int cursorIndexFromClick(
+    Font font,
+    const std::vector<EditorVisualLine>& lines,
+    const std::string& buffer,
+    Rectangle field,
+    float pad,
+    float fontSize,
+    float lineHeight,
+    float scrollY,
+    Vector2 mouse);
+
+void drawVisualTextLines(
+    Font font,
+    const std::vector<EditorVisualLine>& lines,
+    Rectangle field,
+    float pad,
+    float fontSize,
+    float lineHeight,
+    float scrollY,
+    Color color);
+
+/** Draw visual lines with per-byte colors (size must match buffer). */
+void drawVisualTextLinesColored(
+    Font font,
+    const std::vector<EditorVisualLine>& lines,
+    const std::vector<Color>& colors,
+    Rectangle field,
+    float pad,
+    float fontSize,
+    float lineHeight,
+    float scrollY,
+    Color fallback);
+
+/** Map TTS highlight kinds to editor colors (matches VariableEditor defaults). */
+Color ttsHighlightKindColor(timberline_engine::TtsHighlightKind kind);
+
+void buildTtsHighlightColors(
+    const std::string& text,
+    std::vector<Color>& outColors);
+
+/** Move caret vertically by one visual line; preserves preferred X when possible. */
+int moveCursorVertical(
+    Font font,
+    const std::vector<EditorVisualLine>& lines,
+    const std::string& buffer,
+    int cursor,
+    int direction,
+    float fontSize,
+    float& preferredX);
 
 } // namespace timberline_editor
 

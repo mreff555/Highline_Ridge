@@ -52,6 +52,7 @@ set(SOURCES
     src/UiBackdrop.cpp
     src/OpusAudio.cpp
     src/PauseMenuMgr.cpp
+    src/MainMenuBackdrop.cpp
     src/SaveLoadMenuMgr.cpp
     src/DropConfirmMgr.cpp
     src/SaveGame.cpp

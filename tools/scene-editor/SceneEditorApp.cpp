@@ -49,10 +49,28 @@ void SceneEditorApp::wireModules()
 
     conversation.docs = &document;
     conversation.text = &variableEditor;
+    conversation.walkthrough = &dialogWalkthrough;
     conversation.selectionSceneId = &selectedSceneId;
     conversation.leftScroll = &mapCanvas.listScroll;
     conversation.stackDialogOpen = &sceneGraph.stackDialogOpen;
     conversation.draggingDivider = [this]() { return layout.isDraggingDivider(); };
+    conversation.onSelectScene = [this](const std::string& sceneId)
+    {
+        dialogWalkthrough.selectConversationScene(sceneId);
+    };
+
+    dialogWalkthrough.docs = &document;
+    dialogWalkthrough.selectionSceneId = &selectedSceneId;
+    dialogWalkthrough.conversationSelectedKey = &conversation.selectedKey;
+    dialogWalkthrough.onDirty = [this]() { document.markDirty(); };
+    dialogWalkthrough.onTreeRebuild = [this]() { conversation.rebuildConversationTree(); };
+    dialogWalkthrough.onSceneChanged = [this]()
+    {
+        // Keep the multi-scene tree; expand the active scene root only.
+        conversation.rebuildConversationTree();
+        if (!selectedSceneId.empty())
+            conversation.expanded.insert("scene:" + selectedSceneId);
+    };
 
     itemEditor.docs = &document;
     itemEditor.text = &variableEditor;
@@ -71,6 +89,7 @@ void SceneEditorApp::wireModules()
     mapCanvas.layout = &layout;
     mapCanvas.variableEditor = &variableEditor;
     mapCanvas.conversation = &conversation;
+    mapCanvas.dialogWalkthrough = &dialogWalkthrough;
     mapCanvas.itemEditor = &itemEditor;
     mapCanvas.selectionSceneId = &selectedSceneId;
     mapCanvas.variablesScroll = &variablesScroll;
@@ -85,6 +104,8 @@ void SceneEditorApp::syncModuleFonts()
     variableEditor.uiFontBold = uiFontBold;
     conversation.uiFont = uiFont;
     conversation.uiFontBold = uiFontBold;
+    dialogWalkthrough.uiFont = uiFont;
+    dialogWalkthrough.uiFontBold = uiFontBold;
     itemEditor.uiFont = uiFont;
     itemEditor.uiFontBold = uiFontBold;
     mapCanvas.uiFont = uiFont;
@@ -188,10 +209,11 @@ void SceneEditorApp::selectSceneForEditor(const std::string& id)
     if (document.isConversationsTab())
     {
         mapCanvas.listScroll = 0.0f;
-        conversation.selectedKey.clear();
         conversation.rebuildConversationTree();
-        for (const ConversationTreeNode& root : conversation.roots)
-            conversation.expanded.insert(root.key);
+        dialogWalkthrough.ensureConversationSceneSelected();
+        dialogWalkthrough.rebuildSteps();
+        if (!selectedSceneId.empty())
+            conversation.expanded.insert("scene:" + selectedSceneId);
     }
 }
 
@@ -285,8 +307,10 @@ bool SceneEditorApp::loadActiveDocument()
         document.dirty = false;
         mapCanvas.listScroll = 0.0f;
         conversation.rebuildConversationTree();
-        for (const ConversationTreeNode& root : conversation.roots)
-            conversation.expanded.insert(root.key);
+        dialogWalkthrough.ensureConversationSceneSelected();
+        dialogWalkthrough.rebuildSteps();
+        if (!selectedSceneId.empty())
+            conversation.expanded.insert("scene:" + selectedSceneId);
         return true;
     }
 
@@ -392,6 +416,18 @@ void SceneEditorApp::update()
 
     if (sceneGraph.stackDialogOpen)
         return;
+
+    if (document.isConversationsTab())
+    {
+        const Rectangle main = layout.mainPaneBounds(screenWidth);
+        const Rectangle canvasBounds = {
+            main.x + 4.0f, main.y + 4.0f, main.width - 8.0f, main.height - 8.0f};
+        dialogWalkthrough.handleInput(canvasBounds);
+        if (CheckCollisionPointRec(GetMousePosition(), dialogWalkthrough.textField))
+            SetMouseCursor(MOUSE_CURSOR_IBEAM);
+        else
+            SetMouseCursor(MOUSE_CURSOR_DEFAULT);
+    }
 
     layout.handleDividerInput(screenWidth, screenHeight);
 

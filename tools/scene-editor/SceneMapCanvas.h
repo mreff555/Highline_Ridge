@@ -28,6 +28,7 @@
 #include "ThumbnailCache.h"
 #include "VariableEditor.h"
 #include "ConversationTree.h"
+#include "DialogWalkthrough.h"
 #include "ItemEditor.h"
 
 #include <functional>
@@ -98,6 +99,7 @@ struct SceneMapCanvas
     EditorLayout* layout = nullptr;
     VariableEditor* variableEditor = nullptr;
     ConversationTree* conversation = nullptr;
+    DialogWalkthrough* dialogWalkthrough = nullptr;
     ItemEditor* itemEditor = nullptr;
     std::string* selectionSceneId = nullptr;
     float* variablesScroll = nullptr;

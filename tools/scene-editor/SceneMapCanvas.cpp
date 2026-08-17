@@ -2078,7 +2078,11 @@ void SceneMapCanvas::draw()
         main.y + 4.0f,
         main.width - 8.0f,
         main.height - 8.0f};
-    if (docs && docs->isItemsTab())
+    if (docs && docs->isConversationsTab() && dialogWalkthrough)
+    {
+        dialogWalkthrough->draw(canvasBounds);
+    }
+    else if (docs && docs->isItemsTab())
     {
         // Item tab: main pane is a detail placeholder (fields edit via left tree dialogs).
         DrawTextEx(

@@ -31,6 +31,7 @@
 #include <ItemDef.h>
 #include <DropConfirmMgr.h>
 #include <SaveLoadMenuMgr.h>
+#include <MainMenuBackdrop.h>
 #include <PauseMenuMgr.h>
 #include <SaveGame.h>
 #include <TakeMgr.h>
@@ -97,6 +98,12 @@ class GameSession
     void handlePauseMenuInput();
     void handleSaveLoadMenuInput();
     void handleQuickSaveInput();
+    void refreshContinueAvailability();
+    void enterTitleScreen();
+    void leaveTitleScreen();
+    bool startNewGame();
+    bool continueMostRecentSave();
+    bool isTitleScreenActive() const { return titleScreenActive; }
     void handleDevOverlayInput();
     void handleDevAltImageInput();
     void resetDevSceneImagePreview();
@@ -254,8 +261,11 @@ class GameSession
     PauseMenuMgr pauseMenu;
     SaveLoadMenuMgr saveLoadMenu;
     DropConfirmMgr dropConfirmMgr;
+    MainMenuBackdrop mainMenuBackdrop;
     std::string gameConfigPath;
     bool quitRequested = false;
+    bool titleScreenActive = false;
+    bool openingHypoxiaArmed = false;
 
     Texture2D locationImage{};
     bool ownsLocationImage = false;

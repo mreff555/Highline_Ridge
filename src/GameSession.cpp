@@ -342,7 +342,7 @@ namespace
         if (worldState.currentSceneId == "snow_cave_interior")
         {
             overlayMgr.setHypoxiaOpacity(1.0f);
-            pendingOpeningHypoxiaSequence = true;
+            openingHypoxiaArmed = true;
             deferInitialRoomAudio = true;
         }
         narrativeNotebook.setFonts(descriptionFont, boldFont);
@@ -357,6 +357,9 @@ namespace
         updateInventoryLayout();
         syncWalletInventoryDisplay();
         updateActionAvailability();
+
+        mainMenuBackdrop.load(assetRoot);
+        enterTitleScreen();
     }
 
     void GameSession::syncWalletInventoryDisplay()
@@ -455,6 +458,7 @@ namespace
 
     GameSession::~GameSession()
     {
+        mainMenuBackdrop.unload();
         if (ownsLocationImage && locationImage.id != 0)
             UnloadTexture(locationImage);
     }
@@ -3427,13 +3431,97 @@ namespace
         }
     }
 
+    void GameSession::refreshContinueAvailability()
+    {
+        const std::vector<SaveSlotListing> slots = saveGameService.listSlots();
+        pauseMenu.setContinueAvailable(!slots.empty());
+    }
+
+    void GameSession::enterTitleScreen()
+    {
+        titleScreenActive = true;
+        refreshContinueAvailability();
+        pauseMenu.openTitleMenu();
+        audioManager.startTitleScreenBed();
+        audioManager.setGameplayPaused(false);
+    }
+
+    void GameSession::leaveTitleScreen()
+    {
+        if (!titleScreenActive)
+            return;
+        titleScreenActive = false;
+        audioManager.stopTitleScreenBed();
+        closeAllUiPanels();
+        audioManager.setGameplayPaused(false);
+        if (openingHypoxiaArmed)
+        {
+            pendingOpeningHypoxiaSequence = true;
+            openingHypoxiaArmed = false;
+        }
+        deferInitialRoomAudio = true;
+    }
+
+    bool GameSession::continueMostRecentSave()
+    {
+        const std::vector<SaveSlotListing> slots = saveGameService.listSlots();
+        if (slots.empty())
+            return false;
+
+        const SaveSlotListing* best = &slots.front();
+        for (const SaveSlotListing& slot : slots)
+        {
+            if (slot.metadata.unixTime > best->metadata.unixTime)
+                best = &slot;
+        }
+        if (!loadGameFromPath(best->filePath))
+            return false;
+        leaveTitleScreen();
+        return true;
+    }
+
+    bool GameSession::startNewGame()
+    {
+        // Restart from the configured start scene with a clean runtime state.
+        LocationStruct startLocation;
+        std::string startSceneId;
+        if (!sceneDatabase.loadStartScene(startLocation, startSceneId))
+            return false;
+
+        SavedGameState fresh;
+        fresh.sceneId = startSceneId;
+        const SceneData* startScene = sceneDatabase.getScene(startSceneId);
+        if (startScene != nullptr && !startScene->defaultSubSceneId.empty())
+            fresh.activeSubSceneId = startScene->defaultSubSceneId;
+        fresh.narrativeText = startLocation.locationDescription;
+
+        if (!applySaveState(fresh))
+            return false;
+
+        if (worldState.currentSceneId == "snow_cave_interior")
+        {
+            overlayMgr.setHypoxiaOpacity(1.0f);
+            openingHypoxiaArmed = true;
+        }
+        leaveTitleScreen();
+        return true;
+    }
+
     void GameSession::handleSaveLoadMenuInput()
     {
         if (IsKeyPressed(KEY_ESCAPE))
+        {
             uiCoordinator.closeSaveLoadMenu(saveLoadMenu, pauseMenu);
+            if (titleScreenActive)
+                pauseMenu.openTitleMenu();
+        }
 
         if (saveLoadMenu.consumeBackRequest())
+        {
             uiCoordinator.closeSaveLoadMenu(saveLoadMenu, pauseMenu);
+            if (titleScreenActive)
+                pauseMenu.openTitleMenu();
+        }
 
         std::string saveName;
         if (saveLoadMenu.consumeNamedSaveRequest(saveName))
@@ -3444,6 +3532,8 @@ namespace
                 pauseMenu.setStatusMessage("Save failed.");
 
             uiCoordinator.closeSaveLoadMenu(saveLoadMenu, pauseMenu);
+            if (titleScreenActive)
+                pauseMenu.openTitleMenu();
         }
 
         std::string loadPath;
@@ -3452,8 +3542,13 @@ namespace
             if (loadGameFromPath(loadPath))
             {
                 pauseMenu.setStatusMessage("Game loaded.");
-                closeAllUiPanels();
-                audioManager.setGameplayPaused(false);
+                if (titleScreenActive)
+                    leaveTitleScreen();
+                else
+                {
+                    closeAllUiPanels();
+                    audioManager.setGameplayPaused(false);
+                }
             }
             else
                 pauseMenu.setStatusMessage("Load failed.");
@@ -3467,18 +3562,24 @@ namespace
             if (saveLoadMenu.isOpen())
             {
                 uiCoordinator.closeSaveLoadMenu(saveLoadMenu, pauseMenu);
+                if (titleScreenActive)
+                    pauseMenu.openTitleMenu();
             }
             else if (pauseMenu.isOpen())
             {
                 if (pauseMenu.isConfigPanel())
                     pauseMenu.showMainPanel();
+                else if (titleScreenActive)
+                {
+                    // Stay on the title menu (no resume-to-game).
+                }
                 else
                 {
                     uiCoordinator.closePauseMenu(pauseMenu, saveLoadMenu);
                     audioManager.setGameplayPaused(false);
                 }
             }
-            else
+            else if (!titleScreenActive)
             {
                 openUiMode(UiMode::Pause);
                 audioManager.setGameplayPaused(true);
@@ -3488,11 +3589,32 @@ namespace
         if (!saveLoadMenu.isOpen())
             pauseMenu.update(GetFrameTime());
 
+        if (pauseMenu.consumeResumeRequest())
+        {
+            uiCoordinator.closePauseMenu(pauseMenu, saveLoadMenu);
+            audioManager.setGameplayPaused(false);
+        }
+
+        if (pauseMenu.consumeContinueRequest())
+        {
+            if (!continueMostRecentSave())
+                pauseMenu.setStatusMessage("No save games found.");
+        }
+
+        if (pauseMenu.consumeNewGameRequest())
+        {
+            if (!startNewGame())
+                pauseMenu.setStatusMessage("Failed to start new game.");
+        }
+
         if (pauseMenu.consumeOpenSaveMenuRequest())
             uiCoordinator.openSaveMenu(saveLoadMenu);
 
         if (pauseMenu.consumeOpenLoadMenuRequest())
+        {
+            // Load replaces the pause panel while open.
             uiCoordinator.openLoadMenu(saveLoadMenu);
+        }
 
         if (pauseMenu.consumeQuitRequest())
             quitRequested = true;
@@ -3500,7 +3622,23 @@ namespace
 
     void GameSession::update()
     {
+        const float dt = GetFrameTime();
         syncConversationRequirements();
+
+        if (titleScreenActive)
+        {
+            mainMenuBackdrop.update(dt);
+            audioManager.update(dt);
+            trackDisplayConfigChanges();
+            updateTransientMessage(dt);
+            handlePauseMenuInput();
+            if (saveLoadMenu.isOpen())
+            {
+                saveLoadMenu.update();
+                handleSaveLoadMenuInput();
+            }
+            return;
+        }
 
         if (!initialFrameComplete)
         {
@@ -3519,11 +3657,11 @@ namespace
         }
 
         if (!saveLoadMenu.isOpen() && !pauseMenu.isOpen())
-            updateDelayedSceneNarrativeTts(GetFrameTime());
-        audioManager.update(GetFrameTime());
-        overlayMgr.update(GetFrameTime());
+            updateDelayedSceneNarrativeTts(dt);
+        audioManager.update(dt);
+        overlayMgr.update(dt);
         trackDisplayConfigChanges();
-        updateTransientMessage(GetFrameTime());
+        updateTransientMessage(dt);
         handleQuickSaveInput();
         handleDevOverlayInput();
         handleDevAltImageInput();
@@ -3767,8 +3905,18 @@ namespace
 
     void GameSession::draw() const
     {
-        const_cast<GameSession*>(this)->syncNarrativeContext();
         ClearBackground(BLACK);
+
+        if (titleScreenActive)
+        {
+            mainMenuBackdrop.draw(screenWidth, screenHeight, 0.45f);
+            pauseMenu.draw();
+            saveLoadMenu.draw();
+            drawTransientMessage();
+            return;
+        }
+
+        const_cast<GameSession*>(this)->syncNarrativeContext();
 
         drawMainImage();
         overlayMgr.draw(getMainImageBounds());
@@ -3808,6 +3956,8 @@ namespace
             blackjackPanel.draw();
         else
             buttonMgr.draw();
+
+        // In-game pause keeps the live scene under a dimmed panel (no title vignette).
         pauseMenu.draw();
         saveLoadMenu.draw();
         drawTransientMessage();

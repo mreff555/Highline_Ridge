@@ -50,19 +50,33 @@ std::string conversationPointerIndex(const std::string& parent, size_t index)
 std::string phaseActorId(const nlohmann::json& phase)
 {
     if (phase.contains("actorId") && phase["actorId"].is_string())
-        return phase["actorId"].get<std::string>();
+    {
+        const std::string id = phase["actorId"].get<std::string>();
+        if (!id.empty())
+            return id;
+    }
 
     if (phase.contains("actor"))
     {
         const nlohmann::json& actor = phase["actor"];
-        if (actor.is_string())
+        if (actor.is_string() && !actor.get<std::string>().empty())
             return actor.get<std::string>();
         if (actor.is_object() && actor.contains("id") && actor["id"].is_string())
-            return actor["id"].get<std::string>();
+        {
+            const std::string id = actor["id"].get<std::string>();
+            if (!id.empty())
+                return id;
+        }
     }
 
+    // Prefer a stable bucket per phase id rather than collapsing every
+    // unnamed speaker into one anonymous actor.
     if (phase.contains("id") && phase["id"].is_string())
-        return phase["id"].get<std::string>();
+    {
+        const std::string id = phase["id"].get<std::string>();
+        if (!id.empty())
+            return id;
+    }
 
     return "(unknown)";
 }
@@ -82,6 +96,10 @@ std::string phaseActorName(const nlohmann::json& phase, const std::string& actor
         if (!name.empty())
             return name;
     }
+
+    // Humanize phase ids used as actor fallback (merchant, shopkeeper, …).
+    if (!actorId.empty() && actorId != "(unknown)")
+        return actorId;
 
     return actorId;
 }

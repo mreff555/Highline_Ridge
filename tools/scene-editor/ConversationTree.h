@@ -33,6 +33,8 @@
 namespace timberline_editor
 {
 
+struct DialogWalkthrough;
+
 struct ConversationTree
 {
     std::vector<ConversationTreeNode> roots;
@@ -45,10 +47,13 @@ struct ConversationTree
 
     DocumentWorkspace* docs = nullptr;
     VariableEditor* text = nullptr;
+    DialogWalkthrough* walkthrough = nullptr;
     std::string* selectionSceneId = nullptr;
     float* leftScroll = nullptr;
     bool* stackDialogOpen = nullptr;
     std::function<bool()> draggingDivider;
+    /** Called when the user picks a scene root in the conversations tree. */
+    std::function<void(const std::string& sceneId)> onSelectScene;
     Font uiFont{};
     Font uiFontBold{};
 
@@ -69,11 +74,24 @@ void invalidateConversationVisibleRows();
 
 void rebuildConversationTree();
 
+/** Build Main Character + Actors subtrees for one scene id. */
+void appendSceneConversationContent(
+    ConversationTreeNode& sceneRoot,
+    const std::string& sceneId);
+
 void stampConversationEditDoc(ConversationTreeNode& node);
 
 bool isConversationExpanded(const std::string& key) const;
 
 void toggleConversationExpanded(const std::string& key);
+
+bool allSceneRootsExpanded() const;
+void expandAllSceneRoots();
+void collapseAllSceneRoots();
+void toggleExpandAllSceneRoots();
+
+/** Parse scene id from tree key "scene:<id>" (empty if not a scene root). */
+static std::string sceneIdFromTreeKey(const std::string& key);
 
 void collectVisibleConversationRows(
     const ConversationTreeNode& node,

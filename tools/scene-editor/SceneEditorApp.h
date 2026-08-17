@@ -21,6 +21,7 @@
 #define TIMBERLINE_SCENE_EDITOR_APP_H
 
 #include "ConversationTree.h"
+#include "DialogWalkthrough.h"
 #include "DocumentWorkspace.h"
 #include "EditorLayout.h"
 #include "ItemEditor.h"
@@ -44,6 +45,7 @@ struct SceneEditorApp
     ThumbnailCache thumbnails;
     VariableEditor variableEditor;
     ConversationTree conversation;
+    DialogWalkthrough dialogWalkthrough;
     ItemEditor itemEditor;
     SceneGraphModel sceneGraph;
     SceneMapCanvas mapCanvas;

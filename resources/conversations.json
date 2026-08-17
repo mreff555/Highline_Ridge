@@ -14,13 +14,21 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
+                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
+                        "ttsVoice": "helios"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\""
+                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
+                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
+                        "ttsVoice": "helios"
                       }
                     ],
                     "closePhase": false,
@@ -37,7 +45,11 @@
                     "response": "He sets the crampons on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"\n\n\"Need anything else while you're here?\"",
                     "status": {
                       "money": -3.25
-                    }
+                    },
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/alpine_hardware/buy_crampons.mp3",
+                    "ttsTextSha256": "e392c0caf0147611c2598c0b6c39af8a144cdf442d0addb32f6b5afb5b6f5554",
+                    "ttsVoice": "helios"
                   },
                   {
                     "choices": [
@@ -46,24 +58,40 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
+                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
+                        "ttsVoice": "helios"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\""
+                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
+                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
+                        "ttsVoice": "helios"
                       }
                     ],
                     "closePhase": false,
                     "id": "decline_crampons",
                     "label": "Thanks, maybe next time.",
-                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\""
+                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\"",
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/alpine_hardware/decline_crampons.mp3",
+                    "ttsTextSha256": "7151a30749288de401b64c859dbc9434b38fbdaa92a55b6061ee85906f45f0b2",
+                    "ttsVoice": "helios"
                   }
                 ],
                 "id": "browse_crampons",
                 "label": "Crampons - $3.25",
-                "response": "\"Solid choice,\" he says. \"That'll be three dollars and twenty-five cents.\""
+                "response": "\"Solid choice,\" he says. \"That'll be three dollars and twenty-five cents.\"",
+                "tts": true,
+                "ttsAudio": "resources/audio/tts/alpine_hardware/browse_crampons.mp3",
+                "ttsTextSha256": "8f5585e3bdfdf656a954658bdda59b35d70bcd6c239756d3e344f1b5911053a7",
+                "ttsVoice": "helios"
               },
               {
                 "choices": [
@@ -74,13 +102,21 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
+                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
+                        "ttsVoice": "helios"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\""
+                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
+                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
+                        "ttsVoice": "helios"
                       }
                     ],
                     "closePhase": false,
@@ -97,7 +133,11 @@
                     "response": "He sets the mining pick on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"\n\n\"Need anything else while you're here?\"",
                     "status": {
                       "money": -4.5
-                    }
+                    },
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/alpine_hardware/buy_mining_pick.mp3",
+                    "ttsTextSha256": "02a8f3924ba2df626e329ac952cc0d333617c09b7fd341476e32fd894354a23e",
+                    "ttsVoice": "helios"
                   },
                   {
                     "choices": [
@@ -106,24 +146,40 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
+                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
+                        "ttsVoice": "helios"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\""
+                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
+                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
+                        "ttsVoice": "helios"
                       }
                     ],
                     "closePhase": false,
                     "id": "decline_mining_pick",
                     "label": "Thanks, maybe next time.",
-                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\""
+                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\"",
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/alpine_hardware/decline_mining_pick.mp3",
+                    "ttsTextSha256": "7151a30749288de401b64c859dbc9434b38fbdaa92a55b6061ee85906f45f0b2",
+                    "ttsVoice": "helios"
                   }
                 ],
                 "id": "browse_mining_pick",
                 "label": "Mining Pick - $4.50",
-                "response": "\"Solid choice,\" he says. \"That'll be four dollars and fifty cents.\""
+                "response": "\"Solid choice,\" he says. \"That'll be four dollars and fifty cents.\"",
+                "tts": true,
+                "ttsAudio": "resources/audio/tts/alpine_hardware/browse_mining_pick.mp3",
+                "ttsTextSha256": "c4e33505331ab3f767ae7fcff4612a597f58ee0fe0cae77784407d984c9e9624",
+                "ttsVoice": "helios"
               },
               {
                 "choices": [
@@ -134,13 +190,21 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
+                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
+                        "ttsVoice": "helios"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\""
+                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
+                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
+                        "ttsVoice": "helios"
                       }
                     ],
                     "closePhase": false,
@@ -157,7 +221,11 @@
                     "response": "He sets the shovel on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"\n\n\"Need anything else while you're here?\"",
                     "status": {
                       "money": -1.75
-                    }
+                    },
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/alpine_hardware/buy_shovel.mp3",
+                    "ttsTextSha256": "4837f6d70d7d0e12a41cc985966dea8285723c6914aedb92affa582789b8e2a0",
+                    "ttsVoice": "helios"
                   },
                   {
                     "choices": [
@@ -166,24 +234,40 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
+                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
+                        "ttsVoice": "helios"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\""
+                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
+                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
+                        "ttsVoice": "helios"
                       }
                     ],
                     "closePhase": false,
                     "id": "decline_shovel",
                     "label": "Thanks, maybe next time.",
-                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\""
+                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\"",
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/alpine_hardware/decline_shovel.mp3",
+                    "ttsTextSha256": "7151a30749288de401b64c859dbc9434b38fbdaa92a55b6061ee85906f45f0b2",
+                    "ttsVoice": "helios"
                   }
                 ],
                 "id": "browse_shovel",
                 "label": "Shovel - $1.75",
-                "response": "\"Solid choice,\" he says. \"That'll be one dollar and seventy-five cents.\""
+                "response": "\"Solid choice,\" he says. \"That'll be one dollar and seventy-five cents.\"",
+                "tts": true,
+                "ttsAudio": "resources/audio/tts/alpine_hardware/browse_shovel.mp3",
+                "ttsTextSha256": "e3963ade81d69196930741e481d144d41e5158b4548678f6b3e6041f79e32daa",
+                "ttsVoice": "helios"
               },
               {
                 "choices": [
@@ -194,13 +278,21 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
+                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
+                        "ttsVoice": "helios"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\""
+                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
+                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
+                        "ttsVoice": "helios"
                       }
                     ],
                     "closePhase": false,
@@ -217,7 +309,11 @@
                     "response": "He sets the garden rake on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"\n\n\"Need anything else while you're here?\"",
                     "status": {
                       "money": -1.25
-                    }
+                    },
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/alpine_hardware/buy_garden_rake.mp3",
+                    "ttsTextSha256": "f1718a7f17a30d4a4e5cf2dbda6da7146dc372adf68e6d2cc7970dd5bc84f277",
+                    "ttsVoice": "helios"
                   },
                   {
                     "choices": [
@@ -226,24 +322,40 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
+                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
+                        "ttsVoice": "helios"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\""
+                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
+                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
+                        "ttsVoice": "helios"
                       }
                     ],
                     "closePhase": false,
                     "id": "decline_garden_rake",
                     "label": "Thanks, maybe next time.",
-                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\""
+                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\"",
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/alpine_hardware/decline_garden_rake.mp3",
+                    "ttsTextSha256": "7151a30749288de401b64c859dbc9434b38fbdaa92a55b6061ee85906f45f0b2",
+                    "ttsVoice": "helios"
                   }
                 ],
                 "id": "browse_garden_rake",
                 "label": "Garden Rake - $1.25",
-                "response": "\"Solid choice,\" he says. \"That'll be one dollar and twenty-five cents.\""
+                "response": "\"Solid choice,\" he says. \"That'll be one dollar and twenty-five cents.\"",
+                "tts": true,
+                "ttsAudio": "resources/audio/tts/alpine_hardware/browse_garden_rake.mp3",
+                "ttsTextSha256": "6a50c846f51e8ff38d5018217953061d4b3e0c70d9896da4e0c38ab2c6e0ad95",
+                "ttsVoice": "helios"
               },
               {
                 "choices": [
@@ -254,13 +366,21 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
+                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
+                        "ttsVoice": "helios"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\""
+                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
+                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
+                        "ttsVoice": "helios"
                       }
                     ],
                     "closePhase": false,
@@ -277,7 +397,11 @@
                     "response": "He sets the hand drill on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"\n\n\"Need anything else while you're here?\"",
                     "status": {
                       "money": -2.5
-                    }
+                    },
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/alpine_hardware/buy_hand_drill.mp3",
+                    "ttsTextSha256": "59a8bb3db93b2af7db9d528edf3c9236d65a364e46b3fc4a1afe0a43919ab2c1",
+                    "ttsVoice": "helios"
                   },
                   {
                     "choices": [
@@ -286,24 +410,40 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
+                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
+                        "ttsVoice": "helios"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\""
+                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
+                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
+                        "ttsVoice": "helios"
                       }
                     ],
                     "closePhase": false,
                     "id": "decline_hand_drill",
                     "label": "Thanks, maybe next time.",
-                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\""
+                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\"",
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/alpine_hardware/decline_hand_drill.mp3",
+                    "ttsTextSha256": "7151a30749288de401b64c859dbc9434b38fbdaa92a55b6061ee85906f45f0b2",
+                    "ttsVoice": "helios"
                   }
                 ],
                 "id": "browse_hand_drill",
                 "label": "Hand Drill - $2.50",
-                "response": "\"Solid choice,\" he says. \"That'll be two dollars and fifty cents.\""
+                "response": "\"Solid choice,\" he says. \"That'll be two dollars and fifty cents.\"",
+                "tts": true,
+                "ttsAudio": "resources/audio/tts/alpine_hardware/browse_hand_drill.mp3",
+                "ttsTextSha256": "e84ecd9a896bef7bbefdc120df4f3f58e8e266e2e7f1dfae33ef1cda12176832",
+                "ttsVoice": "helios"
               },
               {
                 "choices": [
@@ -314,13 +454,21 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
+                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
+                        "ttsVoice": "helios"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\""
+                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
+                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
+                        "ttsVoice": "helios"
                       }
                     ],
                     "closePhase": false,
@@ -337,7 +485,11 @@
                     "response": "He sets the blacksmith's hammer on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"\n\n\"Need anything else while you're here?\"",
                     "status": {
                       "money": -2.0
-                    }
+                    },
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/alpine_hardware/buy_blacksmith_hammer.mp3",
+                    "ttsTextSha256": "3d30c3783a4a329ad61cb2c0cd7adc45f58698ed384163b50626a1db998beb50",
+                    "ttsVoice": "helios"
                   },
                   {
                     "choices": [
@@ -346,24 +498,40 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
+                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
+                        "ttsVoice": "helios"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\""
+                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
+                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
+                        "ttsVoice": "helios"
                       }
                     ],
                     "closePhase": false,
                     "id": "decline_blacksmith_hammer",
                     "label": "Thanks, maybe next time.",
-                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\""
+                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\"",
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/alpine_hardware/decline_blacksmith_hammer.mp3",
+                    "ttsTextSha256": "7151a30749288de401b64c859dbc9434b38fbdaa92a55b6061ee85906f45f0b2",
+                    "ttsVoice": "helios"
                   }
                 ],
                 "id": "browse_blacksmith_hammer",
                 "label": "Blacksmith's Hammer - $2",
-                "response": "\"Solid choice,\" he says. \"That'll be two dollars.\""
+                "response": "\"Solid choice,\" he says. \"That'll be two dollars.\"",
+                "tts": true,
+                "ttsAudio": "resources/audio/tts/alpine_hardware/browse_blacksmith_hammer.mp3",
+                "ttsTextSha256": "d8fc98b07df4138e2ec8b423c06259009b90b0d247fbccc2e0071147d95bf7ff",
+                "ttsVoice": "helios"
               },
               {
                 "choices": [
@@ -374,13 +542,21 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
+                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
+                        "ttsVoice": "helios"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\""
+                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
+                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
+                        "ttsVoice": "helios"
                       }
                     ],
                     "closePhase": false,
@@ -397,7 +573,11 @@
                     "response": "He sets the mid-sized anvil on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"\n\n\"Need anything else while you're here?\"",
                     "status": {
                       "money": -28.0
-                    }
+                    },
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/alpine_hardware/buy_mid_anvil.mp3",
+                    "ttsTextSha256": "23504d4fcc4cb35fb57b469c7060beaf0a7f5662f7e1bcfe81fe938b6d348205",
+                    "ttsVoice": "helios"
                   },
                   {
                     "choices": [
@@ -406,24 +586,40 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
+                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
+                        "ttsVoice": "helios"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\""
+                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
+                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
+                        "ttsVoice": "helios"
                       }
                     ],
                     "closePhase": false,
                     "id": "decline_mid_anvil",
                     "label": "Thanks, maybe next time.",
-                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\""
+                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\"",
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/alpine_hardware/decline_mid_anvil.mp3",
+                    "ttsTextSha256": "7151a30749288de401b64c859dbc9434b38fbdaa92a55b6061ee85906f45f0b2",
+                    "ttsVoice": "helios"
                   }
                 ],
                 "id": "browse_mid_anvil",
                 "label": "Mid-Sized Anvil - $28",
-                "response": "\"Solid choice,\" he says. \"That'll be twenty-eight dollars.\""
+                "response": "\"Solid choice,\" he says. \"That'll be twenty-eight dollars.\"",
+                "tts": true,
+                "ttsAudio": "resources/audio/tts/alpine_hardware/browse_mid_anvil.mp3",
+                "ttsTextSha256": "5ce3fa3bae6d239d542ee6f6f7b79a1d4abb61504dfc02d807b7d039970521c9",
+                "ttsVoice": "helios"
               },
               {
                 "choices": [
@@ -434,13 +630,21 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
+                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
+                        "ttsVoice": "helios"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\""
+                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
+                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
+                        "ttsVoice": "helios"
                       }
                     ],
                     "closePhase": false,
@@ -457,7 +661,11 @@
                     "response": "He sets the box of nails on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"\n\n\"Need anything else while you're here?\"",
                     "status": {
                       "money": -0.45
-                    }
+                    },
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/alpine_hardware/buy_box_of_nails.mp3",
+                    "ttsTextSha256": "7d31cc983eb4b5fead52eece01f437dd16642d026263a43291431c82af1562c8",
+                    "ttsVoice": "helios"
                   },
                   {
                     "choices": [
@@ -466,24 +674,40 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
+                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
+                        "ttsVoice": "helios"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\""
+                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
+                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
+                        "ttsVoice": "helios"
                       }
                     ],
                     "closePhase": false,
                     "id": "decline_box_of_nails",
                     "label": "Thanks, maybe next time.",
-                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\""
+                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\"",
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/alpine_hardware/decline_box_of_nails.mp3",
+                    "ttsTextSha256": "7151a30749288de401b64c859dbc9434b38fbdaa92a55b6061ee85906f45f0b2",
+                    "ttsVoice": "helios"
                   }
                 ],
                 "id": "browse_box_of_nails",
                 "label": "Box of Nails - $0.45",
-                "response": "\"Solid choice,\" he says. \"That'll be forty-five cents.\""
+                "response": "\"Solid choice,\" he says. \"That'll be forty-five cents.\"",
+                "tts": true,
+                "ttsAudio": "resources/audio/tts/alpine_hardware/browse_box_of_nails.mp3",
+                "ttsTextSha256": "7159e93e7e3a97e579b0bcddcb92a2523c78fa2ed23448290600040e7af22001",
+                "ttsVoice": "helios"
               },
               {
                 "choices": [
@@ -494,13 +718,21 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
+                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
+                        "ttsVoice": "helios"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\""
+                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
+                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
+                        "ttsVoice": "helios"
                       }
                     ],
                     "closePhase": false,
@@ -517,7 +749,11 @@
                     "response": "He sets the spool of copper wire on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"\n\n\"Need anything else while you're here?\"",
                     "status": {
                       "money": -1.6
-                    }
+                    },
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/alpine_hardware/buy_copper_wire_spool.mp3",
+                    "ttsTextSha256": "d91335cc121206bc0746e2b8c3da5558b4394abf273bd4c2f88db9072ff6869b",
+                    "ttsVoice": "helios"
                   },
                   {
                     "choices": [
@@ -526,34 +762,58 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
+                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
+                        "ttsVoice": "helios"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\""
+                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
+                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
+                        "ttsVoice": "helios"
                       }
                     ],
                     "closePhase": false,
                     "id": "decline_copper_wire_spool",
                     "label": "Thanks, maybe next time.",
-                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\""
+                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\"",
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/alpine_hardware/decline_copper_wire_spool.mp3",
+                    "ttsTextSha256": "7151a30749288de401b64c859dbc9434b38fbdaa92a55b6061ee85906f45f0b2",
+                    "ttsVoice": "helios"
                   }
                 ],
                 "id": "browse_copper_wire_spool",
                 "label": "Spool of Copper Wire - $1.60",
-                "response": "\"Solid choice,\" he says. \"That'll be one dollar and sixty cents.\""
+                "response": "\"Solid choice,\" he says. \"That'll be one dollar and sixty cents.\"",
+                "tts": true,
+                "ttsAudio": "resources/audio/tts/alpine_hardware/browse_copper_wire_spool.mp3",
+                "ttsTextSha256": "7ce6ce4046857ea18f4a7e7572554754b68e3185eba62588757197ec4d999969",
+                "ttsVoice": "helios"
               },
               {
                 "id": "catalog_done",
                 "label": "Thanks, just browsing.",
-                "response": "\"Suit yourself,\" he says, not unkindly. \"Walk the aisles. Holler if you need a hand.\""
+                "response": "\"Suit yourself,\" he says, not unkindly. \"Walk the aisles. Holler if you need a hand.\"",
+                "tts": true,
+                "ttsAudio": "resources/audio/tts/alpine_hardware/catalog_done.mp3",
+                "ttsTextSha256": "8731de4c21fa102ecc01ca1a07c4b379c73f329f782511a03163d490c3092701",
+                "ttsVoice": "helios"
               }
             ],
             "id": "what_on_offer",
             "label": "Yes, what do you have on offer?",
-            "response": "\"Everything you see and most of what you don't.\" He jerks his chin toward the floor stock and wall tools. \"Picks, shovels, rakes, drills, hammers, anvils, nails, wire, rope, lanterns, mining goods. If a man means to build or dig at altitude, I stock for it.\""
+            "response": "\"Everything you see and most of what you don't.\" He jerks his chin toward the floor stock and wall tools. \"Picks, shovels, rakes, drills, hammers, anvils, nails, wire, rope, lanterns, mining goods. If a man means to build or dig at altitude, I stock for it.\"",
+            "tts": true,
+            "ttsAudio": "resources/audio/tts/alpine_hardware/what_on_offer.mp3",
+            "ttsTextSha256": "de41551c051a071e066ac459f28f14a27d8795f62b47d7b59ea09a1e6c5815f8",
+            "ttsVoice": "helios"
           },
           {
             "closePhase": false,
@@ -562,18 +822,34 @@
             "label": "Impressive building (looking around a bit)",
             "persistConsumed": true,
             "response": "You take in the post-and-beam bones of the room: timbers joined with a joiner's patience, braces cut true, the whole frame standing with the quiet confidence of work done by someone who did not need to hurry.\n\n\"Impressive building,\" you say.\n\nFor the first time, something like pleasure enters his face.\n\n\"I built it myself,\" he says. \"Every beam, every brace, every peg. My father ran a mill in Pennsylvania. I learned timber before I learned trade. Came up here in eighty-one when the High Line decided it was going to stay, not just camp. There was no proper hardware north of Graysmill that would make the climb worth a mule's temper, so I opened this room and stocked it for men who break ground in weather that kills carelessness.\" He taps the nearest post with his knuckle. \"She'll stand longer than most of the claims on this ridge.\"",
-            "resumeTopLevel": true
+            "resumeTopLevel": true,
+            "tts": true,
+            "ttsAudio": "resources/audio/tts/alpine_hardware/compliment_building.mp3",
+            "ttsTextSha256": "0c12625c750fa8d7918f869fef69f4bcf168a61c8d838a315563ab1451176977",
+            "ttsVoice": "helios"
           },
           {
             "id": "just_browsing",
             "label": "Just browsing at the moment.",
-            "response": "\"Then browse,\" he says. \"Mind the barrels and the low lantern hooks. Holler if you want something down from the wall.\""
+            "response": "\"Then browse,\" he says. \"Mind the barrels and the low lantern hooks. Holler if you want something down from the wall.\"",
+            "tts": true,
+            "ttsAudio": "resources/audio/tts/alpine_hardware/just_browsing.mp3",
+            "ttsTextSha256": "46fe9ce51c439c60f4b27c0b5e499758e320afd59701e55232c83ebab3e79490",
+            "ttsVoice": "helios"
           }
         ],
         "id": "merchant",
-        "intro": "The merchant straightens from a ledger behind the counter and meets your eyes without hurry. He is tall, broad through the chest and shoulders, built like a man who has lifted iron all his life and meant to keep doing it. His shirt is clean, his suspenders straight, his beard trimmed with the same discipline he brings to stock and shelf.\n\n\"Afternoon. What can I help you find?\"",
+        "intro": "The merchant straightens from a ledger behind the counter and meets your eyes without hurry. He is tall, broad through the chest and shoulders, built like a man who has lifted iron all his life and meant to keep doing it. His shirt is clean, his suspenders straight, his beard trimmed with the same discipline he brings to stock and shelf.\n\n\"Afternoon. What can I help you find?s ",
         "resetOnSceneEnter": true,
         "resumeIntro": "He rests both hands on the counter, patient and square-shouldered. \"What else do you need?\"",
+        "resumeTts": true,
+        "resumeTtsAudio": "resources/audio/tts/alpine_hardware/merchant_resume.mp3",
+        "resumeTtsTextSha256": "ef9e1057f738e4cfbe813795b250f8ee51391c0c48649652d2b89b534f4b1668",
+        "resumeTtsVoice": "helios",
+        "tts": true,
+        "ttsAudio": "resources/audio/tts/alpine_hardware/merchant_intro.mp3",
+        "ttsText": "The merchant straightens from a ledger behind the counter and meets your eyes without hurry. He is tall, broad through the chest and shoulders, built like a man who has lifted iron all his life and meant to keep doing it. His shirt is clean, his suspenders straight, his beard trimmed with the same discipline he brings to stock and shelf.\n\n\"Afternoon. What can I help you find?\"I It's ",
+        "ttsVoice": "leo",
         "type": "scripted"
       }
     ]
@@ -589,7 +865,11 @@
             "label": "Um, I don't follow. What wallet.",
             "response": "\"My apologies, sir. You resemble another customer that visited my shop a few days ago.\"\n\nHe recovers his composure with a small inclination of the head.\n\n\"Apologies for the confusion. Is there anything I can help you find?\"",
             "skipIntroOnStartPhase": true,
-            "startPhase": "shopkeeper"
+            "startPhase": "shopkeeper",
+            "tts": true,
+            "ttsAudio": "resources/audio/tts/ridge_haberdashery/wallet_confused.mp3",
+            "ttsTextSha256": "7dacc5dfbefed015bbb0b4fab54415b165d7af03e4b5d671984e14e39a69d1c5",
+            "ttsVoice": "rigel"
           },
           {
             "closePhase": true,
@@ -598,12 +878,20 @@
             "label": "Oh, uh. It's great...",
             "response": "He studies you a moment longer than courtesy requires, confusion working behind his eyes.\n\n\"Hmmm... Let's move on. Is there anything I can help you find?\"",
             "skipIntroOnStartPhase": true,
-            "startPhase": "shopkeeper"
+            "startPhase": "shopkeeper",
+            "tts": true,
+            "ttsAudio": "resources/audio/tts/ridge_haberdashery/wallet_great.mp3",
+            "ttsTextSha256": "78fc4a2a49579ceeb4f6b92ac4e46e55665bbfa8e15ec0630db54df9bf05d2ea",
+            "ttsVoice": "rigel"
           }
         ],
         "id": "shopkeeper_wallet",
         "intro": "The gentleman behind the counter sets down his pen and regards you with practiced courtesy. His vest is pressed, his collar crisp, his hands clean in the manner of a man who sells refinement at altitude.\n\nHe pauses, studying your face as though sorting you into a ledger already written.\n\n\"Good day, Sir. How are you enjoying the new wallet?\"",
         "resetOnSceneEnter": false,
+        "tts": true,
+        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shopkeeper_wallet_intro.mp3",
+        "ttsTextSha256": "76db56fff9b80351ef5426a3ebee7f9d711c082646322574412c06676f0cdae4",
+        "ttsVoice": "rigel",
         "type": "scripted"
       },
       {
@@ -619,13 +907,21 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                        "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                        "ttsVoice": "rigel"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                        "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                        "ttsVoice": "rigel"
                       }
                     ],
                     "closePhase": false,
@@ -642,7 +938,11 @@
                     "response": "He wraps the men's cologne with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"\n\n\"Anything else I may help you find?\"",
                     "status": {
                       "money": -4.5
-                    }
+                    },
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/ridge_haberdashery/buy_mens_cologne.mp3",
+                    "ttsTextSha256": "40e2c0e090b380a9b4647fc5f8a70d2e267b7ccac32c73f02e30e85f3f61f26c",
+                    "ttsVoice": "rigel"
                   },
                   {
                     "choices": [
@@ -651,24 +951,40 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                        "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                        "ttsVoice": "rigel"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                        "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                        "ttsVoice": "rigel"
                       }
                     ],
                     "closePhase": false,
                     "id": "decline_mens_cologne",
                     "label": "Thanks, maybe next time.",
-                    "response": "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\"\n\n\"Anything else I may help you find?\""
+                    "response": "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\"\n\n\"Anything else I may help you find?\"",
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/ridge_haberdashery/decline_mens_cologne.mp3",
+                    "ttsTextSha256": "0511df59f36c2827147cd2846f78facc379b6e502fd10d445ec921bf8953db95",
+                    "ttsVoice": "rigel"
                   }
                 ],
                 "id": "browse_mens_cologne",
                 "label": "Men's Cologne - $4.50",
-                "response": "\"Excellent choice, sir,\" he says. \"That will be four dollars and fifty cents.\""
+                "response": "\"Excellent choice, sir,\" he says. \"That will be four dollars and fifty cents.\"",
+                "tts": true,
+                "ttsAudio": "resources/audio/tts/ridge_haberdashery/browse_mens_cologne.mp3",
+                "ttsTextSha256": "e8092d547c139745c1423c101066bba0b65385f1af03ba05fdf8204c17f501dc",
+                "ttsVoice": "rigel"
               },
               {
                 "choices": [
@@ -679,13 +995,21 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                        "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                        "ttsVoice": "rigel"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                        "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                        "ttsVoice": "rigel"
                       }
                     ],
                     "closePhase": false,
@@ -702,7 +1026,11 @@
                     "response": "He wraps the straight razor with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"\n\n\"Anything else I may help you find?\"",
                     "status": {
                       "money": -12.0
-                    }
+                    },
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/ridge_haberdashery/buy_straight_razor.mp3",
+                    "ttsTextSha256": "7b8a28bb243e252d4d96482500507a2aa824541e9abaa9d5d0ec61de8eab7d78",
+                    "ttsVoice": "rigel"
                   },
                   {
                     "choices": [
@@ -711,24 +1039,40 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                        "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                        "ttsVoice": "rigel"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                        "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                        "ttsVoice": "rigel"
                       }
                     ],
                     "closePhase": false,
                     "id": "decline_straight_razor",
                     "label": "Thanks, maybe next time.",
-                    "response": "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\"\n\n\"Anything else I may help you find?\""
+                    "response": "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\"\n\n\"Anything else I may help you find?\"",
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/ridge_haberdashery/decline_straight_razor.mp3",
+                    "ttsTextSha256": "0511df59f36c2827147cd2846f78facc379b6e502fd10d445ec921bf8953db95",
+                    "ttsVoice": "rigel"
                   }
                 ],
                 "id": "browse_straight_razor",
                 "label": "Straight Razor - $12",
-                "response": "\"Excellent choice, sir,\" he says. \"That will be twelve dollars.\""
+                "response": "\"Excellent choice, sir,\" he says. \"That will be twelve dollars.\"",
+                "tts": true,
+                "ttsAudio": "resources/audio/tts/ridge_haberdashery/browse_straight_razor.mp3",
+                "ttsTextSha256": "f61d90ea521761a686832ba38313a2f6982c1481ea0c438a97fd482600245a50",
+                "ttsVoice": "rigel"
               },
               {
                 "choices": [
@@ -739,13 +1083,21 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                        "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                        "ttsVoice": "rigel"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                        "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                        "ttsVoice": "rigel"
                       }
                     ],
                     "closePhase": false,
@@ -762,7 +1114,11 @@
                     "response": "He wraps the hair tonic with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"\n\n\"Anything else I may help you find?\"",
                     "status": {
                       "money": -0.75
-                    }
+                    },
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/ridge_haberdashery/buy_hair_tonic.mp3",
+                    "ttsTextSha256": "148af18ec29a08fbc38053db4752616eec10773bb918c88ab188570ce20fdaaf",
+                    "ttsVoice": "rigel"
                   },
                   {
                     "choices": [
@@ -771,24 +1127,40 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                        "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                        "ttsVoice": "rigel"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                        "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                        "ttsVoice": "rigel"
                       }
                     ],
                     "closePhase": false,
                     "id": "decline_hair_tonic",
                     "label": "Thanks, maybe next time.",
-                    "response": "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\"\n\n\"Anything else I may help you find?\""
+                    "response": "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\"\n\n\"Anything else I may help you find?\"",
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/ridge_haberdashery/decline_hair_tonic.mp3",
+                    "ttsTextSha256": "0511df59f36c2827147cd2846f78facc379b6e502fd10d445ec921bf8953db95",
+                    "ttsVoice": "rigel"
                   }
                 ],
                 "id": "browse_hair_tonic",
                 "label": "Hair Tonic - $0.75",
-                "response": "\"Excellent choice, sir,\" he says. \"That will be seventy-five cents.\""
+                "response": "\"Excellent choice, sir,\" he says. \"That will be seventy-five cents.\"",
+                "tts": true,
+                "ttsAudio": "resources/audio/tts/ridge_haberdashery/browse_hair_tonic.mp3",
+                "ttsTextSha256": "80b0aed9204f69d181094867e1a03a3b5bcecd597b2977e07e34848447d4cf44",
+                "ttsVoice": "rigel"
               },
               {
                 "choices": [
@@ -799,13 +1171,21 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                        "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                        "ttsVoice": "rigel"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                        "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                        "ttsVoice": "rigel"
                       }
                     ],
                     "closePhase": false,
@@ -822,7 +1202,11 @@
                     "response": "He wraps the shaving brush with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"\n\n\"Anything else I may help you find?\"",
                     "status": {
                       "money": -2.5
-                    }
+                    },
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/ridge_haberdashery/buy_shaving_brush.mp3",
+                    "ttsTextSha256": "6945687e562c11044ecd3b2a9f7d7326e1c67fff05736a5ad4e923f3452aa65e",
+                    "ttsVoice": "rigel"
                   },
                   {
                     "choices": [
@@ -831,24 +1215,40 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                        "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                        "ttsVoice": "rigel"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                        "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                        "ttsVoice": "rigel"
                       }
                     ],
                     "closePhase": false,
                     "id": "decline_shaving_brush",
                     "label": "Thanks, maybe next time.",
-                    "response": "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\"\n\n\"Anything else I may help you find?\""
+                    "response": "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\"\n\n\"Anything else I may help you find?\"",
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/ridge_haberdashery/decline_shaving_brush.mp3",
+                    "ttsTextSha256": "0511df59f36c2827147cd2846f78facc379b6e502fd10d445ec921bf8953db95",
+                    "ttsVoice": "rigel"
                   }
                 ],
                 "id": "browse_shaving_brush",
                 "label": "Shaving Brush - $2.50",
-                "response": "\"Excellent choice, sir,\" he says. \"That will be two dollars and fifty cents.\""
+                "response": "\"Excellent choice, sir,\" he says. \"That will be two dollars and fifty cents.\"",
+                "tts": true,
+                "ttsAudio": "resources/audio/tts/ridge_haberdashery/browse_shaving_brush.mp3",
+                "ttsTextSha256": "569f86bc9f93afb7e9a575ea081eaee317c422ff4277b499ae36bc27f12e9146",
+                "ttsVoice": "rigel"
               },
               {
                 "choices": [
@@ -859,13 +1259,21 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                        "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                        "ttsVoice": "rigel"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                        "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                        "ttsVoice": "rigel"
                       }
                     ],
                     "closePhase": false,
@@ -882,7 +1290,11 @@
                     "response": "He wraps the cuff links with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"\n\n\"Anything else I may help you find?\"",
                     "status": {
                       "money": -14.0
-                    }
+                    },
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/ridge_haberdashery/buy_cuff_links.mp3",
+                    "ttsTextSha256": "6eec7d0627314f002ddeda35e93a5f4e1d7fa4fa4d108c1784a725b3ff2bbcf8",
+                    "ttsVoice": "rigel"
                   },
                   {
                     "choices": [
@@ -891,24 +1303,40 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                        "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                        "ttsVoice": "rigel"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                        "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                        "ttsVoice": "rigel"
                       }
                     ],
                     "closePhase": false,
                     "id": "decline_cuff_links",
                     "label": "Thanks, maybe next time.",
-                    "response": "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\"\n\n\"Anything else I may help you find?\""
+                    "response": "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\"\n\n\"Anything else I may help you find?\"",
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/ridge_haberdashery/decline_cuff_links.mp3",
+                    "ttsTextSha256": "0511df59f36c2827147cd2846f78facc379b6e502fd10d445ec921bf8953db95",
+                    "ttsVoice": "rigel"
                   }
                 ],
                 "id": "browse_cuff_links",
                 "label": "Cuff Links - $14",
-                "response": "\"Excellent choice, sir,\" he says. \"That will be fourteen dollars.\""
+                "response": "\"Excellent choice, sir,\" he says. \"That will be fourteen dollars.\"",
+                "tts": true,
+                "ttsAudio": "resources/audio/tts/ridge_haberdashery/browse_cuff_links.mp3",
+                "ttsTextSha256": "533cd615730f42037aba30be55e05c1ee0145f30b5b8390f98a9651ad6535770",
+                "ttsVoice": "rigel"
               },
               {
                 "choices": [
@@ -919,13 +1347,21 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                        "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                        "ttsVoice": "rigel"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                        "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                        "ttsVoice": "rigel"
                       }
                     ],
                     "closePhase": false,
@@ -942,7 +1378,11 @@
                     "response": "He wraps the bow tie with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"\n\n\"Anything else I may help you find?\"",
                     "status": {
                       "money": -2.75
-                    }
+                    },
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/ridge_haberdashery/buy_bow_tie.mp3",
+                    "ttsTextSha256": "756c9775bda0d27e376a273400112b6389a4e3da936437f4821368972b92fa84",
+                    "ttsVoice": "rigel"
                   },
                   {
                     "choices": [
@@ -951,24 +1391,40 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                        "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                        "ttsVoice": "rigel"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                        "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                        "ttsVoice": "rigel"
                       }
                     ],
                     "closePhase": false,
                     "id": "decline_bow_tie",
                     "label": "Thanks, maybe next time.",
-                    "response": "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\"\n\n\"Anything else I may help you find?\""
+                    "response": "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\"\n\n\"Anything else I may help you find?\"",
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/ridge_haberdashery/decline_bow_tie.mp3",
+                    "ttsTextSha256": "0511df59f36c2827147cd2846f78facc379b6e502fd10d445ec921bf8953db95",
+                    "ttsVoice": "rigel"
                   }
                 ],
                 "id": "browse_bow_tie",
                 "label": "Bow Tie - $2.75",
-                "response": "\"Excellent choice, sir,\" he says. \"That will be two dollars and seventy-five cents.\""
+                "response": "\"Excellent choice, sir,\" he says. \"That will be two dollars and seventy-five cents.\"",
+                "tts": true,
+                "ttsAudio": "resources/audio/tts/ridge_haberdashery/browse_bow_tie.mp3",
+                "ttsTextSha256": "d0f088ff8769cdc01f1e380d861ad5bf8eddfbe0a87ff084285e63aa746f0943",
+                "ttsVoice": "rigel"
               },
               {
                 "choices": [
@@ -979,13 +1435,21 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                        "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                        "ttsVoice": "rigel"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                        "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                        "ttsVoice": "rigel"
                       }
                     ],
                     "closePhase": false,
@@ -1002,7 +1466,11 @@
                     "response": "He produces his measuring tape without another word and begins the ritual of numbers and posture, writing each measure as though recording scripture. \"Very good, sir. Six weeks. I will send word when it arrives from London.\"\n\n\"Anything else I may help you find?\"",
                     "status": {
                       "money": -18.0
-                    }
+                    },
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/ridge_haberdashery/buy_custom_shirt.mp3",
+                    "ttsTextSha256": "c8b43deb204ba9d6d2126fee0f25ce852006ac8910aabc822e9ce37380d1169b",
+                    "ttsVoice": "rigel"
                   },
                   {
                     "choices": [
@@ -1013,13 +1481,21 @@
                             "id": "shop_look_again",
                             "label": "Let me take another look.",
                             "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                            "resumeChoiceId": "what_on_offer"
+                            "resumeChoiceId": "what_on_offer",
+                            "tts": true,
+                            "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                            "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                            "ttsVoice": "rigel"
                           },
                           {
                             "closePhase": true,
                             "id": "shop_no_thanks",
                             "label": "No, thanks.",
-                            "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                            "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                            "tts": true,
+                            "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                            "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                            "ttsVoice": "rigel"
                           }
                         ],
                         "closePhase": false,
@@ -1036,7 +1512,11 @@
                         "response": "He cuts a small square from the bolt with scissors that barely whisper, folds it into a card, and ties it with twine. \"For consideration, sir.\"\n\n\"Anything else I may help you find?\"",
                         "status": {
                           "money": -0.25
-                        }
+                        },
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/buy_fabric_from_custom_shirt.mp3",
+                        "ttsTextSha256": "edfec4add3cbac132f94cfdf0d054e98f130f44dd2fe7d57f798d90d6e138f80",
+                        "ttsVoice": "rigel"
                       },
                       {
                         "choices": [
@@ -1045,24 +1525,40 @@
                             "id": "shop_look_again",
                             "label": "Let me take another look.",
                             "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                            "resumeChoiceId": "what_on_offer"
+                            "resumeChoiceId": "what_on_offer",
+                            "tts": true,
+                            "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                            "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                            "ttsVoice": "rigel"
                           },
                           {
                             "closePhase": true,
                             "id": "shop_no_thanks",
                             "label": "No, thanks.",
-                            "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                            "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                            "tts": true,
+                            "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                            "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                            "ttsVoice": "rigel"
                           }
                         ],
                         "closePhase": false,
                         "id": "decline_fabric_from_custom_shirt",
                         "label": "Thanks, maybe next time.",
-                        "response": "\"No trouble at all, sir,\" he says. \"The cloth isn't going anywhere.\"\n\n\"Anything else I may help you find?\""
+                        "response": "\"No trouble at all, sir,\" he says. \"The cloth isn't going anywhere.\"\n\n\"Anything else I may help you find?\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/decline_fabric_from_custom_shirt.mp3",
+                        "ttsTextSha256": "4c5cadbaacfa885bbcb0cb491ddcc034d49ef91df3a5d7bf71dadc0cb213cef2",
+                        "ttsVoice": "rigel"
                       }
                     ],
                     "id": "fabric_custom_shirt",
                     "label": "I don't have the funds today, just browsing. I do really like that fabric though.",
-                    "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric—one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\""
+                    "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric—one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\"",
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/ridge_haberdashery/fabric_custom_shirt.mp3",
+                    "ttsTextSha256": "e936b5aedb1d55fc71bb49d8b0fbc5e34c341557b3ff1b92d51c0eb540aa6259",
+                    "ttsVoice": "rigel"
                   },
                   {
                     "choices": [
@@ -1071,24 +1567,40 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                        "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                        "ttsVoice": "rigel"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                        "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                        "ttsVoice": "rigel"
                       }
                     ],
                     "closePhase": false,
                     "id": "decline_custom_shirt",
                     "label": "Thanks, maybe next time.",
-                    "response": "\"Of course, sir,\" he says. \"Custom work requires patience on both sides.\"\n\n\"Anything else I may help you find?\""
+                    "response": "\"Of course, sir,\" he says. \"Custom work requires patience on both sides.\"\n\n\"Anything else I may help you find?\"",
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/ridge_haberdashery/decline_custom_shirt.mp3",
+                    "ttsTextSha256": "5e898fae0c924e8005d779532a738df8dfc7d5dc195992908ae5f79f45bbb67a",
+                    "ttsVoice": "rigel"
                   }
                 ],
                 "id": "browse_custom_shirt",
                 "label": "Custom Men's Shirt - $18",
-                "response": "\"Excellent, sir. If you have the funds today I can begin taking measurements, and it should be about six weeks' lead time.\" He straightens slightly, pride entering his voice like a pressed crease. \"All of my custom clothes are designed and constructed on Savile Row in London.\""
+                "response": "\"Excellent, sir. If you have the funds today I can begin taking measurements, and it should be about six weeks' lead time.\" He straightens slightly, pride entering his voice like a pressed crease. \"All of my custom clothes are designed and constructed on Savile Row in London.\"",
+                "tts": true,
+                "ttsAudio": "resources/audio/tts/ridge_haberdashery/browse_custom_shirt.mp3",
+                "ttsTextSha256": "67b492f873c5e037c1d0716692759d395d7d13c0ee89c862c343c4318aa48e1d",
+                "ttsVoice": "rigel"
               },
               {
                 "choices": [
@@ -1099,13 +1611,21 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                        "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                        "ttsVoice": "rigel"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                        "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                        "ttsVoice": "rigel"
                       }
                     ],
                     "closePhase": false,
@@ -1122,7 +1642,11 @@
                     "response": "He produces his measuring tape without another word and begins the ritual of numbers and posture, writing each measure as though recording scripture. \"Very good, sir. Six weeks. I will send word when it arrives from London.\"\n\n\"Anything else I may help you find?\"",
                     "status": {
                       "money": -22.0
-                    }
+                    },
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/ridge_haberdashery/buy_custom_trousers.mp3",
+                    "ttsTextSha256": "c8b43deb204ba9d6d2126fee0f25ce852006ac8910aabc822e9ce37380d1169b",
+                    "ttsVoice": "rigel"
                   },
                   {
                     "choices": [
@@ -1133,13 +1657,21 @@
                             "id": "shop_look_again",
                             "label": "Let me take another look.",
                             "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                            "resumeChoiceId": "what_on_offer"
+                            "resumeChoiceId": "what_on_offer",
+                            "tts": true,
+                            "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                            "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                            "ttsVoice": "rigel"
                           },
                           {
                             "closePhase": true,
                             "id": "shop_no_thanks",
                             "label": "No, thanks.",
-                            "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                            "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                            "tts": true,
+                            "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                            "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                            "ttsVoice": "rigel"
                           }
                         ],
                         "closePhase": false,
@@ -1156,7 +1688,11 @@
                         "response": "He cuts a small square from the bolt with scissors that barely whisper, folds it into a card, and ties it with twine. \"For consideration, sir.\"\n\n\"Anything else I may help you find?\"",
                         "status": {
                           "money": -0.25
-                        }
+                        },
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/buy_fabric_from_custom_trousers.mp3",
+                        "ttsTextSha256": "edfec4add3cbac132f94cfdf0d054e98f130f44dd2fe7d57f798d90d6e138f80",
+                        "ttsVoice": "rigel"
                       },
                       {
                         "choices": [
@@ -1165,24 +1701,40 @@
                             "id": "shop_look_again",
                             "label": "Let me take another look.",
                             "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                            "resumeChoiceId": "what_on_offer"
+                            "resumeChoiceId": "what_on_offer",
+                            "tts": true,
+                            "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                            "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                            "ttsVoice": "rigel"
                           },
                           {
                             "closePhase": true,
                             "id": "shop_no_thanks",
                             "label": "No, thanks.",
-                            "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                            "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                            "tts": true,
+                            "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                            "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                            "ttsVoice": "rigel"
                           }
                         ],
                         "closePhase": false,
                         "id": "decline_fabric_from_custom_trousers",
                         "label": "Thanks, maybe next time.",
-                        "response": "\"No trouble at all, sir,\" he says. \"The cloth isn't going anywhere.\"\n\n\"Anything else I may help you find?\""
+                        "response": "\"No trouble at all, sir,\" he says. \"The cloth isn't going anywhere.\"\n\n\"Anything else I may help you find?\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/decline_fabric_from_custom_trousers.mp3",
+                        "ttsTextSha256": "4c5cadbaacfa885bbcb0cb491ddcc034d49ef91df3a5d7bf71dadc0cb213cef2",
+                        "ttsVoice": "rigel"
                       }
                     ],
                     "id": "fabric_custom_trousers",
                     "label": "I don't have the funds today, just browsing. I do really like that fabric though.",
-                    "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric—one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\""
+                    "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric—one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\"",
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/ridge_haberdashery/fabric_custom_trousers.mp3",
+                    "ttsTextSha256": "e936b5aedb1d55fc71bb49d8b0fbc5e34c341557b3ff1b92d51c0eb540aa6259",
+                    "ttsVoice": "rigel"
                   },
                   {
                     "choices": [
@@ -1191,24 +1743,40 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                        "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                        "ttsVoice": "rigel"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                        "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                        "ttsVoice": "rigel"
                       }
                     ],
                     "closePhase": false,
                     "id": "decline_custom_trousers",
                     "label": "Thanks, maybe next time.",
-                    "response": "\"Of course, sir,\" he says. \"Custom work requires patience on both sides.\"\n\n\"Anything else I may help you find?\""
+                    "response": "\"Of course, sir,\" he says. \"Custom work requires patience on both sides.\"\n\n\"Anything else I may help you find?\"",
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/ridge_haberdashery/decline_custom_trousers.mp3",
+                    "ttsTextSha256": "5e898fae0c924e8005d779532a738df8dfc7d5dc195992908ae5f79f45bbb67a",
+                    "ttsVoice": "rigel"
                   }
                 ],
                 "id": "browse_custom_trousers",
                 "label": "Custom Men's Trousers - $22",
-                "response": "\"Excellent, sir. If you have the funds today I can begin taking measurements, and it should be about six weeks' lead time.\" He straightens slightly, pride entering his voice like a pressed crease. \"All of my custom clothes are designed and constructed on Savile Row in London.\""
+                "response": "\"Excellent, sir. If you have the funds today I can begin taking measurements, and it should be about six weeks' lead time.\" He straightens slightly, pride entering his voice like a pressed crease. \"All of my custom clothes are designed and constructed on Savile Row in London.\"",
+                "tts": true,
+                "ttsAudio": "resources/audio/tts/ridge_haberdashery/browse_custom_trousers.mp3",
+                "ttsTextSha256": "67b492f873c5e037c1d0716692759d395d7d13c0ee89c862c343c4318aa48e1d",
+                "ttsVoice": "rigel"
               },
               {
                 "choices": [
@@ -1219,13 +1787,21 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                        "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                        "ttsVoice": "rigel"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                        "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                        "ttsVoice": "rigel"
                       }
                     ],
                     "closePhase": false,
@@ -1242,7 +1818,11 @@
                     "response": "He produces his measuring tape without another word and begins the ritual of numbers and posture, writing each measure as though recording scripture. \"Very good, sir. Six weeks. I will send word when it arrives from London.\"\n\n\"Anything else I may help you find?\"",
                     "status": {
                       "money": -45.0
-                    }
+                    },
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/ridge_haberdashery/buy_custom_jacket.mp3",
+                    "ttsTextSha256": "c8b43deb204ba9d6d2126fee0f25ce852006ac8910aabc822e9ce37380d1169b",
+                    "ttsVoice": "rigel"
                   },
                   {
                     "choices": [
@@ -1253,13 +1833,21 @@
                             "id": "shop_look_again",
                             "label": "Let me take another look.",
                             "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                            "resumeChoiceId": "what_on_offer"
+                            "resumeChoiceId": "what_on_offer",
+                            "tts": true,
+                            "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                            "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                            "ttsVoice": "rigel"
                           },
                           {
                             "closePhase": true,
                             "id": "shop_no_thanks",
                             "label": "No, thanks.",
-                            "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                            "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                            "tts": true,
+                            "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                            "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                            "ttsVoice": "rigel"
                           }
                         ],
                         "closePhase": false,
@@ -1276,7 +1864,11 @@
                         "response": "He cuts a small square from the bolt with scissors that barely whisper, folds it into a card, and ties it with twine. \"For consideration, sir.\"\n\n\"Anything else I may help you find?\"",
                         "status": {
                           "money": -0.25
-                        }
+                        },
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/buy_fabric_from_custom_jacket.mp3",
+                        "ttsTextSha256": "edfec4add3cbac132f94cfdf0d054e98f130f44dd2fe7d57f798d90d6e138f80",
+                        "ttsVoice": "rigel"
                       },
                       {
                         "choices": [
@@ -1285,24 +1877,40 @@
                             "id": "shop_look_again",
                             "label": "Let me take another look.",
                             "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                            "resumeChoiceId": "what_on_offer"
+                            "resumeChoiceId": "what_on_offer",
+                            "tts": true,
+                            "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                            "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                            "ttsVoice": "rigel"
                           },
                           {
                             "closePhase": true,
                             "id": "shop_no_thanks",
                             "label": "No, thanks.",
-                            "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                            "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                            "tts": true,
+                            "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                            "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                            "ttsVoice": "rigel"
                           }
                         ],
                         "closePhase": false,
                         "id": "decline_fabric_from_custom_jacket",
                         "label": "Thanks, maybe next time.",
-                        "response": "\"No trouble at all, sir,\" he says. \"The cloth isn't going anywhere.\"\n\n\"Anything else I may help you find?\""
+                        "response": "\"No trouble at all, sir,\" he says. \"The cloth isn't going anywhere.\"\n\n\"Anything else I may help you find?\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/decline_fabric_from_custom_jacket.mp3",
+                        "ttsTextSha256": "4c5cadbaacfa885bbcb0cb491ddcc034d49ef91df3a5d7bf71dadc0cb213cef2",
+                        "ttsVoice": "rigel"
                       }
                     ],
                     "id": "fabric_custom_jacket",
                     "label": "I don't have the funds today, just browsing. I do really like that fabric though.",
-                    "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric—one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\""
+                    "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric—one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\"",
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/ridge_haberdashery/fabric_custom_jacket.mp3",
+                    "ttsTextSha256": "e936b5aedb1d55fc71bb49d8b0fbc5e34c341557b3ff1b92d51c0eb540aa6259",
+                    "ttsVoice": "rigel"
                   },
                   {
                     "choices": [
@@ -1311,24 +1919,40 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                        "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                        "ttsVoice": "rigel"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                        "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                        "ttsVoice": "rigel"
                       }
                     ],
                     "closePhase": false,
                     "id": "decline_custom_jacket",
                     "label": "Thanks, maybe next time.",
-                    "response": "\"Of course, sir,\" he says. \"Custom work requires patience on both sides.\"\n\n\"Anything else I may help you find?\""
+                    "response": "\"Of course, sir,\" he says. \"Custom work requires patience on both sides.\"\n\n\"Anything else I may help you find?\"",
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/ridge_haberdashery/decline_custom_jacket.mp3",
+                    "ttsTextSha256": "5e898fae0c924e8005d779532a738df8dfc7d5dc195992908ae5f79f45bbb67a",
+                    "ttsVoice": "rigel"
                   }
                 ],
                 "id": "browse_custom_jacket",
                 "label": "Custom Men's Jacket - $45",
-                "response": "\"Excellent, sir. If you have the funds today I can begin taking measurements, and it should be about six weeks' lead time.\" He straightens slightly, pride entering his voice like a pressed crease. \"All of my custom clothes are designed and constructed on Savile Row in London.\""
+                "response": "\"Excellent, sir. If you have the funds today I can begin taking measurements, and it should be about six weeks' lead time.\" He straightens slightly, pride entering his voice like a pressed crease. \"All of my custom clothes are designed and constructed on Savile Row in London.\"",
+                "tts": true,
+                "ttsAudio": "resources/audio/tts/ridge_haberdashery/browse_custom_jacket.mp3",
+                "ttsTextSha256": "67b492f873c5e037c1d0716692759d395d7d13c0ee89c862c343c4318aa48e1d",
+                "ttsVoice": "rigel"
               },
               {
                 "choices": [
@@ -1339,13 +1963,21 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                        "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                        "ttsVoice": "rigel"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                        "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                        "ttsVoice": "rigel"
                       }
                     ],
                     "closePhase": false,
@@ -1362,7 +1994,11 @@
                     "response": "He wraps the men's pea coat with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"\n\n\"Anything else I may help you find?\"",
                     "status": {
                       "money": -32.0
-                    }
+                    },
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/ridge_haberdashery/buy_mens_pea_coat.mp3",
+                    "ttsTextSha256": "44ec8ad7338f4d71e1ae3fd4e11db68819e454450a88d4bcdec2fa973f71bbd1",
+                    "ttsVoice": "rigel"
                   },
                   {
                     "choices": [
@@ -1371,24 +2007,40 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                        "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                        "ttsVoice": "rigel"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                        "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                        "ttsVoice": "rigel"
                       }
                     ],
                     "closePhase": false,
                     "id": "decline_mens_pea_coat",
                     "label": "Thanks, maybe next time.",
-                    "response": "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\"\n\n\"Anything else I may help you find?\""
+                    "response": "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\"\n\n\"Anything else I may help you find?\"",
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/ridge_haberdashery/decline_mens_pea_coat.mp3",
+                    "ttsTextSha256": "0511df59f36c2827147cd2846f78facc379b6e502fd10d445ec921bf8953db95",
+                    "ttsVoice": "rigel"
                   }
                 ],
                 "id": "browse_mens_pea_coat",
                 "label": "Men's Pea Coat - $32",
-                "response": "\"Excellent choice, sir,\" he says. \"That will be thirty-two dollars.\""
+                "response": "\"Excellent choice, sir,\" he says. \"That will be thirty-two dollars.\"",
+                "tts": true,
+                "ttsAudio": "resources/audio/tts/ridge_haberdashery/browse_mens_pea_coat.mp3",
+                "ttsTextSha256": "637619ce50ca33cbfbbc2574a98f4d3c8b82f982783fa7a4ededb3f10abf62d7",
+                "ttsVoice": "rigel"
               },
               {
                 "choices": [
@@ -1399,13 +2051,21 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                        "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                        "ttsVoice": "rigel"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                        "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                        "ttsVoice": "rigel"
                       }
                     ],
                     "closePhase": false,
@@ -1422,7 +2082,11 @@
                     "response": "He wraps the men's duster with the care of a man who believes presentation is part of the purchase. \"A pleasure doing business with you, sir.\"\n\n\"Anything else I may help you find?\"",
                     "status": {
                       "money": -24.0
-                    }
+                    },
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/ridge_haberdashery/buy_mens_duster.mp3",
+                    "ttsTextSha256": "96b79efc447b0ba23e92e14538f416203584264ab1db057154d957ed8574211a",
+                    "ttsVoice": "rigel"
                   },
                   {
                     "choices": [
@@ -1431,34 +2095,58 @@
                         "id": "shop_look_again",
                         "label": "Let me take another look.",
                         "response": "\"By all means, sir,\" he says, stepping back from the counter.",
-                        "resumeChoiceId": "what_on_offer"
+                        "resumeChoiceId": "what_on_offer",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_look_again.mp3",
+                        "ttsTextSha256": "6f158bfbde2869da118a884239db02347788a19287c4ac652fa5ec5581d20851",
+                        "ttsVoice": "rigel"
                       },
                       {
                         "closePhase": true,
                         "id": "shop_no_thanks",
                         "label": "No, thanks.",
-                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\""
+                        "response": "\"A pleasure, sir,\" he says with a small bow. \"Do call again.\"",
+                        "tts": true,
+                        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shop_no_thanks.mp3",
+                        "ttsTextSha256": "9a8960c61f47150da5b619106b851899ca7d2816d5769ab02436f21a8cdf2b8a",
+                        "ttsVoice": "rigel"
                       }
                     ],
                     "closePhase": false,
                     "id": "decline_mens_duster",
                     "label": "Thanks, maybe next time.",
-                    "response": "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\"\n\n\"Anything else I may help you find?\""
+                    "response": "\"Of course, sir,\" he says with a courteous nod. \"The goods will be here when you return.\"\n\n\"Anything else I may help you find?\"",
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/ridge_haberdashery/decline_mens_duster.mp3",
+                    "ttsTextSha256": "0511df59f36c2827147cd2846f78facc379b6e502fd10d445ec921bf8953db95",
+                    "ttsVoice": "rigel"
                   }
                 ],
                 "id": "browse_mens_duster",
                 "label": "Men's Duster - $24",
-                "response": "\"Excellent choice, sir,\" he says. \"That will be twenty-four dollars.\""
+                "response": "\"Excellent choice, sir,\" he says. \"That will be twenty-four dollars.\"",
+                "tts": true,
+                "ttsAudio": "resources/audio/tts/ridge_haberdashery/browse_mens_duster.mp3",
+                "ttsTextSha256": "82234e22b344c52af12598154b25f5d45ac0904efed6c79082d3f2752a828a04",
+                "ttsVoice": "rigel"
               },
               {
                 "id": "catalog_done",
                 "label": "Thanks, just browsing.",
-                "response": "\"Very well, sir,\" he says pleasantly. \"Take your time with the room. I am here if you change your mind.\""
+                "response": "\"Very well, sir,\" he says pleasantly. \"Take your time with the room. I am here if you change your mind.\"",
+                "tts": true,
+                "ttsAudio": "resources/audio/tts/ridge_haberdashery/catalog_done.mp3",
+                "ttsTextSha256": "38ce67ab43cab016b35cd830318d391cd36a20d555bb89fa67b809754e52f13d",
+                "ttsVoice": "rigel"
               }
             ],
             "id": "what_on_offer",
             "label": "Yes, what do you have on offer?",
-            "response": "\"Well... anything you see here.\" He sweeps one hand across the shelves and counter with the easy pride of a man who knows his stock by heart. \"We also do custom jackets, shirts, vests, and trousers.\""
+            "response": "\"Well... anything you see here.\" He sweeps one hand across the shelves and counter with the easy pride of a man who knows his stock by heart. \"We also do custom jackets, shirts, vests, and trousers.\"",
+            "tts": true,
+            "ttsAudio": "resources/audio/tts/ridge_haberdashery/what_on_offer.mp3",
+            "ttsTextSha256": "6e1fe9042e40ea59b2f78d80ee431663eff0dcbfa20f434870b75f1fc1c62dce",
+            "ttsVoice": "rigel"
           },
           {
             "closePhase": false,
@@ -1467,12 +2155,20 @@
             "label": "This is an impressive store.",
             "persistConsumed": true,
             "response": "You let your gaze travel the shelves, the bolt rolls, the glass cases, the iron rack of ready-made coats, taking it in the way you would a room that has been assembled with intention.\n\n\"This is an impressive store,\" you say.\n\nA modest smile crosses his face, pleased but not surprised—he has heard the compliment before and still believes it.\n\n\"You are kind to say so, sir.\" He rests his fingertips on the counter. \"I trained on Savile Row before the mountains called. My uncle kept a dry goods post on this ridge when the High Line was only timber camps and prayer. I came up to visit, saw what men lacked at altitude, and stayed. That was eighteen ninety-one. Everything here is chosen so a man need not descend to Graysmill merely to look as though he belongs in a room with money.\"",
-            "resumeTopLevel": true
+            "resumeTopLevel": true,
+            "tts": true,
+            "ttsAudio": "resources/audio/tts/ridge_haberdashery/compliment_store.mp3",
+            "ttsTextSha256": "293d5c720f17b8ea15aac0f922c66627d584043754e8332db437419ae0671dba",
+            "ttsVoice": "rigel"
           },
           {
             "id": "just_browsing",
             "label": "Just browsing at the moment.",
-            "response": "\"Of course, sir,\" he says warmly. \"Take your time. I will be here if you need anything.\""
+            "response": "\"Of course, sir,\" he says warmly. \"Take your time. I will be here if you need anything.\"",
+            "tts": true,
+            "ttsAudio": "resources/audio/tts/ridge_haberdashery/just_browsing.mp3",
+            "ttsTextSha256": "eb8e24858d5c377b97d01205424995d3bacbaf10c8c9ea08db913f36231f06ce",
+            "ttsVoice": "rigel"
           }
         ],
         "id": "shopkeeper",
@@ -1480,6 +2176,14 @@
         "requiresFlag": "ridge_haberdashery:greeting_done",
         "resetOnSceneEnter": true,
         "resumeIntro": "\"Now then, sir,\" he says, settling his hands on the counter. \"What else may I help you find?\"",
+        "resumeTts": true,
+        "resumeTtsAudio": "resources/audio/tts/ridge_haberdashery/shopkeeper_resume.mp3",
+        "resumeTtsTextSha256": "92b955cf4312f01dc0ac714920b45b05e91a55060dd38738bf824a2998f9f5ba",
+        "resumeTtsVoice": "rigel",
+        "tts": true,
+        "ttsAudio": "resources/audio/tts/ridge_haberdashery/shopkeeper_intro.mp3",
+        "ttsTextSha256": "bd32a61049fb74222e0062d1d9be76e5d8c1ca78ab110cebd861915c8804322b",
+        "ttsVoice": "rigel",
         "type": "scripted"
       }
     ]

@@ -20,6 +20,7 @@
 #include "ConversationTree.h"
 
 #include "ConversationHelpers.h"
+#include "DialogWalkthrough.h"
 #include "DocumentWorkspace.h"
 #include "EditorPaths.h"
 #include "EditorTheme.h"
@@ -137,26 +138,31 @@ void ConversationTree::invalidateConversationVisibleRows()
 }
 
 
-void ConversationTree::rebuildConversationTree()
+std::string ConversationTree::sceneIdFromTreeKey(const std::string& key)
 {
-    roots.clear();
-    invalidateConversationVisibleRows();
-    if ((*selectionSceneId).empty())
-        return;
+    const std::string prefix = "scene:";
+    if (key.rfind(prefix, 0) != 0)
+        return "";
+    return key.substr(prefix.size());
+}
 
+void ConversationTree::appendSceneConversationContent(
+    ConversationTreeNode& sceneRoot,
+    const std::string& sceneId)
+{
     // --- Main character (scene narrative from scenes.json) ---
     ConversationTreeNode mainCharacter;
     mainCharacter.kind = ConversationNodeKind::Section;
-    mainCharacter.key = "section:main_character:" + (*selectionSceneId);
+    mainCharacter.key = "section:main_character:" + sceneId;
     mainCharacter.label = "Main Character";
-    mainCharacter.detail = (*selectionSceneId);
+    mainCharacter.detail = "scene narrative";
 
     if (docs->scenes.isLoaded())
     {
-        const nlohmann::json* scene = docs->scenes.sceneJson((*selectionSceneId));
+        const nlohmann::json* scene = docs->scenes.sceneJson(sceneId);
         if (scene != nullptr && scene->is_object())
         {
-            appendNarrativeFieldsFromObject(mainCharacter, (*selectionSceneId), *scene, "");
+            appendNarrativeFieldsFromObject(mainCharacter, sceneId, *scene, "");
 
             if (scene->contains("subScenes") && (*scene)["subScenes"].is_object())
             {
@@ -172,12 +178,12 @@ void ConversationTree::rebuildConversationTree()
                         continue;
                     ConversationTreeNode subNode;
                     subNode.kind = ConversationNodeKind::Section;
-                    subNode.key = "section:subscene:" + (*selectionSceneId) + ":" + subId;
+                    subNode.key = "section:subscene:" + sceneId + ":" + subId;
                     subNode.label = "Sub-scene: " + subId;
                     subNode.detail = "focus / variant";
                     appendNarrativeFieldsFromObject(
                         subNode,
-                        (*selectionSceneId),
+                        sceneId,
                         subScenes[subId],
                         conversationPointerJoin("/subScenes", subId));
                     if (!subNode.children.empty())
@@ -188,153 +194,190 @@ void ConversationTree::rebuildConversationTree()
     }
 
     if (!mainCharacter.children.empty())
-        roots.push_back(std::move(mainCharacter));
+        sceneRoot.children.push_back(std::move(mainCharacter));
 
-    // --- Actor conversations for this scene (conversations.json) ---
-    if (docs->conversationsLoaded && docs->conversationsRoot.is_object() &&
-        docs->conversationsRoot.contains((*selectionSceneId)) &&
-        docs->conversationsRoot[(*selectionSceneId)].is_object())
+    // --- Actor conversations (conversations.json) ---
+    if (!docs->conversationsLoaded || !docs->conversationsRoot.is_object()
+        || !docs->conversationsRoot.contains(sceneId)
+        || !docs->conversationsRoot[sceneId].is_object())
+        return;
+
+    const nlohmann::json& sceneNode = docs->conversationsRoot[sceneId];
+    const std::string scenePointer = conversationPointerJoin("", sceneId);
+    if (!sceneNode.contains("speakPhases") || !sceneNode["speakPhases"].is_array())
+        return;
+
+    std::map<std::string, ConversationTreeNode> actorsById;
+    const nlohmann::json& phases = sceneNode["speakPhases"];
+    for (size_t phaseIndex = 0; phaseIndex < phases.size(); ++phaseIndex)
     {
-        const nlohmann::json& sceneNode = docs->conversationsRoot[(*selectionSceneId)];
-        const std::string scenePointer = conversationPointerJoin("", (*selectionSceneId));
-        if (sceneNode.contains("speakPhases") && sceneNode["speakPhases"].is_array())
+        const nlohmann::json& phase = phases[phaseIndex];
+        if (!phase.is_object())
+            continue;
+
+        const std::string actorId = phaseActorId(phase);
+        const std::string actorName = phaseActorName(phase, actorId);
+        const std::string phasePointer = conversationPointerIndex(
+            conversationPointerJoin(scenePointer, "speakPhases"), phaseIndex);
+
+        if (actorsById.find(actorId) == actorsById.end())
         {
-            std::map<std::string, ConversationTreeNode> actorsById;
-            const nlohmann::json& phases = sceneNode["speakPhases"];
-            for (size_t phaseIndex = 0; phaseIndex < phases.size(); ++phaseIndex)
-            {
-                const nlohmann::json& phase = phases[phaseIndex];
-                if (!phase.is_object())
-                    continue;
-
-                const std::string actorId = phaseActorId(phase);
-                const std::string actorName = phaseActorName(phase, actorId);
-                const std::string phasePointer = conversationPointerIndex(
-                    conversationPointerJoin(scenePointer, "speakPhases"),
-                    phaseIndex);
-
-                if (actorsById.find(actorId) == actorsById.end())
-                {
-                    ConversationTreeNode actor;
-                    actor.kind = ConversationNodeKind::Actor;
-                    actor.key = "actor:" + (*selectionSceneId) + ":" + actorId;
-                    actor.label = actorName;
-                    actor.detail = actorId;
-                    actorsById[actorId] = actor;
-                }
-                else if (actorsById[actorId].label == actorsById[actorId].detail &&
-                         actorName != actorId)
-                {
-                    actorsById[actorId].label = actorName;
-                }
-
-                ConversationTreeNode milestone;
-                milestone.kind = ConversationNodeKind::Milestone;
-                milestone.key = "phase:" + phasePointer;
-                milestone.editDoc = ConversationEditDoc::Conversations;
-                milestone.jsonPointer = phasePointer;
-                if (phase.contains("id") && phase["id"].is_string())
-                    milestone.label = phase["id"].get<std::string>();
-                else
-                    milestone.label = "(unnamed phase)";
-
-                milestone.detail = phase.value("type", "once");
-
-                // Phase-level narrative for quick text edit (also full phase via milestone row)
-                {
-                    const char* phaseKeys[] = {"intro", "resumeIntro", "text"};
-                    const char* phaseLabels[] = {"Intro", "Resume intro", "Text"};
-                    for (size_t ki = 0; ki < 3; ++ki)
-                    {
-                        if (!phase.contains(phaseKeys[ki]) || !phase[phaseKeys[ki]].is_string())
-                            continue;
-                        ConversationTreeNode n;
-                        n.kind = ConversationNodeKind::Narrative;
-                        n.key = "narrative-conv:" + phasePointer + "/" + phaseKeys[ki];
-                        n.label = phaseLabels[ki];
-                        n.editDoc = ConversationEditDoc::Conversations;
-                        n.jsonPointer = conversationPointerJoin(phasePointer, phaseKeys[ki]);
-                        const std::string text = phase[phaseKeys[ki]].get<std::string>();
-                        n.detail = text.empty() ? "(empty)" : truncateForTree(text, 40);
-                        milestone.children.push_back(std::move(n));
-                    }
-                }
-
-                if (phase.contains("choices") && phase["choices"].is_array())
-                {
-                    const nlohmann::json& choices = phase["choices"];
-                    for (size_t i = 0; i < choices.size(); ++i)
-                    {
-                        if (!choices[i].is_object())
-                            continue;
-                        ConversationTreeNode choiceNode = buildChoiceTreeNode(
-                            choices[i],
-                            conversationPointerIndex(
-                                conversationPointerJoin(phasePointer, "choices"), i));
-                        stampConversationEditDoc(choiceNode);
-                        milestone.children.push_back(std::move(choiceNode));
-                    }
-                }
-
-                if (phase.contains("lines") && phase["lines"].is_array())
-                {
-                    const nlohmann::json& lines = phase["lines"];
-                    for (size_t i = 0; i < lines.size(); ++i)
-                    {
-                        if (!lines[i].is_object())
-                            continue;
-                        ConversationTreeNode lineNode = buildChoiceTreeNode(
-                            lines[i],
-                            conversationPointerIndex(
-                                conversationPointerJoin(phasePointer, "lines"), i));
-                        if (lineNode.label == "(dialog)")
-                        {
-                            if (lines[i].contains("id") && lines[i]["id"].is_string())
-                                lineNode.label = lines[i]["id"].get<std::string>();
-                            else
-                                lineNode.label = "line " + std::to_string(i);
-                        }
-                        stampConversationEditDoc(lineNode);
-                        milestone.children.push_back(std::move(lineNode));
-                    }
-                }
-
-                actorsById[actorId].children.push_back(std::move(milestone));
-            }
-
-            ConversationTreeNode actorsSection;
-            actorsSection.kind = ConversationNodeKind::Section;
-            actorsSection.key = "section:actors:" + (*selectionSceneId);
-            actorsSection.label = "Actors";
-            actorsSection.detail = "conversations";
-
-            for (auto& entry : actorsById)
-            {
-                std::sort(
-                    entry.second.children.begin(),
-                    entry.second.children.end(),
-                    [](const ConversationTreeNode& a, const ConversationTreeNode& b)
-                    {
-                        if (a.label != b.label)
-                            return a.label < b.label;
-                        return a.detail < b.detail;
-                    });
-                actorsSection.children.push_back(std::move(entry.second));
-            }
-
-            std::sort(
-                actorsSection.children.begin(),
-                actorsSection.children.end(),
-                [](const ConversationTreeNode& a, const ConversationTreeNode& b)
-                {
-                    if (a.label != b.label)
-                        return a.label < b.label;
-                    return a.detail < b.detail;
-                });
-
-            if (!actorsSection.children.empty())
-                roots.push_back(std::move(actorsSection));
+            ConversationTreeNode actor;
+            actor.kind = ConversationNodeKind::Actor;
+            actor.key = "actor:" + sceneId + ":" + actorId;
+            actor.label = actorName;
+            actor.detail = actorId;
+            actorsById[actorId] = actor;
         }
+        else if (
+            actorsById[actorId].label == actorsById[actorId].detail
+            && actorName != actorId)
+        {
+            actorsById[actorId].label = actorName;
+        }
+
+        ConversationTreeNode milestone;
+        milestone.kind = ConversationNodeKind::Milestone;
+        milestone.key = "phase:" + phasePointer;
+        milestone.editDoc = ConversationEditDoc::Conversations;
+        milestone.jsonPointer = phasePointer;
+        if (phase.contains("id") && phase["id"].is_string())
+            milestone.label = phase["id"].get<std::string>();
+        else
+            milestone.label = "(unnamed phase)";
+        milestone.detail = phase.value("type", "once");
+
+        {
+            const char* phaseKeys[] = {"intro", "resumeIntro", "text"};
+            const char* phaseLabels[] = {"Intro", "Resume intro", "Text"};
+            for (size_t ki = 0; ki < 3; ++ki)
+            {
+                if (!phase.contains(phaseKeys[ki]) || !phase[phaseKeys[ki]].is_string())
+                    continue;
+                ConversationTreeNode n;
+                n.kind = ConversationNodeKind::Narrative;
+                n.key = "narrative-conv:" + phasePointer + "/" + phaseKeys[ki];
+                n.label = phaseLabels[ki];
+                n.editDoc = ConversationEditDoc::Conversations;
+                n.jsonPointer = conversationPointerJoin(phasePointer, phaseKeys[ki]);
+                const std::string text = phase[phaseKeys[ki]].get<std::string>();
+                n.detail = text.empty() ? "(empty)" : truncateForTree(text, 40);
+                milestone.children.push_back(std::move(n));
+            }
+        }
+
+        if (phase.contains("choices") && phase["choices"].is_array())
+        {
+            const nlohmann::json& choices = phase["choices"];
+            for (size_t i = 0; i < choices.size(); ++i)
+            {
+                if (!choices[i].is_object())
+                    continue;
+                ConversationTreeNode choiceNode = buildChoiceTreeNode(
+                    choices[i],
+                    conversationPointerIndex(
+                        conversationPointerJoin(phasePointer, "choices"), i));
+                stampConversationEditDoc(choiceNode);
+                milestone.children.push_back(std::move(choiceNode));
+            }
+        }
+
+        if (phase.contains("lines") && phase["lines"].is_array())
+        {
+            const nlohmann::json& lines = phase["lines"];
+            for (size_t i = 0; i < lines.size(); ++i)
+            {
+                if (!lines[i].is_object())
+                    continue;
+                ConversationTreeNode lineNode = buildChoiceTreeNode(
+                    lines[i],
+                    conversationPointerIndex(
+                        conversationPointerJoin(phasePointer, "lines"), i));
+                if (lineNode.label == "(dialog)")
+                {
+                    if (lines[i].contains("id") && lines[i]["id"].is_string())
+                        lineNode.label = lines[i]["id"].get<std::string>();
+                    else
+                        lineNode.label = "line " + std::to_string(i);
+                }
+                stampConversationEditDoc(lineNode);
+                milestone.children.push_back(std::move(lineNode));
+            }
+        }
+
+        stampConversationEditDoc(milestone);
+        actorsById[actorId].children.push_back(std::move(milestone));
+    }
+
+    ConversationTreeNode actorsSection;
+    actorsSection.kind = ConversationNodeKind::Section;
+    actorsSection.key = "section:actors:" + sceneId;
+    actorsSection.label = "Dialog / Actors";
+    actorsSection.detail = "speakPhases";
+
+    for (auto& entry : actorsById)
+    {
+        std::sort(
+            entry.second.children.begin(),
+            entry.second.children.end(),
+            [](const ConversationTreeNode& a, const ConversationTreeNode& b)
+            {
+                if (a.label != b.label)
+                    return a.label < b.label;
+                return a.detail < b.detail;
+            });
+        actorsSection.children.push_back(std::move(entry.second));
+    }
+
+    std::sort(
+        actorsSection.children.begin(),
+        actorsSection.children.end(),
+        [](const ConversationTreeNode& a, const ConversationTreeNode& b)
+        {
+            if (a.label != b.label)
+                return a.label < b.label;
+            return a.detail < b.detail;
+        });
+
+    if (!actorsSection.children.empty())
+        sceneRoot.children.push_back(std::move(actorsSection));
+}
+
+void ConversationTree::rebuildConversationTree()
+{
+    roots.clear();
+    invalidateConversationVisibleRows();
+    if (docs == nullptr)
+        return;
+
+    // Top level = every scene that has conversation speakPhases (items-tab style).
+    std::vector<std::string> sceneIds;
+    if (docs->conversationsLoaded && docs->conversationsRoot.is_object())
+    {
+        for (auto it = docs->conversationsRoot.begin(); it != docs->conversationsRoot.end();
+             ++it)
+        {
+            if (!it.value().is_object())
+                continue;
+            const nlohmann::json& node = it.value();
+            if (!node.contains("speakPhases") || !node["speakPhases"].is_array()
+                || node["speakPhases"].empty())
+                continue;
+            sceneIds.push_back(it.key());
+        }
+    }
+    std::sort(sceneIds.begin(), sceneIds.end());
+
+    for (const std::string& sceneId : sceneIds)
+    {
+        ConversationTreeNode sceneRoot;
+        sceneRoot.kind = ConversationNodeKind::Section;
+        sceneRoot.key = "scene:" + sceneId;
+        sceneRoot.label = sceneId;
+        sceneRoot.detail = "conversation scene";
+        sceneRoot.editSceneId = sceneId; // reuse field for scene id
+        appendSceneConversationContent(sceneRoot, sceneId);
+        roots.push_back(std::move(sceneRoot));
     }
 }
 
@@ -352,6 +395,45 @@ bool ConversationTree::isConversationExpanded(const std::string& key) const
     return expanded.count(key) > 0;
 }
 
+
+bool ConversationTree::allSceneRootsExpanded() const
+{
+    if (roots.empty())
+        return false;
+    for (const ConversationTreeNode& root : roots)
+    {
+        if (root.children.empty())
+            continue;
+        if (!isConversationExpanded(root.key))
+            return false;
+    }
+    return true;
+}
+
+void ConversationTree::expandAllSceneRoots()
+{
+    for (const ConversationTreeNode& root : roots)
+    {
+        if (!root.children.empty())
+            expanded.insert(root.key);
+    }
+    invalidateConversationVisibleRows();
+}
+
+void ConversationTree::collapseAllSceneRoots()
+{
+    for (const ConversationTreeNode& root : roots)
+        expanded.erase(root.key);
+    invalidateConversationVisibleRows();
+}
+
+void ConversationTree::toggleExpandAllSceneRoots()
+{
+    if (allSceneRootsExpanded())
+        collapseAllSceneRoots();
+    else
+        expandAllSceneRoots();
+}
 
 void ConversationTree::toggleConversationExpanded(const std::string& key)
 {
@@ -421,14 +503,29 @@ void ConversationTree::handleConversationTreeInput(Rectangle listBounds)
     listBounds = listBounds;
     listBoundsValid = true;
 
-    if (!docs->scenes.isLoaded() || (*selectionSceneId).empty() || roots.empty())
+    if (docs == nullptr || !docs->conversationsLoaded || roots.empty())
         return;
-    if ((stackDialogOpen && *stackDialogOpen) || (text && text->open) || (draggingDivider && draggingDivider()))
+    if ((stackDialogOpen && *stackDialogOpen) || (text && text->open)
+        || (draggingDivider && draggingDivider()))
         return;
+
+    const Vector2 mouse = GetMousePosition();
+
+    // Header expand/collapse-all (scene roots), same as items tab.
+    const float headerToggleX = listBounds.x + 8.0f;
+    const float headerToggleY = listBounds.y + (20.0f - kTreeToggleSize) * 0.5f;
+    const Rectangle headerToggle = {
+        headerToggleX, headerToggleY, kTreeToggleSize, kTreeToggleSize};
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
+        && CheckCollisionPointRec(mouse, headerToggle))
+    {
+        toggleExpandAllSceneRoots();
+        return;
+    }
 
     const std::vector<ConversationVisibleRow>& rows = visibleConversationRows();
     const float contentHeight = static_cast<float>(rows.size()) * kTreeRowHeight + 8.0f;
-    const float maxScroll = std::max(0.0f, contentHeight - listBounds.height);
+    const float maxScroll = std::max(0.0f, contentHeight - (listBounds.height - 20.0f));
     if ((*leftScroll) > maxScroll)
         (*leftScroll) = maxScroll;
 
@@ -437,7 +534,6 @@ void ConversationTree::handleConversationTreeInput(Rectangle listBounds)
         listBounds.y + 20.0f,
         listBounds.width,
         listBounds.height - 20.0f};
-    const Vector2 mouse = GetMousePosition();
 
     if (CheckCollisionPointRec(mouse, treeBounds) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
@@ -445,15 +541,15 @@ void ConversationTree::handleConversationTreeInput(Rectangle listBounds)
         if (localY >= 0.0f)
         {
             const int index = static_cast<int>(localY / kTreeRowHeight);
-            if (index >= 0 && index < static_cast<int>(rows.size()) &&
-                rows[static_cast<size_t>(index)].node != nullptr)
+            if (index >= 0 && index < static_cast<int>(rows.size())
+                && rows[static_cast<size_t>(index)].node != nullptr)
             {
                 const ConversationVisibleRow& hit = rows[static_cast<size_t>(index)];
                 const ConversationTreeNode& node = *hit.node;
                 selectedKey = node.key;
 
-                const float rowTop =
-                    treeBounds.y + 4.0f - (*leftScroll) + static_cast<float>(index) * kTreeRowHeight;
+                const float rowTop = treeBounds.y + 4.0f - (*leftScroll)
+                    + static_cast<float>(index) * kTreeRowHeight;
                 const float toggleX =
                     treeBounds.x + 8.0f + static_cast<float>(hit.depth) * kTreeIndent;
                 const float midY = rowTop + kTreeRowHeight * 0.5f;
@@ -463,8 +559,82 @@ void ConversationTree::handleConversationTreeInput(Rectangle listBounds)
                     kTreeToggleSize,
                     kTreeToggleSize};
 
+                // Scene root: select scene for walkthrough + expand/collapse.
+                const std::string sceneFromKey = sceneIdFromTreeKey(node.key);
+                if (!sceneFromKey.empty())
+                {
+                    if (onSelectScene)
+                        onSelectScene(sceneFromKey);
+                    if (!node.children.empty() && CheckCollisionPointRec(mouse, toggleBounds))
+                        toggleConversationExpanded(node.key);
+                    else if (!node.children.empty() && !isConversationExpanded(node.key))
+                        toggleConversationExpanded(node.key);
+                    return;
+                }
+
+                // Nested under a scene: ensure parent scene is active first.
+                if (hit.depth > 0 && selectionSceneId != nullptr)
+                {
+                    // Walk is not available; parse scene from known key prefixes.
+                    std::string sceneId;
+                    if (node.key.rfind("actor:", 0) == 0)
+                    {
+                        // actor:<scene>:<actorId>
+                        const size_t a = node.key.find(':', 6);
+                        if (a != std::string::npos)
+                            sceneId = node.key.substr(6, a - 6);
+                    }
+                    else if (node.key.rfind("section:main_character:", 0) == 0)
+                        sceneId = node.key.substr(std::string("section:main_character:").size());
+                    else if (node.key.rfind("section:actors:", 0) == 0)
+                        sceneId = node.key.substr(std::string("section:actors:").size());
+                    else if (node.key.rfind("section:subscene:", 0) == 0)
+                    {
+                        const std::string rest =
+                            node.key.substr(std::string("section:subscene:").size());
+                        const size_t colon = rest.find(':');
+                        if (colon != std::string::npos)
+                            sceneId = rest.substr(0, colon);
+                    }
+                    else if (node.key.rfind("phase:/", 0) == 0)
+                    {
+                        // phase:/sceneId/speakPhases/...
+                        const std::string rest = node.key.substr(std::string("phase:/").size());
+                        const size_t slash = rest.find('/');
+                        if (slash != std::string::npos)
+                            sceneId = rest.substr(0, slash);
+                    }
+                    else if (node.key.rfind("narrative-conv:/", 0) == 0)
+                    {
+                        const std::string rest =
+                            node.key.substr(std::string("narrative-conv:/").size());
+                        const size_t slash = rest.find('/');
+                        if (slash != std::string::npos)
+                            sceneId = rest.substr(0, slash);
+                    }
+                    else if (node.key.rfind("choice:/", 0) == 0)
+                    {
+                        const std::string rest = node.key.substr(std::string("choice:/").size());
+                        const size_t slash = rest.find('/');
+                        if (slash != std::string::npos)
+                            sceneId = rest.substr(0, slash);
+                    }
+                    if (!sceneId.empty() && onSelectScene
+                        && (selectionSceneId->empty() || *selectionSceneId != sceneId))
+                        onSelectScene(sceneId);
+                }
+
                 if (!node.children.empty() && CheckCollisionPointRec(mouse, toggleBounds))
                     toggleConversationExpanded(node.key);
+                else if (
+                    walkthrough != nullptr
+                    && (node.kind == ConversationNodeKind::Dialog
+                        || node.kind == ConversationNodeKind::Narrative
+                        || node.kind == ConversationNodeKind::Milestone)
+                    && walkthrough->selectTreeKey(node.key))
+                {
+                    selectedKey = node.key;
+                }
                 else if (node.editDoc != ConversationEditDoc::None && !node.jsonPointer.empty())
                     openConversationNodeEditor(node);
                 else if (!node.children.empty())
@@ -487,10 +657,10 @@ void ConversationTree::drawConversationTree(Rectangle listBounds)
     listBounds = listBounds;
     listBoundsValid = true;
 
-    if (!docs->scenes.isLoaded())
+    if (docs == nullptr || !docs->conversationsLoaded)
     {
-        const std::string message = docs->loadError.empty()
-            ? "Loading..."
+        const std::string message = docs == nullptr || docs->loadError.empty()
+            ? "Loading conversations..."
             : docs->loadError;
         drawWrappedText(
             (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
@@ -503,40 +673,21 @@ void ConversationTree::drawConversationTree(Rectangle listBounds)
         return;
     }
 
-    if ((*selectionSceneId).empty())
-    {
-        DrawTextEx(
-            (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
-            "Select a scene on the map",
-            {listBounds.x + 12.0f, listBounds.y + 12.0f},
-            kFontBody,
-            1.0f,
-            kTextMuted);
-        return;
-    }
-
     if (roots.empty())
     {
         DrawTextEx(
             (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
-            "No narrative or conversations for this scene",
-            {listBounds.x + 12.0f, listBounds.y + 36.0f},
+            "No scenes with speakPhases in conversations.json",
+            {listBounds.x + 12.0f, listBounds.y + 12.0f},
             kFontBody,
             1.0f,
             kTextMuted);
-        DrawTextEx(
-            (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
-            (*selectionSceneId).c_str(),
-            {listBounds.x + 12.0f, listBounds.y + 12.0f},
-            kFontSmall,
-            1.0f,
-            kPanelBorder);
         return;
     }
 
     const std::vector<ConversationVisibleRow>& rows = visibleConversationRows();
     const float contentHeight = static_cast<float>(rows.size()) * kTreeRowHeight + 8.0f;
-    const float maxScroll = std::max(0.0f, contentHeight - listBounds.height);
+    const float maxScroll = std::max(0.0f, contentHeight - (listBounds.height - 20.0f));
     if ((*leftScroll) > maxScroll)
         (*leftScroll) = maxScroll;
 
@@ -546,11 +697,33 @@ void ConversationTree::drawConversationTree(Rectangle listBounds)
         !(text != nullptr && text->open) &&
         !(draggingDivider && draggingDivider());
 
-    // Header: selected scene
+    // Header: [+/-] Scenes (N) — expand/collapse all scene roots (items-tab pattern).
+    const float headerToggleX = listBounds.x + 8.0f;
+    const float headerToggleY = listBounds.y + (20.0f - kTreeToggleSize) * 0.5f;
+    const Rectangle headerToggle = {
+        headerToggleX, headerToggleY, kTreeToggleSize, kTreeToggleSize};
+    const bool allOpen = allSceneRootsExpanded();
+    DrawRectangleRec(headerToggle, Color{40, 36, 48, 255});
+    DrawRectangleLinesEx(headerToggle, 1.0f, kPanelBorder);
+    if (canInteract && CheckCollisionPointRec(mouse, headerToggle))
+        DrawRectangleRec(headerToggle, Color{60, 54, 72, 180});
     DrawTextEx(
         (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
-        truncateForTree((*selectionSceneId), 42).c_str(),
-        {listBounds.x + 10.0f, listBounds.y + 4.0f},
+        allOpen ? "-" : "+",
+        {headerToggle.x + 3.0f, headerToggle.y},
+        kFontTiny,
+        1.0f,
+        kTextPrimary);
+
+    const std::string headerLabel =
+        "Scenes (" + std::to_string(roots.size()) + ")"
+        + (selectionSceneId != nullptr && !selectionSceneId->empty()
+               ? ("  ·  " + truncateForTree(*selectionSceneId, 22))
+               : "");
+    DrawTextEx(
+        (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
+        headerLabel.c_str(),
+        {headerToggle.x + kTreeToggleSize + kTreeTogglePad + 2.0f, listBounds.y + 4.0f},
         kFontTiny,
         1.0f,
         kPanelBorder);
@@ -581,7 +754,10 @@ void ConversationTree::drawConversationTree(Rectangle listBounds)
             treeBounds.width - 4.0f,
             kTreeRowHeight - 1.0f};
 
-        const bool selected = node.key == selectedKey;
+        const bool isSceneRoot = !sceneIdFromTreeKey(node.key).empty();
+        const bool selected = node.key == selectedKey
+            || (isSceneRoot && selectionSceneId != nullptr
+                && *selectionSceneId == sceneIdFromTreeKey(node.key));
         const bool hovered =
             canInteract &&
             CheckCollisionPointRec(mouse, treeBounds) &&
