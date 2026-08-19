@@ -2,6 +2,61 @@
   "boldFont": "resources/fonts/Caveat-Bold.ttf",
   "font": "resources/fonts/Caveat-Regular.ttf",
   "scenes": {
+    "alpine_hardware": {
+      "actions": {
+        "examine": true,
+        "hit": false,
+        "speak": true,
+        "use": false
+      },
+      "audio": {
+        "ambient": [
+          {
+            "fade_in": 2.0,
+            "fade_out": 2.0,
+            "loop": true,
+            "path": "resources/audio/ambient/town_ambient.mp3",
+            "volume": 0.18
+          }
+        ],
+        "sfx": [
+          {
+            "from_room": "mountain_road_supply_row",
+            "path": "resources/audio/sfx/door_open.mp3",
+            "trigger": "on_enter",
+            "volume": 0.85
+          },
+          {
+            "path": "resources/audio/sfx/door_close.mp3",
+            "to_room": "mountain_road_supply_row",
+            "trigger": "on_exit",
+            "volume": 0.85
+          }
+        ]
+      },
+      "description": "You step inside Alpine Hardware and Mining Supplies and the room answers with timber, iron, and lamp oil. Post-and-beam construction rises around you with a joiner's precision: braces cut true, pegs seated flush, every bearing face squared as though the building itself were a tool. Kerosene lanterns hang from posts and wall hooks, throwing a steady amber light across merchandise meant for men who work with their hands. A merchant stands behind the counter, tall and broad as an ox, shirt pressed, suspenders straight, beard trimmed with the same seriousness he brings to stock and shelf. He looks up as you enter, professional and unhurried, a man who obviously takes his job seriously.",
+      "examineDetails": "You read the room the way you would a workshop: what is stored, how it is kept, what kind of man tends it.\n\nThe frame first. Post-and-beam timbers, hand-hewn and joined with a craftsman's patience. Cross braces cut to length, pegged mortises tight enough that the structure hums when a boot strikes the floor. This is not frontier slap construction. Someone built this room to stand through snow load and mine blast and the slow contempt of altitude.\n\nLight comes from kerosene lanterns hung on posts and wall hooks, glass chimneys trimmed, wicks recently cut. The air smells of lamp oil, iron, pine shavings, and the faint mineral tang of hardware stock kept dry against ridge damp.\n\nFloor space is honest mercantile clutter. Barrels hold rakes, hoes, and shovels standing handle-up like a stand of pale timber. Along the wall, picks and scythes hang from forged hooks in a row that keeps edge from edge. Hammers, hatchets, draw knives, augers, pry bars, and the other hand tools of 1891 line pegboards with labels written in a clerk's square hand. Rope in coils. Lanterns ready for filling. Mining candles in tins. Lime and blasting caps behind a counter drawer you are not meant to open without asking.\n\nBehind the merchant, open shelves carry the small necessities: nails sorted by penny weight in wooden bins, drill bits in cloth rolls, spools of copper and iron wire, hinges, hasps, stove bolts, and the thousand minor fasteners that keep a settlement from falling apart.\n\nThe counter is thick plank scarred by honest trade. At the right corner sits a brass cash register angled toward the merchant, as though the machine and the man share a private understanding of accounts.\n\nThe merchant himself is the room's other proof of competence. Tall, thick through the chest and arms, clean shirt, practical suspenders, eyes that measure you the way a man measures stock: weight, use, likelihood of return. He is not unfriendly. He is simply serious. This is a store built by someone who expects the ridge to dig, build, and stay.",
+      "exits": {
+        "left": "mountain_road_supply_row"
+      },
+      "image": "resources/images/alpine_hardware.png",
+      "layout": {
+        "level": 0,
+        "x": 1064.0,
+        "y": 2424.0
+      },
+      "movement": {
+        "backward": false,
+        "forward": false,
+        "left": true,
+        "right": false
+      },
+      "speakDetails": "",
+      "start": false,
+      "ttsDefaultVoice": "helios",
+      "ttsEnabled": true,
+      "useDetails": ""
+    },
     "alpine_summit": {
       "actions": {
         "examine": true,
@@ -107,8 +162,8 @@
       ],
       "layout": {
         "level": 0,
-        "x": 23.0,
-        "y": 365.0
+        "x": 296.0,
+        "y": 480.0
       },
       "movement": {
         "backward": true,
@@ -1927,12 +1982,25 @@
           }
         ]
       },
-      "description": "The plain pine door gives into a supply closet barely wider than a man's shoulders. A single bare bulb throws hard light on rough-built shelves that occupy the center of the room like an island of unfinished carpentry. Mops and brooms lean along the left wall, their handles dark with use and damp. The shelves are crowded with the unglamorous machinery of keeping a saloon running: glass bottles of cleaning chemicals with faded labels, spare kitchen tins, stacked boxes of nails, a tin of stove polish, coils of twine, and hand tools hung from nails where a carpenter stopped organizing and started surviving. On the front edge of the middle shelf sit a small jar of lamp oil and a hunting knife in a worn leather sheath, placed within easy reach as though someone meant to come back for them.",
-      "examineDetails": "You take stock of the closet in practical terms.\n\nTop shelf: lye soap, stove blacking, unlabeled cleaning bottles sharp with ammonia, and kitchen overflow—enamel cups, a cracked bowl, flour gone hard at the corners.\n\nMiddle shelf: nails in rough wooden boxes, a hand plane with a chipped iron, baling wire, and on the front edge a half-full mason jar of lamp oil and a hunting knife in a worn leather sheath. The blade has been honed recently. The handle is polished where a palm has worried it. Neither item belongs to the housekeeping kit.\n\nLower shelf: rags in a lidded bucket, liniment, spare lamp chimneys in newsprint, and a match tin with a worn striker.\n\nMops and brooms lean along the left wall; one mop head is still damp. The floor is swept but stained where chemicals have dripped. The air is soap, metal, oil, and old mop water. Only muffled kitchen noise reaches in from the wall.",
+      "description": "The plain pine door gives into a supply closet barely wider than a man's shoulders. A single bare bulb throws hard light on rough-built shelves that occupy the center of the room like an island of unfinished carpentry. Mops and brooms lean along the left wall, their handles have gone dark with use. The shelves are crowded with the unglamorous machinery of keeping a saloon running. Glass bottles of cleaning chemicals with faded labels, spare kitchen tins, stacked boxes of nails, a tin of stove polish, coils of twine, and hand tools hung from nails. You notice a small stoppered jar of lamp oil here.",
+      "descriptionTts": {
+        "tts": true,
+        "ttsAudio": "resources/audio/tts/saloon_supply_closet/descriptionTts.mp3",
+        "ttsText": "The plain pine door gives into a supply closet barely wider than a man's shoulders.[pause] A single bare bulb throws hard light on rough-built shelves that occupy the center of the room like an island of unfinished carpentry. Mops and brooms lean along the left wall, their handles have grown dark with use. The shelves are crowded with the unglamorous machinery of keeping a saloon running. Glass bottles of cleaning chemicals with faded labels, spare kitchen tins, stacked boxes of nails, a tin of stove polish, coils of twine, and hand tools hung from nails.[long-pause] You notice a small stoppered jar of lamp oil here.",
+        "ttsVoice": ""
+      },
+      "examineDetails": "You take stock of the closet in practical terms.\n\nTop shelf: lye soap, stove blacking, unlabeled cleaning bottles sharp with ammonia, and kitchen overflow—enamel cups, a cracked bowl, flour gone hard at the corners.\n\nMiddle shelf: nails in rough wooden boxes, a hand plane with a chipped iron, baling wire, and on the front edge a half-full mason jar of lamp oil. The cork is stained dark; the jar does not belong with the housekeeping kit.\n\nLower shelf: rags in a lidded bucket, liniment, spare lamp chimneys in newsprint, and a match tin with a worn striker.\n\nMops and brooms lean along the left wall; one mop head is still damp. The floor is swept but stained where chemicals have dripped. The air is soap, metal, oil, and old mop water. Only muffled kitchen noise reaches in from the wall.",
       "exits": {
         "left": "saloon_service_hall"
       },
       "image": "resources/images/saloon_supply_closet.png",
+      "inventory": [
+        {
+          "defId": "lamp_oil",
+          "instanceId": "lamp_oil",
+          "quantity": 1
+        }
+      ],
       "layout": {
         "level": 0,
         "x": 1576.0,
@@ -1954,14 +2022,10 @@
           "icon": "resources/icons/lamp_oil_icon.png",
           "id": "lamp_oil",
           "name": "Lamp Oil"
-        },
-        {
-          "examineText": "A fixed-blade hunting knife in a dark leather sheath scuffed from carry. The wooden handle is smooth where a palm has worn it. When you ease the blade free, the edge catches the bare bulb's light—recently honed, and kept close at hand.",
-          "icon": "resources/icons/hunting_knife_icon.png",
-          "id": "hunting_knife",
-          "name": "Hunting Knife"
         }
       ],
+      "ttsDefaultVoice": "leo",
+      "ttsEnabled": true,
       "useDetails": ""
     },
     "sawtooth_ridge_body": {
@@ -1997,7 +2061,7 @@
         }
       },
       "description": "Snow is coming down hard now — not the dry powder of the summit but wet, insistent flakes that stick and erase your tracks as fast as you make them. You pick your way out along the sawtoothed ridge, boot sinking to the knee in the lee of each tooth. The ridge is barely eight feet wide here, a knife-edge of snow between drops that do not forgive a misstep. What you saw from the peak becomes undeniable with every step: a man in rancher's clothes half-buried in the drift, blood darkening the snow around him in a frozen fan.\n\nHe lies on his side, one arm thrown out, snow piled where no one cleared it. A battered felt hat rests against his neck and shoulders, covering most of what would have been his face. The wind keeps trying to bury him again. The mountain does not care that you found him.",
-      "examineDetails": "You work with the discipline of a field examination, not the curiosity of a tourist.\n\nSex: male. Race: white. Stature: roughly five foot eleven, judging from leg length and the span of his frame in the snow. Age is harder — the cold and the beating have tightened his skin and fixed his features — but you estimate mid-thirties.\n\nClothing: canvas work coat over a wool union shirt, both ridge-worn and patched at the elbows. Heavy wool trousers, brace suspenders, leather belt with an empty brass buckle tongue. Lace-up snow boots, one still on the foot that broke the drift, laces frozen stiff. Fingerless gloves on both hands, one soaked through with old blood.\n\nIdentifying marks: a full sleeve of tattoos on the left arm — black ink vines wound with thorns from wrist to shoulder. Scars everywhere the coat and shirt allow you to see: knuckle lines, a pale furrow across the ribs, an old burn patch on the right forearm. It would take all day to document every scar. One is fresh — at most a few days old — still closed with a linen bandage under the shirt cuff, stained at the edge.\n\nGunshot wound: separate from whatever finished him afterward, he took a round through the upper left thigh. The trouser leg is cut away and packed with bloody dressing frozen stiff to the wool. You work two gloved fingers into the wound channel and meet cold metal an inch below the bone. It is very possible the nine-millimeter bullet that struck him is still lodged in the leg.\n\nCause of death: not exposure alone. The skull is stove in on the left side beneath the hat. Impact pattern and the bloody rock frozen in the snow near his outstretched hand say bludgeoning.\n\nOn his person: a flattened leather wallet with no cash, a bone-handled folding knife in his coat pocket, a folded mining claim map creased to ruin by melt and blood, and a brass pocket watch stopped at ten seventeen. Nothing gives a name. Nothing explains why he died on this ridge with the summit in sight.",
+      "examineDetails": "You work with the discipline of a field examination, not the curiosity of a tourist.\n\nSex: male. Race: white. Stature: roughly five foot eleven, judging from leg length and the span of his frame in the snow. Age is harder — the cold and the beating have tightened his skin and fixed his features — but you estimate mid-thirties.\n\nClothing: canvas work coat over a wool union shirt, both ridge-worn and patched at the elbows. Heavy wool trousers, brace suspenders, leather belt with an empty brass buckle tongue. Lace-up snow boots, one still on the foot that broke the drift, laces frozen stiff. Fingerless gloves on both hands, one soaked through with old blood.\n\nIdentifying marks: a full sleeve of tattoos on the left arm — black ink vines wound with thorns from wrist to shoulder. Scars everywhere the coat and shirt allow you to see: knuckle lines, a pale furrow across the ribs, an old burn patch on the right forearm. It would take all day to document every scar. One is fresh — at most a few days old — still closed with a linen bandage under the shirt cuff, stained at the edge.\n\nGunshot wound: separate from whatever finished him afterward, he took a round through the upper left thigh. The trouser leg is cut away and packed with bloody dressing frozen stiff to the wool. You work two gloved fingers into the wound channel and meet cold metal an inch below the bone. It is very possible the nine-millimeter bullet that struck him is still lodged in the leg.\n\nCause of death: not exposure alone. The skull is stove in on the left side beneath the hat. Impact pattern and the bloody rock frozen in the snow near his outstretched hand say bludgeoning.\n\nOn his person: a flattened leather wallet with no cash, a fixed-blade hunting knife in a dark leather sheath tucked into his belt, a folded mining claim map creased to ruin by melt and blood, and a brass pocket watch stopped at ten seventeen. Nothing gives a name. Nothing explains why he died on this ridge with the summit in sight.",
       "examineFlag": "sawtooth_ridge:body_examined",
       "examineLucidityDelta": -3,
       "exits": {
@@ -2023,6 +2087,13 @@
           "useFlag": "sawtooth_ridge:bullet_retrieved"
         }
       ],
+      "inventory": [
+        {
+          "defId": "hunting_knife",
+          "instanceId": "hunting_knife",
+          "quantity": 1
+        }
+      ],
       "layout": {
         "level": 1,
         "x": 40.0,
@@ -2037,6 +2108,14 @@
         "up": false
       },
       "start": false,
+      "takeables": [
+        {
+          "examineText": "A fixed-blade hunting knife in a dark leather sheath scuffed from carry. The wooden handle is smooth where a palm has worn it. When you ease the blade free, the edge catches the light—recently honed, and kept close at hand.",
+          "icon": "resources/icons/hunting_knife_icon.png",
+          "id": "hunting_knife",
+          "name": "Hunting Knife"
+        }
+      ],
       "useDetails": ""
     },
     "snow_cave_exterior": {
@@ -2088,8 +2167,8 @@
       "image": "resources/images/snow_cave_exterior.png",
       "layout": {
         "level": 0,
-        "x": 808.0,
-        "y": 480.0
+        "x": 808.0000610351563,
+        "y": 479.0
       },
       "movement": {
         "backward": true,
@@ -2572,61 +2651,6 @@
       },
       "start": false,
       "useDetails": ""
-    },
-    "alpine_hardware": {
-      "actions": {
-        "examine": true,
-        "hit": false,
-        "speak": true,
-        "use": false
-      },
-      "audio": {
-        "ambient": [
-          {
-            "fade_in": 2.0,
-            "fade_out": 2.0,
-            "loop": true,
-            "path": "resources/audio/ambient/town_ambient.mp3",
-            "volume": 0.18
-          }
-        ],
-        "sfx": [
-          {
-            "from_room": "mountain_road_supply_row",
-            "path": "resources/audio/sfx/door_open.mp3",
-            "trigger": "on_enter",
-            "volume": 0.85
-          },
-          {
-            "path": "resources/audio/sfx/door_close.mp3",
-            "to_room": "mountain_road_supply_row",
-            "trigger": "on_exit",
-            "volume": 0.85
-          }
-        ]
-      },
-      "description": "You step inside Alpine Hardware and Mining Supplies and the room answers with timber, iron, and lamp oil. Post-and-beam construction rises around you with a joiner's precision: braces cut true, pegs seated flush, every bearing face squared as though the building itself were a tool. Kerosene lanterns hang from posts and wall hooks, throwing a steady amber light across merchandise meant for men who work with their hands. A merchant stands behind the counter, tall and broad as an ox, shirt pressed, suspenders straight, beard trimmed with the same seriousness he brings to stock and shelf. He looks up as you enter, professional and unhurried, a man who obviously takes his job seriously.",
-      "examineDetails": "You read the room the way you would a workshop: what is stored, how it is kept, what kind of man tends it.\n\nThe frame first. Post-and-beam timbers, hand-hewn and joined with a craftsman's patience. Cross braces cut to length, pegged mortises tight enough that the structure hums when a boot strikes the floor. This is not frontier slap construction. Someone built this room to stand through snow load and mine blast and the slow contempt of altitude.\n\nLight comes from kerosene lanterns hung on posts and wall hooks, glass chimneys trimmed, wicks recently cut. The air smells of lamp oil, iron, pine shavings, and the faint mineral tang of hardware stock kept dry against ridge damp.\n\nFloor space is honest mercantile clutter. Barrels hold rakes, hoes, and shovels standing handle-up like a stand of pale timber. Along the wall, picks and scythes hang from forged hooks in a row that keeps edge from edge. Hammers, hatchets, draw knives, augers, pry bars, and the other hand tools of 1891 line pegboards with labels written in a clerk's square hand. Rope in coils. Lanterns ready for filling. Mining candles in tins. Lime and blasting caps behind a counter drawer you are not meant to open without asking.\n\nBehind the merchant, open shelves carry the small necessities: nails sorted by penny weight in wooden bins, drill bits in cloth rolls, spools of copper and iron wire, hinges, hasps, stove bolts, and the thousand minor fasteners that keep a settlement from falling apart.\n\nThe counter is thick plank scarred by honest trade. At the right corner sits a brass cash register angled toward the merchant, as though the machine and the man share a private understanding of accounts.\n\nThe merchant himself is the room's other proof of competence. Tall, thick through the chest and arms, clean shirt, practical suspenders, eyes that measure you the way a man measures stock: weight, use, likelihood of return. He is not unfriendly. He is simply serious. This is a store built by someone who expects the ridge to dig, build, and stay.",
-      "exits": {
-        "left": "mountain_road_supply_row"
-      },
-      "image": "resources/images/alpine_hardware.png",
-      "layout": {
-        "x": 1088.0,
-        "y": 2424.0,
-        "level": 0
-      },
-      "movement": {
-        "backward": false,
-        "forward": false,
-        "left": true,
-        "right": false
-      },
-      "speakDetails": "",
-      "start": false,
-      "useDetails": "",
-      "ttsEnabled": true,
-      "ttsDefaultVoice": "helios"
     }
   },
   "uiFont": "resources/fonts/CourierPrime-Regular.ttf"

@@ -127,6 +127,10 @@ struct VariableEditor
     Font uiFont{};
     Font uiFontBold{};
     std::function<void()> onTreeRebuild;
+    /** Open Scene AI Assist for the selected scene (scenes tab). */
+    std::function<void()> onAiAssist;
+    /** Open Scene Inventory editor for the selected scene. */
+    std::function<void()> onSceneInventory;
 
 
 

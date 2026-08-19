@@ -26,6 +26,8 @@
 #include "EditorTheme.h"
 #include "EditorTypes.h"
 #include "EditorUiDraw.h"
+#include "SceneAuthoringDialog.h"
+#include "SceneAssistDialog.h"
 #include "ImageCompression.h"
 #include "PlatformPath.h"
 #include "RaylibCompat.h"
@@ -1744,34 +1746,76 @@ void SceneMapCanvas::drawSceneList(Rectangle listBounds)
         return;
     }
 
+    const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
+    const Vector2 mouse = GetMousePosition();
+    const bool canInteract = !graph->stackDialogOpen
+        && !(variableEditor && variableEditor->open)
+        && !(layout && layout->isDraggingDivider())
+        && !sceneAuthoring.blocksInput()
+        && !sceneAssist.blocksInput()
+        && !sceneInventory.blocksInput();
+
+    // Header: New Scene button
+    const float headerH = 28.0f;
+    const Rectangle newBtn = {
+        listBounds.x + listBounds.width - 108.0f,
+        listBounds.y + 2.0f,
+        100.0f,
+        24.0f};
+    DrawTextEx(
+        font,
+        "Scenes",
+        {listBounds.x + 10.0f, listBounds.y + 6.0f},
+        kFontTiny,
+        1.0f,
+        kPanelBorder);
+    drawEditorButton(font, newBtn, "New Scene", true, canInteract);
+    if (canInteract && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
+        && CheckCollisionPointRec(mouse, newBtn))
+    {
+        sceneAuthoring.openDialog();
+    }
+
+    const Rectangle treeBounds = {
+        listBounds.x,
+        listBounds.y + headerH,
+        listBounds.width,
+        listBounds.height - headerH};
+
     const std::vector<std::string> ids = docs->scenes.sceneIds();
     const float contentHeight = static_cast<float>(ids.size()) * kListRowHeight;
-    const float maxScroll = std::max(0.0f, contentHeight - listBounds.height);
+    const float maxScroll = std::max(0.0f, contentHeight - treeBounds.height);
     if (listScroll > maxScroll)
         listScroll = maxScroll;
 
     BeginScissorMode(
-        static_cast<int>(listBounds.x),
-        static_cast<int>(listBounds.y),
-        static_cast<int>(listBounds.width),
-        static_cast<int>(listBounds.height));
+        static_cast<int>(treeBounds.x),
+        static_cast<int>(treeBounds.y),
+        static_cast<int>(treeBounds.width),
+        static_cast<int>(treeBounds.height));
 
-    float y = listBounds.y - listScroll;
+    float y = treeBounds.y - listScroll;
     for (const std::string& id : ids)
     {
-        const Rectangle row = {listBounds.x + 4.0f, y, listBounds.width - 8.0f, kListRowHeight - 4.0f};
-        const bool selected = id == (*selectionSceneId);
+        const Rectangle row = {
+            treeBounds.x + 4.0f, y, treeBounds.width - 8.0f, kListRowHeight - 4.0f};
+        const bool selected = selectionSceneId && id == (*selectionSceneId);
         if (selected)
             DrawRectangleRec(row, kSelection);
 
-        const ThumbnailEntry& thumb = thumbnails->getOrLoad(id, docs->scenes, docs->assetRoot, docs->resourceDir);
-        const Rectangle thumbRect = {row.x + 6.0f, row.y + 6.0f, kListThumbSize, kListThumbSize};
+        const ThumbnailEntry& thumb =
+            thumbnails->getOrLoad(id, docs->scenes, docs->assetRoot, docs->resourceDir);
+        const Rectangle thumbRect = {
+            row.x + 6.0f, row.y + 6.0f, kListThumbSize, kListThumbSize};
         DrawRectangleRec(thumbRect, Color{48, 44, 58, 255});
         if (thumb.loaded)
         {
             DrawTexturePro(
                 thumb.texture,
-                {0.0f, 0.0f, static_cast<float>(thumb.texture.width), static_cast<float>(thumb.texture.height)},
+                {0.0f,
+                 0.0f,
+                 static_cast<float>(thumb.texture.width),
+                 static_cast<float>(thumb.texture.height)},
                 thumbRect,
                 {0.0f, 0.0f},
                 0.0f,
@@ -1780,11 +1824,11 @@ void SceneMapCanvas::drawSceneList(Rectangle listBounds)
 
         const int sceneLevel = docs->scenes.getLayout(id).level;
         const float textX = row.x + kListThumbSize + 14.0f;
-        const float textY = row.y + (kListRowHeight - kListNameFont - kListMetaFont - 8.0f) * 0.5f;
-        DrawTextEx((uiFont.texture.id != 0 ? uiFont : GetFontDefault()), id.c_str(), {textX, textY},
-                   kListNameFont, 1.0f, kTextPrimary);
+        const float textY =
+            row.y + (kListRowHeight - kListNameFont - kListMetaFont - 8.0f) * 0.5f;
+        DrawTextEx(font, id.c_str(), {textX, textY}, kListNameFont, 1.0f, kTextPrimary);
         DrawTextEx(
-            (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
+            font,
             TextFormat("L%d", sceneLevel),
             {textX, textY + kListNameFont + 6.0f},
             kListMetaFont,
@@ -1796,31 +1840,28 @@ void SceneMapCanvas::drawSceneList(Rectangle listBounds)
 
     EndScissorMode();
 
-    // Hit-test only within the visible list (scissor-safe index math).
-    const Vector2 mouse = GetMousePosition();
-    if (!graph->stackDialogOpen &&
-        !(variableEditor && variableEditor->open) &&
-        !layout && layout->isDraggingDivider() &&
-        CheckCollisionPointRec(mouse, listBounds) &&
-        IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    if (canInteract && CheckCollisionPointRec(mouse, treeBounds)
+        && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
-        const float localY = (mouse.y - listBounds.y) + listScroll;
+        const float localY = (mouse.y - treeBounds.y) + listScroll;
         if (localY >= 0.0f)
         {
             const int index = static_cast<int>(localY / kListRowHeight);
             if (index >= 0 && index < static_cast<int>(ids.size()))
             {
                 const std::string& id = ids[static_cast<size_t>(index)];
-                if (selectSceneForEditor) selectSceneForEditor(id);
+                if (selectSceneForEditor)
+                    selectSceneForEditor(id);
                 dragSource = DragSource::SceneList;
                 dragSceneId = id;
-                const float rowTop = listBounds.y - listScroll + static_cast<float>(index) * kListRowHeight;
-                dragOffset = {mouse.x - listBounds.x - 4.0f, mouse.y - rowTop};
+                const float rowTop = treeBounds.y - listScroll
+                    + static_cast<float>(index) * kListRowHeight;
+                dragOffset = {mouse.x - treeBounds.x - 4.0f, mouse.y - rowTop};
             }
         }
     }
 
-    if (CheckCollisionPointRec(GetMousePosition(), listBounds))
+    if (CheckCollisionPointRec(GetMousePosition(), treeBounds))
         listScroll -= GetMouseWheelMove() * 24.0f;
     if (listScroll < 0.0f)
         listScroll = 0.0f;
@@ -1935,58 +1976,513 @@ void SceneMapCanvas::drawTabs(Rectangle leftBounds)
 }
 
 
-void SceneMapCanvas::drawActorsPane(Rectangle paneBounds)
+void SceneMapCanvas::stopScenePreviewAudio()
 {
-    DrawTextEx((uiFont.texture.id != 0 ? uiFont : GetFontDefault()), "Actors", {paneBounds.x + 12.0f, paneBounds.y + 8.0f},
-               kFontLabel, 1.0f, kTextMuted);
+    if (previewMusicLoaded && IsMusicStreamPlaying(previewMusic))
+        StopMusicStream(previewMusic);
+    previewMusicPlaying = false;
+    if (previewAmbientLoaded && IsMusicStreamPlaying(previewAmbient))
+        StopMusicStream(previewAmbient);
+    previewAmbientPlaying = false;
+}
 
-    if ((*selectionSceneId).empty() || !docs->scenes.hasScene((*selectionSceneId)))
+void SceneMapCanvas::unloadScenePreviewMedia()
+{
+    stopScenePreviewAudio();
+    if (previewMusicLoaded)
     {
-        DrawTextEx((uiFont.texture.id != 0 ? uiFont : GetFontDefault()), "Select a scene", {paneBounds.x + 12.0f, paneBounds.y + 36.0f},
-                   kFontBody, 1.0f, kTextMuted);
+        UnloadMusicStream(previewMusic);
+        previewMusic = {};
+        previewMusicLoaded = false;
+    }
+    if (!previewMusicTempFile.empty())
+    {
+        std::remove(previewMusicTempFile.c_str());
+        previewMusicTempFile.clear();
+    }
+    previewMusicPath.clear();
+
+    if (previewAmbientLoaded)
+    {
+        UnloadMusicStream(previewAmbient);
+        previewAmbient = {};
+        previewAmbientLoaded = false;
+    }
+    if (!previewAmbientTempFile.empty())
+    {
+        std::remove(previewAmbientTempFile.c_str());
+        previewAmbientTempFile.clear();
+    }
+    previewAmbientPath.clear();
+
+    if (previewLargeLoaded && previewLargeTexture.id != 0)
+    {
+        UnloadTexture(previewLargeTexture);
+        previewLargeTexture = {};
+        previewLargeLoaded = false;
+    }
+    previewLargePath.clear();
+    previewBoundSceneId.clear();
+}
+
+bool SceneMapCanvas::loadScenePreviewMusic(
+    const std::string& relPath,
+    Music& outMusic,
+    std::string& outTempFile)
+{
+    if (!previewAudioReady)
+    {
+        if (!IsAudioDeviceReady())
+            InitAudioDevice();
+        previewAudioReady = IsAudioDeviceReady();
+    }
+    if (!previewAudioReady || docs == nullptr || relPath.empty())
+        return false;
+
+    using timberline_engine::buildAssetSearchPaths;
+    using timberline_engine::compressedAssetPath;
+    using timberline_engine::loadAssetBytesFromFile;
+    using timberline_engine::pathJoin;
+
+    const std::string assetRoot = docs->assetRoot.empty() ? "." : docs->assetRoot;
+    std::vector<std::string> candidates = buildAssetSearchPaths(assetRoot, relPath);
+    if (!docs->resourceDir.empty())
+    {
+        std::string stripped = relPath;
+        if (stripped.rfind("resources/", 0) == 0)
+            stripped = stripped.substr(std::string("resources/").size());
+        candidates.push_back(pathJoin(docs->resourceDir, stripped));
+    }
+
+    for (const std::string& path : candidates)
+    {
+        if (FileExists(path.c_str()))
+        {
+            outMusic = LoadMusicStream(path.c_str());
+            if (IsMusicValid(outMusic))
+            {
+                outMusic.looping = true;
+                return true;
+            }
+        }
+        const std::string compressed = compressedAssetPath(path);
+        if (FileExists(compressed.c_str()))
+        {
+            std::vector<unsigned char> bytes;
+            if (loadAssetBytesFromFile(compressed, bytes) && !bytes.empty())
+            {
+                std::string fileType = ".mp3";
+                const size_t dot = path.find_last_of('.');
+                if (dot != std::string::npos)
+                    fileType = path.substr(dot);
+                const std::string tmp = pathJoin(
+                    GetApplicationDirectory() ? GetApplicationDirectory() : ".",
+                    "editor_scene_bed.tmp" + fileType
+                        + (outTempFile.empty() ? "a" : "b"));
+                std::ofstream out(tmp.c_str(), std::ios::binary);
+                if (out)
+                {
+                    out.write(
+                        reinterpret_cast<const char*>(bytes.data()),
+                        static_cast<std::streamsize>(bytes.size()));
+                    out.close();
+                    outMusic = LoadMusicStream(tmp.c_str());
+                    if (IsMusicValid(outMusic))
+                    {
+                        outMusic.looping = true;
+                        outTempFile = tmp;
+                        return true;
+                    }
+                    std::remove(tmp.c_str());
+                }
+            }
+        }
+    }
+    return false;
+}
+
+bool SceneMapCanvas::loadScenePreviewTexture(const std::string& relPath)
+{
+    if (previewLargeLoaded && previewLargeTexture.id != 0)
+    {
+        UnloadTexture(previewLargeTexture);
+        previewLargeTexture = {};
+        previewLargeLoaded = false;
+    }
+    previewLargePath = relPath;
+    if (docs == nullptr || relPath.empty())
+        return false;
+
+    using timberline_engine::buildAssetSearchPaths;
+    using timberline_engine::compressedAssetPath;
+    using timberline_engine::loadTextureFromAssetFile;
+
+    const std::string assetRoot = docs->assetRoot.empty() ? "." : docs->assetRoot;
+    const std::vector<std::string> paths = buildAssetSearchPaths(assetRoot, relPath);
+    for (const std::string& path : paths)
+    {
+        const std::string compressed = compressedAssetPath(path);
+        if (FileExists(compressed.c_str())
+            && loadTextureFromAssetFile(compressed, previewLargeTexture))
+        {
+            previewLargeLoaded = true;
+            return true;
+        }
+        if (FileExists(path.c_str())
+            && loadTextureFromAssetFile(path, previewLargeTexture))
+        {
+            previewLargeLoaded = true;
+            return true;
+        }
+    }
+    return false;
+}
+
+void SceneMapCanvas::syncScenePreviewMedia()
+{
+    if (docs == nullptr || selectionSceneId == nullptr)
+        return;
+
+    const std::string sceneId = *selectionSceneId;
+    if (sceneId.empty() || !docs->scenes.hasScene(sceneId))
+    {
+        if (!previewBoundSceneId.empty())
+            unloadScenePreviewMedia();
         return;
     }
 
-    const std::vector<SceneActor> actors = docs->scenes.getActors((*selectionSceneId));
-    const float rowHeight = 24.0f;
-    const float contentHeight = static_cast<float>(actors.size() + 1) * rowHeight + 36.0f;
-    const float maxScroll = std::max(0.0f, contentHeight - paneBounds.height);
-    if (actorsScroll > maxScroll)
-        actorsScroll = maxScroll;
+    std::string imagePath = docs->scenes.getSceneImagePath(sceneId);
+    std::string musicPath = docs->scenes.getSceneMusicPath(sceneId);
+    std::string ambientPath = docs->scenes.getSceneAmbientPath(sceneId);
 
-    BeginScissorMode(
-        static_cast<int>(paneBounds.x),
-        static_cast<int>(paneBounds.y + 28.0f),
-        static_cast<int>(paneBounds.width),
-        static_cast<int>(paneBounds.height - 28.0f));
-
-    float y = paneBounds.y + 36.0f - actorsScroll;
-    if (actors.empty())
+    // AI Assist preview overrides (temp paths).
+    if (sceneAssist.hasPreviewOverride(sceneId))
     {
-        DrawTextEx((uiFont.texture.id != 0 ? uiFont : GetFontDefault()), "(no actors)", {paneBounds.x + 12.0f, y},
-                   kFontSmall, 1.0f, kTextMuted);
-        y += rowHeight;
+        const std::string oImg = sceneAssist.overrideImagePath(sceneId);
+        const std::string oAmb = sceneAssist.overrideAmbientPath(sceneId);
+        const std::string oMus = sceneAssist.overrideMusicPath(sceneId);
+        if (!oImg.empty())
+            imagePath = oImg;
+        if (!oAmb.empty())
+            ambientPath = oAmb;
+        if (!oMus.empty())
+            musicPath = oMus;
     }
-    else
+
+    if (sceneId != previewBoundSceneId)
     {
-        for (const SceneActor& actor : actors)
+        stopScenePreviewAudio();
+        previewBoundSceneId = sceneId;
+        // Force reload of all channels for the new scene.
+        previewMusicPath.clear();
+        previewAmbientPath.clear();
+        previewLargePath.clear();
+    }
+
+    if (imagePath != previewLargePath)
+        loadScenePreviewTexture(imagePath);
+
+    if (musicPath != previewMusicPath)
+    {
+        if (previewMusicLoaded && IsMusicStreamPlaying(previewMusic))
+            StopMusicStream(previewMusic);
+        if (previewMusicLoaded)
         {
-            const std::string line = actor.id + " — " + actor.name +
-                (actor.role.empty() ? "" : " (" + actor.role + ")");
-            DrawTextEx((uiFont.texture.id != 0 ? uiFont : GetFontDefault()), line.c_str(), {paneBounds.x + 12.0f, y},
-                       kFontSmall, 1.0f, kTextPrimary);
-            y += rowHeight;
+            UnloadMusicStream(previewMusic);
+            previewMusic = {};
+            previewMusicLoaded = false;
+        }
+        if (!previewMusicTempFile.empty())
+        {
+            std::remove(previewMusicTempFile.c_str());
+            previewMusicTempFile.clear();
+        }
+        previewMusicPlaying = false;
+        previewMusicPath = musicPath;
+        if (!musicPath.empty())
+            previewMusicLoaded =
+                loadScenePreviewMusic(musicPath, previewMusic, previewMusicTempFile);
+    }
+
+    if (ambientPath != previewAmbientPath)
+    {
+        if (previewAmbientLoaded && IsMusicStreamPlaying(previewAmbient))
+            StopMusicStream(previewAmbient);
+        if (previewAmbientLoaded)
+        {
+            UnloadMusicStream(previewAmbient);
+            previewAmbient = {};
+            previewAmbientLoaded = false;
+        }
+        if (!previewAmbientTempFile.empty())
+        {
+            std::remove(previewAmbientTempFile.c_str());
+            previewAmbientTempFile.clear();
+        }
+        previewAmbientPlaying = false;
+        previewAmbientPath = ambientPath;
+        if (!ambientPath.empty())
+            previewAmbientLoaded = loadScenePreviewMusic(
+                ambientPath, previewAmbient, previewAmbientTempFile);
+    }
+
+    if (previewMusicLoaded && previewMusicPlaying)
+        UpdateMusicStream(previewMusic);
+    if (previewAmbientLoaded && previewAmbientPlaying)
+        UpdateMusicStream(previewAmbient);
+}
+
+void SceneMapCanvas::drawScenePreviewPane(Rectangle paneBounds)
+{
+    const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
+    syncScenePreviewMedia();
+
+    DrawTextEx(
+        font,
+        "Scene Preview",
+        {paneBounds.x + 12.0f, paneBounds.y + 8.0f},
+        kFontLabel,
+        1.0f,
+        kTextMuted);
+
+    if (selectionSceneId == nullptr || selectionSceneId->empty()
+        || docs == nullptr || !docs->scenes.hasScene(*selectionSceneId))
+    {
+        DrawTextEx(
+            font,
+            "Select a scene",
+            {paneBounds.x + 12.0f, paneBounds.y + 36.0f},
+            kFontBody,
+            1.0f,
+            kTextMuted);
+        return;
+    }
+
+    const float transportW = 118.0f;
+    const Rectangle transport = {
+        paneBounds.x + 8.0f,
+        paneBounds.y + 30.0f,
+        transportW,
+        paneBounds.height - 38.0f};
+    const Rectangle imageBounds = {
+        transport.x + transport.width + 8.0f,
+        paneBounds.y + 30.0f,
+        paneBounds.width - transportW - 24.0f,
+        paneBounds.height - 38.0f};
+
+    DrawRectangleRec(transport, Color{22, 20, 28, 255});
+    DrawRectangleLinesEx(transport, 1.0f, kPanelInnerEdge);
+
+    const Vector2 mouse = GetMousePosition();
+    const bool canInteract = !(graph && graph->stackDialogOpen)
+        && !(variableEditor && variableEditor->open)
+        && !sceneAuthoring.blocksInput()
+        && !sceneAssist.blocksInput()
+        && !sceneInventory.blocksInput();
+
+    auto drawTransportBtn = [&](Rectangle btn, const char* label, bool enabled, bool active) {
+        drawEditorButton(font, btn, label, active, enabled);
+    };
+
+    float ty = transport.y + 10.0f;
+    DrawTextEx(font, "Music", {transport.x + 10.0f, ty}, kFontTiny, 1.0f, kTextMuted);
+    ty += 18.0f;
+    Rectangle musicBtn = {transport.x + 8.0f, ty, transport.width - 16.0f, 28.0f};
+    const bool musicPlaying =
+        previewMusicPlaying && previewMusicLoaded && IsMusicStreamPlaying(previewMusic);
+    drawTransportBtn(
+        musicBtn,
+        musicPlaying ? "Pause" : "Play",
+        previewMusicLoaded,
+        musicPlaying);
+    ty += 36.0f;
+    DrawTextEx(
+        font,
+        previewMusicPath.empty() ? "(none)" : "loaded",
+        {transport.x + 10.0f, ty},
+        kFontTiny,
+        1.0f,
+        kTextMuted);
+
+    ty += 28.0f;
+    DrawTextEx(font, "Ambient", {transport.x + 10.0f, ty}, kFontTiny, 1.0f, kTextMuted);
+    ty += 18.0f;
+    Rectangle ambientBtn = {transport.x + 8.0f, ty, transport.width - 16.0f, 28.0f};
+    const bool ambientPlaying =
+        previewAmbientPlaying && previewAmbientLoaded
+        && IsMusicStreamPlaying(previewAmbient);
+    drawTransportBtn(
+        ambientBtn,
+        ambientPlaying ? "Pause" : "Play",
+        previewAmbientLoaded,
+        ambientPlaying);
+    ty += 36.0f;
+    DrawTextEx(
+        font,
+        previewAmbientPath.empty() ? "(none)" : "loaded",
+        {transport.x + 10.0f, ty},
+        kFontTiny,
+        1.0f,
+        kTextMuted);
+
+    // Compact scene loot summary (Takeables / inventory).
+    ty += 28.0f;
+    DrawTextEx(font, "Loot", {transport.x + 10.0f, ty}, kFontTiny, 1.0f, kTextMuted);
+    ty += 16.0f;
+    {
+        std::vector<std::string> lootIds;
+        if (docs != nullptr && selectionSceneId != nullptr)
+        {
+            const nlohmann::json* scene = docs->scenes.sceneJson(*selectionSceneId);
+            if (scene != nullptr && scene->is_object())
+            {
+                if (scene->contains("takeables") && (*scene)["takeables"].is_array())
+                {
+                    for (const nlohmann::json& row : (*scene)["takeables"])
+                    {
+                        if (!row.is_object())
+                            continue;
+                        const std::string id = row.value("id", row.value("defId", ""));
+                        if (!id.empty())
+                            lootIds.push_back(id);
+                    }
+                }
+                else if (scene->contains("inventory") && (*scene)["inventory"].is_array())
+                {
+                    for (const nlohmann::json& row : (*scene)["inventory"])
+                    {
+                        if (!row.is_object())
+                            continue;
+                        const std::string id = row.value("defId", row.value("id", ""));
+                        if (!id.empty())
+                            lootIds.push_back(id);
+                    }
+                }
+            }
+        }
+        if (lootIds.empty())
+        {
+            DrawTextEx(
+                font,
+                "(none)",
+                {transport.x + 10.0f, ty},
+                kFontTiny,
+                1.0f,
+                kTextMuted);
+        }
+        else
+        {
+            for (size_t i = 0; i < lootIds.size() && i < 4; ++i)
+            {
+                DrawTextEx(
+                    font,
+                    lootIds[i].c_str(),
+                    {transport.x + 10.0f, ty},
+                    kFontTiny,
+                    1.0f,
+                    kTextPrimary);
+                ty += 14.0f;
+            }
+            if (lootIds.size() > 4)
+            {
+                DrawTextEx(
+                    font,
+                    ("+" + std::to_string(lootIds.size() - 4) + " more").c_str(),
+                    {transport.x + 10.0f, ty},
+                    kFontTiny,
+                    1.0f,
+                    kTextMuted);
+            }
         }
     }
 
-    EndScissorMode();
+    if (canInteract && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    {
+        if (previewMusicLoaded && CheckCollisionPointRec(mouse, musicBtn))
+        {
+            if (musicPlaying)
+            {
+                PauseMusicStream(previewMusic);
+                previewMusicPlaying = false;
+            }
+            else
+            {
+                if (!IsMusicStreamPlaying(previewMusic))
+                    PlayMusicStream(previewMusic);
+                else
+                    ResumeMusicStream(previewMusic);
+                previewMusicPlaying = true;
+            }
+        }
+        else if (previewAmbientLoaded && CheckCollisionPointRec(mouse, ambientBtn))
+        {
+            if (ambientPlaying)
+            {
+                PauseMusicStream(previewAmbient);
+                previewAmbientPlaying = false;
+            }
+            else
+            {
+                if (!IsMusicStreamPlaying(previewAmbient))
+                    PlayMusicStream(previewAmbient);
+                else
+                    ResumeMusicStream(previewAmbient);
+                previewAmbientPlaying = true;
+            }
+        }
+    }
 
-    if (CheckCollisionPointRec(GetMousePosition(), paneBounds))
-        actorsScroll -= GetMouseWheelMove() * 18.0f;
-    if (actorsScroll < 0.0f)
-        actorsScroll = 0.0f;
-    if (actorsScroll > maxScroll)
-        actorsScroll = maxScroll;
+    DrawRectangleRec(imageBounds, Color{18, 16, 24, 255});
+    DrawRectangleLinesEx(imageBounds, 1.0f, kPanelInnerEdge);
+
+    if (previewLargeLoaded && previewLargeTexture.id != 0)
+    {
+        const float tw = static_cast<float>(previewLargeTexture.width);
+        const float th = static_cast<float>(previewLargeTexture.height);
+        const float pad = 6.0f;
+        const float maxW = imageBounds.width - pad * 2.0f;
+        const float maxH = imageBounds.height - pad * 2.0f;
+        float dw = maxW;
+        float dh = (th / std::max(1.0f, tw)) * dw;
+        if (dh > maxH)
+        {
+            dh = maxH;
+            dw = (tw / std::max(1.0f, th)) * dh;
+        }
+        const Rectangle dest = {
+            imageBounds.x + (imageBounds.width - dw) * 0.5f,
+            imageBounds.y + (imageBounds.height - dh) * 0.5f,
+            dw,
+            dh};
+        DrawTexturePro(
+            previewLargeTexture,
+            {0, 0, tw, th},
+            dest,
+            {0, 0},
+            0.0f,
+            WHITE);
+    }
+    else
+    {
+        DrawTextEx(
+            font,
+            "No scene image",
+            {imageBounds.x + 12.0f, imageBounds.y + 12.0f},
+            kFontSmall,
+            1.0f,
+            kTextMuted);
+    }
+
+    if (sceneAssist.hasPreviewOverride(*selectionSceneId))
+    {
+        DrawTextEx(
+            font,
+            "AI preview",
+            {imageBounds.x + 8.0f, imageBounds.y + imageBounds.height - 18.0f},
+            kFontTiny,
+            1.0f,
+            Color{220, 160, 80, 255});
+    }
 }
 
 
@@ -1997,7 +2493,7 @@ void SceneMapCanvas::drawBottomPane(Rectangle bottomBounds)
     const float splitX = bottomBounds.x + bottomBounds.width * 0.55f;
     const Rectangle variablesBounds = {bottomBounds.x, bottomBounds.y,
                                        splitX - bottomBounds.x, bottomBounds.height};
-    const Rectangle actorsBounds = {splitX + 2.0f, bottomBounds.y,
+    const Rectangle previewBounds = {splitX + 2.0f, bottomBounds.y,
                                     bottomBounds.x + bottomBounds.width - splitX - 2.0f,
                                     bottomBounds.height};
 
@@ -2008,7 +2504,7 @@ void SceneMapCanvas::drawBottomPane(Rectangle bottomBounds)
         kDividerGrip);
 
     variableEditor->drawVariablesPane(variablesBounds);
-    drawActorsPane(actorsBounds);
+    drawScenePreviewPane(previewBounds);
 }
 
 
@@ -2124,6 +2620,9 @@ void SceneMapCanvas::draw()
         itemEditor->drawNewItemDialog(screenWidth, screenHeight);
     if (variableEditor)
         variableEditor->drawVariableEditor(screenWidth, screenHeight);
+    sceneAuthoring.draw(screenWidth, screenHeight);
+    sceneAssist.draw(screenWidth, screenHeight);
+    sceneInventory.draw(screenWidth, screenHeight);
 
     EndDrawing();
 }

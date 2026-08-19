@@ -129,6 +129,14 @@ bool SceneDocument::hasScene(const std::string& sceneId) const
     return isLoaded() && root["scenes"].contains(sceneId);
 }
 
+bool SceneDocument::createScene(const std::string& sceneId, const nlohmann::json& sceneObject)
+{
+    if (!isLoaded() || sceneId.empty() || hasScene(sceneId) || !sceneObject.is_object())
+        return false;
+    root["scenes"][sceneId] = sceneObject;
+    return true;
+}
+
 bool SceneDocument::removeScene(const std::string& sceneId)
 {
     if (!hasScene(sceneId))
@@ -226,6 +234,44 @@ std::string SceneDocument::getSceneImagePath(const std::string& sceneId) const
     if (scene == nullptr)
         return "";
     return scene->value("image", "");
+}
+
+std::string SceneDocument::getSceneMusicPath(const std::string& sceneId) const
+{
+    const nlohmann::json* scene = sceneJson(sceneId);
+    if (scene == nullptr || !scene->is_object())
+        return "";
+    const nlohmann::json audio = scene->value("audio", nlohmann::json::object());
+    if (!audio.is_object())
+        return "";
+    if (audio.contains("music") && audio["music"].is_object())
+        return audio["music"].value("path", "");
+    if (audio.contains("music") && audio["music"].is_string())
+        return audio["music"].get<std::string>();
+    return "";
+}
+
+std::string SceneDocument::getSceneAmbientPath(const std::string& sceneId) const
+{
+    const nlohmann::json* scene = sceneJson(sceneId);
+    if (scene == nullptr || !scene->is_object())
+        return "";
+    const nlohmann::json audio = scene->value("audio", nlohmann::json::object());
+    if (!audio.is_object() || !audio.contains("ambient"))
+        return "";
+    const nlohmann::json& ambient = audio["ambient"];
+    if (ambient.is_array() && !ambient.empty())
+    {
+        if (ambient[0].is_object())
+            return ambient[0].value("path", "");
+        if (ambient[0].is_string())
+            return ambient[0].get<std::string>();
+    }
+    if (ambient.is_object())
+        return ambient.value("path", "");
+    if (ambient.is_string())
+        return ambient.get<std::string>();
+    return "";
 }
 
 nlohmann::json* SceneDocument::sceneJson(const std::string& sceneId)

@@ -96,6 +96,39 @@ void SceneEditorApp::wireModules()
     mapCanvas.requestReload = [this]() { loadActiveDocument(); };
     mapCanvas.selectSceneForEditor = [this](const std::string& id) { selectSceneForEditor(id); };
     mapCanvas.saveDocument = [this]() { return saveDocument(); };
+    mapCanvas.sceneAuthoring.docs = &document;
+    mapCanvas.sceneAuthoring.onCreated = [this](const std::string& id)
+    {
+        thumbnails.clear();
+        selectSceneForEditor(id);
+    };
+
+    mapCanvas.sceneAssist.docs = &document;
+    mapCanvas.sceneAssist.thumbnails = &thumbnails;
+    mapCanvas.sceneAssist.onAccepted = [this]()
+    {
+        // Force bottom-pane media to reload live (or cleared preview) paths.
+        mapCanvas.previewMusicPath.clear();
+        mapCanvas.previewAmbientPath.clear();
+        mapCanvas.previewLargePath.clear();
+        mapCanvas.previewBoundSceneId.clear();
+    };
+    variableEditor.onAiAssist = [this]()
+    {
+        if (!selectedSceneId.empty())
+            mapCanvas.sceneAssist.openForScene(selectedSceneId);
+    };
+    mapCanvas.sceneInventory.docs = &document;
+    mapCanvas.sceneInventory.onSaved = [this]()
+    {
+        // Variables pane refreshes from scenes document on next draw.
+        (void)this;
+    };
+    variableEditor.onSceneInventory = [this]()
+    {
+        if (!selectedSceneId.empty())
+            mapCanvas.sceneInventory.openForScene(selectedSceneId);
+    };
 }
 
 void SceneEditorApp::syncModuleFonts()
@@ -110,6 +143,12 @@ void SceneEditorApp::syncModuleFonts()
     itemEditor.uiFontBold = uiFontBold;
     mapCanvas.uiFont = uiFont;
     mapCanvas.uiFontBold = uiFontBold;
+    mapCanvas.sceneAuthoring.uiFont = uiFont;
+    mapCanvas.sceneAuthoring.uiFontBold = uiFontBold;
+    mapCanvas.sceneAssist.uiFont = uiFont;
+    mapCanvas.sceneAssist.uiFontBold = uiFontBold;
+    mapCanvas.sceneInventory.uiFont = uiFont;
+    mapCanvas.sceneInventory.uiFontBold = uiFontBold;
 }
 
 Font SceneEditorApp::textFont() const
@@ -356,7 +395,10 @@ bool SceneEditorApp::deleteSelectedScene()
 
 void SceneEditorApp::handleShortcuts()
 {
-    if (variableEditor.open || sceneGraph.stackDialogOpen || itemEditor.blocksInput())
+    if (variableEditor.open || sceneGraph.stackDialogOpen || itemEditor.blocksInput()
+        || mapCanvas.sceneAuthoring.blocksInput()
+        || mapCanvas.sceneAssist.blocksInput()
+        || mapCanvas.sceneInventory.blocksInput())
         return;
 
     if (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL))
@@ -382,7 +424,10 @@ void SceneEditorApp::update()
     if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT))
         layout.cancelDividerDrag();
 
-    if (!variableEditor.open && !sceneGraph.stackDialogOpen && !itemEditor.blocksInput())
+    if (!variableEditor.open && !sceneGraph.stackDialogOpen && !itemEditor.blocksInput()
+        && !mapCanvas.sceneAuthoring.blocksInput()
+        && !mapCanvas.sceneAssist.blocksInput()
+        && !mapCanvas.sceneInventory.blocksInput())
     {
         const Rectangle left = layout.leftPaneBounds(screenWidth);
         const Rectangle listBounds = {
@@ -411,6 +456,24 @@ void SceneEditorApp::update()
     if (itemEditor.blocksInput())
     {
         itemEditor.handleNewItemDialogInput(screenWidth, screenHeight);
+        return;
+    }
+
+    if (mapCanvas.sceneAuthoring.blocksInput())
+    {
+        mapCanvas.sceneAuthoring.handleInput(screenWidth, screenHeight);
+        return;
+    }
+
+    if (mapCanvas.sceneAssist.blocksInput())
+    {
+        mapCanvas.sceneAssist.handleInput(screenWidth, screenHeight);
+        return;
+    }
+
+    if (mapCanvas.sceneInventory.blocksInput())
+    {
+        mapCanvas.sceneInventory.handleInput(screenWidth, screenHeight);
         return;
     }
 

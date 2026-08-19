@@ -109,4 +109,14 @@ void ThumbnailCache::clear()
     entries.clear();
 }
 
+void ThumbnailCache::invalidate(const std::string& sceneId)
+{
+    auto it = entries.find(sceneId);
+    if (it == entries.end())
+        return;
+    if (it->second.loaded && it->second.texture.id != 0)
+        UnloadTexture(it->second.texture);
+    entries.erase(it);
+}
+
 } // namespace timberline_editor

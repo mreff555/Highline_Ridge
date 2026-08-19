@@ -42,6 +42,9 @@ public:
 
     void clear();
 
+    /** Drop one cached thumbnail so the next getOrLoad reloads from disk. */
+    void invalidate(const std::string& sceneId);
+
 private:
     std::map<std::string, ThumbnailEntry> entries;
 };

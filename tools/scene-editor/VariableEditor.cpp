@@ -1660,17 +1660,28 @@ void VariableEditor::drawVariablesPane(Rectangle paneBounds)
         paneBounds.y + 6.0f,
         60.0f,
         20.0f};
+    const Rectangle aiAssistBtn = {
+        editBtn.x - 96.0f,
+        paneBounds.y + 6.0f,
+        88.0f,
+        20.0f};
+    const Rectangle inventoryBtn = {
+        aiAssistBtn.x - 96.0f,
+        paneBounds.y + 6.0f,
+        88.0f,
+        20.0f};
 
+    const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
     const char* title = "Scene Variables";
     const float titleX = paneBounds.x + 12.0f;
     const float titleY = paneBounds.y + 8.0f;
-    DrawTextEx((uiFont.texture.id != 0 ? uiFont : GetFontDefault()), title, {titleX, titleY}, kFontLabel, 1.0f, kTextMuted);
+    DrawTextEx(font, title, {titleX, titleY}, kFontLabel, 1.0f, kTextMuted);
 
     if (!sceneId.empty())
     {
         const float titleW = measureUiTextWidth(title, kFontLabel);
         const float sceneX = titleX + titleW + 14.0f;
-        const float sceneMaxW = std::max(40.0f, editBtn.x - 12.0f - sceneX);
+        const float sceneMaxW = std::max(40.0f, inventoryBtn.x - 12.0f - sceneX);
         std::string sceneLabel = sceneId;
         if (measureUiTextWidth(sceneLabel, kFontTiny) > sceneMaxW)
         {
@@ -1682,7 +1693,7 @@ void VariableEditor::drawVariablesPane(Rectangle paneBounds)
             sceneLabel += "...";
         }
         DrawTextEx(
-            (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
+            font,
             sceneLabel.c_str(),
             {sceneX, paneBounds.y + 10.0f},
             kFontTiny,
@@ -1691,20 +1702,40 @@ void VariableEditor::drawVariablesPane(Rectangle paneBounds)
     }
 
     DrawTextEx(
-        (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
+        font,
         "Click a row to edit",
         {paneBounds.x + 12.0f, paneBounds.y + paneBounds.height - 18.0f},
         kFontTiny,
         1.0f,
         kTextMuted);
 
+    DrawRectangleRec(inventoryBtn, kPanelAccent);
+    DrawRectangleLinesEx(inventoryBtn, 1.0f, kPanelBorder);
+    DrawTextEx(
+        font,
+        "Inventory",
+        {inventoryBtn.x + 14.0f, inventoryBtn.y + 3.0f},
+        kFontTiny,
+        1.0f,
+        kTextPrimary);
+
+    DrawRectangleRec(aiAssistBtn, kPanelAccent);
+    DrawRectangleLinesEx(aiAssistBtn, 1.0f, kPanelBorder);
+    DrawTextEx(
+        font,
+        "AI Assist",
+        {aiAssistBtn.x + 12.0f, aiAssistBtn.y + 3.0f},
+        kFontTiny,
+        1.0f,
+        kTextPrimary);
+
     DrawRectangleRec(editBtn, kPanelAccent);
     DrawRectangleLinesEx(editBtn, 1.0f, kPanelBorder);
-    DrawTextEx((uiFont.texture.id != 0 ? uiFont : GetFontDefault()), "Edit", {editBtn.x + 16.0f, editBtn.y + 3.0f}, kFontTiny, 1.0f, kTextPrimary);
+    DrawTextEx(font, "Edit", {editBtn.x + 16.0f, editBtn.y + 3.0f}, kFontTiny, 1.0f, kTextPrimary);
 
     if (sceneId.empty() || !docs->scenes.hasScene(sceneId))
     {
-        DrawTextEx((uiFont.texture.id != 0 ? uiFont : GetFontDefault()), "Select a scene", {paneBounds.x + 12.0f, paneBounds.y + 36.0f},
+        DrawTextEx(font, "Select a scene", {paneBounds.x + 12.0f, paneBounds.y + 36.0f},
                    kFontBody, 1.0f, kTextMuted);
         return;
     }
@@ -1713,8 +1744,18 @@ void VariableEditor::drawVariablesPane(Rectangle paneBounds)
         docs->scenes.sceneVariableRows(sceneId);
     if (rows.empty())
     {
-        DrawTextEx((uiFont.texture.id != 0 ? uiFont : GetFontDefault()), "No variables on this scene", {paneBounds.x + 12.0f, paneBounds.y + 36.0f},
+        DrawTextEx(font, "No variables on this scene", {paneBounds.x + 12.0f, paneBounds.y + 36.0f},
                    kFontBody, 1.0f, kTextMuted);
+        // Still allow AI Assist when the scene has no variable rows.
+        const Vector2 mouseEmpty = GetMousePosition();
+        const bool canInteractEmpty = !open && !(*stackDialogOpen);
+        if (canInteractEmpty && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+            if (CheckCollisionPointRec(mouseEmpty, inventoryBtn) && onSceneInventory)
+                onSceneInventory();
+            else if (CheckCollisionPointRec(mouseEmpty, aiAssistBtn) && onAiAssist)
+                onAiAssist();
+        }
         return;
     }
 
@@ -1739,7 +1780,15 @@ void VariableEditor::drawVariablesPane(Rectangle paneBounds)
 
     if (canInteract && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
-        if (CheckCollisionPointRec(mouse, editBtn) && !selectedVariableKey.empty())
+        if (CheckCollisionPointRec(mouse, inventoryBtn) && onSceneInventory)
+        {
+            onSceneInventory();
+        }
+        else if (CheckCollisionPointRec(mouse, aiAssistBtn) && onAiAssist)
+        {
+            onAiAssist();
+        }
+        else if (CheckCollisionPointRec(mouse, editBtn) && !selectedVariableKey.empty())
         {
             openVariableEditor(sceneId, selectedVariableKey);
         }

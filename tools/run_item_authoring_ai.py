@@ -35,7 +35,12 @@ from pathlib import Path
 
 
 IMAGE_TYPES = {"generate_image", "generate_icon"}
-SOUND_TYPES = {"generate_examine_sound", "generate_use_sound"}
+SOUND_TYPES = {
+    "generate_examine_sound",
+    "generate_use_sound",
+    "generate_ambient_sound",
+    "generate_music",
+}
 
 
 def resolve_api_key(asset_root: Path, cli_key: str | None) -> str:
@@ -181,32 +186,63 @@ def ensure_png_bytes(raw: bytes, out_path: Path) -> bytes:
 
 
 def write_procedural_sfx_wav(out_wav: Path, action: str) -> None:
-    """Short one-shot SFX when no dedicated audio gen API is available."""
+    """Procedural audio when no dedicated audio gen API is available."""
     sample_rate = 22050
-    duration = 0.28 if action == "examine" else 0.45
+    if action == "ambient":
+        duration = 6.0
+    elif action == "music":
+        duration = 10.0
+    elif action in ("enter", "exit", "use"):
+        duration = 0.45
+    else:
+        duration = 0.28
     n = int(sample_rate * duration)
     frames = bytearray()
     for i in range(n):
         t = i / sample_rate
-        # Envelope
-        env = math.exp(-t * (14.0 if action == "examine" else 8.0))
-        if action == "examine":
-            # Soft metallic click / handling noise
+        noise = ((i * 1103515245 + 12345) & 0x7FFF) / 0x7FFF - 0.5
+        if action == "ambient":
+            # Soft wind / room tone loop (no sharp envelope).
+            env = 0.55 + 0.45 * math.sin(2 * math.pi * 0.15 * t)
+            sig = (
+                0.35 * noise
+                + 0.2 * math.sin(2 * math.pi * 90 * t)
+                + 0.12 * math.sin(2 * math.pi * 180 * t + noise)
+                + 0.08 * math.sin(2 * math.pi * 40 * t)
+            )
+            sample = max(-1.0, min(1.0, sig * env * 0.55))
+        elif action == "music":
+            # Sparse minor-ish pad: low fifths + slow motion.
+            env = 0.5 + 0.5 * math.sin(2 * math.pi * 0.07 * t)
+            f1 = 110.0
+            f2 = 164.81  # E3
+            f3 = 196.0
+            sig = (
+                0.28 * math.sin(2 * math.pi * f1 * t)
+                + 0.22 * math.sin(2 * math.pi * f2 * t)
+                + 0.16 * math.sin(2 * math.pi * f3 * t)
+                + 0.05 * noise
+            )
+            # Gentle tremolo
+            trem = 0.85 + 0.15 * math.sin(2 * math.pi * 3.1 * t)
+            sample = max(-1.0, min(1.0, sig * env * trem * 0.7))
+        elif action == "examine":
+            env = math.exp(-t * 14.0)
             sig = (
                 0.55 * math.sin(2 * math.pi * 1800 * t)
                 + 0.25 * math.sin(2 * math.pi * 3200 * t)
                 + 0.15 * math.sin(2 * math.pi * 420 * t)
             )
+            sample = max(-1.0, min(1.0, (sig + 0.08 * noise) * env))
         else:
-            # Heavier use / mechanism
+            # use / enter / exit — door-ish thump + click
+            env = math.exp(-t * 8.0)
             sig = (
                 0.5 * math.sin(2 * math.pi * 220 * t)
                 + 0.35 * math.sin(2 * math.pi * 110 * t)
                 + 0.2 * math.sin(2 * math.pi * 900 * t * (1.0 + t))
             )
-        # Light noise
-        noise = ((i * 1103515245 + 12345) & 0x7FFF) / 0x7FFF - 0.5
-        sample = max(-1.0, min(1.0, (sig + 0.08 * noise) * env))
+            sample = max(-1.0, min(1.0, (sig + 0.08 * noise) * env))
         frames += struct.pack("<h", int(sample * 30000))
 
     out_wav.parent.mkdir(parents=True, exist_ok=True)
@@ -311,11 +347,17 @@ def process_job(api_key: str, asset_root: Path, job: dict) -> str:
         return str(out_path.relative_to(asset_root))
 
     if jtype in SOUND_TYPES:
-        # Prefer .mp3 for item SFX
+        # Prefer .mp3 for item SFX / scene beds
         if out_path.suffix.lower() in {".opus", ".wav", ""}:
             out_path = out_path.with_suffix(".mp3")
+        if jtype == "generate_ambient_sound":
+            action = "ambient"
+        elif jtype == "generate_music":
+            action = "music"
+        elif action not in ("examine", "use", "enter", "exit", "ambient", "music"):
+            action = "examine"
         print(f"  [sound] {out_path.relative_to(asset_root)} ({action}) …")
-        generate_sound(out_path, action if action in ("examine", "use") else "examine")
+        generate_sound(out_path, action)
         xz = xz_compress(out_path, remove_source=False)
         print(f"  [ok] wrote {out_path.name} + {xz.name}")
         return str(out_path.relative_to(asset_root))

@@ -30,6 +30,9 @@
 #include "ConversationTree.h"
 #include "DialogWalkthrough.h"
 #include "ItemEditor.h"
+#include "SceneAuthoringDialog.h"
+#include "SceneAssistDialog.h"
+#include "SceneInventoryDialog.h"
 
 #include <functional>
 #include <string>
@@ -73,7 +76,24 @@ struct SceneMapCanvas
     Vector2 dragOffset{0.0f, 0.0f};
     int level = 0;
     float listScroll = 0.0f;
-    float actorsScroll = 0.0f;
+
+    // Bottom-right scene preview + music/ambient transport.
+    bool previewAudioReady = false;
+    Music previewMusic{};
+    bool previewMusicLoaded = false;
+    std::string previewMusicPath;
+    std::string previewMusicTempFile;
+    bool previewMusicPlaying = false;
+    Music previewAmbient{};
+    bool previewAmbientLoaded = false;
+    std::string previewAmbientPath;
+    std::string previewAmbientTempFile;
+    bool previewAmbientPlaying = false;
+    std::string previewBoundSceneId;
+    Texture2D previewLargeTexture{};
+    bool previewLargeLoaded = false;
+    std::string previewLargePath;
+    std::string previewLargeTempFile;
 
     // Same-level exit links drawn on the map (cached for hit-testing / drag).
     struct SceneLinkRoute
@@ -101,6 +121,9 @@ struct SceneMapCanvas
     ConversationTree* conversation = nullptr;
     DialogWalkthrough* dialogWalkthrough = nullptr;
     ItemEditor* itemEditor = nullptr;
+    SceneAuthoringDialog sceneAuthoring;
+    SceneAssistDialog sceneAssist;
+    SceneInventoryDialog sceneInventory;
     std::string* selectionSceneId = nullptr;
     float* variablesScroll = nullptr;
     std::function<void()> requestReload;
@@ -219,7 +242,15 @@ void drawDivider(Rectangle bounds, bool active, bool vertical) const;
 
 void drawTabs(Rectangle leftBounds);
 
-void drawActorsPane(Rectangle paneBounds);
+void drawScenePreviewPane(Rectangle paneBounds);
+void syncScenePreviewMedia();
+void stopScenePreviewAudio();
+void unloadScenePreviewMedia();
+bool loadScenePreviewMusic(
+    const std::string& relPath,
+    Music& outMusic,
+    std::string& outTempFile);
+bool loadScenePreviewTexture(const std::string& relPath);
 
 void drawBottomPane(Rectangle bottomBounds);
 

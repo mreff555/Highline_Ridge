@@ -38,6 +38,8 @@ cmake ..
 make
 ```
 
+Building the scene editor is not necessary to play the game however, as
+mentioned above, the game is far from complete
 Audio is enabled for some dialogs. Voices must be generated if you want TTS playback; see `--help` on the game binary.
 
 ## The game

@@ -88,6 +88,10 @@ set(EDITOR_SOURCES
     ItemAuthoring.cpp
     ItemEditor.cpp
     ItemEditorAuthoring.cpp
+    SceneAuthoring.cpp
+    SceneAuthoringDialog.cpp
+    SceneAssistDialog.cpp
+    SceneInventoryDialog.cpp
     SceneGraphModel.cpp
     SceneMapCanvas.cpp
     SceneEditorApp.cpp

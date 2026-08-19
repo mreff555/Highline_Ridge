@@ -62,12 +62,24 @@ public:
     // Remove a scene and clear inbound exits/movement/exitRequirements on others.
     bool removeScene(const std::string& sceneId);
 
+    /**
+     * Insert a new scene object under scenes[sceneId]. Fails if the id already
+     * exists or the document is not loaded. Does not write disk.
+     */
+    bool createScene(const std::string& sceneId, const nlohmann::json& sceneObject);
+
     SceneLayout getLayout(const std::string& sceneId) const;
     void setLayout(const std::string& sceneId, const SceneLayout& layout);
 
     std::vector<SceneActor> getActors(const std::string& sceneId) const;
 
     std::string getSceneImagePath(const std::string& sceneId) const;
+
+    /** First music bed path under audio.music, or empty. */
+    std::string getSceneMusicPath(const std::string& sceneId) const;
+
+    /** First ambient bed path under audio.ambient[], or empty. */
+    std::string getSceneAmbientPath(const std::string& sceneId) const;
 
     const nlohmann::json& document() const { return root; }
     nlohmann::json* sceneJson(const std::string& sceneId);
