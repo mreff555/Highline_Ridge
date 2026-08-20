@@ -19,10 +19,6 @@ cd build
 cmake ..
 make
 ```
-### TTS (text to speech)
-Audio is enabled for some dialogs. Voices must be generated if you want TTS playback; see `--help` on the game binary.  as a general overview you will need to go to:
-```https://console/x/ai```
-You will need to purchase credits to generate the TTS.  The cost should be minimal to regenerate voices.
 
 ## Timberline engine
 Timberline is a rich storytelling engine that uses old-school fixed images so a small team (or one developer, with AI-assisted art) can ship scene-driven adventures without a full 3D pipeline.
@@ -52,6 +48,53 @@ main.cpp
          ├─ SceneGraphModel     (exits, levels, auto-layout, stack state)  
          └─ SceneMapCanvas      (list/map/chrome draw + interaction)  
 
-## The game
+### TTS (text to speech)
+Audio is enabled for some dialogs. Voices must be generated if you want TTS playback; see `--help` on the game binary.  as a general overview you will need to go to:
+```https://console/x/ai```
+You will need to purchase credits to generate the TTS.  The cost should be minimal to regenerate voices.
+
+*Inline tags:*
+Grok's text to speach includes bracket and angle bracket enclosed inline tags to improve realism in TTS dialogs.  Additionally the Timberline Engine also implements brace enclosed inline tags to switch voices at any point in the conversation.
+[pause]        - Standard pause for natural conversation breams
+[pause:Xms]    - Precise control ex. [pause:500ms]
+[long-pause]   - Extends a break for dramatic timing or to let a thought land
+[laugh]        -
+[chuckle]      -
+[giggle]       -
+[sigh]         -
+[cry]          -
+[hum-tune]     -
+[tsk]          -
+[tounge-click] -
+[lip-smack]    -
+[breath]       -
+[inhale]       -
+[exhale]       -
+
+*Style and tone wrappings* ex. <whisper>text</whisper>
+<soft>
+<whisper>
+<loud>
+<build-intensity>
+<decrease-intensity>
+<higher-pitch>
+<lower-pitch>
+<slow>
+<fast>
+<sing-song>
+<singing>
+<emphasis>
+
+*Voice substitution* ex. {{voice:eve}}Hello,[pause] I am Eve{{/voice}}
+Note that while Timberline engine is designed to incorperate all Grok TTS voices, more are always being added.  The current list of valid voices are:
+- ara
+- eve
+- helios
+- leo
+- rex
+- rigel
+- sal
+
+### The game
 
 The year is roughly 1891. You wake up in a cave, injured and with total memory loss, high in the mountains of Appalachia, a couple thousand feet above a small mountain town known as **Highline Ridge**. As you move around town and talk to people, you get the sense that some of them know you — but they are not giving straight answers.
