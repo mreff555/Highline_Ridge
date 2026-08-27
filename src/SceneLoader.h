@@ -74,6 +74,9 @@ struct SceneData
     std::string useDetails;
     float useHealthDelta = 0.0f;
     float useEnergyDelta = 0.0f;
+    float useResolveDelta = 0.0f;
+    float useLucidityDelta = 0.0f;
+    float useCharismaDelta = 0.0f;
     bool useRepeatStatus = false;
     bool useRequiresExamine = true;
     bool useAdvancesDay = false;

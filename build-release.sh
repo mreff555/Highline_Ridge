@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# Clean release build: wipe build-release/, reconfigure with HIGHLINE_RELEASE=ON, make.
+# Usage:
+#   ./build-release.sh
+#   ./build-release.sh --with-scene-editor
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BUILD_DIR="${ROOT}/build-release"
+WITH_SCENE_EDITOR=0
+
+usage() {
+    cat <<'EOF'
+Usage: ./build-release.sh [options]
+
+Wipe and recreate build-release/, configure a release (embedded resources)
+build, then compile with make -j.
+
+Options:
+  --with-scene-editor   Also build ./scene-editor (HIGHLINE_BUILD_EDITOR=ON)
+  -h, --help            Show this help
+
+Binaries land in build-release/:
+  ./Highline\ Ridge
+  ./scene-editor          (only with --with-scene-editor)
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --with-scene-editor)
+            WITH_SCENE_EDITOR=1
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "error: unknown option: $1" >&2
+            usage >&2
+            exit 1
+            ;;
+    esac
+done
+
+JOBS="$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)"
+
+CMAKE_ARGS=(-DHIGHLINE_RELEASE=ON)
+if [[ "${WITH_SCENE_EDITOR}" -eq 1 ]]; then
+    CMAKE_ARGS+=(-DHIGHLINE_BUILD_EDITOR=ON)
+    echo "==> Release build with scene editor"
+else
+    echo "==> Release build (game only; pass --with-scene-editor for the editor)"
+fi
+
+echo "==> Removing ${BUILD_DIR}"
+rm -rf "${BUILD_DIR}"
+mkdir -p "${BUILD_DIR}"
+
+echo "==> cmake ${CMAKE_ARGS[*]}"
+cmake -S "${ROOT}" -B "${BUILD_DIR}" "${CMAKE_ARGS[@]}"
+
+echo "==> make -j${JOBS}"
+make -C "${BUILD_DIR}" -j"${JOBS}"
+
+echo
+echo "Done. Run from ${BUILD_DIR}:"
+echo "  ./Highline\\ Ridge"
+if [[ "${WITH_SCENE_EDITOR}" -eq 1 ]]; then
+    echo "  ./scene-editor"
+fi

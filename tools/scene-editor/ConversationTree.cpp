@@ -625,20 +625,36 @@ void ConversationTree::handleConversationTreeInput(Rectangle listBounds)
                 }
 
                 if (!node.children.empty() && CheckCollisionPointRec(mouse, toggleBounds))
+                {
                     toggleConversationExpanded(node.key);
+                }
                 else if (
                     walkthrough != nullptr
+                    && node.editDoc == ConversationEditDoc::Conversations
                     && (node.kind == ConversationNodeKind::Dialog
                         || node.kind == ConversationNodeKind::Narrative
-                        || node.kind == ConversationNodeKind::Milestone)
-                    && walkthrough->selectTreeKey(node.key))
+                        || node.kind == ConversationNodeKind::Milestone))
                 {
+                    // Conversations always edit in the right walkthrough pane —
+                    // never the VariableEditor popup (that path felt inconsistent).
+                    if (text != nullptr && text->open
+                        && text->docTarget == ConversationEditDoc::Conversations)
+                        text->closeVariableEditor();
+                    walkthrough->selectTreeKey(node.key);
                     selectedKey = node.key;
                 }
-                else if (node.editDoc != ConversationEditDoc::None && !node.jsonPointer.empty())
+                else if (
+                    node.editDoc != ConversationEditDoc::None
+                    && node.editDoc != ConversationEditDoc::Conversations
+                    && !node.jsonPointer.empty())
+                {
+                    // Scene / item field editors still use the shared popup.
                     openConversationNodeEditor(node);
+                }
                 else if (!node.children.empty())
+                {
                     toggleConversationExpanded(node.key);
+                }
             }
         }
     }

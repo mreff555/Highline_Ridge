@@ -1670,6 +1670,11 @@ void VariableEditor::drawVariablesPane(Rectangle paneBounds)
         paneBounds.y + 6.0f,
         88.0f,
         20.0f};
+    const Rectangle effectsBtn = {
+        inventoryBtn.x - 80.0f,
+        paneBounds.y + 6.0f,
+        72.0f,
+        20.0f};
 
     const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
     const char* title = "Scene Variables";
@@ -1681,7 +1686,7 @@ void VariableEditor::drawVariablesPane(Rectangle paneBounds)
     {
         const float titleW = measureUiTextWidth(title, kFontLabel);
         const float sceneX = titleX + titleW + 14.0f;
-        const float sceneMaxW = std::max(40.0f, inventoryBtn.x - 12.0f - sceneX);
+        const float sceneMaxW = std::max(40.0f, effectsBtn.x - 12.0f - sceneX);
         std::string sceneLabel = sceneId;
         if (measureUiTextWidth(sceneLabel, kFontTiny) > sceneMaxW)
         {
@@ -1708,6 +1713,16 @@ void VariableEditor::drawVariablesPane(Rectangle paneBounds)
         kFontTiny,
         1.0f,
         kTextMuted);
+
+    DrawRectangleRec(effectsBtn, kPanelAccent);
+    DrawRectangleLinesEx(effectsBtn, 1.0f, kPanelBorder);
+    DrawTextEx(
+        font,
+        "Effects",
+        {effectsBtn.x + 12.0f, effectsBtn.y + 3.0f},
+        kFontTiny,
+        1.0f,
+        kTextPrimary);
 
     DrawRectangleRec(inventoryBtn, kPanelAccent);
     DrawRectangleLinesEx(inventoryBtn, 1.0f, kPanelBorder);
@@ -1751,7 +1766,9 @@ void VariableEditor::drawVariablesPane(Rectangle paneBounds)
         const bool canInteractEmpty = !open && !(*stackDialogOpen);
         if (canInteractEmpty && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
         {
-            if (CheckCollisionPointRec(mouseEmpty, inventoryBtn) && onSceneInventory)
+            if (CheckCollisionPointRec(mouseEmpty, effectsBtn) && onSceneEffects)
+                onSceneEffects();
+            else if (CheckCollisionPointRec(mouseEmpty, inventoryBtn) && onSceneInventory)
                 onSceneInventory();
             else if (CheckCollisionPointRec(mouseEmpty, aiAssistBtn) && onAiAssist)
                 onAiAssist();
@@ -1780,7 +1797,11 @@ void VariableEditor::drawVariablesPane(Rectangle paneBounds)
 
     if (canInteract && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
-        if (CheckCollisionPointRec(mouse, inventoryBtn) && onSceneInventory)
+        if (CheckCollisionPointRec(mouse, effectsBtn) && onSceneEffects)
+        {
+            onSceneEffects();
+        }
+        else if (CheckCollisionPointRec(mouse, inventoryBtn) && onSceneInventory)
         {
             onSceneInventory();
         }
@@ -1951,128 +1972,8 @@ void VariableEditor::ensureGlobalDefaultVoiceLoaded()
 
 void VariableEditor::ensureTtsSyntaxThemeLoaded()
 {
-    if (ttsSyntaxThemeLoaded)
-        return;
-    ttsSyntaxThemeLoaded = true;
-
-    // Built-in defaults match editor_tts_theme.json.
-    ttsSyntaxTheme = TtsSyntaxTheme{};
-
-    const std::string themePath = pathJoin(docs->resourceDir, "editor_tts_theme.json");
-    std::ifstream file(themePath.c_str());
-    if (!file.is_open())
-    {
-        TraceLog(LOG_INFO, "TIMBERLINE: TTS theme not found (%s); using defaults", themePath.c_str());
-        return;
-    }
-
-    try
-    {
-        nlohmann::json root;
-        file >> root;
-        const nlohmann::json& syntax = root.contains("ttsSyntax") && root["ttsSyntax"].is_object()
-            ? root["ttsSyntax"]
-            : root;
-        if (!syntax.is_object())
-            return;
-
-        if (syntax.contains("default"))
-            ttsSyntaxTheme.defaultColor = colorFromJsonRgba(syntax["default"], ttsSyntaxTheme.defaultColor);
-        if (syntax.contains("command"))
-            ttsSyntaxTheme.command = colorFromJsonRgba(syntax["command"], ttsSyntaxTheme.command);
-        if (syntax.contains("voiceMarkup"))
-            ttsSyntaxTheme.voiceMarkup =
-                colorFromJsonRgba(syntax["voiceMarkup"], ttsSyntaxTheme.voiceMarkup);
-        if (syntax.contains("voiceDialog"))
-            ttsSyntaxTheme.voiceDialog =
-                colorFromJsonRgba(syntax["voiceDialog"], ttsSyntaxTheme.voiceDialog);
-        if (syntax.contains("voiceDialogError"))
-            ttsSyntaxTheme.voiceDialogError =
-                colorFromJsonRgba(syntax["voiceDialogError"], ttsSyntaxTheme.voiceDialogError);
-
-        TraceLog(LOG_INFO, "TIMBERLINE: loaded TTS syntax theme %s", themePath.c_str());
-    }
-    catch (const nlohmann::json::exception& ex)
-    {
-        TraceLog(LOG_WARNING, "TIMBERLINE: failed to parse TTS theme: %s", ex.what());
-    }
-}
-
-
-bool VariableEditor::isTtsCommandBodyChar(unsigned char ch)
-{
-    return std::isalnum(ch) || ch == '-' || ch == '_' || ch == ' ' || ch == '.';
-}
-
-
-bool VariableEditor::looksLikeTtsCommandBody(const std::string& body)
-{
-    // Keep in sync with timberline_engine allowlist used by classifyTtsTextHighlight.
-    std::string normalized;
-    normalized.reserve(body.size());
-    size_t begin = 0;
-    while (begin < body.size() && std::isspace(static_cast<unsigned char>(body[begin])))
-        ++begin;
-    size_t end = body.size();
-    while (end > begin && std::isspace(static_cast<unsigned char>(body[end - 1])))
-        --end;
-    for (size_t i = begin; i < end; ++i)
-        normalized.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(body[i]))));
-
-    static const char* kAllowed[] = {
-        "pause",
-        "long-pause",
-        "hum-tune",
-        "laugh",
-        "chuckle",
-        "giggle",
-        "cry",
-        "tsk",
-        "tongue-click",
-        "lip-smack",
-        "breath",
-        "inhale",
-        "exhale",
-        "sigh",
-    };
-    for (const char* tag : kAllowed)
-    {
-        if (normalized == tag)
-            return true;
-    }
-    return false;
-}
-
-
-bool VariableEditor::isVoiceOpenTagBody(const std::string& body)
-{
-    std::string trimmed = body;
-    while (!trimmed.empty() && std::isspace(static_cast<unsigned char>(trimmed.front())))
-        trimmed.erase(trimmed.begin());
-    while (!trimmed.empty() && std::isspace(static_cast<unsigned char>(trimmed.back())))
-        trimmed.pop_back();
-    if (trimmed.empty() || trimmed[0] == '/')
-        return false;
-
-    std::string lower = normalizeVoiceId(trimmed);
-    if (lower.rfind("voice:", 0) == 0)
-        return lower.size() > 6;
-    return isKnownBuiltinVoiceId(lower);
-}
-
-
-bool VariableEditor::isVoiceCloseTagBody(const std::string& body)
-{
-    std::string trimmed = body;
-    while (!trimmed.empty() && std::isspace(static_cast<unsigned char>(trimmed.front())))
-        trimmed.erase(trimmed.begin());
-    while (!trimmed.empty() && std::isspace(static_cast<unsigned char>(trimmed.back())))
-        trimmed.pop_back();
-    if (trimmed.empty() || trimmed[0] != '/')
-        return false;
-
-    std::string name = normalizeVoiceId(trimmed.substr(1));
-    return name == "voice" || isKnownBuiltinVoiceId(name);
+    if (docs != nullptr)
+        timberline_editor::ensureTtsSyntaxThemeLoaded(docs->resourceDir);
 }
 
 
@@ -2085,41 +1986,14 @@ void VariableEditor::rebuildTtsHighlightColors()
         return;
 
     ttsHighlightCacheSource = text;
-    ttsHighlightColors.assign(text.size(), ttsSyntaxTheme.defaultColor);
-    if (text.empty())
-        return;
-
-    std::vector<TtsHighlightKind> kinds;
-    classifyTtsTextHighlight(text, kinds);
-    for (size_t i = 0; i < kinds.size(); ++i)
-    {
-        switch (kinds[i])
-        {
-            case TtsHighlightKind::Command:
-                ttsHighlightColors[i] = ttsSyntaxTheme.command;
-                break;
-            case TtsHighlightKind::VoiceMarkup:
-                ttsHighlightColors[i] = ttsSyntaxTheme.voiceMarkup;
-                break;
-            case TtsHighlightKind::VoiceDialog:
-                ttsHighlightColors[i] = ttsSyntaxTheme.voiceDialog;
-                break;
-            case TtsHighlightKind::VoiceDialogError:
-                ttsHighlightColors[i] = ttsSyntaxTheme.voiceDialogError;
-                break;
-            case TtsHighlightKind::Default:
-            default:
-                ttsHighlightColors[i] = ttsSyntaxTheme.defaultColor;
-                break;
-        }
-    }
+    buildTtsHighlightColors(text, ttsHighlightColors);
 }
 
 
 Color VariableEditor::ttsColorAtBufferIndex(int index) const
 {
     if (index < 0 || index >= static_cast<int>(ttsHighlightColors.size()))
-        return ttsSyntaxTheme.defaultColor;
+        return ttsSyntaxTheme().defaultColor;
     return ttsHighlightColors[static_cast<size_t>(index)];
 }
 
@@ -2127,29 +2001,6 @@ Color VariableEditor::ttsColorAtBufferIndex(int index) const
 bool VariableEditor::colorsEqual(Color a, Color b)
 {
     return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
-}
-
-
-Color VariableEditor::colorFromJsonRgba(const nlohmann::json& node, Color fallback)
-{
-    if (!node.is_array() || node.size() < 3)
-        return fallback;
-    Color c = fallback;
-    try
-    {
-        c.r = static_cast<unsigned char>(std::max(0, std::min(255, node[0].get<int>())));
-        c.g = static_cast<unsigned char>(std::max(0, std::min(255, node[1].get<int>())));
-        c.b = static_cast<unsigned char>(std::max(0, std::min(255, node[2].get<int>())));
-        if (node.size() >= 4)
-            c.a = static_cast<unsigned char>(std::max(0, std::min(255, node[3].get<int>())));
-        else
-            c.a = 255;
-    }
-    catch (...)
-    {
-        return fallback;
-    }
-    return c;
 }
 
 

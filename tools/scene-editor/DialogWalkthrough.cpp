@@ -299,6 +299,18 @@ void DialogWalkthrough::rebuildSteps()
             step.objectId = phaseId;
             steps.push_back(std::move(step));
         }
+        if (phase.contains("text") && phase["text"].is_string())
+        {
+            DialogWalkStep step;
+            step.sceneId = *selectionSceneId;
+            step.objectPointer = phasePointer;
+            step.field = DialogWalkStep::Field::LineText;
+            step.treeKey = "narrative-conv:" + phasePointer + "/text";
+            step.breadcrumb = phaseCrumb + " › Text";
+            step.stepLabel = phaseId + " · text";
+            step.objectId = phaseId;
+            steps.push_back(std::move(step));
+        }
 
         if (phase.contains("choices") && phase["choices"].is_array())
         {
@@ -612,6 +624,14 @@ bool DialogWalkthrough::selectTreeKey(const std::string& treeKey)
     if (treeKey.empty())
         return false;
 
+    // Rebuild if the left tree selected a scene before steps were refreshed.
+    if (selectionSceneId != nullptr && !selectionSceneId->empty()
+        && lastBuiltScene != *selectionSceneId)
+    {
+        rebuildSteps();
+        lastBuiltScene = *selectionSceneId;
+    }
+
     // Exact match only — loose prefix matching was jumping to the wrong line.
     for (size_t i = 0; i < steps.size(); ++i)
     {
@@ -629,6 +649,15 @@ bool DialogWalkthrough::selectTreeKey(const std::string& treeKey)
         for (size_t i = 0; i < steps.size(); ++i)
         {
             if (steps[i].objectPointer == ptr)
+            {
+                selectIndex(static_cast<int>(i));
+                return true;
+            }
+        }
+        // Parent choice with only nested children: jump to first descendant step.
+        for (size_t i = 0; i < steps.size(); ++i)
+        {
+            if (steps[i].objectPointer.rfind(ptr + "/", 0) == 0)
             {
                 selectIndex(static_cast<int>(i));
                 return true;
@@ -668,7 +697,17 @@ bool DialogWalkthrough::selectTreeKey(const std::string& treeKey)
                 field = DialogWalkStep::Field::LineText;
             else if (leaf == "response")
                 field = DialogWalkStep::Field::Response;
-            return selectObjectField(ptr, field);
+            if (selectObjectField(ptr, field))
+                return true;
+            // Fallback: any step on this phase object.
+            for (size_t i = 0; i < steps.size(); ++i)
+            {
+                if (steps[i].objectPointer == ptr)
+                {
+                    selectIndex(static_cast<int>(i));
+                    return true;
+                }
+            }
         }
     }
     return false;
@@ -1054,11 +1093,16 @@ void DialogWalkthrough::draw(Rectangle pane)
     const Rectangle saveBtn = {bx, by, 84.0f, btnH};
     bx += 100.0f;
 
-    // Mode: which buffer is being edited
-    const Rectangle dialogModeBtn = {bx, by, 118.0f, btnH};
-    bx += 124.0f;
-    const Rectangle ttsModeBtn = {bx, by, 118.0f, btnH};
-    bx += 128.0f;
+    // Text / TTS side switch (same slider pattern as VariableEditor).
+    const float sideTrackW = 56.0f;
+    const float sideTrackH = 22.0f;
+    const Rectangle sideTrack = {
+        bx,
+        by + (btnH - sideTrackH) * 0.5f,
+        sideTrackW,
+        sideTrackH};
+    const Rectangle sideHit = {bx, by, sideTrackW + 44.0f, btnH};
+    bx += sideTrackW + 52.0f;
 
     // TTS enabled for this line + voice
     const Rectangle ttsToggle = {bx, by, 110.0f, btnH};
@@ -1068,8 +1112,43 @@ void DialogWalkthrough::draw(Rectangle pane)
     drawEditorButton(font, prevBtn, "◀ Prev", false, index > 0);
     drawEditorButton(font, nextBtn, "Next ▶", false, index + 1 < static_cast<int>(steps.size()));
     drawEditorButton(font, saveBtn, dirtyStep ? "Save *" : "Save", true, true);
-    drawEditorButton(font, dialogModeBtn, "Dialog text", !editTtsText, true);
-    drawEditorButton(font, ttsModeBtn, "TTS script", editTtsText, true);
+
+    DrawRectangleRounded(sideTrack, 0.5f, 6, Color{44, 42, 52, 255});
+    DrawRectangleLinesEx(sideTrack, 1.0f, kPanelBorder);
+    if (editTtsText)
+    {
+        DrawRectangleRec(
+            {sideTrack.x + sideTrack.width * 0.5f, sideTrack.y + 1.0f,
+             sideTrack.width * 0.5f - 1.0f, sideTrack.height - 2.0f},
+            kPanelAccent);
+    }
+    else
+    {
+        DrawRectangleRec(
+            {sideTrack.x + 1.0f, sideTrack.y + 1.0f,
+             sideTrack.width * 0.5f - 1.0f, sideTrack.height - 2.0f},
+            kPanelAccent);
+    }
+    {
+        const float knobSize = sideTrackH - 6.0f;
+        const float knobX = editTtsText
+            ? (sideTrack.x + sideTrack.width - knobSize - 3.0f)
+            : (sideTrack.x + 3.0f);
+        DrawRectangleRounded(
+            {knobX, sideTrack.y + 3.0f, knobSize, knobSize},
+            0.5f,
+            6,
+            kTextPrimary);
+    }
+    DrawTextEx(
+        font,
+        editTtsText ? "TTS" : "text",
+        {sideTrack.x + sideTrack.width + 8.0f,
+         sideTrack.y + (sideTrack.height - kFontTiny) * 0.5f},
+        kFontTiny,
+        1.0f,
+        kPanelBorder);
+
     drawEditorButton(
         font, ttsToggle, ttsEnabled ? "Speech: ON" : "Speech: off", ttsEnabled, true);
     drawEditorButton(
@@ -1101,19 +1180,19 @@ void DialogWalkthrough::draw(Rectangle pane)
             goNext();
         else if (CheckCollisionPointRec(mouse, saveBtn))
             applyCurrentStep();
-        else if (CheckCollisionPointRec(mouse, dialogModeBtn))
+        else if (CheckCollisionPointRec(mouse, sideHit))
         {
-            editTtsText = false;
+            editTtsText = !editTtsText;
             textFieldFocused = true;
-            cursor = static_cast<int>(textBuffer.size());
-        }
-        else if (CheckCollisionPointRec(mouse, ttsModeBtn))
-        {
-            editTtsText = true;
-            textFieldFocused = true;
-            if (ttsTextBuffer.empty())
-                ttsTextBuffer = textBuffer;
-            cursor = static_cast<int>(ttsTextBuffer.size());
+            if (editTtsText)
+            {
+                if (ttsTextBuffer.empty())
+                    ttsTextBuffer = textBuffer;
+                cursor = static_cast<int>(ttsTextBuffer.size());
+            }
+            else
+                cursor = static_cast<int>(textBuffer.size());
+            preferredCaretX = -1.0f;
         }
         else if (CheckCollisionPointRec(mouse, ttsToggle))
         {
@@ -1208,15 +1287,15 @@ void DialogWalkthrough::draw(Rectangle pane)
         ey += 22.0f;
     }
 
-    // Mode banner — high contrast so Dialog vs TTS script is obvious.
+    // Mode banner — Text vs TTS (toolbar slider).
     const Rectangle modeBanner = {editor.x + 10.0f, ey, editor.width - 20.0f, 28.0f};
     const Color modeFill = editTtsText ? Color{48, 40, 70, 255} : Color{40, 52, 44, 255};
     const Color modeEdge = editTtsText ? Color{140, 120, 200, 255} : Color{100, 160, 110, 255};
     DrawRectangleRec(modeBanner, modeFill);
     DrawRectangleLinesEx(modeBanner, 1.0f, modeEdge);
     const char* modeTitle = editTtsText
-        ? "Editing TTS SCRIPT  —  words sent to the voice API (may differ from on-screen)"
-        : "Editing DIALOG TEXT  —  words shown to the player on screen";
+        ? "TTS  —  spoken script sent to the voice API"
+        : "text  —  on-screen dialog the player reads";
     DrawTextEx(
         font,
         modeTitle,
@@ -1260,6 +1339,8 @@ void DialogWalkthrough::draw(Rectangle pane)
     }
     else if (editTtsText)
     {
+        if (docs != nullptr)
+            ensureTtsSyntaxThemeLoaded(docs->resourceDir);
         std::vector<Color> colors;
         buildTtsHighlightColors(showBuf, colors);
         drawVisualTextLinesColored(
@@ -1339,7 +1420,7 @@ void DialogWalkthrough::draw(Rectangle pane)
 
     DrawTextEx(
         font,
-        "Dialog text = on screen  ·  TTS script = voice API  ·  Speech ON stores tts/voice/audio  ·  Alt+←/→  ·  Ctrl+S  ·  Enter = newline",
+        "text/TTS slider  ·  Speech ON stores tts/voice/audio  ·  Alt+←/→  ·  Ctrl+S  ·  Enter = newline",
         {editor.x + 10.0f, editor.y + editor.height - 18.0f},
         kFontTiny,
         1.0f,

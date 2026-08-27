@@ -116,19 +116,7 @@ void drawCheckboxRow(
 
 Color ttsHighlightColor(timberline_engine::TtsHighlightKind kind)
 {
-    switch (kind)
-    {
-    case timberline_engine::TtsHighlightKind::Command:
-        return Color{230, 140, 50, 255};
-    case timberline_engine::TtsHighlightKind::VoiceMarkup:
-        return Color{235, 210, 70, 255};
-    case timberline_engine::TtsHighlightKind::VoiceDialog:
-        return Color{140, 195, 235, 255};
-    case timberline_engine::TtsHighlightKind::VoiceDialogError:
-        return Color{180, 40, 40, 255};
-    default:
-        return kTextPrimary;
-    }
+    return ttsHighlightKindColor(kind);
 }
 
 Rectangle intersectRects(Rectangle a, Rectangle b)
@@ -1506,7 +1494,11 @@ void ItemEditor::subEditDrawHighlightedText(
 {
     std::vector<timberline_engine::TtsHighlightKind> kinds;
     if (subEditSyntaxHighlight)
+    {
+        if (docs != nullptr)
+            ensureTtsSyntaxThemeLoaded(docs->resourceDir);
         timberline_engine::classifyTtsTextHighlight(subEditBuffer, kinds);
+    }
 
     int selStart = 0;
     int selEnd = 0;

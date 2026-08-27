@@ -268,6 +268,9 @@ namespace
       useDetails(locationStruct.useDetails),
       useHealthDelta(locationStruct.useHealthDelta),
       useEnergyDelta(locationStruct.useEnergyDelta),
+      useResolveDelta(locationStruct.useResolveDelta),
+      useLucidityDelta(locationStruct.useLucidityDelta),
+      useCharismaDelta(locationStruct.useCharismaDelta),
       useRepeatStatus(locationStruct.useRepeatStatus),
       useRequiresExamine(locationStruct.useRequiresExamine),
       useAdvancesDay(locationStruct.useAdvancesDay),
@@ -2141,6 +2144,9 @@ namespace
         useEffect.key = worldState.currentSceneId + ":use";
         useEffect.health = useHealthDelta;
         useEffect.energy = useEnergyDelta;
+        useEffect.resolve = useResolveDelta;
+        useEffect.lucidity = useLucidityDelta;
+        useEffect.charisma = useCharismaDelta;
         tryApplyStatusEffect(useEffect, useRepeatStatus);
         worldState.sceneVisits.hasUsedInCurrentScene = true;
         if (!useRepeatStatus)
@@ -2743,6 +2749,9 @@ namespace
         useDetails = locationStruct.useDetails;
         useHealthDelta = locationStruct.useHealthDelta;
         useEnergyDelta = locationStruct.useEnergyDelta;
+        useResolveDelta = locationStruct.useResolveDelta;
+        useLucidityDelta = locationStruct.useLucidityDelta;
+        useCharismaDelta = locationStruct.useCharismaDelta;
         useRepeatStatus = locationStruct.useRepeatStatus;
         useRequiresExamine = locationStruct.useRequiresExamine;
         useAdvancesDay = locationStruct.useAdvancesDay;

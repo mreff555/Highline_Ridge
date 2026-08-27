@@ -43,6 +43,7 @@
 # Local / alternate CMake build trees (never commit)
 /build/
 /build-*/
+!/build-release.sh
 tools/scene-editor/build/
 compile_commands.json
 **/compile_commands.json

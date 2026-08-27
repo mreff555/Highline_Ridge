@@ -18,6 +18,7 @@
  ******************************************************************************/
 
 #include "SceneLoader.h"
+#include <AssetStore.h>
 #include "MaskEvaluator.h"
 #include "SceneOverlayDef.h"
 #include "ImageCompression.h"
@@ -38,6 +39,28 @@ namespace
 
 Font loadGameFont(const std::string& assetRoot, const std::string& fontPath)
 {
+    // Prefer AssetStore (pak or disk) via memory load.
+    {
+        AssetBytes bytes;
+        if (assets().readBytes(fontPath, bytes) && !bytes.data.empty())
+        {
+            const std::string ext =
+                bytes.logicalExt.empty() ? ".ttf" : bytes.logicalExt;
+            Font font = LoadFontFromMemory(
+                ext.c_str(),
+                bytes.data.data(),
+                static_cast<int>(bytes.data.size()),
+                64,
+                nullptr,
+                0);
+            if (font.texture.id != 0)
+            {
+                TraceLog(LOG_INFO, "Loaded game font from assets: %s", fontPath.c_str());
+                return font;
+            }
+        }
+    }
+
     std::vector<std::string> paths;
     auto tryAdd = [&](const std::string& candidate)
     {
@@ -596,8 +619,13 @@ bool applyConversationOverlays(
         std::map<std::string, SceneData>::iterator sceneIt = scenes.find(it.key());
         if (sceneIt == scenes.end())
         {
-            TraceLog(LOG_ERROR, "Conversation overlay references unknown scene '%s'", it.key().c_str());
-            return false;
+            // Allow conversations.json to drift ahead of scenes.json during
+            // authoring; skip rather than aborting the whole load.
+            TraceLog(
+                LOG_WARNING,
+                "Conversation overlay references unknown scene '%s' (skipped)",
+                it.key().c_str());
+            continue;
         }
 
         if (!parseSpeakConfig(it.value(), sceneIt->second.speakConfig))
@@ -1225,6 +1253,9 @@ bool parseSubScene(
     out.useDetails = node.value("useDetails", "");
     out.useHealthDelta = node.value("useHealthDelta", 0.0f);
     out.useEnergyDelta = node.value("useEnergyDelta", 0.0f);
+    out.useResolveDelta = node.value("useResolveDelta", 0.0f);
+    out.useLucidityDelta = node.value("useLucidityDelta", 0.0f);
+    out.useCharismaDelta = node.value("useCharismaDelta", 0.0f);
     out.useRepeatStatus = node.value("useRepeatStatus", false);
     out.useRequiresExamine = node.value("useRequiresExamine", true);
     out.useAdvancesDay = node.value("advancesDay", false);
@@ -1375,6 +1406,9 @@ void buildDefaultSubScene(SceneData& scene)
     subScene.useDetails = scene.useDetails;
     subScene.useHealthDelta = scene.useHealthDelta;
     subScene.useEnergyDelta = scene.useEnergyDelta;
+    subScene.useResolveDelta = scene.useResolveDelta;
+    subScene.useLucidityDelta = scene.useLucidityDelta;
+    subScene.useCharismaDelta = scene.useCharismaDelta;
     subScene.useRepeatStatus = scene.useRepeatStatus;
     subScene.useRequiresExamine = scene.useRequiresExamine;
     subScene.useAdvancesDay = scene.useAdvancesDay;
@@ -1581,6 +1615,9 @@ bool parseScene(const std::string& id, const nlohmann::json& sceneJson, SceneDat
     out.useDetails = sceneJson.value("useDetails", "");
     out.useHealthDelta = sceneJson.value("useHealthDelta", 0.0f);
     out.useEnergyDelta = sceneJson.value("useEnergyDelta", 0.0f);
+    out.useResolveDelta = sceneJson.value("useResolveDelta", 0.0f);
+    out.useLucidityDelta = sceneJson.value("useLucidityDelta", 0.0f);
+    out.useCharismaDelta = sceneJson.value("useCharismaDelta", 0.0f);
     out.useRepeatStatus = sceneJson.value("useRepeatStatus", false);
     out.useRequiresExamine = sceneJson.value("useRequiresExamine", true);
     out.useAdvancesDay = sceneJson.value("advancesDay", false);
@@ -1645,6 +1682,32 @@ bool loadResourceTexture(
     const std::string& relativePath,
     Texture2D& outTexture)
 {
+    {
+        AssetBytes bytes;
+        if (assets().readBytes(relativePath, bytes) && !bytes.data.empty())
+        {
+            const std::string ext =
+                bytes.logicalExt.empty() ? ".png" : bytes.logicalExt;
+            Image image = LoadImageFromMemory(
+                ext.c_str(),
+                bytes.data.data(),
+                static_cast<int>(bytes.data.size()));
+            if (image.data != nullptr)
+            {
+                outTexture = LoadTextureFromImage(image);
+                UnloadImage(image);
+                if (outTexture.id != 0)
+                {
+                    TraceLog(
+                        LOG_INFO,
+                        "Loaded resource texture from assets: %s",
+                        relativePath.c_str());
+                    return true;
+                }
+            }
+        }
+    }
+
     const std::vector<std::string> paths = buildAssetSearchPaths(assetRoot, relativePath);
 
     for (const std::string& path : paths)
@@ -1710,22 +1773,40 @@ bool SceneDatabase::load(const std::string& configPath, const std::string& asset
     this->assetRoot = assetRoot;
     scenes.clear();
 
-    std::ifstream file(configPath.c_str());
-    if (!file.is_open())
-    {
-        TraceLog(LOG_ERROR, "Could not open scene config: %s", configPath.c_str());
-        return false;
-    }
-
     nlohmann::json config;
-    try
+    std::string configText;
+    bool loaded = assets().readText(configPath, configText);
+    if (!loaded && configPath.find("resources/") == std::string::npos)
+        loaded = assets().readText("resources/scenes.json", configText);
+    if (loaded)
     {
-        file >> config;
+        try
+        {
+            config = nlohmann::json::parse(configText);
+        }
+        catch (const nlohmann::json::exception&)
+        {
+            TraceLog(LOG_ERROR, "Invalid JSON in scene config (asset store): %s", configPath.c_str());
+            return false;
+        }
     }
-    catch (const nlohmann::json::exception&)
+    else
     {
-        TraceLog(LOG_ERROR, "Invalid JSON in scene config: %s", configPath.c_str());
-        return false;
+        std::ifstream file(configPath.c_str());
+        if (!file.is_open())
+        {
+            TraceLog(LOG_ERROR, "Could not open scene config: %s", configPath.c_str());
+            return false;
+        }
+        try
+        {
+            file >> config;
+        }
+        catch (const nlohmann::json::exception&)
+        {
+            TraceLog(LOG_ERROR, "Invalid JSON in scene config: %s", configPath.c_str());
+            return false;
+        }
     }
 
     if (!config.is_object() || !config.contains("scenes") || !config["scenes"].is_object())
@@ -1796,19 +1877,44 @@ bool SceneDatabase::load(const std::string& configPath, const std::string& asset
     else
     {
         const std::string conversationsPath = resolveConversationsPath(configPath, assetRoot);
-        std::ifstream conversationsFile(conversationsPath.c_str());
-        if (!conversationsPath.empty() && conversationsFile.is_open())
+        nlohmann::json conversationsConfig;
+        bool conversationsLoaded = false;
         {
-            nlohmann::json conversationsConfig;
+            std::string text;
+            if (assets().readText("resources/conversations.json", text)
+                || (!conversationsPath.empty()
+                    && assets().readText(conversationsPath, text)))
+            {
+                try
+                {
+                    conversationsConfig = nlohmann::json::parse(text);
+                    conversationsLoaded = true;
+                }
+                catch (const nlohmann::json::exception&)
+                {
+                    TraceLog(
+                        LOG_ERROR,
+                        "Failed to parse conversations from asset store");
+                    return false;
+                }
+            }
+        }
+        std::ifstream conversationsFile(conversationsPath.c_str());
+        if (!conversationsLoaded && !conversationsPath.empty() && conversationsFile.is_open())
+        {
             try
             {
                 conversationsFile >> conversationsConfig;
+                conversationsLoaded = true;
             }
             catch (const nlohmann::json::exception&)
             {
                 TraceLog(LOG_ERROR, "Failed to parse conversations file: %s", conversationsPath.c_str());
                 return false;
             }
+        }
+        if (conversationsLoaded)
+        {
 
             if (!applyConversationOverlays(conversationsConfig, scenes))
             {
@@ -1944,6 +2050,9 @@ bool SceneDatabase::buildLocationStruct(
         : scene.useDetails;
     outLocation.useHealthDelta = subScene->useHealthDelta;
     outLocation.useEnergyDelta = subScene->useEnergyDelta;
+    outLocation.useResolveDelta = subScene->useResolveDelta;
+    outLocation.useLucidityDelta = subScene->useLucidityDelta;
+    outLocation.useCharismaDelta = subScene->useCharismaDelta;
     outLocation.useRepeatStatus = subScene->useRepeatStatus;
     outLocation.useRequiresExamine = subScene->useRequiresExamine;
     outLocation.useAdvancesDay = subScene->useAdvancesDay;

@@ -20,6 +20,7 @@
 #ifndef GAME_APPLICATION_H
 #define GAME_APPLICATION_H
 
+#include <AssetStore.h>
 #include <AudioManager.h>
 #include <GameConfig.h>
 #include <GameSession.h>
@@ -47,6 +48,9 @@ class GameApplication
 
     GameConfig gameConfig;
     std::string gameConfigPath = "resources/game_config.json";
+    DiskAssetStore diskAssets{"."};
+    PakAssetStore pakAssets{};
+    bool usingPakAssets = false;
     AudioManager audioManager;
     SceneDatabase sceneDatabase;
     MilestoneDatabase milestoneDatabase;

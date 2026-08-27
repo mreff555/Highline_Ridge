@@ -2485,8 +2485,12 @@
                     "label": "> Slide the cash across the bar.",
                     "payActorTabInFull": true,
                     "requiresPayActorTabInFull": true,
-                    "response": "You slide the cash across the bar. He takes it without comment, marks the ledger, and meets your eyes. \"We're square. You're paid up.\"",
-                    "tabActor": "bartender"
+                    "response": "You slide the cash across the bar. He takes it without comment, marks the ledger, and meets your eyes. \"We're square.\"",
+                    "tabActor": "bartender",
+                    "tts": true,
+                    "ttsAudio": "resources/audio/tts/saloon_interior/pay_tab_cash.mp3",
+                    "ttsText": "You slide the cash across the bar. He takes it without comment, marks the ledger, and meets your eyes. \"We're square.\"",
+                    "ttsVoice": "leo"
                   },
                   {
                     "closePhase": true,
@@ -2797,12 +2801,14 @@
             "grantStoryFlag": "saloon_interior:bartender_return_done",
             "id": "im_good",
             "label": "> I'm good, thanks.",
-            "response": "He holds your gaze a beat, then gives a single nod.\n\n\"Suit yourself.\"\n\nThe rag resumes its circuit across the pine. Nothing lost. Nothing gained. He seems quietly pleased you are not asking for whiskey.",
+            "response": "He holds your gaze a moment, then gives a single nod.\n\n\"Suit yourself.\"\n\nThe rag resumes its circuit across the pine. Nothing lost. Nothing gained. He seems quietly pleased you are not asking for whiskey.",
             "status": {
               "actor": "bartender",
               "actorOpinion": 1,
               "key": "saloon_interior:bartender_return_decline"
-            }
+            },
+            "tts": false,
+            "ttsVoice": "leo"
           },
           {
             "choices": [

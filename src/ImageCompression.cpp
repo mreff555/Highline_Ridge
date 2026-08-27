@@ -76,42 +76,6 @@ std::string stripXzSuffix(const std::string& path)
     return path;
 }
 
-bool decompressXzBytes(
-    const unsigned char* input,
-    size_t inputSize,
-    std::vector<unsigned char>& outBytes)
-{
-    lzma_stream stream = LZMA_STREAM_INIT;
-    const lzma_ret initResult = lzma_stream_decoder(
-        &stream,
-        UINT64_MAX,
-        LZMA_CONCATENATED);
-    if (initResult != LZMA_OK)
-        return false;
-
-    stream.next_in = input;
-    stream.avail_in = inputSize;
-
-    outBytes.clear();
-    unsigned char buffer[16 * 1024];
-    lzma_ret codeResult = LZMA_OK;
-
-    do
-    {
-        stream.next_out = buffer;
-        stream.avail_out = sizeof(buffer);
-        codeResult = lzma_code(&stream, LZMA_FINISH);
-
-        const size_t produced = sizeof(buffer) - stream.avail_out;
-        if (produced > 0)
-            outBytes.insert(outBytes.end(), buffer, buffer + produced);
-    }
-    while (codeResult == LZMA_OK);
-
-    lzma_end(&stream);
-    return codeResult == LZMA_STREAM_END;
-}
-
 bool isJpegExtension(const std::string& extension)
 {
     std::string lowered = extension;
@@ -252,6 +216,42 @@ std::vector<std::string> buildAssetSearchPaths(
 std::string compressedAssetPath(const std::string& path)
 {
     return path + ".xz";
+}
+
+bool decompressXzBytes(
+    const unsigned char* input,
+    size_t inputSize,
+    std::vector<unsigned char>& outBytes)
+{
+    lzma_stream stream = LZMA_STREAM_INIT;
+    const lzma_ret initResult = lzma_stream_decoder(
+        &stream,
+        UINT64_MAX,
+        LZMA_CONCATENATED);
+    if (initResult != LZMA_OK)
+        return false;
+
+    stream.next_in = input;
+    stream.avail_in = inputSize;
+
+    outBytes.clear();
+    unsigned char buffer[16 * 1024];
+    lzma_ret codeResult = LZMA_OK;
+
+    do
+    {
+        stream.next_out = buffer;
+        stream.avail_out = sizeof(buffer);
+        codeResult = lzma_code(&stream, LZMA_FINISH);
+
+        const size_t produced = sizeof(buffer) - stream.avail_out;
+        if (produced > 0)
+            outBytes.insert(outBytes.end(), buffer, buffer + produced);
+    }
+    while (codeResult == LZMA_OK);
+
+    lzma_end(&stream);
+    return codeResult == LZMA_STREAM_END;
 }
 
 bool decompressXzFile(const std::string& path, std::vector<unsigned char>& outBytes)

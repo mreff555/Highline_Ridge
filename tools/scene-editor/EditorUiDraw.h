@@ -92,7 +92,27 @@ void drawVisualTextLinesColored(
     float scrollY,
     Color fallback);
 
-/** Map TTS highlight kinds to editor colors (matches VariableEditor defaults). */
+/** Shared TTS syntax colors (from resources/editor_tts_theme.json). */
+struct TtsSyntaxThemeColors
+{
+    Color defaultColor{220, 212, 196, 255};
+    Color command{70, 190, 100, 255};        // green — [pause]
+    Color styleMarkup{230, 140, 50, 255};    // orange — <whisper>
+    Color styleContent{50, 80, 170, 255};    // dark blue — angle content
+    Color voiceMarkup{235, 210, 70, 255};    // yellow — {{voice:eve}}
+    Color voiceDialog{140, 195, 235, 255};   // light blue — brace content
+    Color markupError{220, 55, 55, 255};     // red — unclosed
+};
+
+/**
+ * Load (once) resources/editor_tts_theme.json from resourceDir.
+ * Safe to call repeatedly; first successful/failed attempt sticks.
+ */
+void ensureTtsSyntaxThemeLoaded(const std::string& resourceDir);
+
+const TtsSyntaxThemeColors& ttsSyntaxTheme();
+
+/** Map TTS highlight kinds using the shared theme. */
 Color ttsHighlightKindColor(timberline_engine::TtsHighlightKind kind);
 
 void buildTtsHighlightColors(

@@ -19,6 +19,7 @@
 
 #include "TtsVoiceMarkup.h"
 
+#include <algorithm>
 #include <cctype>
 
 namespace timberline_engine
@@ -351,6 +352,201 @@ bool parseVoiceMarkup(
     return true;
 }
 
+namespace
+{
+
+void fillHighlightRange(
+    std::vector<TtsHighlightKind>& kinds,
+    size_t begin,
+    size_t endExclusive,
+    TtsHighlightKind kind)
+{
+    if (begin >= kinds.size())
+        return;
+    const size_t end = std::min(endExclusive, kinds.size());
+    for (size_t i = begin; i < end; ++i)
+        kinds[i] = kind;
+}
+
+bool isStyleTagNameChar(unsigned char ch)
+{
+    return std::isalnum(ch) != 0 || ch == '-' || ch == '_';
+}
+
+/** Parse <tag> or </tag> starting at '<'. Returns false if not a tag. */
+bool parseAngleTag(
+    const std::string& text,
+    size_t openLt,
+    size_t& outCloseGt,
+    std::string& outName,
+    bool& outIsClose)
+{
+    outCloseGt = std::string::npos;
+    outName.clear();
+    outIsClose = false;
+    if (openLt >= text.size() || text[openLt] != '<')
+        return false;
+
+    size_t i = openLt + 1;
+    while (i < text.size() && std::isspace(static_cast<unsigned char>(text[i])))
+        ++i;
+    if (i >= text.size())
+        return false;
+
+    if (text[i] == '/')
+    {
+        outIsClose = true;
+        ++i;
+        while (i < text.size() && std::isspace(static_cast<unsigned char>(text[i])))
+            ++i;
+    }
+
+    if (i >= text.size() || !isStyleTagNameChar(static_cast<unsigned char>(text[i])))
+        return false;
+
+    const size_t nameStart = i;
+    while (i < text.size() && isStyleTagNameChar(static_cast<unsigned char>(text[i])))
+        ++i;
+    outName = text.substr(nameStart, i - nameStart);
+    for (char& ch : outName)
+        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+
+    while (i < text.size() && std::isspace(static_cast<unsigned char>(text[i])))
+        ++i;
+    // Allow optional trailing '/' for empty elements, still require '>'.
+    if (i < text.size() && text[i] == '/')
+        ++i;
+    while (i < text.size() && std::isspace(static_cast<unsigned char>(text[i])))
+        ++i;
+    if (i >= text.size() || text[i] != '>')
+        return false;
+
+    outCloseGt = i;
+    return true;
+}
+
+/** Find matching </name> after contentStart; returns open '<' index of close tag. */
+size_t findMatchingAngleClose(
+    const std::string& text,
+    size_t contentStart,
+    const std::string& name)
+{
+    size_t depth = 1;
+    size_t i = contentStart;
+    while (i < text.size())
+    {
+        if (text[i] != '<')
+        {
+            ++i;
+            continue;
+        }
+        size_t gt = std::string::npos;
+        std::string tagName;
+        bool isClose = false;
+        if (!parseAngleTag(text, i, gt, tagName, isClose))
+        {
+            ++i;
+            continue;
+        }
+        if (tagName == name)
+        {
+            if (isClose)
+            {
+                --depth;
+                if (depth == 0)
+                    return i;
+            }
+            else
+                ++depth;
+        }
+        i = gt + 1;
+    }
+    return std::string::npos;
+}
+
+bool parseBraceTag(
+    const std::string& text,
+    size_t open,
+    size_t& outClose,
+    std::string& outBody)
+{
+    outClose = std::string::npos;
+    outBody.clear();
+    if (open + 1 >= text.size() || text[open] != '{' || text[open + 1] != '{')
+        return false;
+    const size_t close = text.find("}}", open + 2);
+    if (close == std::string::npos)
+        return false;
+    outBody = text.substr(open + 2, close - (open + 2));
+    outClose = close + 1; // index of second '}'
+    return true;
+}
+
+std::string normalizeBraceBody(const std::string& body)
+{
+    return normalizeVoiceId(trimWhitespaceLocal(body));
+}
+
+enum class BraceKind
+{
+    NotVoice,
+    Open,
+    Close,
+    SelfContained // short {{eve}} with no following region
+};
+
+BraceKind classifyBraceBody(const std::string& body, std::string& voiceIdOut)
+{
+    voiceIdOut.clear();
+    bool known = false;
+    if (classifyVoiceCloseTag(body, known))
+        return BraceKind::Close;
+    if (classifyVoiceOpenTag(body, known, voiceIdOut))
+    {
+        // Short form {{eve}} is both open marker and self-contained keyword
+        // when used alone; region open still uses Open so a following {{/voice}}
+        // can close it. SelfContained is unused for pairing — Open handles it.
+        return BraceKind::Open;
+    }
+    return BraceKind::NotVoice;
+}
+
+size_t findMatchingBraceClose(
+    const std::string& text,
+    size_t contentStart,
+    const std::string& openedVoiceId)
+{
+    size_t i = contentStart;
+    while (i + 1 < text.size())
+    {
+        if (text[i] != '{' || text[i + 1] != '{')
+        {
+            ++i;
+            continue;
+        }
+        size_t close = std::string::npos;
+        std::string body;
+        if (!parseBraceTag(text, i, close, body))
+            return std::string::npos; // unclosed later — caller handles
+
+        std::string voiceId;
+        const BraceKind kind = classifyBraceBody(body, voiceId);
+        if (kind == BraceKind::Close)
+        {
+            // {{/voice}} or {{/eve}} matches any open / specific voice.
+            const std::string norm = normalizeBraceBody(body);
+            if (norm == "/voice"
+                || (!openedVoiceId.empty() && norm == ("/" + openedVoiceId))
+                || (norm.size() > 1 && norm[0] == '/'))
+                return i;
+        }
+        i = close + 1;
+    }
+    return std::string::npos;
+}
+
+} // namespace
+
 void classifyTtsTextHighlight(
     const std::string& text,
     std::vector<TtsHighlightKind>& outKinds)
@@ -359,12 +555,10 @@ void classifyTtsTextHighlight(
     if (text.empty())
         return;
 
-    // Editor highlighting is intentionally limited to the allowlisted
-    // bracket tags (pause, laugh, sigh, …). Voice {{…}} markup is not
-    // colorized here so authors only see the approved command set.
     size_t i = 0;
     while (i < text.size())
     {
+        // --- Bracket commands [pause] ---
         if (text[i] == '[')
         {
             const size_t close = text.find(']', i + 1);
@@ -373,13 +567,154 @@ void classifyTtsTextHighlight(
                 const std::string body = text.substr(i + 1, close - (i + 1));
                 if (looksLikeTtsCommandBody(body))
                 {
-                    for (size_t j = i; j <= close; ++j)
-                        outKinds[j] = TtsHighlightKind::Command;
+                    fillHighlightRange(outKinds, i, close + 1, TtsHighlightKind::Command);
                     i = close + 1;
                     continue;
                 }
             }
+            ++i;
+            continue;
         }
+
+        // --- Angle style wraps <tag>…</tag> ---
+        if (text[i] == '<')
+        {
+            size_t gt = std::string::npos;
+            std::string tagName;
+            bool isClose = false;
+            if (!parseAngleTag(text, i, gt, tagName, isClose))
+            {
+                // Looks like a tag start (<name…) but never closed with '>' → error.
+                size_t j = i + 1;
+                while (j < text.size() && std::isspace(static_cast<unsigned char>(text[j])))
+                    ++j;
+                if (j < text.size() && text[j] == '/')
+                    ++j;
+                while (j < text.size() && std::isspace(static_cast<unsigned char>(text[j])))
+                    ++j;
+                if (j < text.size()
+                    && isStyleTagNameChar(static_cast<unsigned char>(text[j])))
+                {
+                    fillHighlightRange(outKinds, i, text.size(), TtsHighlightKind::MarkupError);
+                    break;
+                }
+                // Lone '<' — leave default.
+                ++i;
+                continue;
+            }
+
+            if (isClose)
+            {
+                // Orphan close tag: still color the keyword.
+                fillHighlightRange(outKinds, i, gt + 1, TtsHighlightKind::StyleMarkup);
+                i = gt + 1;
+                continue;
+            }
+
+            const size_t contentStart = gt + 1;
+            const size_t closeLt = findMatchingAngleClose(text, contentStart, tagName);
+            if (closeLt == std::string::npos)
+            {
+                // Unclosed: everything from '<' to EOF is an error.
+                fillHighlightRange(outKinds, i, text.size(), TtsHighlightKind::MarkupError);
+                break;
+            }
+
+            size_t closeGt = std::string::npos;
+            std::string closeName;
+            bool closeIsClose = false;
+            parseAngleTag(text, closeLt, closeGt, closeName, closeIsClose);
+
+            fillHighlightRange(outKinds, i, gt + 1, TtsHighlightKind::StyleMarkup);
+            fillHighlightRange(outKinds, closeLt, closeGt + 1, TtsHighlightKind::StyleMarkup);
+            // Recurse so nested <tags>, [commands], {{voices}} inside still highlight.
+            if (closeLt > contentStart)
+            {
+                std::vector<TtsHighlightKind> inner;
+                classifyTtsTextHighlight(
+                    text.substr(contentStart, closeLt - contentStart), inner);
+                for (size_t k = 0; k < inner.size(); ++k)
+                {
+                    outKinds[contentStart + k] =
+                        (inner[k] == TtsHighlightKind::Default)
+                            ? TtsHighlightKind::StyleContent
+                            : inner[k];
+                }
+            }
+            i = closeGt + 1;
+            continue;
+        }
+
+        // --- Double-brace voice markup {{…}} ---
+        if (i + 1 < text.size() && text[i] == '{' && text[i + 1] == '{')
+        {
+            size_t close = std::string::npos;
+            std::string body;
+            if (!parseBraceTag(text, i, close, body))
+            {
+                fillHighlightRange(outKinds, i, text.size(), TtsHighlightKind::MarkupError);
+                break;
+            }
+
+            std::string voiceId;
+            const BraceKind kind = classifyBraceBody(body, voiceId);
+            if (kind == BraceKind::NotVoice)
+            {
+                // Unknown {{…}} — leave default (not an error unless unclosed).
+                i = close + 1;
+                continue;
+            }
+
+            if (kind == BraceKind::Close)
+            {
+                fillHighlightRange(outKinds, i, close + 1, TtsHighlightKind::VoiceMarkup);
+                i = close + 1;
+                continue;
+            }
+
+            // Open: look for matching close. Short {{eve}} without a later close
+            // is just a keyword (VoiceMarkup), not an error — authors use it as
+            // a one-shot voice cue. {{voice:eve}} without close → error.
+            const size_t contentStart = close + 1;
+            const size_t closeOpen = findMatchingBraceClose(text, contentStart, voiceId);
+            const std::string normBody = normalizeBraceBody(body);
+            const bool explicitOpen = normBody.rfind("voice:", 0) == 0;
+
+            if (closeOpen == std::string::npos)
+            {
+                if (explicitOpen)
+                {
+                    fillHighlightRange(outKinds, i, text.size(), TtsHighlightKind::MarkupError);
+                    break;
+                }
+                fillHighlightRange(outKinds, i, close + 1, TtsHighlightKind::VoiceMarkup);
+                i = close + 1;
+                continue;
+            }
+
+            size_t closeEnd = std::string::npos;
+            std::string closeBody;
+            parseBraceTag(text, closeOpen, closeEnd, closeBody);
+
+            fillHighlightRange(outKinds, i, close + 1, TtsHighlightKind::VoiceMarkup);
+            fillHighlightRange(outKinds, closeOpen, closeEnd + 1, TtsHighlightKind::VoiceMarkup);
+            if (closeOpen > contentStart)
+            {
+                std::vector<TtsHighlightKind> inner;
+                classifyTtsTextHighlight(
+                    text.substr(contentStart, closeOpen - contentStart), inner);
+                for (size_t k = 0; k < inner.size(); ++k)
+                {
+                    outKinds[contentStart + k] =
+                        (inner[k] == TtsHighlightKind::Default)
+                            ? TtsHighlightKind::VoiceDialog
+                            : inner[k];
+                }
+            }
+            i = closeEnd + 1;
+            continue;
+        }
+
         ++i;
     }
 }

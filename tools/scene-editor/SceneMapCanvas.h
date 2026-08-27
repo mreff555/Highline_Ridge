@@ -33,6 +33,7 @@
 #include "SceneAuthoringDialog.h"
 #include "SceneAssistDialog.h"
 #include "SceneInventoryDialog.h"
+#include "SceneEffectsDialog.h"
 
 #include <functional>
 #include <string>
@@ -124,6 +125,7 @@ struct SceneMapCanvas
     SceneAuthoringDialog sceneAuthoring;
     SceneAssistDialog sceneAssist;
     SceneInventoryDialog sceneInventory;
+    SceneEffectsDialog sceneEffects;
     std::string* selectionSceneId = nullptr;
     float* variablesScroll = nullptr;
     std::function<void()> requestReload;

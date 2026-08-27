@@ -42,10 +42,18 @@ struct TtsOwnerPolicy
 enum class TtsHighlightKind
 {
     Default,
+    /** Bracket inline speech tags: [pause], [laugh], … */
     Command,
+    /** Angle-bracket wrapping keywords: <whisper>, </whisper>, … */
+    StyleMarkup,
+    /** Text between a matched <tag>…</tag> pair. */
+    StyleContent,
+    /** Double-brace voice keywords: {{voice:eve}}, {{/voice}}, {{eve}}. */
     VoiceMarkup,
+    /** Text between a matched {{open}}…{{/close}} voice pair. */
     VoiceDialog,
-    VoiceDialogError
+    /** Unclosed <… or {{… stretch (and nested content after a broken open). */
+    MarkupError
 };
 
 const std::vector<std::string>& builtinVoiceIds();
@@ -78,11 +86,11 @@ bool parseVoiceMarkup(
     std::string& outError);
 
 /**
- * Classify each character for editor syntax highlighting.
- * Only allowlisted bracket tags are marked Command:
- * [pause], [long-pause], [hum-tune], [laugh], [chuckle], [giggle], [cry],
- * [tsk], [tongue-click], [lip-smack], [breath], [inhale], [exhale], [sigh].
- * All other text (including {{voice}} markup) stays Default.
+ * Classify each character for editor syntax highlighting:
+ *  - Allowlisted [command] tags → Command
+ *  - <style>…</style> keywords → StyleMarkup; inner text → StyleContent
+ *  - {{voice}} keywords → VoiceMarkup; inner text → VoiceDialog
+ *  - Unclosed < or {{ regions → MarkupError from the open through EOF
  */
 void classifyTtsTextHighlight(
     const std::string& text,

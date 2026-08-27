@@ -18,6 +18,7 @@
  ******************************************************************************/
 
 #include "GameConfig.h"
+#include <AssetStore.h>
 
 #include <algorithm>
 #include <fstream>
@@ -52,18 +53,21 @@ float clampClickHoldSeconds(float value)
 
 bool loadGameConfig(const std::string& configPath, GameConfig& outConfig)
 {
-    std::ifstream file(configPath.c_str());
-    if (!file.is_open())
-        return false;
-
     nlohmann::json config;
-    try
+    std::string text;
+    if (assets().readText(configPath, text)
+        || assets().readText("resources/game_config.json", text))
     {
-        file >> config;
+        try { config = nlohmann::json::parse(text); }
+        catch (const nlohmann::json::exception&) { return false; }
     }
-    catch (const nlohmann::json::exception&)
+    else
     {
-        return false;
+        std::ifstream file(configPath.c_str());
+        if (!file.is_open())
+            return false;
+        try { file >> config; }
+        catch (const nlohmann::json::exception&) { return false; }
     }
 
     if (!config.is_object())

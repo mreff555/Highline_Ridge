@@ -51,16 +51,6 @@ struct VariableEditor
     std::string globalDefaultVoice = "leo";
     bool globalDefaultVoiceLoaded = false;
 
-    struct TtsSyntaxTheme
-    {
-        Color defaultColor = {220, 212, 196, 255};
-        Color command = {230, 140, 50, 255};
-        Color voiceMarkup = {235, 210, 70, 255};
-        Color voiceDialog = {140, 195, 235, 255};
-        Color voiceDialogError = {180, 40, 40, 255};
-    };
-    TtsSyntaxTheme ttsSyntaxTheme{};
-    bool ttsSyntaxThemeLoaded = false;
     std::string ttsHighlightCacheSource;
     std::vector<Color> ttsHighlightColors;
 
@@ -131,6 +121,8 @@ struct VariableEditor
     std::function<void()> onAiAssist;
     /** Open Scene Inventory editor for the selected scene. */
     std::function<void()> onSceneInventory;
+    /** Open Scene Effects (stat deltas) editor for the selected scene. */
+    std::function<void()> onSceneEffects;
 
 
 
@@ -228,21 +220,11 @@ void ensureGlobalDefaultVoiceLoaded();
 
 void ensureTtsSyntaxThemeLoaded();
 
-static bool isTtsCommandBodyChar(unsigned char ch);
-
-static bool looksLikeTtsCommandBody(const std::string& body);
-
-static bool isVoiceOpenTagBody(const std::string& body);
-
-static bool isVoiceCloseTagBody(const std::string& body);
-
 void rebuildTtsHighlightColors();
 
 Color ttsColorAtBufferIndex(int index) const;
 
 static bool colorsEqual(Color a, Color b);
-
-static Color colorFromJsonRgba(const nlohmann::json& node, Color fallback);
 
 std::string readTtsVoiceFromObject(const nlohmann::json& object) const;
 

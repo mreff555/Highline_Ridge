@@ -1,17 +1,21 @@
 {
-  "description": "Syntax colors for TTS text in the resource editor. RGBA 0-255. Edit this file to retheme highlighting.",
+  "description": "Syntax colors for TTS text in the resource editor (scene / item / walkthrough). RGBA 0-255. Edit this file to retheme highlighting; restart the editor to reload.",
   "ttsSyntax": {
     "default": [220, 212, 196, 255],
-    "command": [230, 140, 50, 255],
+    "command": [70, 190, 100, 255],
+    "styleMarkup": [230, 140, 50, 255],
+    "styleContent": [50, 80, 170, 255],
     "voiceMarkup": [235, 210, 70, 255],
     "voiceDialog": [140, 195, 235, 255],
-    "voiceDialogError": [180, 40, 40, 255]
+    "markupError": [220, 55, 55, 255]
   },
   "notes": {
-    "command": "xAI API bracket commands such as [pause], [long-pause], [sigh] (brackets included)",
-    "voiceMarkup": "{{voice:eve}} … {{/voice}} and short forms like {{eve}}",
-    "voiceDialog": "Spoken text nested inside a valid open voice markup region",
-    "voiceDialogError": "Dialog inside incomplete, unclosed, or unknown-voice markup",
-    "default": "Narration and other text outside voice markup"
+    "default": "Narration and other text outside markup",
+    "command": "Bracket inline speech tags: [pause], [laugh], [sigh], … (green)",
+    "styleMarkup": "Angle-bracket wrapping keywords: <whisper>, </slow>, … (orange)",
+    "styleContent": "Text between a matched <tag>…</tag> pair (dark blue)",
+    "voiceMarkup": "Double-brace voice keywords: {{voice:eve}}, {{/voice}}, {{eve}} (yellow)",
+    "voiceDialog": "Text between a matched {{open}}…{{/close}} voice pair (light blue)",
+    "markupError": "Unclosed <… or {{voice:…}} stretch through end of text (red)"
   }
 }

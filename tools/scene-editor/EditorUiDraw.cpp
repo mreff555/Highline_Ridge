@@ -7,17 +7,109 @@
 
 #include "EditorUiDraw.h"
 #include "EditorTheme.h"
+#include "PlatformPath.h"
+
+#include <nlohmann/json.hpp>
+#include <raylib.h>
 
 #include <algorithm>
 #include <cmath>
+#include <fstream>
 #include <sstream>
 #include <string>
 
 using timberline_engine::classifyTtsTextHighlight;
+using timberline_engine::pathJoin;
 using timberline_engine::TtsHighlightKind;
 
 namespace timberline_editor
 {
+
+namespace
+{
+
+TtsSyntaxThemeColors gTtsTheme{};
+bool gTtsThemeLoaded = false;
+
+Color colorFromJsonRgba(const nlohmann::json& value, Color fallback)
+{
+    if (!value.is_array() || value.size() < 3)
+        return fallback;
+    Color out = fallback;
+    try
+    {
+        out.r = static_cast<unsigned char>(std::clamp(value[0].get<int>(), 0, 255));
+        out.g = static_cast<unsigned char>(std::clamp(value[1].get<int>(), 0, 255));
+        out.b = static_cast<unsigned char>(std::clamp(value[2].get<int>(), 0, 255));
+        if (value.size() >= 4)
+            out.a = static_cast<unsigned char>(std::clamp(value[3].get<int>(), 0, 255));
+    }
+    catch (const nlohmann::json::exception&)
+    {
+        return fallback;
+    }
+    return out;
+}
+
+} // namespace
+
+void ensureTtsSyntaxThemeLoaded(const std::string& resourceDir)
+{
+    if (gTtsThemeLoaded)
+        return;
+    gTtsThemeLoaded = true;
+    gTtsTheme = TtsSyntaxThemeColors{};
+
+    if (resourceDir.empty())
+        return;
+
+    const std::string themePath = pathJoin(resourceDir, "editor_tts_theme.json");
+    std::ifstream file(themePath.c_str());
+    if (!file.is_open())
+    {
+        TraceLog(LOG_INFO, "TIMBERLINE: TTS theme not found (%s); using defaults", themePath.c_str());
+        return;
+    }
+
+    try
+    {
+        nlohmann::json root;
+        file >> root;
+        const nlohmann::json& syntax =
+            root.contains("ttsSyntax") && root["ttsSyntax"].is_object()
+                ? root["ttsSyntax"]
+                : root;
+        if (!syntax.is_object())
+            return;
+
+        auto load = [&](const char* key, Color& dest) {
+            if (syntax.contains(key))
+                dest = colorFromJsonRgba(syntax[key], dest);
+        };
+        load("default", gTtsTheme.defaultColor);
+        load("command", gTtsTheme.command);
+        load("styleMarkup", gTtsTheme.styleMarkup);
+        load("styleContent", gTtsTheme.styleContent);
+        load("voiceMarkup", gTtsTheme.voiceMarkup);
+        load("voiceDialog", gTtsTheme.voiceDialog);
+        load("markupError", gTtsTheme.markupError);
+        // Backward-compat aliases from older theme files.
+        if (syntax.contains("voiceDialogError") && !syntax.contains("markupError"))
+            gTtsTheme.markupError =
+                colorFromJsonRgba(syntax["voiceDialogError"], gTtsTheme.markupError);
+
+        TraceLog(LOG_INFO, "TIMBERLINE: loaded TTS syntax theme %s", themePath.c_str());
+    }
+    catch (const nlohmann::json::exception& ex)
+    {
+        TraceLog(LOG_WARNING, "TIMBERLINE: failed to parse TTS theme: %s", ex.what());
+    }
+}
+
+const TtsSyntaxThemeColors& ttsSyntaxTheme()
+{
+    return gTtsTheme;
+}
 
 float measureUiTextWidth(Font font, const std::string& text, float fontSize)
 {
@@ -286,25 +378,31 @@ void drawVisualTextLines(
 
 Color ttsHighlightKindColor(TtsHighlightKind kind)
 {
+    const TtsSyntaxThemeColors& theme = ttsSyntaxTheme();
     switch (kind)
     {
     case TtsHighlightKind::Command:
-        return Color{120, 200, 255, 255}; // cyan-ish commands
+        return theme.command;
+    case TtsHighlightKind::StyleMarkup:
+        return theme.styleMarkup;
+    case TtsHighlightKind::StyleContent:
+        return theme.styleContent;
     case TtsHighlightKind::VoiceMarkup:
-        return Color{220, 170, 90, 255};
+        return theme.voiceMarkup;
     case TtsHighlightKind::VoiceDialog:
-        return Color{190, 210, 160, 255};
-    case TtsHighlightKind::VoiceDialogError:
-        return Color{230, 100, 100, 255};
+        return theme.voiceDialog;
+    case TtsHighlightKind::MarkupError:
+        return theme.markupError;
     case TtsHighlightKind::Default:
     default:
-        return kTextPrimary;
+        return theme.defaultColor;
     }
 }
 
 void buildTtsHighlightColors(const std::string& text, std::vector<Color>& outColors)
 {
-    outColors.assign(text.size(), kTextPrimary);
+    const Color fallback = ttsSyntaxTheme().defaultColor;
+    outColors.assign(text.size(), fallback);
     if (text.empty())
         return;
     std::vector<TtsHighlightKind> kinds;

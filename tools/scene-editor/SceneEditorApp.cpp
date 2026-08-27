@@ -129,6 +129,13 @@ void SceneEditorApp::wireModules()
         if (!selectedSceneId.empty())
             mapCanvas.sceneInventory.openForScene(selectedSceneId);
     };
+    mapCanvas.sceneEffects.docs = &document;
+    mapCanvas.sceneEffects.onSaved = [this]() { (void)this; };
+    variableEditor.onSceneEffects = [this]()
+    {
+        if (!selectedSceneId.empty())
+            mapCanvas.sceneEffects.openForScene(selectedSceneId);
+    };
 }
 
 void SceneEditorApp::syncModuleFonts()
@@ -149,6 +156,8 @@ void SceneEditorApp::syncModuleFonts()
     mapCanvas.sceneAssist.uiFontBold = uiFontBold;
     mapCanvas.sceneInventory.uiFont = uiFont;
     mapCanvas.sceneInventory.uiFontBold = uiFontBold;
+    mapCanvas.sceneEffects.uiFont = uiFont;
+    mapCanvas.sceneEffects.uiFontBold = uiFontBold;
 }
 
 Font SceneEditorApp::textFont() const
@@ -398,7 +407,8 @@ void SceneEditorApp::handleShortcuts()
     if (variableEditor.open || sceneGraph.stackDialogOpen || itemEditor.blocksInput()
         || mapCanvas.sceneAuthoring.blocksInput()
         || mapCanvas.sceneAssist.blocksInput()
-        || mapCanvas.sceneInventory.blocksInput())
+        || mapCanvas.sceneInventory.blocksInput()
+        || mapCanvas.sceneEffects.blocksInput())
         return;
 
     if (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL))
@@ -427,7 +437,8 @@ void SceneEditorApp::update()
     if (!variableEditor.open && !sceneGraph.stackDialogOpen && !itemEditor.blocksInput()
         && !mapCanvas.sceneAuthoring.blocksInput()
         && !mapCanvas.sceneAssist.blocksInput()
-        && !mapCanvas.sceneInventory.blocksInput())
+        && !mapCanvas.sceneInventory.blocksInput()
+        && !mapCanvas.sceneEffects.blocksInput())
     {
         const Rectangle left = layout.leftPaneBounds(screenWidth);
         const Rectangle listBounds = {
@@ -474,6 +485,12 @@ void SceneEditorApp::update()
     if (mapCanvas.sceneInventory.blocksInput())
     {
         mapCanvas.sceneInventory.handleInput(screenWidth, screenHeight);
+        return;
+    }
+
+    if (mapCanvas.sceneEffects.blocksInput())
+    {
+        mapCanvas.sceneEffects.handleInput(screenWidth, screenHeight);
         return;
     }
 

@@ -28,6 +28,7 @@
 #include "EditorUiDraw.h"
 #include "SceneAuthoringDialog.h"
 #include "SceneAssistDialog.h"
+#include "SceneEffectsDialog.h"
 #include "ImageCompression.h"
 #include "PlatformPath.h"
 #include "RaylibCompat.h"
@@ -1753,7 +1754,8 @@ void SceneMapCanvas::drawSceneList(Rectangle listBounds)
         && !(layout && layout->isDraggingDivider())
         && !sceneAuthoring.blocksInput()
         && !sceneAssist.blocksInput()
-        && !sceneInventory.blocksInput();
+        && !sceneInventory.blocksInput()
+        && !sceneEffects.blocksInput();
 
     // Header: New Scene button
     const float headerH = 28.0f;
@@ -2077,8 +2079,9 @@ bool SceneMapCanvas::loadScenePreviewMusic(
                     fileType = path.substr(dot);
                 const std::string tmp = pathJoin(
                     GetApplicationDirectory() ? GetApplicationDirectory() : ".",
-                    "editor_scene_bed.tmp" + fileType
-                        + (outTempFile.empty() ? "a" : "b"));
+                    std::string("editor_scene_bed_")
+                        + (outTempFile.empty() ? "a" : "b")
+                        + fileType);
                 std::ofstream out(tmp.c_str(), std::ios::binary);
                 if (out)
                 {
@@ -2278,7 +2281,8 @@ void SceneMapCanvas::drawScenePreviewPane(Rectangle paneBounds)
         && !(variableEditor && variableEditor->open)
         && !sceneAuthoring.blocksInput()
         && !sceneAssist.blocksInput()
-        && !sceneInventory.blocksInput();
+        && !sceneInventory.blocksInput()
+        && !sceneEffects.blocksInput();
 
     auto drawTransportBtn = [&](Rectangle btn, const char* label, bool enabled, bool active) {
         drawEditorButton(font, btn, label, active, enabled);
@@ -2392,8 +2396,31 @@ void SceneMapCanvas::drawScenePreviewPane(Rectangle paneBounds)
                     kFontTiny,
                     1.0f,
                     kTextMuted);
+                ty += 14.0f;
             }
         }
+    }
+
+    // Compact non-zero effects summary.
+    ty += 18.0f;
+    DrawTextEx(font, "Effects", {transport.x + 10.0f, ty}, kFontTiny, 1.0f, kTextMuted);
+    ty += 16.0f;
+    {
+        std::string summary;
+        if (docs != nullptr && selectionSceneId != nullptr)
+        {
+            const nlohmann::json* scene = docs->scenes.sceneJson(*selectionSceneId);
+            if (scene != nullptr)
+                summary = summarizeSceneEffects(*scene);
+        }
+        drawWrappedText(
+            font,
+            summary.empty() ? "(none)" : summary,
+            {transport.x + 10.0f, ty},
+            transport.width - 16.0f,
+            kFontTiny,
+            2.0f,
+            summary.empty() ? kTextMuted : Color{160, 180, 120, 255});
     }
 
     if (canInteract && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
@@ -2623,6 +2650,7 @@ void SceneMapCanvas::draw()
     sceneAuthoring.draw(screenWidth, screenHeight);
     sceneAssist.draw(screenWidth, screenHeight);
     sceneInventory.draw(screenWidth, screenHeight);
+    sceneEffects.draw(screenWidth, screenHeight);
 
     EndDrawing();
 }

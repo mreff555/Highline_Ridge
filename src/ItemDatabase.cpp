@@ -18,6 +18,7 @@
  ******************************************************************************/
 
 #include "ItemDatabase.h"
+#include <AssetStore.h>
 
 #include <cmath>
 #include <fstream>
@@ -316,18 +317,20 @@ bool ItemDatabase::load(const std::string& path, const std::string& assetRoot)
 {
     (void)assetRoot;
 
-    std::ifstream file(path.c_str());
-    if (!file.is_open())
-        return false;
-
     nlohmann::json root;
-    try
+    std::string text;
+    if (assets().readText(path, text) || assets().readText("resources/items.json", text))
     {
-        file >> root;
+        try { root = nlohmann::json::parse(text); }
+        catch (const nlohmann::json::exception&) { return false; }
     }
-    catch (const nlohmann::json::exception&)
+    else
     {
-        return false;
+        std::ifstream file(path.c_str());
+        if (!file.is_open())
+            return false;
+        try { file >> root; }
+        catch (const nlohmann::json::exception&) { return false; }
     }
 
     items.clear();
