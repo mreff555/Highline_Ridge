@@ -4,24 +4,6 @@
 
 Storyboarding is still in progress; development focus is currently on Timberline as a reusable fixed-image narrative platform. A finished short game will showcase the engine. Contributions are welcome.
 
-## Timberline engine
-
-Timberline is a rich storytelling engine that uses old-school fixed images so a small team (or one developer, with AI-assisted art) can ship scene-driven adventures without a full 3D pipeline.
-
-- **Fixed-image scenes** with JSON configuration for exits, movement, sub-scenes, and interactions
-- **Conversation system** with phases, nested dialog choices, milestones, and requirements
-- **TTS** via Grok/xAI voices: default voice per line, markup to switch narrator and actor voices mid-line (`{{voice:eve}}…{{/voice}}`), SHA-based regeneration so unchanged dialog is skipped
-- **Data-driven resources** under `resources/` (images, audio, conversations, scenes); binaries may be xz-compressed
-- **Timberline Resource Editor** (`tools/scene-editor`) for scene maps, variables, and conversation editing (beta)
-- **Player stats** that change through play:
-  - **Health** — at 0%, you die; increases with sleep
-  - **Energy** — stamina for hard work; increases with sleep
-  - **Resolve** — grit for demanding tasks; stimulants or booze can help
-  - **Lucidity** — grip on reality; sleep helps; matters for conversation and intellect
-  - **Charisma** — improves odds in conversation
-
-For voice generation, supply an xAI API key and run `./Highline\ Ridge --help`.
-
 ## Build instructions
 
 The main third-party dependency is raylib (fetched by CMake). You need a C/C++ compiler. Builds have been tested on macOS (Intel). See [BUILD.md](BUILD.md) for platform details.
@@ -38,10 +20,81 @@ cmake ..
 make
 ```
 
-Building the scene editor is not necessary to play the game however, as
-mentioned above, the game is far from complete
-Audio is enabled for some dialogs. Voices must be generated if you want TTS playback; see `--help` on the game binary.
+## Timberline engine
+Timberline is a rich storytelling engine that uses old-school fixed images so a small team (or one developer, with AI-assisted art) can ship scene-driven adventures without a full 3D pipeline.
 
-## The game
+- **Fixed-image scenes** with JSON configuration for exits, movement, sub-scenes, and interactions
+- **Conversation system** with phases, nested dialog choices, milestones, and requirements
+- **TTS** via Grok/xAI voices: default voice per line, markup to switch narrator and actor voices mid-line (`{{voice:eve}}…{{/voice}}`), SHA-based regeneration so unchanged dialog is skipped
+- **Data-driven resources** under `resources/` (images, audio, conversations, scenes); binaries may be xz-compressed
+- **Timberline Resource Editor** (`tools/scene-editor`) for scene maps, variables, and conversation editing (beta)
+- **Player stats** that change through play:
+  - **Health** — at 0%, you die; increases with sleep
+  - **Energy** — stamina for hard work; increases with sleep
+  - **Resolve** — grit for demanding tasks; stimulants or booze can help
+  - **Lucidity** — grip on reality; sleep helps; matters for conversation and intellect
+  - **Charisma** — improves odds in conversation
+
+For voice generation, supply an xAI API key and run `./Highline\ Ridge --help`.
+
+### Architecture
+main.cpp  
+   └─ SceneEditorApp          (shell: wire, fonts, selection, update/draw)  
+         ├─ DocumentWorkspace   (scenes/conversations JSON, tabs, dirty)  
+         ├─ EditorLayout        (panes / dividers)  
+         ├─ ThumbnailCache  
+         ├─ VariableEditor      (modal + TTS + text metrics)  
+         ├─ ConversationTree    (tree model + view)  
+         ├─ SceneGraphModel     (exits, levels, auto-layout, stack state)  
+         └─ SceneMapCanvas      (list/map/chrome draw + interaction)  
+
+### TTS (text to speech)
+Audio is enabled for some dialogs. Voices must be generated if you want TTS playback; see `--help` on the game binary.  as a general overview you will need to go to:
+```https://console/x/ai```
+You will need to purchase credits to generate the TTS.  The cost should be minimal to regenerate voices.
+
+*Inline tags:*
+Grok's text to speach includes bracket and angle bracket enclosed inline tags to improve realism in TTS dialogs.  Additionally the Timberline Engine also implements brace enclosed inline tags to switch voices at any point in the conversation.
+[pause]        - Standard pause for natural conversation breams
+[pause:Xms]    - Precise control ex. [pause:500ms]
+[long-pause]   - Extends a break for dramatic timing or to let a thought land
+[laugh]        -
+[chuckle]      -
+[giggle]       -
+[sigh]         -
+[cry]          -
+[hum-tune]     -
+[tsk]          -
+[tounge-click] -
+[lip-smack]    -
+[breath]       -
+[inhale]       -
+[exhale]       -
+
+*Style and tone wrappings* ex. <whisper>text</whisper>
+<soft>
+<whisper>
+<loud>
+<build-intensity>
+<decrease-intensity>
+<higher-pitch>
+<lower-pitch>
+<slow>
+<fast>
+<sing-song>
+<singing>
+<emphasis>
+
+*Voice substitution* ex. {{voice:eve}}Hello,[pause] I am Eve{{/voice}}
+Note that while Timberline engine is designed to incorperate all Grok TTS voices, more are always being added.  The current list of valid voices are:
+- ara
+- eve
+- helios
+- leo
+- rex
+- rigel
+- sal
+
+### The game
 
 The year is roughly 1891. You wake up in a cave, injured and with total memory loss, high in the mountains of Appalachia, a couple thousand feet above a small mountain town known as **Highline Ridge**. As you move around town and talk to people, you get the sense that some of them know you — but they are not giving straight answers.
