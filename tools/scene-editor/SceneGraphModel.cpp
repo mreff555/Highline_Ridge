@@ -182,6 +182,53 @@ bool SceneGraphModel::retargetExitLink(
 }
 
 
+bool SceneGraphModel::createExitLink(
+    const std::string& fromId,
+    const std::string& direction,
+    const std::string& toId,
+    bool reciprocalIfFree)
+{
+    if (!docs || !docs->scenes.isLoaded())
+        return false;
+    if (fromId.empty() || direction.empty() || toId.empty())
+        return false;
+    if (fromId == toId || !docs->scenes.hasScene(fromId) || !docs->scenes.hasScene(toId))
+        return false;
+    if (!docs->scenes.hasMapPlacement(fromId) || !docs->scenes.hasMapPlacement(toId))
+        return false;
+    if (!isSameLevelLink(fromId, toId))
+        return false;
+    if (direction != "forward" && direction != "backward" && direction != "left" && direction != "right")
+        return false;
+
+    // Another scene already uses this compass direction to reach the target.
+    if (exitDirectionAlreadyLeadsTo(direction, toId, fromId))
+        return false;
+
+    const std::string reverseDir = oppositeDirection(direction);
+    const std::string existing = getExitTarget(fromId, direction);
+    if (!existing.empty() && existing != toId)
+    {
+        // Replacing an existing link — clear old reciprocal if it pointed back.
+        if (!reverseDir.empty() && getExitTarget(existing, reverseDir) == fromId)
+            clearExitTarget(existing, reverseDir);
+        clearExitTarget(fromId, direction);
+    }
+
+    setExitTarget(fromId, direction, toId);
+
+    if (reciprocalIfFree && !reverseDir.empty())
+    {
+        const std::string reverseExisting = getExitTarget(toId, reverseDir);
+        if (reverseExisting.empty() || reverseExisting == fromId)
+            setExitTarget(toId, reverseDir, fromId);
+    }
+
+    docs->markDirty();
+    return true;
+}
+
+
 void SceneGraphModel::recomputeLevelsFromExits()
 {
     if (!docs->scenes.isLoaded())
@@ -320,6 +367,9 @@ void SceneGraphModel::recomputeLevelsFromExits()
     {
         if (levels.count(id) == 0)
             continue;
+        // Never invent map placement for list-only (unplaced) scenes.
+        if (!docs->scenes.hasMapPlacement(id))
+            continue;
 
         SceneLayout sceneLayout = docs->scenes.getLayout(id);
         sceneLayout.level = levels[id];
@@ -339,6 +389,8 @@ void SceneGraphModel::getLevelRange(int& outMin, int& outMax) const
     const std::vector<std::string> ids = docs->scenes.sceneIds();
     for (const std::string& id : ids)
     {
+        if (!docs->scenes.hasMapPlacement(id))
+            continue;
         const int level = docs->scenes.getLayout(id).level;
         if (!any)
         {
@@ -363,6 +415,8 @@ int SceneGraphModel::countScenesOnLevel(int level) const
     const std::vector<std::string> ids = docs->scenes.sceneIds();
     for (const std::string& id : ids)
     {
+        if (!docs->scenes.hasMapPlacement(id))
+            continue;
         if (docs->scenes.getLayout(id).level == level)
             ++count;
     }
@@ -376,6 +430,8 @@ std::vector<std::string> SceneGraphModel::scenesOnLevel(int level) const
     const std::vector<std::string> ids = docs->scenes.sceneIds();
     for (const std::string& id : ids)
     {
+        if (!docs->scenes.hasMapPlacement(id))
+            continue;
         if (docs->scenes.getLayout(id).level == level)
             out.push_back(id);
     }

@@ -23,6 +23,7 @@
 #include <cctype>
 #include <fstream>
 #include <sstream>
+#include <string>
 
 namespace timberline_engine
 {
@@ -129,12 +130,71 @@ bool SceneDocument::hasScene(const std::string& sceneId) const
     return isLoaded() && root["scenes"].contains(sceneId);
 }
 
+bool SceneDocument::hasMapPlacement(const std::string& sceneId) const
+{
+    const nlohmann::json* scene = sceneJson(sceneId);
+    return scene != nullptr && scene->contains("layout") && (*scene)["layout"].is_object();
+}
+
 bool SceneDocument::createScene(const std::string& sceneId, const nlohmann::json& sceneObject)
 {
     if (!isLoaded() || sceneId.empty() || hasScene(sceneId) || !sceneObject.is_object())
         return false;
     root["scenes"][sceneId] = sceneObject;
     return true;
+}
+
+std::string SceneDocument::allocateUniqueSceneId(const std::string& baseId) const
+{
+    if (baseId.empty())
+        return {};
+    if (!hasScene(baseId))
+        return baseId;
+
+    for (int n = 2; n < 10000; ++n)
+    {
+        const std::string candidate = baseId + "_" + std::to_string(n);
+        if (!hasScene(candidate))
+            return candidate;
+    }
+    return {};
+}
+
+std::string SceneDocument::duplicateScene(const std::string& sourceId)
+{
+    if (!hasScene(sourceId))
+        return {};
+
+    const std::string newId = allocateUniqueSceneId(sourceId);
+    if (newId.empty() || newId == sourceId)
+        return {};
+
+    const nlohmann::json* source = sceneJson(sourceId);
+    if (source == nullptr || !source->is_object())
+        return {};
+
+    nlohmann::json copy = *source;
+    // Independent room: no map pose and no outbound graph until the author links it.
+    copy.erase("layout");
+    if (copy.contains("exits") && copy["exits"].is_object())
+        copy["exits"] = nlohmann::json::object();
+    if (copy.contains("movement") && copy["movement"].is_object())
+    {
+        for (auto it = copy["movement"].begin(); it != copy["movement"].end(); ++it)
+        {
+            if (it.value().is_boolean())
+                it.value() = false;
+        }
+    }
+    if (copy.contains("exitRequirements") && copy["exitRequirements"].is_object())
+        copy["exitRequirements"] = nlohmann::json::object();
+    if (copy.contains("movementExits") && copy["movementExits"].is_object())
+        copy["movementExits"] = nlohmann::json::object();
+    copy["start"] = false;
+
+    if (!createScene(newId, copy))
+        return {};
+    return newId;
 }
 
 bool SceneDocument::removeScene(const std::string& sceneId)
@@ -201,6 +261,14 @@ void SceneDocument::setLayout(const std::string& sceneId, const SceneLayout& lay
         {"y", layout.y},
         {"level", layout.level}
     };
+}
+
+void SceneDocument::clearLayout(const std::string& sceneId)
+{
+    nlohmann::json* scene = sceneJson(sceneId);
+    if (scene == nullptr)
+        return;
+    scene->erase("layout");
 }
 
 std::vector<SceneActor> SceneDocument::getActors(const std::string& sceneId) const

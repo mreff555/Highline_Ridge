@@ -1050,6 +1050,12 @@ void printGameHelp(const char* executableName)
         << "                             Requires --key.\n"
         << "  -force, --force            With refresh commands, ignore stored text\n"
         << "                             hashes and regenerate every matching line.\n\n"
+#if defined(HIGHLINE_DEV_TOOLS)
+        << "In-game developer tools (this build):\n"
+        << "  Ctrl+Shift+S               Toggle scene debug overlay\n"
+        << "  ` or ~                     Toggle developer command console\n"
+        << "    give-item <item id>      Add an item (stacks if stackable)\n\n"
+#endif
         << "Examples:\n"
         << "  \"" << programName << "\" --key=YOUR_XAI_API_KEY --refresh-voices\n"
         << "  \"" << programName << "\" --key=YOUR_XAI_API_KEY --refresh=blackjack_invite\n"

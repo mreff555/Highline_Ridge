@@ -84,14 +84,25 @@ else()
 endif()
 option(HIGHLINE_EMBED_RESOURCES "Pack resources into the game binary" ${_highline_embed_default})
 option(HIGHLINE_BUILD_EDITOR "Build the scene editor (ON for normal/dev builds)" ${_highline_editor_default})
+# In-game developer tools (Ctrl+Shift+S overlay, ~ console). ON for normal/dev builds;
+# OFF under HIGHLINE_RELEASE unless -DHIGHLINE_DEV_TOOLS=ON / --with-dev-tools.
+if(HIGHLINE_RELEASE)
+    set(_highline_dev_tools_default OFF)
+else()
+    set(_highline_dev_tools_default ON)
+endif()
+option(HIGHLINE_DEV_TOOLS "Enable in-game developer tools" ${_highline_dev_tools_default})
 option(HIGHLINE_INSTALL_LINKS "Install /usr/local/bin symlinks (Linux/macOS)" ON)
 
 if(HIGHLINE_RELEASE)
     # Always embed for release; do not FORCE editor off so -DHIGHLINE_BUILD_EDITOR=ON works.
     set(HIGHLINE_EMBED_RESOURCES ON CACHE BOOL "Pack resources into the game binary" FORCE)
-    message(STATUS "HIGHLINE_RELEASE=ON → EMBED=ON, BUILD_EDITOR=${HIGHLINE_BUILD_EDITOR}")
+    message(STATUS "HIGHLINE_RELEASE=ON → EMBED=ON, BUILD_EDITOR=${HIGHLINE_BUILD_EDITOR}, DEV_TOOLS=${HIGHLINE_DEV_TOOLS}")
     if(NOT HIGHLINE_BUILD_EDITOR)
         message(STATUS "  Tip: pass -DHIGHLINE_BUILD_EDITOR=ON to also build ./scene-editor")
+    endif()
+    if(NOT HIGHLINE_DEV_TOOLS)
+        message(STATUS "  Tip: pass -DHIGHLINE_DEV_TOOLS=ON (or ./build-release.sh --with-dev-tools) for Ctrl+Shift+S / ~ console")
     endif()
 endif()
 
@@ -218,11 +229,21 @@ if(NOT OPUSFILE_FOUND)
 endif()
 
 # 3. Create the executable (use ${PROJECT_NAME} so everything stays consistent)
+if(HIGHLINE_DEV_TOOLS)
+    list(APPEND SOURCES src/DevConsole.cpp)
+endif()
+
 add_executable(${PROJECT_NAME} ${SOURCES})
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "Highline Ridge")
 if(HIGHLINE_RELEASE)
     # Routes TraceLog to stderr (see GameApplication::releaseTraceLog).
     target_compile_definitions(${PROJECT_NAME} PRIVATE HIGHLINE_RELEASE=1)
+endif()
+if(HIGHLINE_DEV_TOOLS)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE HIGHLINE_DEV_TOOLS=1)
+    message(STATUS "HIGHLINE_DEV_TOOLS=ON — Ctrl+Shift+S overlay and ~ developer console enabled")
+else()
+    message(STATUS "HIGHLINE_DEV_TOOLS=OFF — in-game developer tools stripped")
 endif()
 
 # 4. Include your own headers (src/ folder)

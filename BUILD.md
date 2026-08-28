@@ -45,6 +45,7 @@ Preferred: wipe + rebuild with the helper script (avoids stale CMake cache):
 ```bash
 ./build-release.sh                      # game only (embedded resources)
 ./build-release.sh --with-scene-editor  # game + ./scene-editor
+./build-release.sh --with-dev-tools     # keep Ctrl+Shift+S / ~ console
 ```
 
 Manual equivalent:
@@ -56,10 +57,11 @@ make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
 ./Highline\ Ridge
 ```
 
-`HIGHLINE_RELEASE=ON` turns **embed ON** and routes game `TraceLog` output to **stderr** (dev builds keep stdout). The editor defaults to **OFF** in that mode, but you can keep it with `-DHIGHLINE_BUILD_EDITOR=ON` (or `./build-release.sh --with-scene-editor`).
+`HIGHLINE_RELEASE=ON` turns **embed ON** and routes game `TraceLog` output to **stderr** (dev builds keep stdout). The editor defaults to **OFF** in that mode, but you can keep it with `-DHIGHLINE_BUILD_EDITOR=ON` (or `./build-release.sh --with-scene-editor`). In-game developer tools (Ctrl+Shift+S overlay, `~` console) default **ON** for normal builds and **OFF** for release unless `-DHIGHLINE_DEV_TOOLS=ON` / `--with-dev-tools`.
 
 - `HIGHLINE_EMBED_RESOURCES` — pack assets into the binary (default **OFF** / dev).
 - `HIGHLINE_BUILD_EDITOR` — build `scene-editor` (default **ON** / dev; default OFF when using `HIGHLINE_RELEASE` alone).
+- `HIGHLINE_DEV_TOOLS` — in-game developer tools (default **ON** / dev; default OFF for release).
 - `HIGHLINE_INSTALL_LINKS` — install `/usr/local/bin` symlinks (default **ON**); use `-DHIGHLINE_INSTALL_LINKS=OFF` / `--without-links` to skip.
 
 ```bash

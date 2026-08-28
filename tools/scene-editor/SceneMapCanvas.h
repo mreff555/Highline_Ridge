@@ -114,6 +114,11 @@ struct SceneMapCanvas
     std::string linkDragHoverTarget;
     static constexpr float kLinkHitSlop = 10.0f;
 
+    // New connector drag from a card direction port (F/B/L/R).
+    std::string portDragFromId;
+    std::string portDragDirection;
+    static constexpr float kPortHitSize = 14.0f;
+
     DocumentWorkspace* docs = nullptr;
     SceneGraphModel* graph = nullptr;
     ThumbnailCache* thumbnails = nullptr;
@@ -216,6 +221,17 @@ int hitTestLinkRoute(Vector2 mouse) const;
 std::string sceneCardAtPoint(Vector2 mouse, Rectangle canvasBounds) const;
 bool isValidLinkDropTarget(const SceneLinkRoute& route, const std::string& newToId) const;
 void cancelLinkDrag();
+void cancelPortDrag();
+
+Rectangle directionPortBounds(Rectangle card, const std::string& direction) const;
+bool hitTestDirectionPort(
+    Vector2 mouse,
+    Rectangle canvasBounds,
+    std::string& outSceneId,
+    std::string& outDirection) const;
+void drawDirectionPorts(Rectangle canvasBounds) const;
+void drawPortDragPreview(Rectangle canvasBounds) const;
+bool placeSceneListDrop(Vector2 mouse, Rectangle canvasBounds, Rectangle contentView);
 
 void drawStairIcons(Rectangle canvasBounds);
 

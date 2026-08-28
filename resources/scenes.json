@@ -168,8 +168,8 @@
       ],
       "layout": {
         "level": 0,
-        "x": 81.0,
-        "y": 479.0
+        "x": 296.0,
+        "y": 480.0
       },
       "movement": {
         "backward": true,
@@ -2420,6 +2420,7 @@
       "description": "The cemetery spreads over the church rise in uneven rows, the dead laid out with frontier practicality and mountain weather for company. Headstones lean where frost has heaved the soil. Wooden crosses gray with age stand beside newer granite markers cut plain and honest. Wild grass and alpine flowers push up between the plots. Beyond the low fence, the mountains hold their distance - blue-gray ridges under a quiet sky. The church stands at your back, white paint gone chalky, steeple still pointing upward as though argument with death were worth continuing.",
       "examineDetails": "You walk the rows the way a man walks a ledger he is not yet ready to sign.\n\nThe oldest markers are wood, names weathered to ghosts. A few granite stones carry dates from the seventies and eighties - company men, infants, mothers lost in winter, a prospector who lasted one season and not two. Some plots are tended: weeds cut, pebbles laid flat, a jar of wildflowers gone dry but recent enough to mean someone still comes.\n\nOthers have surrendered to the ridge. Sink-holes at the feet of crosses. Names split by frost. A child's stone no larger than a Bible, tilted so far the grass has nearly claimed it.\n\nThe cemetery is not large. It is persistent. Highline buries its own because Graysmill is a long descent and the mountain prefers to keep what it takes within sight of the living.",
       "exits": {
+        "left": "winding_trail_2",
         "right": "white_baptist_church"
       },
       "image": "resources/images/white_baptist_church_cemetery.png",
@@ -2431,7 +2432,7 @@
       "movement": {
         "backward": false,
         "forward": false,
-        "left": false,
+        "left": true,
         "right": true
       },
       "start": false,
@@ -2587,6 +2588,120 @@
         "left": true,
         "right": true
       },
+      "start": false,
+      "useDetails": ""
+    },
+    "winding_trail": {
+      "actions": {
+        "examine": true,
+        "hit": false,
+        "speak": false,
+        "use": false
+      },
+      "audio": {
+        "ambient": [
+          {
+            "fade_in": 1.5,
+            "fade_out": 1.5,
+            "loop": true,
+            "path": "resources/audio/ambient/winding_trail.mp3",
+            "volume": 0.45
+          }
+        ],
+        "music": {
+          "fade_in": 3.0,
+          "fade_out": 2.5,
+          "loop": true,
+          "path": "resources/audio/music/winding_trail_theme.mp3",
+          "volume": 0.2
+        },
+        "sfx": [
+          {
+            "path": "resources/audio/sfx/door_open.mp3",
+            "trigger": "on_enter",
+            "volume": 0.85
+          },
+          {
+            "path": "resources/audio/sfx/door_close.mp3",
+            "trigger": "on_exit",
+            "volume": 0.85
+          }
+        ]
+      },
+      "description": "You see a winding trail decending into the valley, just outside of Graymill.  Alpine trees line the path with a view of city lights in the distance.",
+      "examineDetails": "",
+      "exits": {},
+      "image": "resources/images/winding_trail.png",
+      "layout": {
+        "level": 0,
+        "x": 3112.0,
+        "y": 480.0
+      },
+      "movement": {
+        "backward": true,
+        "forward": false,
+        "left": false,
+        "right": false
+      },
+      "speakDetails": "",
+      "start": false,
+      "useDetails": ""
+    },
+    "winding_trail_2": {
+      "actions": {
+        "examine": true,
+        "hit": false,
+        "speak": false,
+        "use": false
+      },
+      "audio": {
+        "ambient": [
+          {
+            "fade_in": 1.5,
+            "fade_out": 1.5,
+            "loop": true,
+            "path": "resources/audio/ambient/winding_trail.mp3",
+            "volume": 0.45
+          }
+        ],
+        "music": {
+          "fade_in": 3.0,
+          "fade_out": 2.5,
+          "loop": true,
+          "path": "resources/audio/music/winding_trail_theme.mp3",
+          "volume": 0.2
+        },
+        "sfx": [
+          {
+            "path": "resources/audio/sfx/door_open.mp3",
+            "trigger": "on_enter",
+            "volume": 0.85
+          },
+          {
+            "path": "resources/audio/sfx/door_close.mp3",
+            "trigger": "on_exit",
+            "volume": 0.85
+          }
+        ]
+      },
+      "description": "You see a winding trail decending into the valley, just outside of Graymill.  Alpine trees line the path with a view of city lights in the distance.",
+      "examineDetails": "",
+      "exits": {
+        "right": "white_baptist_church_cemetery"
+      },
+      "image": "resources/images/winding_trail.png",
+      "layout": {
+        "level": 0,
+        "x": -176.8564453125,
+        "y": 911.623779296875
+      },
+      "movement": {
+        "backward": false,
+        "forward": false,
+        "left": false,
+        "right": true
+      },
+      "speakDetails": "",
       "start": false,
       "useDetails": ""
     }

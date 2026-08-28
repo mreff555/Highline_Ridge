@@ -66,6 +66,16 @@ bool retargetExitLink(
     const std::string& newToId,
     bool maintainReciprocal);
 
+/**
+ * Create (or replace) fromId --direction--> toId on the same level.
+ * When reciprocalIfFree is true, also sets the opposite direction on toId if empty.
+ */
+bool createExitLink(
+    const std::string& fromId,
+    const std::string& direction,
+    const std::string& toId,
+    bool reciprocalIfFree = true);
+
 void recomputeLevelsFromExits();
 
 void getLevelRange(int& outMin, int& outMax) const;

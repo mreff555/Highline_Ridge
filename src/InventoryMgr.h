@@ -79,6 +79,11 @@ class InventoryMgr
     const InventoryItem* getItemById(const std::string& id) const;
     bool hasItem(const std::string& id) const;
     void addItem(const InventoryItem& item);
+    /**
+     * Developer / grant helper: add a new item, or if stackable and already
+     * owned, raise quantity. Non-stackable duplicates are ignored.
+     */
+    bool giveOrStackItem(const InventoryItem& item, std::string& message);
     bool removeItem(const std::string& id);
     std::vector<InventoryItem> exportItemSnapshots() const;
     void restoreFromSnapshots(const std::vector<InventoryItem>& savedItems);

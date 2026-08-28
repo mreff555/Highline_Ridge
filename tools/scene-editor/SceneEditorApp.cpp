@@ -379,6 +379,7 @@ bool SceneEditorApp::deleteSelectedScene()
     // Drop cached art for the removed id (and any stale entries).
     thumbnails.clear();
     mapCanvas.cancelLinkDrag();
+    mapCanvas.cancelPortDrag();
     mapCanvas.dragSource = DragSource::None;
     mapCanvas.dragSceneId.clear();
 

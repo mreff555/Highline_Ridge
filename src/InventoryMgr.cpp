@@ -22,6 +22,7 @@
 #include <RaylibCompat.h>
 #include <SceneLoader.h>
 #include <algorithm>
+#include <string>
 
 namespace timberline_engine
 {
@@ -1225,6 +1226,50 @@ void InventoryMgr::addItem(const InventoryItem& item)
 
     items.push_back(item);
     ensureItemIconLoaded(items.back());
+}
+
+bool InventoryMgr::giveOrStackItem(const InventoryItem& item, std::string& message)
+{
+    message.clear();
+    if (item.id.empty())
+    {
+        message = "Empty item id";
+        return false;
+    }
+
+    InventoryItem* existing = findMutableItem(item.id);
+    if (existing == nullptr)
+    {
+        addItem(item);
+        if (!hasItem(item.id))
+        {
+            message = "Failed to add " + item.id;
+            return false;
+        }
+        message = "Gave " + item.id;
+        return true;
+    }
+
+    const ItemDef* def = itemDatabase != nullptr ? itemDatabase->getDef(item.id) : nullptr;
+    const bool stackable = def != nullptr && def->quantity.stackable;
+    if (!stackable)
+    {
+        message = "Already in inventory (not stackable): " + item.id;
+        return false;
+    }
+
+    const int addQty = std::max(1, item.instance.quantity);
+    existing->instance.quantity += addQty;
+    if (itemDatabase != nullptr)
+    {
+        InventoryItem refreshed = itemDatabase->buildInventoryItem(existing->instance);
+        refreshed.icon = existing->icon;
+        refreshed.examineImage = existing->examineImage;
+        *existing = refreshed;
+    }
+    message = "Stacked +" + std::to_string(addQty) + " → " + item.id
+        + " (qty " + std::to_string(existing->instance.quantity) + ")";
+    return true;
 }
 
 bool InventoryMgr::removeItem(const std::string& id)

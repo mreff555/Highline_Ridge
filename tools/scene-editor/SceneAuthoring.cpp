@@ -155,10 +155,7 @@ nlohmann::json buildSceneJson(const SceneAuthoringPayload& payload)
         {"hit", false},
         {"use", false}};
     scene["exits"] = nlohmann::json::object();
-    scene["layout"] = {
-        {"x", payload.layoutX},
-        {"y", payload.layoutY},
-        {"level", payload.layoutLevel}};
+    // Intentionally omit layout — new scenes stay list-only until dragged onto the map.
 
     nlohmann::json audio = nlohmann::json::object();
     if (!payload.musicPath.empty() && isPlausibleResourcePath(payload.musicPath))
@@ -324,23 +321,6 @@ SceneUpsertResult upsertScene(
         payload.ambientPath = "resources/audio/ambient/" + payload.id + ".mp3";
     if (payload.musicPath.empty())
         payload.musicPath = "resources/audio/music/" + payload.id + "_theme.mp3";
-
-    // Layout near selected scene if any.
-    if (docs.scenes.isLoaded() && !docs.scenes.sceneIds().empty())
-    {
-        // Prefer placing to the right of first scene with layout.
-        const auto ids = docs.scenes.sceneIds();
-        if (!ids.empty())
-        {
-            const auto layout = docs.scenes.getLayout(ids.front());
-            if (payload.layoutX == 0.0f && payload.layoutY == 0.0f)
-            {
-                payload.layoutX = layout.x + 280.0f;
-                payload.layoutY = layout.y;
-                payload.layoutLevel = layout.level;
-            }
-        }
-    }
 
     nlohmann::json scene = buildSceneJson(payload);
     if (!docs.scenes.createScene(payload.id, scene))

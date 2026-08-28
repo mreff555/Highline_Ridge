@@ -3,11 +3,13 @@
 # Usage:
 #   ./build-release.sh
 #   ./build-release.sh --with-scene-editor
+#   ./build-release.sh --with-dev-tools
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="${ROOT}/build-release"
 WITH_SCENE_EDITOR=0
+WITH_DEV_TOOLS=0
 
 usage() {
     cat <<'EOF'
@@ -18,6 +20,9 @@ build, then compile with make -j.
 
 Options:
   --with-scene-editor   Also build ./scene-editor (HIGHLINE_BUILD_EDITOR=ON)
+  --with-dev-tools      Keep in-game developer tools (HIGHLINE_DEV_TOOLS=ON)
+                        Ctrl+Shift+S overlay and ~ give-item console.
+                        Omitted by default for release builds.
   -h, --help            Show this help
 
 Binaries land in build-release/:
@@ -30,6 +35,10 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --with-scene-editor)
             WITH_SCENE_EDITOR=1
+            shift
+            ;;
+        --with-dev-tools)
+            WITH_DEV_TOOLS=1
             shift
             ;;
         -h|--help)
@@ -47,12 +56,17 @@ done
 JOBS="$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)"
 
 CMAKE_ARGS=(-DHIGHLINE_RELEASE=ON)
+SUMMARY="game only"
 if [[ "${WITH_SCENE_EDITOR}" -eq 1 ]]; then
     CMAKE_ARGS+=(-DHIGHLINE_BUILD_EDITOR=ON)
-    echo "==> Release build with scene editor"
-else
-    echo "==> Release build (game only; pass --with-scene-editor for the editor)"
+    SUMMARY="${SUMMARY} + scene editor"
 fi
+if [[ "${WITH_DEV_TOOLS}" -eq 1 ]]; then
+    CMAKE_ARGS+=(-DHIGHLINE_DEV_TOOLS=ON)
+    SUMMARY="${SUMMARY} + dev tools"
+fi
+echo "==> Release build (${SUMMARY})"
+echo "    Tips: --with-scene-editor, --with-dev-tools"
 
 echo "==> Removing ${BUILD_DIR}"
 rm -rf "${BUILD_DIR}"
@@ -69,4 +83,7 @@ echo "Done. Run from ${BUILD_DIR}:"
 echo "  ./Highline\\ Ridge"
 if [[ "${WITH_SCENE_EDITOR}" -eq 1 ]]; then
     echo "  ./scene-editor"
+fi
+if [[ "${WITH_DEV_TOOLS}" -eq 1 ]]; then
+    echo "  Dev tools: Ctrl+Shift+S (overlay), ~ (command console, give-item)"
 fi

@@ -861,6 +861,8 @@ std::string SceneMapCanvas::sceneCardAtPoint(Vector2 mouse, Rectangle canvasBoun
     const std::vector<std::string> ids = docs->scenes.sceneIds();
     for (const std::string& id : ids)
     {
+        if (!docs->scenes.hasMapPlacement(id))
+            continue;
         const SceneLayout sceneLayout = docs->scenes.getLayout(id);
         if (sceneLayout.level != level)
             continue;
@@ -868,6 +870,179 @@ std::string SceneMapCanvas::sceneCardAtPoint(Vector2 mouse, Rectangle canvasBoun
             return id;
     }
     return "";
+}
+
+Rectangle SceneMapCanvas::directionPortBounds(Rectangle card, const std::string& direction) const
+{
+    const float s = kPortHitSize;
+    if (direction == "forward")
+        return {card.x + (card.width - s) * 0.5f, card.y - s * 0.5f, s, s};
+    if (direction == "backward")
+        return {card.x + (card.width - s) * 0.5f, card.y + card.height - s * 0.5f, s, s};
+    if (direction == "left")
+        return {card.x - s * 0.5f, card.y + (card.height - s) * 0.5f, s, s};
+    if (direction == "right")
+        return {card.x + card.width - s * 0.5f, card.y + (card.height - s) * 0.5f, s, s};
+    return {0, 0, 0, 0};
+}
+
+bool SceneMapCanvas::hitTestDirectionPort(
+    Vector2 mouse,
+    Rectangle canvasBounds,
+    std::string& outSceneId,
+    std::string& outDirection) const
+{
+    outSceneId.clear();
+    outDirection.clear();
+    if (!docs || !docs->scenes.isLoaded())
+        return false;
+
+    const char* dirs[] = {"forward", "backward", "left", "right"};
+    const std::vector<std::string> ids = docs->scenes.sceneIds();
+    for (const std::string& id : ids)
+    {
+        if (!docs->scenes.hasMapPlacement(id))
+            continue;
+        if (docs->scenes.getLayout(id).level != level)
+            continue;
+        const Rectangle card = sceneCardBounds(id, canvasBounds);
+        for (const char* dir : dirs)
+        {
+            if (CheckCollisionPointRec(mouse, directionPortBounds(card, dir)))
+            {
+                outSceneId = id;
+                outDirection = dir;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+void SceneMapCanvas::cancelPortDrag()
+{
+    if (dragSource == DragSource::ExitPort)
+        dragSource = DragSource::None;
+    portDragFromId.clear();
+    portDragDirection.clear();
+    linkDragHoverTarget.clear();
+}
+
+void SceneMapCanvas::drawDirectionPorts(Rectangle canvasBounds) const
+{
+    if (!docs || !docs->scenes.isLoaded())
+        return;
+
+    const char* dirs[] = {"forward", "backward", "left", "right"};
+    const std::vector<std::string> ids = docs->scenes.sceneIds();
+    for (const std::string& id : ids)
+    {
+        if (!docs->scenes.hasMapPlacement(id))
+            continue;
+        if (docs->scenes.getLayout(id).level != level)
+            continue;
+        const Rectangle card = sceneCardBounds(id, canvasBounds);
+        for (const char* dir : dirs)
+        {
+            const Rectangle port = directionPortBounds(card, dir);
+            const bool linked = graph && !graph->getExitTarget(id, dir).empty();
+            const bool active =
+                dragSource == DragSource::ExitPort
+                && portDragFromId == id
+                && portDragDirection == dir;
+            Color fill = linked ? Color{168, 138, 72, 220} : Color{70, 64, 82, 220};
+            if (active)
+                fill = Color{220, 190, 100, 255};
+            DrawCircleV(
+                {port.x + port.width * 0.5f, port.y + port.height * 0.5f},
+                port.width * 0.35f,
+                fill);
+            DrawCircleLines(
+                static_cast<int>(port.x + port.width * 0.5f),
+                static_cast<int>(port.y + port.height * 0.5f),
+                port.width * 0.35f,
+                kPanelBorder);
+        }
+    }
+}
+
+void SceneMapCanvas::drawPortDragPreview(Rectangle canvasBounds) const
+{
+    if (dragSource != DragSource::ExitPort || portDragFromId.empty() || portDragDirection.empty())
+        return;
+    if (!docs->scenes.hasMapPlacement(portDragFromId))
+        return;
+
+    const Rectangle fromCard = sceneCardBounds(portDragFromId, canvasBounds);
+    const Rectangle port = directionPortBounds(fromCard, portDragDirection);
+    const Vector2 start = {port.x + port.width * 0.5f, port.y + port.height * 0.5f};
+    const Vector2 mouse = GetMousePosition();
+    const bool valid =
+        !linkDragHoverTarget.empty()
+        && linkDragHoverTarget != portDragFromId
+        && graph
+        && graph->isSameLevelLink(portDragFromId, linkDragHoverTarget);
+
+    DrawLineEx(start, mouse, 2.0f, valid ? Color{220, 190, 100, 255} : Color{160, 80, 80, 200});
+    DrawCircleV(mouse, 5.0f, valid ? Color{220, 190, 100, 255} : Color{160, 80, 80, 200});
+    if (!linkDragHoverTarget.empty())
+    {
+        const Rectangle target = sceneCardBounds(linkDragHoverTarget, canvasBounds);
+        DrawRectangleLinesEx(
+            target,
+            2.0f,
+            valid ? Color{220, 190, 100, 255} : Color{160, 80, 80, 200});
+        DrawTextEx(
+            (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
+            valid ? "Drop to create exit" : "Invalid target",
+            {target.x, target.y - 18.0f},
+            kFontTiny,
+            1.0f,
+            valid ? kPanelBorder : Color{200, 100, 100, 255});
+    }
+}
+
+bool SceneMapCanvas::placeSceneListDrop(Vector2 mouse, Rectangle canvasBounds, Rectangle contentView)
+{
+    // Accept drops anywhere on the map pane (including level chrome).
+    if (!CheckCollisionPointRec(mouse, canvasBounds) || dragSceneId.empty())
+        return false;
+    if (!docs->scenes.hasScene(dragSceneId))
+        return false;
+    (void)contentView;
+
+    // dragOffset is in card-local pixels (set when the list drag starts).
+    const float dropX = mouse.x - canvasBounds.x - dragOffset.x - scroll.x;
+    const float dropY = mouse.y - canvasBounds.y - dragOffset.y - scroll.y;
+
+    std::string placeId = dragSceneId;
+    if (docs->scenes.hasMapPlacement(dragSceneId))
+    {
+        // Already on the map — clone to a new independent scene.
+        placeId = docs->scenes.duplicateScene(dragSceneId);
+        if (placeId.empty())
+            return false;
+        if (thumbnails)
+            thumbnails->clear();
+        TraceLog(LOG_INFO, "TIMBERLINE: duplicated scene %s → %s", dragSceneId.c_str(), placeId.c_str());
+    }
+
+    SceneLayout sceneLayout{};
+    sceneLayout.x = dropX;
+    sceneLayout.y = dropY;
+    sceneLayout.level = level;
+    docs->scenes.setLayout(placeId, sceneLayout);
+    if (selectionSceneId)
+        *selectionSceneId = placeId;
+    if (selectSceneForEditor)
+        selectSceneForEditor(placeId);
+    docs->markDirty();
+    TraceLog(LOG_INFO, "TIMBERLINE: placed scene '%s' on map L%d at (%.0f, %.0f)",
+        placeId.c_str(),
+        level,
+        dropX,
+        dropY);
+    return true;
 }
 
 
@@ -1028,6 +1203,8 @@ void SceneMapCanvas::drawStairIcons(Rectangle canvasBounds)
     const std::vector<std::string> ids = docs->scenes.sceneIds();
     for (const std::string& id : ids)
     {
+        if (!docs->scenes.hasMapPlacement(id))
+            continue;
         const SceneLayout sceneLayout = docs->scenes.getLayout(id);
         if (sceneLayout.level != level)
             continue;
@@ -1249,7 +1426,9 @@ void SceneMapCanvas::drawCanvasScrollBars(
             !graph->stackDialogOpen
             && !(layout && layout->isDraggingDivider())
             && dragSource != DragSource::ExitLink
-            && dragSource != DragSource::Canvas;
+            && dragSource != DragSource::ExitPort
+            && dragSource != DragSource::Canvas
+            && dragSource != DragSource::SceneList;
 
         if (canDragBar)
         {
@@ -1304,7 +1483,9 @@ void SceneMapCanvas::drawCanvasScrollBars(
             !graph->stackDialogOpen
             && !(layout && layout->isDraggingDivider())
             && dragSource != DragSource::ExitLink
-            && dragSource != DragSource::Canvas;
+            && dragSource != DragSource::ExitPort
+            && dragSource != DragSource::Canvas
+            && dragSource != DragSource::SceneList;
 
         if (canDragBar)
         {
@@ -1405,13 +1586,15 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
     const std::vector<std::string> ids = docs->scenes.sceneIds();
     for (const std::string& id : ids)
     {
+        if (!docs->scenes.hasMapPlacement(id))
+            continue;
         const SceneLayout sceneLayout = docs->scenes.getLayout(id);
         if (sceneLayout.level != level)
             continue;
 
         const SceneMapCanvas::SceneCardMetrics metrics = measureSceneCard(id);
         const Rectangle card = sceneCardBounds(id, canvasBounds);
-        const bool selected = id == (*selectionSceneId);
+        const bool selected = selectionSceneId && id == (*selectionSceneId);
         DrawRectangleRec(card, selected ? Color{52, 46, 62, 255} : Color{36, 32, 44, 255});
         DrawRectangleLinesEx(card, selected ? 2.0f : 1.0f, selected ? kPanelBorder : kPanelAccent);
 
@@ -1463,17 +1646,31 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
     const bool canSelectScene = inputFree;
     const bool canEditMapGeometry = inputFree && !conversationsTab;
 
-    // Start exit-link drag (before card drag so ports/wires win near edges).
+    // Start port / exit-link / card drag (ports win over wires; wires over cards).
     if (canEditMapGeometry
         && dragSource == DragSource::None
         && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
-        const int hit = hitTestLinkRoute(GetMousePosition());
-        if (hit >= 0)
+        std::string portScene;
+        std::string portDir;
+        if (hitTestDirectionPort(GetMousePosition(), canvasBounds, portScene, portDir))
         {
-            linkDragIndex = hit;
-            dragSource = DragSource::ExitLink;
+            portDragFromId = portScene;
+            portDragDirection = portDir;
+            dragSource = DragSource::ExitPort;
             linkDragHoverTarget.clear();
+            if (selectSceneForEditor)
+                selectSceneForEditor(portScene);
+        }
+        else
+        {
+            const int hit = hitTestLinkRoute(GetMousePosition());
+            if (hit >= 0)
+            {
+                linkDragIndex = hit;
+                dragSource = DragSource::ExitLink;
+                linkDragHoverTarget.clear();
+            }
         }
     }
 
@@ -1484,6 +1681,8 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
     {
         for (const std::string& id : ids)
         {
+            if (!docs->scenes.hasMapPlacement(id))
+                continue;
             const SceneLayout sceneLayout = docs->scenes.getLayout(id);
             if (sceneLayout.level != level)
                 continue;
@@ -1502,7 +1701,7 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         }
     }
 
-    // Update link drag hover / commit.
+    // Update existing-wire retarget drag.
     if (dragSource == DragSource::ExitLink && linkDragIndex >= 0)
     {
         if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
@@ -1528,38 +1727,36 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         }
     }
 
-    drawExitArrows(canvasBounds);
-    drawStairIcons(canvasBounds);
-
-    if (!graph->stackDialogOpen &&
-        dragSource == DragSource::Canvas &&
-        !dragSceneId.empty() &&
-        IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+    // Update new-connector port drag.
+    if (dragSource == DragSource::ExitPort && !portDragFromId.empty())
     {
-        const SceneMapCanvas::SceneCardMetrics dragMetrics = measureSceneCard(dragSceneId);
-        const Rectangle ghost = {
-            static_cast<float>(GetMouseX()) - dragOffset.x,
-            static_cast<float>(GetMouseY()) - dragOffset.y,
-            dragMetrics.width,
-            dragMetrics.height};
-        DrawRectangleRec(ghost, Color{80, 70, 50, 120});
-        DrawRectangleLinesEx(ghost, 1.0f, kPanelBorder);
-
-        const std::string hoverTarget = graph->findStackTarget(ghost, canvasBounds, dragSceneId);
-        if (!hoverTarget.empty())
+        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
         {
-            const Rectangle targetCard = sceneCardBounds(hoverTarget, canvasBounds);
-            DrawRectangleLinesEx(targetCard, 2.0f, Color{220, 180, 80, 255});
-            DrawTextEx(
-                (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
-                "Drop for Up / Down / Cancel",
-                {targetCard.x, targetCard.y - 18.0f},
-                kFontTiny,
-                1.0f,
-                kPanelBorder);
+            linkDragHoverTarget = sceneCardAtPoint(GetMousePosition(), canvasBounds);
+            if (linkDragHoverTarget == portDragFromId)
+                linkDragHoverTarget.clear();
+        }
+
+        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+        {
+            const std::string dropId = sceneCardAtPoint(GetMousePosition(), canvasBounds);
+            if (!dropId.empty() && dropId != portDragFromId && graph)
+            {
+                graph->createExitLink(portDragFromId, portDragDirection, dropId, true);
+            }
+            cancelPortDrag();
         }
     }
 
+    drawExitArrows(canvasBounds);
+    drawStairIcons(canvasBounds);
+    if (canEditMapGeometry)
+        drawDirectionPorts(canvasBounds);
+    if (dragSource == DragSource::ExitPort)
+        drawPortDragPreview(canvasBounds);
+
+    // Canvas card move commit (ghost is drawn AFTER EndScissorMode so list→map
+    // ghosts are not clipped to the map viewport).
     if (!graph->stackDialogOpen &&
         dragSource == DragSource::Canvas &&
         IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
@@ -1594,11 +1791,21 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
                 sceneLayout.y = dropY;
                 sceneLayout.level = level;
                 docs->scenes.setLayout(dragSceneId, sceneLayout);
-                (*selectionSceneId) = dragSceneId;
+                if (selectionSceneId)
+                    *selectionSceneId = dragSceneId;
                 docs->markDirty();
             }
         }
 
+        dragSource = DragSource::None;
+        dragSceneId.clear();
+    }
+
+    if (!graph->stackDialogOpen &&
+        dragSource == DragSource::SceneList &&
+        IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+    {
+        placeSceneListDrop(GetMousePosition(), canvasBounds, contentView);
         dragSource = DragSource::None;
         dragSceneId.clear();
     }
@@ -1609,8 +1816,66 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         // Safety: mouse lost while dragging.
         cancelLinkDrag();
     }
+    if (dragSource == DragSource::ExitPort && !IsMouseButtonDown(MOUSE_BUTTON_LEFT)
+        && !IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+    {
+        cancelPortDrag();
+    }
 
     EndScissorMode();
+
+    // Drag ghost above the scissor so list→map drags stay visible over the UI.
+    if (!graph->stackDialogOpen
+        && !dragSceneId.empty()
+        && IsMouseButtonDown(MOUSE_BUTTON_LEFT)
+        && (dragSource == DragSource::Canvas || dragSource == DragSource::SceneList))
+    {
+        const SceneMapCanvas::SceneCardMetrics dragMetrics = measureSceneCard(dragSceneId);
+        const Rectangle ghost = {
+            static_cast<float>(GetMouseX()) - dragOffset.x,
+            static_cast<float>(GetMouseY()) - dragOffset.y,
+            dragMetrics.width,
+            dragMetrics.height};
+        DrawRectangleRec(ghost, Color{80, 70, 50, 160});
+        DrawRectangleLinesEx(ghost, 2.0f, kPanelBorder);
+        DrawTextEx(
+            (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
+            dragSceneId.c_str(),
+            {ghost.x + 8.0f, ghost.y + 8.0f},
+            kFontTiny,
+            1.0f,
+            kTextPrimary);
+
+        if (dragSource == DragSource::Canvas)
+        {
+            const std::string hoverTarget = graph->findStackTarget(ghost, canvasBounds, dragSceneId);
+            if (!hoverTarget.empty())
+            {
+                const Rectangle targetCard = sceneCardBounds(hoverTarget, canvasBounds);
+                DrawRectangleLinesEx(targetCard, 2.0f, Color{220, 180, 80, 255});
+                DrawTextEx(
+                    (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
+                    "Drop for Up / Down / Cancel",
+                    {targetCard.x, targetCard.y - 18.0f},
+                    kFontTiny,
+                    1.0f,
+                    kPanelBorder);
+            }
+        }
+        else if (dragSource == DragSource::SceneList)
+        {
+            const char* hint = docs->scenes.hasMapPlacement(dragSceneId)
+                ? "Drop on map to duplicate"
+                : "Drop on map to place";
+            DrawTextEx(
+                (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
+                hint,
+                {ghost.x, ghost.y - 18.0f},
+                kFontTiny,
+                1.0f,
+                kPanelBorder);
+        }
+    }
 
     drawCanvasScrollBars(canvasBounds, contentView, content, showH, showV);
     clampCanvasScrollForCanvas(canvasBounds, contentView, content);
@@ -1824,14 +2089,15 @@ void SceneMapCanvas::drawSceneList(Rectangle listBounds)
                 WHITE);
         }
 
-        const int sceneLevel = docs->scenes.getLayout(id).level;
+        const bool placed = docs->scenes.hasMapPlacement(id);
+        const int sceneLevel = placed ? docs->scenes.getLayout(id).level : 0;
         const float textX = row.x + kListThumbSize + 14.0f;
         const float textY =
             row.y + (kListRowHeight - kListNameFont - kListMetaFont - 8.0f) * 0.5f;
         DrawTextEx(font, id.c_str(), {textX, textY}, kListNameFont, 1.0f, kTextPrimary);
         DrawTextEx(
             font,
-            TextFormat("L%d", sceneLevel),
+            placed ? TextFormat("L%d", sceneLevel) : "not on map",
             {textX, textY + kListNameFont + 6.0f},
             kListMetaFont,
             1.0f,
@@ -1856,9 +2122,11 @@ void SceneMapCanvas::drawSceneList(Rectangle listBounds)
                     selectSceneForEditor(id);
                 dragSource = DragSource::SceneList;
                 dragSceneId = id;
-                const float rowTop = treeBounds.y - listScroll
-                    + static_cast<float>(index) * kListRowHeight;
-                dragOffset = {mouse.x - treeBounds.x - 4.0f, mouse.y - rowTop};
+                // Card-local grab point so the ghost follows the cursor across
+                // the map (NOT list-pane coordinates — that pinned the ghost
+                // to the left column and made list→map drag look broken).
+                const SceneMapCanvas::SceneCardMetrics metrics = measureSceneCard(id);
+                dragOffset = {metrics.width * 0.5f, 24.0f};
             }
         }
     }

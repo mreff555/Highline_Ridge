@@ -60,6 +60,11 @@
 #include <set>
 #include <string>
 #include <vector>
+
+#if defined(HIGHLINE_DEV_TOOLS)
+#include <DevConsole.h>
+#endif
+
 namespace timberline_engine
 {
 
@@ -104,10 +109,14 @@ class GameSession
     bool startNewGame();
     bool continueMostRecentSave();
     bool isTitleScreenActive() const { return titleScreenActive; }
+    void resetDevSceneImagePreview();
+#if defined(HIGHLINE_DEV_TOOLS)
     void handleDevOverlayInput();
     void handleDevAltImageInput();
-    void resetDevSceneImagePreview();
+    void handleDevConsoleToggle();
     void drawDevOverlay() const;
+    bool devGiveItem(const std::string& itemId, std::string& message);
+#endif
     void applyGrantedStoryFlag(const std::string& flag);
     void syncKnownActorsFromProgress();
     void relayoutForScreenSize(int width, int height);
@@ -325,10 +334,13 @@ class GameSession
     std::vector<std::string> delayedSceneNarrativeTtsPaths;
     std::string transientMessage;
     float transientMessageTimer = 0.0f;
+#if defined(HIGHLINE_DEV_TOOLS)
     bool devOverlayVisible = false;
     int devSceneImagePreviewIndex = -1;
     mutable Rectangle devAltImagePrevBounds{};
     mutable Rectangle devAltImageNextBounds{};
+    DevConsole devConsole;
+#endif
 
     mutable WorldState worldState;
     SceneController sceneController;

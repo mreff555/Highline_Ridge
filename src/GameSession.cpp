@@ -296,6 +296,15 @@ namespace
         takeMgr.setFont(locationStruct.uiFont);
         interactionMgr.setFont(locationStruct.uiFont);
         speakTargetMgr.setFont(locationStruct.uiFont);
+#if defined(HIGHLINE_DEV_TOOLS)
+        devConsole.setFonts(locationStruct.descriptionFont, locationStruct.boldFont);
+        devConsole.setItemDatabase(&itemDatabase);
+        devConsole.setGiveItemHandler(
+            [this](const std::string& itemId, std::string& message) -> bool
+            {
+                return devGiveItem(itemId, message);
+            });
+#endif
         const std::string& assetRoot = sceneDatabase.getAssetRoot();
         const std::string fallbackRoot = (assetRoot == ".") ? ".." : ".";
         inventoryMgr.setAssetRoots(assetRoot, fallbackRoot);
@@ -2675,7 +2684,9 @@ namespace
 
     void GameSession::resetDevSceneImagePreview()
     {
+#if defined(HIGHLINE_DEV_TOOLS)
         devSceneImagePreviewIndex = -1;
+#endif
     }
 
     void GameSession::syncActiveSubScene()
@@ -3164,8 +3175,45 @@ namespace
             worldState.storyFlags.insert("saloon_balcony:blue_woman_done");
     }
 
+#if defined(HIGHLINE_DEV_TOOLS)
+    bool GameSession::devGiveItem(const std::string& itemId, std::string& message)
+    {
+        if (!itemDatabase.hasDef(itemId))
+        {
+            message = "Unknown item: " + itemId;
+            return false;
+        }
+
+        InventoryItem item = buildInventoryItem(itemId, {});
+        const bool ok = inventoryMgr.giveOrStackItem(item, message);
+        if (ok)
+        {
+            evaluateMilestones();
+            syncWalletInventoryDisplay();
+            updateActionAvailability();
+        }
+        return ok;
+    }
+
+    void GameSession::handleDevConsoleToggle()
+    {
+        // Grave / tilde key (` / ~).
+        if (!IsKeyPressed(KEY_GRAVE))
+            return;
+        // Allow closing even over menus; only block opening there.
+        if (!devConsole.isOpen()
+            && (isTitleScreenActive() || pauseMenu.isOpen() || saveLoadMenu.isOpen()))
+            return;
+        devConsole.toggle();
+        if (devConsole.isOpen())
+            devOverlayVisible = false;
+    }
+
     void GameSession::handleDevOverlayInput()
     {
+        if (devConsole.isOpen())
+            return;
+
         if (!IsKeyPressed(KEY_S))
             return;
 
@@ -3454,6 +3502,7 @@ namespace
                 nextColor);
         }
     }
+#endif /* HIGHLINE_DEV_TOOLS */
 
     void GameSession::refreshContinueAvailability()
     {
@@ -3687,8 +3736,17 @@ namespace
         trackDisplayConfigChanges();
         updateTransientMessage(dt);
         handleQuickSaveInput();
+#if defined(HIGHLINE_DEV_TOOLS)
+        handleDevConsoleToggle();
+        if (devConsole.isOpen())
+        {
+            // Console owns input while open (Esc closes; ` toggles above).
+            devConsole.update();
+            return;
+        }
         handleDevOverlayInput();
         handleDevAltImageInput();
+#endif
         handlePauseMenuInput();
 
         if (saveLoadMenu.isOpen())
@@ -3986,7 +4044,11 @@ namespace
         saveLoadMenu.draw();
         drawTransientMessage();
         dropConfirmMgr.draw();
+#if defined(HIGHLINE_DEV_TOOLS)
         drawDevOverlay();
+        if (devConsole.isOpen())
+            devConsole.draw(screenWidth, screenHeight);
+#endif
     }
     void GameSession::openUiMode(UiMode mode)
     {
