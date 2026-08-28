@@ -22,6 +22,7 @@
 
 #include "Button.h"
 #include <ActionStruct.h>
+#include <MovementBlockReason.h>
 #include <MovementStruct.h>
 #include <UiBackdrop.h>
 #include <raylib.h>
@@ -41,6 +42,7 @@ namespace timberline_engine
             const MovementStruct& movement,
             const ActionStruct& actions,
             bool enableInventory = true);
+        void setMovementBlockOverlays(const MovementBlockOverlays& overlays);
         void setStatus(
             float healthPercent,
             float energyPercent,
@@ -81,10 +83,16 @@ namespace timberline_engine
         void buildButtonLayout();
         void drawSectionLabel(const char* label, float x, float y) const;
         void drawStatusBar(const char* label, Rectangle bounds, float percent) const;
+        void drawDisabledMovementChrome(Rectangle bounds) const;
+        void drawMovementBlockBadge(int buttonIndex, Rectangle bounds) const;
+        bool movementIndexHasBlockIcon(int buttonIndex) const;
         void updatePressedFlags();
         void registerButtonClick(int buttonIndex);
         int findEnabledButtonUnderMouse(Vector2 mousePos) const;
         void refreshButtonStyles();
+        void ensureBlockIconsLoaded() const;
+        const Texture2D* iconForBlockReason(MovementBlockReason reason) const;
+        MovementBlockReason blockReasonForMovementIndex(int buttonIndex) const;
 
         bool upButtonPressed = false;
         bool downButtonPressed = false;
@@ -135,6 +143,9 @@ namespace timberline_engine
         ButtonStyle buttonStyle;
         const UiBackdrop* uiBackdrop = nullptr;
         std::vector<Button> buttons;
+        MovementBlockOverlays movementBlockOverlays{};
+        mutable bool blockIconsLoaded = false;
+        mutable Texture2D needsLightIcon{};
     };
 }
 

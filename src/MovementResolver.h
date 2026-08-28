@@ -21,6 +21,7 @@
 #define MOVEMENT_RESOLVER_H
 
 #include <MaskEvaluator.h>
+#include <MovementBlockReason.h>
 #include <MovementMappingDef.h>
 #include <SceneLoader.h>
 #include <string>
@@ -57,6 +58,19 @@ class MovementResolver
         const MaskEvalContext& context);
 
     static MovementResolution resolveDirection(
+        const SceneDatabase& database,
+        const SceneData& scene,
+        const std::string& activeSubSceneId,
+        const std::string& direction,
+        const MaskEvalContext& context);
+
+    /**
+     * Classify why an advertised direction is blocked.
+     * Returns None when the direction is available or there is no exit.
+     * NeedsLight only when darkness / missing light source is the blocking reason
+     * (not locked doors, story flags, climbing gear, etc.).
+     */
+    static MovementBlockReason blockReasonForDirection(
         const SceneDatabase& database,
         const SceneData& scene,
         const std::string& activeSubSceneId,

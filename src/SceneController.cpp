@@ -189,6 +189,31 @@ bool SceneController::isDirectionAvailable(
     return resolution.available;
 }
 
+MovementBlockReason SceneController::getDirectionBlockReason(
+    const std::string& direction,
+    const WorldState& worldState,
+    const InventoryMgr& inventoryMgr,
+    const ItemDatabase& itemDatabase,
+    const MilestoneManager& milestoneMgr) const
+{
+    const SceneData* scene = sceneDatabase.getScene(worldState.currentSceneId);
+    if (scene == nullptr)
+        return MovementBlockReason::None;
+
+    const MaskEvalContext context = buildMaskContext(
+        worldState,
+        inventoryMgr,
+        itemDatabase,
+        milestoneMgr);
+
+    return MovementResolver::blockReasonForDirection(
+        sceneDatabase,
+        *scene,
+        worldState.activeSubSceneId,
+        direction,
+        context);
+}
+
 bool SceneController::tryMove(
     const std::string& direction,
     WorldState& worldState,

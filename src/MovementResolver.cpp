@@ -19,6 +19,9 @@
 
 #include "MovementResolver.h"
 
+#include <ItemDatabase.h>
+#include <ItemDef.h>
+#include <InventoryMgr.h>
 #include <raylib.h>
 
 namespace timberline_engine
@@ -100,6 +103,132 @@ bool milestoneHookActive(
     return false;
 }
 
+bool itemDefIsLightSource(const MaskEvalContext& context, const std::string& itemId)
+{
+    if (context.itemDatabase == nullptr || itemId.empty())
+        return false;
+    const ItemDef* def = context.itemDatabase->getDef(itemId);
+    return def != nullptr && def->lightSource;
+}
+
+bool playerHasItemDef(const MaskEvalContext& context, const std::string& itemId)
+{
+    if (context.inventoryMgr == nullptr || itemId.empty())
+        return false;
+    return context.inventoryMgr->hasItem(itemId);
+}
+
+bool storyFlagSet(const MaskEvalContext& context, const std::string& flag)
+{
+    return context.storyFlags != nullptr && !flag.empty()
+        && context.storyFlags->count(flag) > 0;
+}
+
+bool maskConditionIsLightRequirement(
+    const MaskCondition& condition,
+    const MaskEvalContext& context)
+{
+    if (condition.type == MaskConditionType::PlayerHasItemFlag)
+        return condition.value == "light_source";
+    if (condition.type == MaskConditionType::PlayerHasItem)
+        return itemDefIsLightSource(context, condition.value);
+    return false;
+}
+
+}
+
+MovementBlockReason MovementResolver::blockReasonForDirection(
+    const SceneDatabase& database,
+    const SceneData& scene,
+    const std::string& activeSubSceneId,
+    const std::string& direction,
+    const MaskEvalContext& context)
+{
+    const MovementResolution resolved = resolveDirection(
+        database, scene, activeSubSceneId, direction, context);
+    if (resolved.available)
+        return MovementBlockReason::None;
+
+    std::map<std::string, std::vector<MovementMappingDef>>::const_iterator mappingsIt =
+        scene.movementExits.find(direction);
+    if (mappingsIt == scene.movementExits.end() || mappingsIt->second.empty())
+        return MovementBlockReason::None;
+
+    if (!isDirectionBlanketed(scene, activeSubSceneId, direction))
+        return MovementBlockReason::None;
+
+    bool needsLight = false;
+    bool otherBlock = false;
+
+    ExitRequirementDef requirement;
+    if (database.getExitRequirement(scene.id, direction, requirement))
+    {
+        if (requirement.requiresLightSource
+            && !playerHasTopLevelItemFlag(context, "light_source"))
+            needsLight = true;
+
+        if (!requirement.requiresInventoryItem.empty()
+            && !playerHasItemDef(context, requirement.requiresInventoryItem))
+        {
+            if (itemDefIsLightSource(context, requirement.requiresInventoryItem))
+                needsLight = true;
+            else
+                otherBlock = true;
+        }
+
+        if (!requirement.requiresInventoryItems.empty())
+        {
+            bool missingLight = false;
+            bool missingOther = false;
+            for (const std::string& itemId : requirement.requiresInventoryItems)
+            {
+                if (playerHasItemDef(context, itemId))
+                    continue;
+                if (itemDefIsLightSource(context, itemId))
+                    missingLight = true;
+                else
+                    missingOther = true;
+            }
+            if (missingOther)
+                otherBlock = true;
+            else if (missingLight)
+                needsLight = true;
+        }
+
+        if (requirement.requiresRoomPurchasedToday)
+            otherBlock = true;
+
+        if (!requirement.requiresStoryFlag.empty()
+            && !storyFlagSet(context, requirement.requiresStoryFlag))
+            otherBlock = true;
+    }
+
+    const bool illuminated = hasIllumination(scene, activeSubSceneId, context);
+    for (const MovementMappingDef& mapping : mappingsIt->second)
+    {
+        if (isMappingEffectivelyMasked(mapping, context))
+        {
+            if (maskConditionIsLightRequirement(mapping.unmaskWhen, context)
+                && !isMaskConditionMet(mapping.unmaskWhen, context))
+                needsLight = true;
+            else if (mapping.defaultMasked
+                && !isMaskConditionMet(mapping.unmaskWhen, context)
+                && !maskConditionIsLightRequirement(mapping.unmaskWhen, context))
+                otherBlock = true;
+            continue;
+        }
+
+        if (!illuminated && targetRequiresLight(database, mapping.target))
+            needsLight = true;
+    }
+
+    // Darkness badge only when light is the blocking reason — not when another
+    // lock would still keep the exit closed even with a lantern.
+    if (needsLight && !otherBlock)
+        return MovementBlockReason::NeedsLight;
+    if (needsLight || otherBlock)
+        return MovementBlockReason::Other;
+    return MovementBlockReason::Other;
 }
 
 bool MovementResolver::isDirectionBlanketed(

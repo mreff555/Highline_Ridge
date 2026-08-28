@@ -75,6 +75,12 @@ class SceneController
         const InventoryMgr& inventoryMgr,
         const ItemDatabase& itemDatabase,
         const MilestoneManager& milestoneMgr) const;
+    MovementBlockReason getDirectionBlockReason(
+        const std::string& direction,
+        const WorldState& worldState,
+        const InventoryMgr& inventoryMgr,
+        const ItemDatabase& itemDatabase,
+        const MilestoneManager& milestoneMgr) const;
 
     MaskEvalContext buildMaskContext(
         const WorldState& worldState,

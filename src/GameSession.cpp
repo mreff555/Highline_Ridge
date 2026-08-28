@@ -19,6 +19,7 @@
 
 #include <GameSession.h>
 #include <ImageCompression.h>
+#include <MovementBlockReason.h>
 #include <MovementMappingDef.h>
 #include <PlayerStats.h>
 #include <RaylibCompat.h>
@@ -2344,10 +2345,12 @@ namespace
 
         MovementStruct movement{};
         ActionStruct actions{};
+        MovementBlockOverlays blockOverlays{};
 
-        if (isBlackjackUiActive())
+        auto clearOverlaysAndReturn = [&](bool enableInventory)
         {
-            buttonMgr.setAvailability(movement, actions, false);
+            buttonMgr.setAvailability(movement, actions, enableInventory);
+            buttonMgr.setMovementBlockOverlays(MovementBlockOverlays{});
             const PlayerStatPercents percents = worldState.playerStats.toPercents();
             buttonMgr.setStatus(
                 percents.health,
@@ -2355,16 +2358,17 @@ namespace
                 percents.resolve,
                 percents.lucidity,
                 percents.charisma);
+        };
+
+        if (isBlackjackUiActive())
+        {
+            clearOverlaysAndReturn(false);
             return;
         }
 
         if (dropConfirmMgr.isOpen())
         {
-            buttonMgr.setAvailability(movement, actions);
-            {
-            const PlayerStatPercents percents = worldState.playerStats.toPercents();
-            buttonMgr.setStatus(percents.health, percents.energy, percents.resolve, percents.lucidity, percents.charisma);
-        }
+            clearOverlaysAndReturn(true);
             return;
         }
 
@@ -2449,18 +2453,27 @@ namespace
                 movement.right = false;
             }
 
-            if (movement.up && !isExitDirectionAvailable("up"))
-                movement.up = false;
-            if (movement.down && !isExitDirectionAvailable("down"))
-                movement.down = false;
-            if (movement.forward && !isExitDirectionAvailable("forward"))
-                movement.forward = false;
-            if (movement.backward && !isExitDirectionAvailable("backward"))
-                movement.backward = false;
-            if (movement.left && !isExitDirectionAvailable("left"))
-                movement.left = false;
-            if (movement.right && !isExitDirectionAvailable("right"))
-                movement.right = false;
+            auto applyDirection = [&](bool& enabled, MovementBlockReason& overlay, const char* dir)
+            {
+                if (!enabled)
+                    return;
+                if (isExitDirectionAvailable(dir))
+                    return;
+                overlay = sceneController.getDirectionBlockReason(
+                    dir,
+                    worldState,
+                    inventoryMgr,
+                    itemDatabase,
+                    milestoneMgr);
+                enabled = false;
+            };
+
+            applyDirection(movement.up, blockOverlays.up, "up");
+            applyDirection(movement.down, blockOverlays.down, "down");
+            applyDirection(movement.forward, blockOverlays.forward, "forward");
+            applyDirection(movement.backward, blockOverlays.backward, "backward");
+            applyDirection(movement.left, blockOverlays.left, "left");
+            applyDirection(movement.right, blockOverlays.right, "right");
 
             actions = baseActionFilter;
             const SceneSpeakConfig& speakConfig = sceneDatabase.getSpeakConfig(worldState.currentSceneId);
@@ -2486,6 +2499,8 @@ namespace
             disableAllButtons ? MovementStruct{} : movement,
             disableAllButtons ? ActionStruct{} : actions,
             !disableAllButtons);
+        buttonMgr.setMovementBlockOverlays(
+            disableAllButtons ? MovementBlockOverlays{} : blockOverlays);
         {
             const PlayerStatPercents percents = worldState.playerStats.toPercents();
             buttonMgr.setStatus(percents.health, percents.energy, percents.resolve, percents.lucidity, percents.charisma);
