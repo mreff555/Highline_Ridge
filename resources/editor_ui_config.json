@@ -1,0 +1,22 @@
+{
+  "description": "Timberline resource editor UI metrics. Loaded at editor start; edit freely without recompiling.",
+  "buttons": {
+    "minWidth": 72,
+    "maxWidth": 480,
+    "minHeight": 28,
+    "maxHeight": 72,
+    "padX": 12,
+    "padY": 8,
+    "fontSize": 16,
+    "lineSpacing": 3,
+    "wordWrap": true,
+    "sliceLeft": 10,
+    "sliceTop": 10,
+    "sliceRight": 10,
+    "sliceBottom": 10,
+    "raisedSkin": "resources/ui/editor/button_raised.png",
+    "depressedSkin": "resources/ui/editor/button_depressed.png",
+    "labelOffsetPressedX": 1,
+    "labelOffsetPressedY": 1
+  }
+}

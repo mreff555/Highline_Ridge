@@ -18,6 +18,7 @@
  ******************************************************************************/
 
 #include <MilestoneDatabase.h>
+#include <AssetStore.h>
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <raylib.h>
@@ -206,22 +207,39 @@ bool MilestoneDatabase::load(const std::string& configPath)
 {
     milestones.clear();
 
-    std::ifstream file(configPath.c_str());
-    if (!file.is_open())
-    {
-        TraceLog(LOG_WARNING, "Milestone config not found: %s", configPath.c_str());
-        return false;
-    }
-
     nlohmann::json root;
-    try
+    std::string text;
+    if (assets().readText(configPath, text)
+        || assets().readText("resources/milestones.json", text))
     {
-        file >> root;
+        try
+        {
+            root = nlohmann::json::parse(text);
+        }
+        catch (const nlohmann::json::exception&)
+        {
+            TraceLog(LOG_WARNING, "Invalid JSON in milestone config: %s", configPath.c_str());
+            return false;
+        }
     }
-    catch (const nlohmann::json::exception&)
+    else
     {
-        TraceLog(LOG_ERROR, "Failed to parse milestone config: %s", configPath.c_str());
-        return false;
+        std::ifstream file(configPath.c_str());
+        if (!file.is_open())
+        {
+            TraceLog(LOG_WARNING, "Milestone config not found: %s", configPath.c_str());
+            return false;
+        }
+
+        try
+        {
+            file >> root;
+        }
+        catch (const nlohmann::json::exception&)
+        {
+            TraceLog(LOG_ERROR, "Failed to parse milestone config: %s", configPath.c_str());
+            return false;
+        }
     }
 
     const nlohmann::json& milestoneMap = root.contains("milestones")

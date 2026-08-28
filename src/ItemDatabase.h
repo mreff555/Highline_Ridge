@@ -70,6 +70,17 @@ class ItemDatabase
         const ItemInstance& instance,
         const ItemDefOverrides& overrides = {}) const;
 
+    /** All item defs (for craft product scan / editor). */
+    const std::map<std::string, ItemDef>& allDefs() const { return items; }
+
+    /**
+     * Product defs whose components are exactly the two item ids (order free).
+     * Phase-1 crafts use two components.
+     */
+    std::vector<const ItemDef*> findCraftProductsForPair(
+        const std::string& itemIdA,
+        const std::string& itemIdB) const;
+
     static int walletCashRoundedDown(float walletCash);
     static std::string formatWalletCashIconLabel(float walletCash);
     static std::string appendWalletCashDescription(

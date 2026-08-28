@@ -32,15 +32,69 @@ struct TtsVoiceSegment
     std::string text;
 };
 
+/** Owner-level TTS policy (scene, item, or combine recipe). Off by default. */
+struct TtsOwnerPolicy
+{
+    bool enabled = false;
+    std::string defaultVoice;
+};
+
+enum class TtsHighlightKind
+{
+    Default,
+    /** Bracket inline speech tags: [pause], [laugh], … */
+    Command,
+    /** Angle-bracket wrapping keywords: <whisper>, </whisper>, … */
+    StyleMarkup,
+    /** Text between a matched <tag>…</tag> pair. */
+    StyleContent,
+    /** Double-brace voice keywords: {{voice:eve}}, {{/voice}}, {{eve}}. */
+    VoiceMarkup,
+    /** Text between a matched {{open}}…{{/close}} voice pair. */
+    VoiceDialog,
+    /** Unclosed <… or {{… stretch (and nested content after a broken open). */
+    MarkupError
+};
+
+const std::vector<std::string>& builtinVoiceIds();
+
+std::string formatBuiltinVoiceList();
+
 bool isKnownBuiltinVoiceId(const std::string& voiceId);
 
 std::string normalizeVoiceId(const std::string& voiceId);
 
+/** Explicit error when TTS is on without a valid default voice. */
+std::string formatTtsEnabledMissingVoiceError(
+    const std::string& ownerLabel,
+    const char* defaultVoiceKeyName = "ttsDefaultVoice");
+
+/** Parse JSON owner fields: ttsEnabled + ttsDefaultVoice. */
+void parseTtsOwnerPolicyFromJsonFields(
+    bool ttsEnabledField,
+    const std::string& ttsDefaultVoiceField,
+    TtsOwnerPolicy& out);
+
+/**
+ * Parse {{voice}} markup into segments.
+ * defaultVoiceId must be a known builtin voice (no silent Leo fallback).
+ */
 bool parseVoiceMarkup(
     const std::string& text,
     const std::string& defaultVoiceId,
     std::vector<TtsVoiceSegment>& outSegments,
     std::string& outError);
+
+/**
+ * Classify each character for editor syntax highlighting:
+ *  - Allowlisted [command] tags → Command
+ *  - <style>…</style> keywords → StyleMarkup; inner text → StyleContent
+ *  - {{voice}} keywords → VoiceMarkup; inner text → VoiceDialog
+ *  - Unclosed < or {{ regions → MarkupError from the open through EOF
+ */
+void classifyTtsTextHighlight(
+    const std::string& text,
+    std::vector<TtsHighlightKind>& outKinds);
 
 std::string buildSegmentAudioPath(
     const std::string& baseAudioPath,

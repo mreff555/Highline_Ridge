@@ -158,8 +158,9 @@ const std::vector<PauseMenuMgr::ConfigRow>& PauseMenuMgr::getConfigRows() const
 Rectangle PauseMenuMgr::getPanelBounds() const
 {
     const float panelWidth = 460.0f;
+    // Title/in-game main panels now hold 5 rows.
     const float panelHeight = panel == PauseMenuPanel::Main
-        ? 430.0f
+        ? 500.0f
         : std::min(760.0f, (float)screenHeight * 0.88f);
     return {
         (screenWidth - panelWidth) * 0.5f,
@@ -237,20 +238,26 @@ void PauseMenuMgr::layoutMainButtons()
 
     const Rectangle panel = getPanelBounds();
     const float buttonWidth = panel.width - 72.0f;
-    const float buttonHeight = 52.0f;
-    const float gap = 14.0f;
+    const float buttonHeight = 48.0f;
+    const float gap = 12.0f;
     const float startX = panel.x + 36.0f;
-    float startY = panel.y + 108.0f;
+    float startY = panel.y + 100.0f;
 
-    const char* labels[] = { "Load", "Save", "Config", "Quit" };
-    for (const char* label : labels)
+    // Title: Continue, Load Game, New Game, Config, Exit
+    // In-game: Resume, Load Game, New Game, Config, Exit
+    const char* first = context == PauseMenuContext::Title ? "Continue" : "Resume";
+    const char* labels[] = { first, "Load Game", "New Game", "Config", "Exit" };
+    for (size_t i = 0; i < 5; ++i)
     {
         buttons.push_back(Button(
-            label,
+            labels[i],
             { startX, startY },
             { buttonWidth, buttonHeight },
             uiFont,
             buttonStyle));
+        // Continue disabled when no save exists.
+        if (i == 0 && context == PauseMenuContext::Title && !continueAvailable)
+            buttons.back().setEnabled(false);
         startY += buttonHeight + gap;
     }
 }
@@ -277,9 +284,27 @@ void PauseMenuMgr::layoutConfigButtons()
 void PauseMenuMgr::openMenu()
 {
     open = true;
+    context = PauseMenuContext::InGame;
     showMainPanel();
     statusMessage.clear();
     statusMessageTimer = 0.0f;
+}
+
+void PauseMenuMgr::openTitleMenu()
+{
+    open = true;
+    context = PauseMenuContext::Title;
+    showMainPanel();
+    statusMessage.clear();
+    statusMessageTimer = 0.0f;
+}
+
+void PauseMenuMgr::setContinueAvailable(bool available)
+{
+    continueAvailable = available;
+    if (open && panel == PauseMenuPanel::Main && context == PauseMenuContext::Title
+        && !buttons.empty())
+        buttons[0].setEnabled(available);
 }
 
 void PauseMenuMgr::closeMenu()
@@ -287,7 +312,13 @@ void PauseMenuMgr::closeMenu()
     open = false;
     activeSliderIndex = -1;
     configScrollY = 0.0f;
+    context = PauseMenuContext::InGame;
     showMainPanel();
+}
+
+const char* PauseMenuMgr::mainPanelTitle() const
+{
+    return context == PauseMenuContext::Title ? "HIGHLINE RIDGE" : "PAUSED";
 }
 
 void PauseMenuMgr::showConfigPanel()
@@ -322,6 +353,27 @@ bool PauseMenuMgr::consumeOpenLoadMenuRequest()
 {
     const bool requested = openLoadMenuRequested;
     openLoadMenuRequested = false;
+    return requested;
+}
+
+bool PauseMenuMgr::consumeContinueRequest()
+{
+    const bool requested = continueRequested;
+    continueRequested = false;
+    return requested;
+}
+
+bool PauseMenuMgr::consumeNewGameRequest()
+{
+    const bool requested = newGameRequested;
+    newGameRequested = false;
+    return requested;
+}
+
+bool PauseMenuMgr::consumeResumeRequest()
+{
+    const bool requested = resumeRequested;
+    resumeRequested = false;
     return requested;
 }
 
@@ -585,7 +637,10 @@ void PauseMenuMgr::handleMainInput()
     {
         Button& button = buttons[i];
         if (!button.isEnabled())
+        {
+            button.setState(NORMAL);
             continue;
+        }
 
         if (CheckCollisionPointRec(GetMousePosition(), button.getBounds()))
             button.setState(IsMouseButtonDown(MOUSE_BUTTON_LEFT) ? PRESSED : HOVERED);
@@ -595,18 +650,25 @@ void PauseMenuMgr::handleMainInput()
         if (!button.isClicked())
             continue;
 
+        // 0 Continue/Resume, 1 Load Game, 2 New Game, 3 Config, 4 Exit
         switch (i)
         {
             case 0:
-                openLoadMenuRequested = true;
+                if (context == PauseMenuContext::Title)
+                    continueRequested = true;
+                else
+                    resumeRequested = true;
                 break;
             case 1:
-                openSaveMenuRequested = true;
+                openLoadMenuRequested = true;
                 break;
             case 2:
-                showConfigPanel();
+                newGameRequested = true;
                 break;
             case 3:
+                showConfigPanel();
+                break;
+            case 4:
                 quitRequested = true;
                 break;
             default:
@@ -897,7 +959,7 @@ void PauseMenuMgr::draw() const
     }
     else
     {
-        drawPanelFrame("PAUSED");
+        drawPanelFrame(mainPanelTitle());
     }
 
     for (const Button& button : buttons)

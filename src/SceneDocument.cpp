@@ -23,6 +23,7 @@
 #include <cctype>
 #include <fstream>
 #include <sstream>
+#include <string>
 
 namespace timberline_engine
 {
@@ -129,6 +130,112 @@ bool SceneDocument::hasScene(const std::string& sceneId) const
     return isLoaded() && root["scenes"].contains(sceneId);
 }
 
+bool SceneDocument::hasMapPlacement(const std::string& sceneId) const
+{
+    const nlohmann::json* scene = sceneJson(sceneId);
+    return scene != nullptr && scene->contains("layout") && (*scene)["layout"].is_object();
+}
+
+bool SceneDocument::createScene(const std::string& sceneId, const nlohmann::json& sceneObject)
+{
+    if (!isLoaded() || sceneId.empty() || hasScene(sceneId) || !sceneObject.is_object())
+        return false;
+    root["scenes"][sceneId] = sceneObject;
+    return true;
+}
+
+std::string SceneDocument::allocateUniqueSceneId(const std::string& baseId) const
+{
+    if (baseId.empty())
+        return {};
+    if (!hasScene(baseId))
+        return baseId;
+
+    for (int n = 2; n < 10000; ++n)
+    {
+        const std::string candidate = baseId + "_" + std::to_string(n);
+        if (!hasScene(candidate))
+            return candidate;
+    }
+    return {};
+}
+
+std::string SceneDocument::duplicateScene(const std::string& sourceId)
+{
+    if (!hasScene(sourceId))
+        return {};
+
+    const std::string newId = allocateUniqueSceneId(sourceId);
+    if (newId.empty() || newId == sourceId)
+        return {};
+
+    const nlohmann::json* source = sceneJson(sourceId);
+    if (source == nullptr || !source->is_object())
+        return {};
+
+    nlohmann::json copy = *source;
+    // Independent room: no map pose and no outbound graph until the author links it.
+    copy.erase("layout");
+    if (copy.contains("exits") && copy["exits"].is_object())
+        copy["exits"] = nlohmann::json::object();
+    if (copy.contains("movement") && copy["movement"].is_object())
+    {
+        for (auto it = copy["movement"].begin(); it != copy["movement"].end(); ++it)
+        {
+            if (it.value().is_boolean())
+                it.value() = false;
+        }
+    }
+    if (copy.contains("exitRequirements") && copy["exitRequirements"].is_object())
+        copy["exitRequirements"] = nlohmann::json::object();
+    if (copy.contains("movementExits") && copy["movementExits"].is_object())
+        copy["movementExits"] = nlohmann::json::object();
+    copy["start"] = false;
+
+    if (!createScene(newId, copy))
+        return {};
+    return newId;
+}
+
+bool SceneDocument::removeScene(const std::string& sceneId)
+{
+    if (!hasScene(sceneId))
+        return false;
+
+    nlohmann::json& scenes = root["scenes"];
+    for (auto it = scenes.begin(); it != scenes.end(); ++it)
+    {
+        if (it.key() == sceneId || !it.value().is_object())
+            continue;
+
+        nlohmann::json& scene = it.value();
+        if (!scene.contains("exits") || !scene["exits"].is_object())
+            continue;
+
+        std::vector<std::string> directionsToClear;
+        for (auto exitIt = scene["exits"].begin(); exitIt != scene["exits"].end(); ++exitIt)
+        {
+            if (exitIt.value().is_string()
+                && exitIt.value().get<std::string>() == sceneId)
+            {
+                directionsToClear.push_back(exitIt.key());
+            }
+        }
+
+        for (const std::string& direction : directionsToClear)
+        {
+            scene["exits"].erase(direction);
+            if (scene.contains("movement") && scene["movement"].is_object())
+                scene["movement"][direction] = false;
+            if (scene.contains("exitRequirements") && scene["exitRequirements"].is_object())
+                scene["exitRequirements"].erase(direction);
+        }
+    }
+
+    scenes.erase(sceneId);
+    return true;
+}
+
 SceneLayout SceneDocument::getLayout(const std::string& sceneId) const
 {
     SceneLayout layout;
@@ -156,6 +263,14 @@ void SceneDocument::setLayout(const std::string& sceneId, const SceneLayout& lay
     };
 }
 
+void SceneDocument::clearLayout(const std::string& sceneId)
+{
+    nlohmann::json* scene = sceneJson(sceneId);
+    if (scene == nullptr)
+        return;
+    scene->erase("layout");
+}
+
 std::vector<SceneActor> SceneDocument::getActors(const std::string& sceneId) const
 {
     std::vector<SceneActor> actors;
@@ -181,27 +296,6 @@ std::vector<SceneActor> SceneDocument::getActors(const std::string& sceneId) con
     return actors;
 }
 
-void SceneDocument::setActors(const std::string& sceneId, const std::vector<SceneActor>& actors)
-{
-    nlohmann::json* scene = sceneJson(sceneId);
-    if (scene == nullptr)
-        return;
-
-    nlohmann::json actorsJson = nlohmann::json::array();
-    for (const SceneActor& actor : actors)
-    {
-        actorsJson.push_back({
-            {"id", actor.id},
-            {"name", actor.name},
-            {"role", actor.role},
-            {"x", actor.x},
-            {"y", actor.y}
-        });
-    }
-
-    (*scene)["actors"] = actorsJson;
-}
-
 std::string SceneDocument::getSceneImagePath(const std::string& sceneId) const
 {
     const nlohmann::json* scene = sceneJson(sceneId);
@@ -210,12 +304,42 @@ std::string SceneDocument::getSceneImagePath(const std::string& sceneId) const
     return scene->value("image", "");
 }
 
-std::string SceneDocument::getSceneDescription(const std::string& sceneId) const
+std::string SceneDocument::getSceneMusicPath(const std::string& sceneId) const
 {
     const nlohmann::json* scene = sceneJson(sceneId);
-    if (scene == nullptr)
+    if (scene == nullptr || !scene->is_object())
         return "";
-    return scene->value("description", "");
+    const nlohmann::json audio = scene->value("audio", nlohmann::json::object());
+    if (!audio.is_object())
+        return "";
+    if (audio.contains("music") && audio["music"].is_object())
+        return audio["music"].value("path", "");
+    if (audio.contains("music") && audio["music"].is_string())
+        return audio["music"].get<std::string>();
+    return "";
+}
+
+std::string SceneDocument::getSceneAmbientPath(const std::string& sceneId) const
+{
+    const nlohmann::json* scene = sceneJson(sceneId);
+    if (scene == nullptr || !scene->is_object())
+        return "";
+    const nlohmann::json audio = scene->value("audio", nlohmann::json::object());
+    if (!audio.is_object() || !audio.contains("ambient"))
+        return "";
+    const nlohmann::json& ambient = audio["ambient"];
+    if (ambient.is_array() && !ambient.empty())
+    {
+        if (ambient[0].is_object())
+            return ambient[0].value("path", "");
+        if (ambient[0].is_string())
+            return ambient[0].get<std::string>();
+    }
+    if (ambient.is_object())
+        return ambient.value("path", "");
+    if (ambient.is_string())
+        return ambient.get<std::string>();
+    return "";
 }
 
 nlohmann::json* SceneDocument::sceneJson(const std::string& sceneId)

@@ -47,6 +47,9 @@ class AudioManager
 
     void onRoomEnter(const RoomAudioConfig& roomAudio, const std::string& fromRoom = "");
     void onRoomExit(const RoomAudioConfig& roomAudio, const std::string& toRoom = "");
+    /** Title-screen music + muffled wind (does not require a room). */
+    void startTitleScreenBed();
+    void stopTitleScreenBed();
     void playSfx(const AudioClipDef& clip);
     void playDialog(const std::string& relativePath, float volume = 1.0f);
     void playDialogSequence(const std::vector<std::string>& relativePaths, float volume = 1.0f);

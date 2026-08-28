@@ -37,6 +37,11 @@ std::string compressedAssetPath(const std::string& path);
 
 bool decompressXzFile(const std::string& path, std::vector<unsigned char>& outBytes);
 
+bool decompressXzBytes(
+    const unsigned char* input,
+    size_t inputSize,
+    std::vector<unsigned char>& outBytes);
+
 bool compressBytesToXzFile(
     const unsigned char* input,
     size_t inputSize,

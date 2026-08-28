@@ -79,6 +79,11 @@ class InventoryMgr
     const InventoryItem* getItemById(const std::string& id) const;
     bool hasItem(const std::string& id) const;
     void addItem(const InventoryItem& item);
+    /**
+     * Developer / grant helper: add a new item, or if stackable and already
+     * owned, raise quantity. Non-stackable duplicates are ignored.
+     */
+    bool giveOrStackItem(const InventoryItem& item, std::string& message);
     bool removeItem(const std::string& id);
     std::vector<InventoryItem> exportItemSnapshots() const;
     void restoreFromSnapshots(const std::vector<InventoryItem>& savedItems);
@@ -86,6 +91,11 @@ class InventoryMgr
     std::string consumePendingDropItemId();
     bool consumeItemCombinationApplied();
     std::string consumePendingCombinationNarrative();
+    ItemTtsDef consumePendingCombinationNarrativeTts();
+    bool consumePendingCombinationTtsOwnerEnabled();
+
+    float totalCarryWeightLb() const;
+    static float maxCarryWeightLb() { return kMaxCarryWeightLb; }
 
     private:
     void createDefaultItems();
@@ -103,6 +113,14 @@ class InventoryMgr
     void handleItemGridInput();
     void handleItemCombineInput();
     bool applyItemCombination(const ItemCombineApplication& application);
+    bool applyComponentSpends(const std::vector<ItemCombineComponentSpend>& spends);
+    void handleCraftChooserInput();
+    void drawCraftChooser() const;
+    void openCraftChooser(
+        const std::string& firstItemId,
+        const std::string& secondItemId,
+        std::vector<ItemCraftCandidate> candidates);
+    void closeCraftChooser();
     void drawDragGhost() const;
     void drawUndefinedItemIcon(const Rectangle& iconArea) const;
     void drawWalletCashBadge(const Rectangle& slot) const;
@@ -141,6 +159,14 @@ class InventoryMgr
     bool isDraggingItem = false;
     bool pendingItemCombinationApplied = false;
     std::string pendingCombinationNarrative;
+    ItemTtsDef pendingCombinationNarrativeTts{};
+    bool pendingCombinationTtsOwnerEnabled = false;
+
+    // Multi-product craft chooser (same component pair, several products).
+    bool craftChooserOpen = false;
+    std::string craftChooserFirstId;
+    std::string craftChooserSecondId;
+    std::vector<ItemCraftCandidate> craftChooserCandidates;
 
     ScrollPanel inventoryScroll;
     mutable float inventoryContentHeight = 0.0f;

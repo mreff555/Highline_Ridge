@@ -19,192 +19,89 @@
 
 #include "ItemCombinationDatabase.h"
 
-#include <nlohmann/json.hpp>
-#include <fstream>
+#include <algorithm>
 
 namespace timberline_engine
 {
 
-namespace
+int ItemCombinationDatabase::instanceQty(const ItemInstance& instance)
 {
-
-bool parseRequirements(const nlohmann::json& json, ItemCombineRequirements& out)
-{
-    if (!json.is_object())
-        return true;
-
-    out.requiredFlags.clear();
-    out.forbiddenFlags.clear();
-
-    const nlohmann::json& required = json.value("flags", json.value("requiredFlags", nlohmann::json::array()));
-    if (required.is_array())
-    {
-        for (const nlohmann::json& flag : required)
-        {
-            if (flag.is_string() && !flag.get<std::string>().empty())
-                out.requiredFlags.push_back(flag.get<std::string>());
-        }
-    }
-
-    const nlohmann::json& forbidden = json.value(
-        "notFlags",
-        json.value("forbiddenFlags", nlohmann::json::array()));
-    if (forbidden.is_array())
-    {
-        for (const nlohmann::json& flag : forbidden)
-        {
-            if (flag.is_string() && !flag.get<std::string>().empty())
-                out.forbiddenFlags.push_back(flag.get<std::string>());
-        }
-    }
-
-    return true;
+    return std::max(0, instance.quantity);
 }
 
-bool parseEffect(const nlohmann::json& json, ItemCombineEffect& out)
+int ItemCombinationDatabase::minRequiredQty(const ItemComponentDef& component)
 {
-    if (!json.is_object())
-        return false;
-
-    if (json.contains("remove"))
-    {
-        out.type = ItemCombineEffect::Type::Remove;
-        out.itemId = json.value("remove", "");
-        return !out.itemId.empty();
-    }
-
-    if (json.contains("addFlag"))
-    {
-        const nlohmann::json& flagEntry = json["addFlag"];
-        if (!flagEntry.is_object())
-            return false;
-
-        out.type = ItemCombineEffect::Type::AddFlag;
-        out.itemId = flagEntry.value("item", "");
-        out.flag = flagEntry.value("flag", "");
-        return !out.itemId.empty() && !out.flag.empty();
-    }
-
-    if (json.contains("grant"))
-    {
-        out.type = ItemCombineEffect::Type::Grant;
-        out.itemId = json.value("grant", "");
-        return !out.itemId.empty();
-    }
-
-    return false;
+    return component.reqQty > 0 ? component.reqQty : 1;
 }
 
-bool parseRecipe(const nlohmann::json& json, ItemCombineRecipe& out)
+int ItemCombinationDatabase::spendQtyFor(const ItemComponentDef& component)
 {
-    if (!json.is_object())
-        return false;
-
-    out.id = json.value("id", "");
-    out.itemA = json.value("itemA", "");
-    out.itemB = json.value("itemB", "");
-    if (out.itemA.empty() || out.itemB.empty())
-        return false;
-
-    const nlohmann::json& requirements = json.value("requirements", nlohmann::json::object());
-    if (requirements.is_object())
-    {
-        parseRequirements(requirements.value(out.itemA, nlohmann::json::object()), out.requirementsA);
-        parseRequirements(requirements.value(out.itemB, nlohmann::json::object()), out.requirementsB);
-    }
-
-    out.narrative = json.value("narrative", "");
-    out.effects.clear();
-    const nlohmann::json& effects = json.value("effects", nlohmann::json::array());
-    if (!effects.is_array())
-        return false;
-
-    for (const nlohmann::json& entry : effects)
-    {
-        ItemCombineEffect effect;
-        if (parseEffect(entry, effect))
-            out.effects.push_back(effect);
-    }
-
-    return !out.effects.empty();
+    if (!component.consume)
+        return 0;
+    return component.reqQty > 0 ? component.reqQty : 0;
 }
 
-}
-
-bool ItemCombinationDatabase::load(const std::string& path)
-{
-    std::ifstream file(path.c_str());
-    if (!file.is_open())
-        return false;
-
-    nlohmann::json root;
-    try
-    {
-        file >> root;
-    }
-    catch (const nlohmann::json::exception&)
-    {
-        return false;
-    }
-
-    recipes.clear();
-
-    const nlohmann::json& combinations = root.value("combinations", nlohmann::json::array());
-    if (!combinations.is_array())
-        return false;
-
-    for (const nlohmann::json& entry : combinations)
-    {
-        ItemCombineRecipe recipe;
-        if (parseRecipe(entry, recipe))
-            recipes.push_back(recipe);
-    }
-
-    return !recipes.empty();
-}
-
-bool ItemCombinationDatabase::requirementsMet(
-    const ItemCombineRequirements& requirements,
-    const ItemInstance& instance) const
-{
-    for (const std::string& flag : requirements.requiredFlags)
-    {
-        if (!instance.hasFlag(flag))
-            return false;
-    }
-
-    for (const std::string& flag : requirements.forbiddenFlags)
-    {
-        if (instance.hasFlag(flag))
-            return false;
-    }
-
-    return true;
-}
-
-bool ItemCombinationDatabase::recipeMatches(
-    const ItemCombineRecipe& recipe,
+const ItemInstance* ItemCombinationDatabase::instanceForComponent(
+    const ItemComponentDef& component,
     const std::string& firstItemId,
     const std::string& secondItemId,
     const ItemInstance& firstInstance,
-    const ItemInstance& secondInstance) const
+    const ItemInstance& secondInstance,
+    std::string* outMatchedItemId)
 {
-    const bool directMatch = firstItemId == recipe.itemA && secondItemId == recipe.itemB;
-    const bool swappedMatch = firstItemId == recipe.itemB && secondItemId == recipe.itemA;
-    if (!directMatch && !swappedMatch)
-        return false;
-
-    if (directMatch)
+    if (component.acceptsItemId(firstItemId))
     {
-        return requirementsMet(recipe.requirementsA, firstInstance)
-            && requirementsMet(recipe.requirementsB, secondInstance);
+        if (outMatchedItemId != nullptr)
+            *outMatchedItemId = firstItemId;
+        return &firstInstance;
     }
-
-    return requirementsMet(recipe.requirementsA, secondInstance)
-        && requirementsMet(recipe.requirementsB, firstInstance);
+    if (component.acceptsItemId(secondItemId))
+    {
+        if (outMatchedItemId != nullptr)
+            *outMatchedItemId = secondItemId;
+        return &secondInstance;
+    }
+    return nullptr;
 }
 
-bool ItemCombinationDatabase::tryCombine(
+bool ItemCombinationDatabase::productAffordable(
+    const ItemDef& product,
+    const std::string& firstItemId,
+    const std::string& secondItemId,
+    const ItemInstance& firstInstance,
+    const ItemInstance& secondInstance)
+{
+    if (product.components.size() != 2)
+        return false;
+
+    const ItemComponentDef& c0 = product.components[0];
+    const ItemComponentDef& c1 = product.components[1];
+    const bool assignmentOk =
+        (c0.acceptsItemId(firstItemId) && c1.acceptsItemId(secondItemId))
+        || (c0.acceptsItemId(secondItemId) && c1.acceptsItemId(firstItemId));
+    if (!assignmentOk)
+        return false;
+
+    for (const ItemComponentDef& component : product.components)
+    {
+        const ItemInstance* instance = instanceForComponent(
+            component,
+            firstItemId,
+            secondItemId,
+            firstInstance,
+            secondInstance,
+            nullptr);
+        if (instance == nullptr)
+            return false;
+        if (instanceQty(*instance) < minRequiredQty(component))
+            return false;
+    }
+    return true;
+}
+
+bool ItemCombinationDatabase::buildProductCraftApplication(
+    const ItemDatabase& itemDatabase,
+    const std::string& productId,
     const std::string& firstItemId,
     const std::string& secondItemId,
     const ItemInstance& firstInstance,
@@ -212,36 +109,107 @@ bool ItemCombinationDatabase::tryCombine(
     ItemCombineApplication& outApplication) const
 {
     outApplication = ItemCombineApplication{};
+    const ItemDef* product = itemDatabase.getDef(productId);
+    if (product == nullptr || product->components.size() != 2)
+        return false;
+    if (!productAffordable(
+            *product,
+            firstItemId,
+            secondItemId,
+            firstInstance,
+            secondInstance))
+        return false;
 
+    outApplication.success = true;
+    outApplication.grantProductId = productId;
+    outApplication.grantQuantity = 1;
+    outApplication.narrative = product->assembleNarrative;
+    outApplication.ttsOwnerEnabled = product->ttsPolicy.enabled;
+    outApplication.narrativeTts = product->assembleTts;
+
+    for (const ItemComponentDef& component : product->components)
+    {
+        std::string matchedId;
+        if (instanceForComponent(
+                component,
+                firstItemId,
+                secondItemId,
+                firstInstance,
+                secondInstance,
+                &matchedId)
+            == nullptr)
+            return false;
+
+        ItemCombineComponentSpend spend;
+        spend.itemId = matchedId;
+        spend.spendQty = spendQtyFor(component);
+        spend.consume = component.consume;
+        outApplication.componentSpends.push_back(spend);
+    }
+    return true;
+}
+
+std::vector<ItemCraftCandidate> ItemCombinationDatabase::findAffordableCraftProducts(
+    const ItemDatabase& itemDatabase,
+    const std::string& firstItemId,
+    const std::string& secondItemId,
+    const ItemInstance& firstInstance,
+    const ItemInstance& secondInstance) const
+{
+    std::vector<ItemCraftCandidate> candidates;
+    const std::vector<const ItemDef*> products =
+        itemDatabase.findCraftProductsForPair(firstItemId, secondItemId);
+    for (const ItemDef* product : products)
+    {
+        if (product == nullptr)
+            continue;
+        if (!productAffordable(
+                *product,
+                firstItemId,
+                secondItemId,
+                firstInstance,
+                secondInstance))
+            continue;
+
+        ItemCraftCandidate candidate;
+        candidate.productId = product->id;
+        candidate.productName = product->name;
+        candidate.iconPath = product->icons.icon;
+        candidates.push_back(candidate);
+    }
+    return candidates;
+}
+
+bool ItemCombinationDatabase::tryCombine(
+    const ItemDatabase& itemDatabase,
+    const std::string& firstItemId,
+    const std::string& secondItemId,
+    const ItemInstance& firstInstance,
+    const ItemInstance& secondInstance,
+    ItemCombineApplication& outApplication) const
+{
+    outApplication = ItemCombineApplication{};
     if (firstItemId.empty() || secondItemId.empty() || firstItemId == secondItemId)
         return false;
 
-    for (const ItemCombineRecipe& recipe : recipes)
-    {
-        if (!recipeMatches(recipe, firstItemId, secondItemId, firstInstance, secondInstance))
-            continue;
+    const std::vector<ItemCraftCandidate> products = findAffordableCraftProducts(
+        itemDatabase,
+        firstItemId,
+        secondItemId,
+        firstInstance,
+        secondInstance);
 
-        outApplication.success = true;
-        outApplication.narrative = recipe.narrative;
-        for (const ItemCombineEffect& effect : recipe.effects)
-        {
-            switch (effect.type)
-            {
-                case ItemCombineEffect::Type::Remove:
-                    outApplication.removeItemIds.push_back(effect.itemId);
-                    break;
-                case ItemCombineEffect::Type::AddFlag:
-                    outApplication.addFlags.push_back({ effect.itemId, effect.flag });
-                    break;
-                case ItemCombineEffect::Type::Grant:
-                    outApplication.grantItemIds.push_back(effect.itemId);
-                    break;
-            }
-        }
-        return true;
-    }
+    if (products.size() != 1)
+        return false;
 
-    return false;
+    return buildProductCraftApplication(
+        itemDatabase,
+        products.front().productId,
+        firstItemId,
+        secondItemId,
+        firstInstance,
+        secondInstance,
+        outApplication);
 }
 
 }

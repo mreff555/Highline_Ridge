@@ -19,6 +19,7 @@
 
 #include <GameSession.h>
 #include <ImageCompression.h>
+#include <MovementBlockReason.h>
 #include <MovementMappingDef.h>
 #include <PlayerStats.h>
 #include <RaylibCompat.h>
@@ -37,23 +38,8 @@ namespace
 {
     const float kDialogHeightShareWhenSidePanelOpen = 2.0f / 3.0f;
     const float kSidePanelHeightShare = 1.0f / 3.0f;
-    const Color kPaperShadow = {118, 98, 68, 255};
-    const Color kPaperEdge = {108, 88, 58, 255};
-    const Color kRuleLine = {132, 148, 168, 85};
-    const Color kMarginLine = {168, 78, 68, 150};
-    const Color kBindingRing = {98, 82, 62, 255};
-    const Color kBindingHole = {58, 48, 38, 255};
-    const Color kScrollTrack = {206, 186, 148, 255};
-    const Color kScrollThumb = {176, 148, 108, 255};
-    const Color kScrollThumbHover = {148, 118, 78, 255};
-    const Color kChoiceText = {92, 52, 22, 255};
+    // Dev overlay hover accent (notebook palette lives in NarrativeNotebook.cpp).
     const Color kChoiceHover = {148, 88, 28, 255};
-    const char kNarrativeSketchPrefix[] = "@sketch:";
-    const Color kNotebookHeader = {78, 54, 34, 255};
-    const Color kNotebookNavEnabled = {78, 54, 34, 255};
-    const Color kNotebookNavDisabled = {148, 132, 112, 255};
-    const Color kQuestComplete = {52, 92, 58, 255};
-    const Color kQuestFailed = {108, 72, 72, 255};
 
     struct ResolvedActorSpeakTarget
     {
@@ -218,56 +204,6 @@ namespace
         return resolved;
     }
 
-    Rectangle getNotebookHeaderBand(const Rectangle& bounds)
-    {
-        return {
-            bounds.x + 58.0f,
-            bounds.y,
-            bounds.width - 58.0f - 16.0f,
-            46.0f
-        };
-    }
-
-    void drawCenteredUnderlinedHeader(
-        Font font,
-        const char* title,
-        const Rectangle& band,
-        float fontSize,
-        Color color)
-    {
-        const Vector2 textSize = MeasureTextEx(font, title, fontSize, 1.0f);
-        const float textX = band.x + (band.width - textSize.x) / 2.0f;
-        const float textY = band.y + (band.height - textSize.y) / 2.0f - 2.0f;
-
-        DrawTextEx(font, title, { textX, textY }, fontSize, 1.0f, color);
-        DrawLineEx(
-            { textX, textY + textSize.y + 2.0f },
-            { textX + textSize.x, textY + textSize.y + 2.0f },
-            1.5f,
-            color);
-    }
-
-    void drawNotebookArrowButton(
-        Font font,
-        const char* label,
-        Rectangle bounds,
-        bool enabled,
-        bool hovered)
-    {
-        const float fontSize = bounds.height - 4.0f;
-        const Vector2 textSize = MeasureTextEx(font, label, fontSize, 1.0f);
-        const Vector2 textPos = {
-            bounds.x + (bounds.width - textSize.x) / 2.0f,
-            bounds.y + (bounds.height - textSize.y) / 2.0f
-        };
-
-        Color color = enabled ? kNotebookNavEnabled : kNotebookNavDisabled;
-        if (enabled && hovered)
-            color = kChoiceHover;
-
-        DrawTextEx(font, label, textPos, fontSize, 1.0f, color);
-    }
-
     const char* kWakeOnFloorPrefix =
         "Consciousness returns in fragments — pain first, then cold stone, then the thin daylight "
         "at the cave mouth. Your mouth tastes of iron. Memory stays blank.";
@@ -333,6 +269,9 @@ namespace
       useDetails(locationStruct.useDetails),
       useHealthDelta(locationStruct.useHealthDelta),
       useEnergyDelta(locationStruct.useEnergyDelta),
+      useResolveDelta(locationStruct.useResolveDelta),
+      useLucidityDelta(locationStruct.useLucidityDelta),
+      useCharismaDelta(locationStruct.useCharismaDelta),
       useRepeatStatus(locationStruct.useRepeatStatus),
       useRequiresExamine(locationStruct.useRequiresExamine),
       useAdvancesDay(locationStruct.useAdvancesDay),
@@ -357,6 +296,15 @@ namespace
         takeMgr.setFont(locationStruct.uiFont);
         interactionMgr.setFont(locationStruct.uiFont);
         speakTargetMgr.setFont(locationStruct.uiFont);
+#if defined(HIGHLINE_DEV_TOOLS)
+        devConsole.setFonts(locationStruct.descriptionFont, locationStruct.boldFont);
+        devConsole.setItemDatabase(&itemDatabase);
+        devConsole.setGiveItemHandler(
+            [this](const std::string& itemId, std::string& message) -> bool
+            {
+                return devGiveItem(itemId, message);
+            });
+#endif
         const std::string& assetRoot = sceneDatabase.getAssetRoot();
         const std::string fallbackRoot = (assetRoot == ".") ? ".." : ".";
         inventoryMgr.setAssetRoots(assetRoot, fallbackRoot);
@@ -407,7 +355,7 @@ namespace
         if (worldState.currentSceneId == "snow_cave_interior")
         {
             overlayMgr.setHypoxiaOpacity(1.0f);
-            pendingOpeningHypoxiaSequence = true;
+            openingHypoxiaArmed = true;
             deferInitialRoomAudio = true;
         }
         narrativeNotebook.setFonts(descriptionFont, boldFont);
@@ -422,6 +370,9 @@ namespace
         updateInventoryLayout();
         syncWalletInventoryDisplay();
         updateActionAvailability();
+
+        mainMenuBackdrop.load(assetRoot);
+        enterTitleScreen();
     }
 
     void GameSession::syncWalletInventoryDisplay()
@@ -520,48 +471,10 @@ namespace
 
     GameSession::~GameSession()
     {
+        mainMenuBackdrop.unload();
         if (ownsLocationImage && locationImage.id != 0)
             UnloadTexture(locationImage);
     }
-
-    Texture2D GameSession::getImage() const
-    {
-        return locationImage;
-    }
-    char* GameSession::getDescription() const
-    {
-        return (char*)narrativeNotebook.getNarrativeText().c_str();
-    }
-    const Font GameSession::getDescriptionFont() const
-    {
-        return descriptionFont;
-    }
-    bool GameSession::isUp() const
-    {
-        return up;
-    }
-    bool GameSession::isDown() const
-    {
-        return down;
-    }
-    bool GameSession::isForward() const
-    {
-        return forward;
-    }
-    bool GameSession::isBackward() const
-    {
-        return backward;
-    }
-    bool GameSession::isLeft() const
-    {
-        return left;
-    }
-    bool GameSession::isRight() const
-    {
-        return right;
-    }
-
-
 
     Rectangle GameSession::getMainImageBounds() const
     {
@@ -817,7 +730,9 @@ namespace
         if (def == nullptr)
             return;
 
-        if (def->examineTts.enabled && gameConfig.tts.enabled)
+        if (def->ttsPolicy.enabled
+            && def->examineTts.enabled
+            && gameConfig.tts.enabled)
         {
             if (!def->examineTts.audio.empty())
                 audioManager.playDialogAsset(def->examineTts.audio);
@@ -900,6 +815,13 @@ namespace
 
         if (!def->useNarrative.empty())
             appendNarrativeSection("Using:", def->useNarrative);
+        if (def->ttsPolicy.enabled
+            && def->useTts.enabled
+            && gameConfig.tts.enabled
+            && !def->useTts.audio.empty())
+        {
+            audioManager.playDialogAsset(def->useTts.audio);
+        }
 
         narrativeNotebook.resetInventoryExamineScroll();
         updateActionAvailability();
@@ -914,6 +836,16 @@ namespace
 
         if (extracted.id.empty())
             return;
+
+        const ItemDef* extractedDef = itemDatabase.getDef(extracted.id);
+        if (extractedDef != nullptr
+            && extractedDef->ttsPolicy.enabled
+            && extractedDef->takeTts.enabled
+            && gameConfig.tts.enabled
+            && !extractedDef->takeTts.audio.empty())
+        {
+            audioManager.playDialogAsset(extractedDef->takeTts.audio);
+        }
 
         inventoryMgr.addItem(extracted);
         evaluateMilestones();
@@ -1234,11 +1166,17 @@ namespace
         evaluateMilestones();
     }
 
+    bool GameSession::isCurrentSceneTtsEnabled() const
+    {
+        const SceneData* scene = sceneDatabase.getScene(worldState.currentSceneId);
+        return scene != nullptr && scene->ttsPolicy.enabled;
+    }
+
     void GameSession::playDialogAudio(const SpeakResult& result)
     {
         if (result.useTts && !result.ttsAudioPaths.empty())
         {
-            if (!gameConfig.tts.enabled)
+            if (!gameConfig.tts.enabled || !isCurrentSceneTtsEnabled())
                 return;
 
             if (audioManager.playDialogAssetSequence(result.ttsAudioPaths))
@@ -1256,7 +1194,7 @@ namespace
 
     void GameSession::playInteractionTts(const SceneInteractionDef& interaction, bool includeAfter)
     {
-        if (!interaction.tts || !gameConfig.tts.enabled)
+        if (!interaction.tts || !gameConfig.tts.enabled || !isCurrentSceneTtsEnabled())
             return;
 
         const bool useVariant =
@@ -1278,7 +1216,10 @@ namespace
 
     void GameSession::playSceneNarrativeTts(const ItemTtsDef& tts)
     {
-        if (!tts.enabled || !gameConfig.tts.enabled || tts.audio.empty())
+        if (!tts.enabled
+            || !gameConfig.tts.enabled
+            || !isCurrentSceneTtsEnabled()
+            || tts.audio.empty())
             return;
 
         playSceneNarrativeTtsSequence({ tts.audio });
@@ -1286,7 +1227,7 @@ namespace
 
     void GameSession::playSceneNarrativeTtsSequence(const std::vector<std::string>& audioPaths)
     {
-        if (!gameConfig.tts.enabled || audioPaths.empty())
+        if (!gameConfig.tts.enabled || !isCurrentSceneTtsEnabled() || audioPaths.empty())
             return;
 
         if (audioManager.playDialogAssetSequence(audioPaths))
@@ -1301,7 +1242,7 @@ namespace
         const std::vector<std::string>& audioPaths,
         float delaySeconds)
     {
-        if (!gameConfig.tts.enabled || audioPaths.empty())
+        if (!gameConfig.tts.enabled || !isCurrentSceneTtsEnabled() || audioPaths.empty())
             return;
 
         cancelDelayedSceneNarrativeTts();
@@ -2213,6 +2154,9 @@ namespace
         useEffect.key = worldState.currentSceneId + ":use";
         useEffect.health = useHealthDelta;
         useEffect.energy = useEnergyDelta;
+        useEffect.resolve = useResolveDelta;
+        useEffect.lucidity = useLucidityDelta;
+        useEffect.charisma = useCharismaDelta;
         tryApplyStatusEffect(useEffect, useRepeatStatus);
         worldState.sceneVisits.hasUsedInCurrentScene = true;
         if (!useRepeatStatus)
@@ -2410,10 +2354,12 @@ namespace
 
         MovementStruct movement{};
         ActionStruct actions{};
+        MovementBlockOverlays blockOverlays{};
 
-        if (isBlackjackUiActive())
+        auto clearOverlaysAndReturn = [&](bool enableInventory)
         {
-            buttonMgr.setAvailability(movement, actions, false);
+            buttonMgr.setAvailability(movement, actions, enableInventory);
+            buttonMgr.setMovementBlockOverlays(MovementBlockOverlays{});
             const PlayerStatPercents percents = worldState.playerStats.toPercents();
             buttonMgr.setStatus(
                 percents.health,
@@ -2421,16 +2367,17 @@ namespace
                 percents.resolve,
                 percents.lucidity,
                 percents.charisma);
+        };
+
+        if (isBlackjackUiActive())
+        {
+            clearOverlaysAndReturn(false);
             return;
         }
 
         if (dropConfirmMgr.isOpen())
         {
-            buttonMgr.setAvailability(movement, actions);
-            {
-            const PlayerStatPercents percents = worldState.playerStats.toPercents();
-            buttonMgr.setStatus(percents.health, percents.energy, percents.resolve, percents.lucidity, percents.charisma);
-        }
+            clearOverlaysAndReturn(true);
             return;
         }
 
@@ -2515,18 +2462,27 @@ namespace
                 movement.right = false;
             }
 
-            if (movement.up && !isExitDirectionAvailable("up"))
-                movement.up = false;
-            if (movement.down && !isExitDirectionAvailable("down"))
-                movement.down = false;
-            if (movement.forward && !isExitDirectionAvailable("forward"))
-                movement.forward = false;
-            if (movement.backward && !isExitDirectionAvailable("backward"))
-                movement.backward = false;
-            if (movement.left && !isExitDirectionAvailable("left"))
-                movement.left = false;
-            if (movement.right && !isExitDirectionAvailable("right"))
-                movement.right = false;
+            auto applyDirection = [&](bool& enabled, MovementBlockReason& overlay, const char* dir)
+            {
+                if (!enabled)
+                    return;
+                if (isExitDirectionAvailable(dir))
+                    return;
+                overlay = sceneController.getDirectionBlockReason(
+                    dir,
+                    worldState,
+                    inventoryMgr,
+                    itemDatabase,
+                    milestoneMgr);
+                enabled = false;
+            };
+
+            applyDirection(movement.up, blockOverlays.up, "up");
+            applyDirection(movement.down, blockOverlays.down, "down");
+            applyDirection(movement.forward, blockOverlays.forward, "forward");
+            applyDirection(movement.backward, blockOverlays.backward, "backward");
+            applyDirection(movement.left, blockOverlays.left, "left");
+            applyDirection(movement.right, blockOverlays.right, "right");
 
             actions = baseActionFilter;
             const SceneSpeakConfig& speakConfig = sceneDatabase.getSpeakConfig(worldState.currentSceneId);
@@ -2552,6 +2508,8 @@ namespace
             disableAllButtons ? MovementStruct{} : movement,
             disableAllButtons ? ActionStruct{} : actions,
             !disableAllButtons);
+        buttonMgr.setMovementBlockOverlays(
+            disableAllButtons ? MovementBlockOverlays{} : blockOverlays);
         {
             const PlayerStatPercents percents = worldState.playerStats.toPercents();
             buttonMgr.setStatus(percents.health, percents.energy, percents.resolve, percents.lucidity, percents.charisma);
@@ -2583,10 +2541,12 @@ namespace
         if (worldState.currentSceneId != "ice_house_interior" || direction != "right")
             return false;
 
-        if (!hasExaminedScene(worldState.currentSceneId))
+        // Always allow leaving once the badge has been revealed (or taken).
+        if (worldState.storyFlags.count("ice_house_interior:ranger_badge_revealed") > 0)
             return false;
 
-        if (worldState.storyFlags.count("ice_house_interior:ranger_badge_revealed") > 0)
+        // Until the room is examined, right still exits normally (no badge yet).
+        if (!hasExaminedScene(worldState.currentSceneId))
             return false;
 
         const std::string details =
@@ -2596,11 +2556,13 @@ namespace
             "Something answers the light - a brief, hard glint, too deliberate to be ice.\n\n"
             "You kneel. Your fingers close around a small circle of brass half-buried in the "
             "packed earth: a Texas Ranger badge, tarnished at the edges but not forgotten. Whoever "
-            "left it here did not mean for it to stay hidden forever.";
+            "left it here did not mean for it to stay hidden forever.\n\n"
+            "You can take it, or leave it where the light found it.";
 
         appendNarrativeSection("Examining:", details);
         worldState.storyFlags.insert("ice_house_interior:ranger_badge_revealed");
         evaluateMilestones();
+        refreshTakeItems();
         updateActionAvailability();
         recordPlayerAction();
         return true;
@@ -2722,7 +2684,9 @@ namespace
 
     void GameSession::resetDevSceneImagePreview()
     {
+#if defined(HIGHLINE_DEV_TOOLS)
         devSceneImagePreviewIndex = -1;
+#endif
     }
 
     void GameSession::syncActiveSubScene()
@@ -2811,6 +2775,9 @@ namespace
         useDetails = locationStruct.useDetails;
         useHealthDelta = locationStruct.useHealthDelta;
         useEnergyDelta = locationStruct.useEnergyDelta;
+        useResolveDelta = locationStruct.useResolveDelta;
+        useLucidityDelta = locationStruct.useLucidityDelta;
+        useCharismaDelta = locationStruct.useCharismaDelta;
         useRepeatStatus = locationStruct.useRepeatStatus;
         useRequiresExamine = locationStruct.useRequiresExamine;
         useAdvancesDay = locationStruct.useAdvancesDay;
@@ -2983,6 +2950,11 @@ namespace
         LocationStruct locationStruct;
         const std::string fromSceneId = worldState.currentSceneId;
         const std::string fromSubSceneId = worldState.activeSubSceneId;
+
+        // Cut off any dialog/TTS still playing from the live session before the load.
+        cancelDelayedSceneNarrativeTts();
+        audioManager.stopDialog();
+
         audioManager.onRoomExit(
             sceneDatabase.getSceneAudio(fromSceneId, fromSubSceneId),
             state.sceneId);
@@ -3021,7 +2993,6 @@ namespace
 
         pendingOpeningHypoxiaSequence = false;
         lucidityCollapseSequenceActive = false;
-        cancelDelayedSceneNarrativeTts();
         overlayMgr.clear();
 
         conversationMgr.onEnterScene(worldState.currentSceneId, sceneDatabase.getSpeakConfig(worldState.currentSceneId));
@@ -3204,8 +3175,45 @@ namespace
             worldState.storyFlags.insert("saloon_balcony:blue_woman_done");
     }
 
+#if defined(HIGHLINE_DEV_TOOLS)
+    bool GameSession::devGiveItem(const std::string& itemId, std::string& message)
+    {
+        if (!itemDatabase.hasDef(itemId))
+        {
+            message = "Unknown item: " + itemId;
+            return false;
+        }
+
+        InventoryItem item = buildInventoryItem(itemId, {});
+        const bool ok = inventoryMgr.giveOrStackItem(item, message);
+        if (ok)
+        {
+            evaluateMilestones();
+            syncWalletInventoryDisplay();
+            updateActionAvailability();
+        }
+        return ok;
+    }
+
+    void GameSession::handleDevConsoleToggle()
+    {
+        // Grave / tilde key (` / ~).
+        if (!IsKeyPressed(KEY_GRAVE))
+            return;
+        // Allow closing even over menus; only block opening there.
+        if (!devConsole.isOpen()
+            && (isTitleScreenActive() || pauseMenu.isOpen() || saveLoadMenu.isOpen()))
+            return;
+        devConsole.toggle();
+        if (devConsole.isOpen())
+            devOverlayVisible = false;
+    }
+
     void GameSession::handleDevOverlayInput()
     {
+        if (devConsole.isOpen())
+            return;
+
         if (!IsKeyPressed(KEY_S))
             return;
 
@@ -3494,14 +3502,99 @@ namespace
                 nextColor);
         }
     }
+#endif /* HIGHLINE_DEV_TOOLS */
+
+    void GameSession::refreshContinueAvailability()
+    {
+        const std::vector<SaveSlotListing> slots = saveGameService.listSlots();
+        pauseMenu.setContinueAvailable(!slots.empty());
+    }
+
+    void GameSession::enterTitleScreen()
+    {
+        titleScreenActive = true;
+        refreshContinueAvailability();
+        pauseMenu.openTitleMenu();
+        audioManager.startTitleScreenBed();
+        audioManager.setGameplayPaused(false);
+    }
+
+    void GameSession::leaveTitleScreen()
+    {
+        if (!titleScreenActive)
+            return;
+        titleScreenActive = false;
+        audioManager.stopTitleScreenBed();
+        closeAllUiPanels();
+        audioManager.setGameplayPaused(false);
+        if (openingHypoxiaArmed)
+        {
+            pendingOpeningHypoxiaSequence = true;
+            openingHypoxiaArmed = false;
+        }
+        deferInitialRoomAudio = true;
+    }
+
+    bool GameSession::continueMostRecentSave()
+    {
+        const std::vector<SaveSlotListing> slots = saveGameService.listSlots();
+        if (slots.empty())
+            return false;
+
+        const SaveSlotListing* best = &slots.front();
+        for (const SaveSlotListing& slot : slots)
+        {
+            if (slot.metadata.unixTime > best->metadata.unixTime)
+                best = &slot;
+        }
+        if (!loadGameFromPath(best->filePath))
+            return false;
+        leaveTitleScreen();
+        return true;
+    }
+
+    bool GameSession::startNewGame()
+    {
+        // Restart from the configured start scene with a clean runtime state.
+        LocationStruct startLocation;
+        std::string startSceneId;
+        if (!sceneDatabase.loadStartScene(startLocation, startSceneId))
+            return false;
+
+        SavedGameState fresh;
+        fresh.sceneId = startSceneId;
+        const SceneData* startScene = sceneDatabase.getScene(startSceneId);
+        if (startScene != nullptr && !startScene->defaultSubSceneId.empty())
+            fresh.activeSubSceneId = startScene->defaultSubSceneId;
+        fresh.narrativeText = startLocation.locationDescription;
+
+        if (!applySaveState(fresh))
+            return false;
+
+        if (worldState.currentSceneId == "snow_cave_interior")
+        {
+            overlayMgr.setHypoxiaOpacity(1.0f);
+            openingHypoxiaArmed = true;
+        }
+        leaveTitleScreen();
+        return true;
+    }
 
     void GameSession::handleSaveLoadMenuInput()
     {
         if (IsKeyPressed(KEY_ESCAPE))
+        {
             uiCoordinator.closeSaveLoadMenu(saveLoadMenu, pauseMenu);
+            if (titleScreenActive)
+                pauseMenu.openTitleMenu();
+        }
 
         if (saveLoadMenu.consumeBackRequest())
+        {
             uiCoordinator.closeSaveLoadMenu(saveLoadMenu, pauseMenu);
+            if (titleScreenActive)
+                pauseMenu.openTitleMenu();
+        }
 
         std::string saveName;
         if (saveLoadMenu.consumeNamedSaveRequest(saveName))
@@ -3512,6 +3605,8 @@ namespace
                 pauseMenu.setStatusMessage("Save failed.");
 
             uiCoordinator.closeSaveLoadMenu(saveLoadMenu, pauseMenu);
+            if (titleScreenActive)
+                pauseMenu.openTitleMenu();
         }
 
         std::string loadPath;
@@ -3520,8 +3615,13 @@ namespace
             if (loadGameFromPath(loadPath))
             {
                 pauseMenu.setStatusMessage("Game loaded.");
-                closeAllUiPanels();
-                audioManager.setGameplayPaused(false);
+                if (titleScreenActive)
+                    leaveTitleScreen();
+                else
+                {
+                    closeAllUiPanels();
+                    audioManager.setGameplayPaused(false);
+                }
             }
             else
                 pauseMenu.setStatusMessage("Load failed.");
@@ -3535,18 +3635,24 @@ namespace
             if (saveLoadMenu.isOpen())
             {
                 uiCoordinator.closeSaveLoadMenu(saveLoadMenu, pauseMenu);
+                if (titleScreenActive)
+                    pauseMenu.openTitleMenu();
             }
             else if (pauseMenu.isOpen())
             {
                 if (pauseMenu.isConfigPanel())
                     pauseMenu.showMainPanel();
+                else if (titleScreenActive)
+                {
+                    // Stay on the title menu (no resume-to-game).
+                }
                 else
                 {
                     uiCoordinator.closePauseMenu(pauseMenu, saveLoadMenu);
                     audioManager.setGameplayPaused(false);
                 }
             }
-            else
+            else if (!titleScreenActive)
             {
                 openUiMode(UiMode::Pause);
                 audioManager.setGameplayPaused(true);
@@ -3556,11 +3662,32 @@ namespace
         if (!saveLoadMenu.isOpen())
             pauseMenu.update(GetFrameTime());
 
+        if (pauseMenu.consumeResumeRequest())
+        {
+            uiCoordinator.closePauseMenu(pauseMenu, saveLoadMenu);
+            audioManager.setGameplayPaused(false);
+        }
+
+        if (pauseMenu.consumeContinueRequest())
+        {
+            if (!continueMostRecentSave())
+                pauseMenu.setStatusMessage("No save games found.");
+        }
+
+        if (pauseMenu.consumeNewGameRequest())
+        {
+            if (!startNewGame())
+                pauseMenu.setStatusMessage("Failed to start new game.");
+        }
+
         if (pauseMenu.consumeOpenSaveMenuRequest())
             uiCoordinator.openSaveMenu(saveLoadMenu);
 
         if (pauseMenu.consumeOpenLoadMenuRequest())
+        {
+            // Load replaces the pause panel while open.
             uiCoordinator.openLoadMenu(saveLoadMenu);
+        }
 
         if (pauseMenu.consumeQuitRequest())
             quitRequested = true;
@@ -3568,7 +3695,23 @@ namespace
 
     void GameSession::update()
     {
+        const float dt = GetFrameTime();
         syncConversationRequirements();
+
+        if (titleScreenActive)
+        {
+            mainMenuBackdrop.update(dt);
+            audioManager.update(dt);
+            trackDisplayConfigChanges();
+            updateTransientMessage(dt);
+            handlePauseMenuInput();
+            if (saveLoadMenu.isOpen())
+            {
+                saveLoadMenu.update();
+                handleSaveLoadMenuInput();
+            }
+            return;
+        }
 
         if (!initialFrameComplete)
         {
@@ -3587,14 +3730,23 @@ namespace
         }
 
         if (!saveLoadMenu.isOpen() && !pauseMenu.isOpen())
-            updateDelayedSceneNarrativeTts(GetFrameTime());
-        audioManager.update(GetFrameTime());
-        overlayMgr.update(GetFrameTime());
+            updateDelayedSceneNarrativeTts(dt);
+        audioManager.update(dt);
+        overlayMgr.update(dt);
         trackDisplayConfigChanges();
-        updateTransientMessage(GetFrameTime());
+        updateTransientMessage(dt);
         handleQuickSaveInput();
+#if defined(HIGHLINE_DEV_TOOLS)
+        handleDevConsoleToggle();
+        if (devConsole.isOpen())
+        {
+            // Console owns input while open (Esc closes; ` toggles above).
+            devConsole.update();
+            return;
+        }
         handleDevOverlayInput();
         handleDevAltImageInput();
+#endif
         handlePauseMenuInput();
 
         if (saveLoadMenu.isOpen())
@@ -3724,8 +3876,17 @@ namespace
             if (inventoryMgr.consumeItemCombinationApplied())
             {
                 const std::string narrative = inventoryMgr.consumePendingCombinationNarrative();
+                const bool combineTtsOwner = inventoryMgr.consumePendingCombinationTtsOwnerEnabled();
+                const ItemTtsDef combineTts = inventoryMgr.consumePendingCombinationNarrativeTts();
                 if (!narrative.empty())
                     appendNarrativeSection("Using:", narrative);
+                if (combineTtsOwner
+                    && combineTts.enabled
+                    && gameConfig.tts.enabled
+                    && !combineTts.audio.empty())
+                {
+                    audioManager.playDialogAsset(combineTts.audio);
+                }
                 recordPlayerAction();
             }
             handleInventoryDropInput();
@@ -3826,8 +3987,18 @@ namespace
 
     void GameSession::draw() const
     {
-        const_cast<GameSession*>(this)->syncNarrativeContext();
         ClearBackground(BLACK);
+
+        if (titleScreenActive)
+        {
+            mainMenuBackdrop.draw(screenWidth, screenHeight, 0.45f);
+            pauseMenu.draw();
+            saveLoadMenu.draw();
+            drawTransientMessage();
+            return;
+        }
+
+        const_cast<GameSession*>(this)->syncNarrativeContext();
 
         drawMainImage();
         overlayMgr.draw(getMainImageBounds());
@@ -3867,11 +4038,17 @@ namespace
             blackjackPanel.draw();
         else
             buttonMgr.draw();
+
+        // In-game pause keeps the live scene under a dimmed panel (no title vignette).
         pauseMenu.draw();
         saveLoadMenu.draw();
         drawTransientMessage();
         dropConfirmMgr.draw();
+#if defined(HIGHLINE_DEV_TOOLS)
         drawDevOverlay();
+        if (devConsole.isOpen())
+            devConsole.draw(screenWidth, screenHeight);
+#endif
     }
     void GameSession::openUiMode(UiMode mode)
     {

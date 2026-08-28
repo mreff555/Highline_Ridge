@@ -59,14 +59,41 @@ public:
     std::vector<std::string> sceneIds() const;
     bool hasScene(const std::string& sceneId) const;
 
+    /** True when the scene JSON has a layout object (shown on the map). */
+    bool hasMapPlacement(const std::string& sceneId) const;
+
+    // Remove a scene and clear inbound exits/movement/exitRequirements on others.
+    bool removeScene(const std::string& sceneId);
+
+    /**
+     * Insert a new scene object under scenes[sceneId]. Fails if the id already
+     * exists or the document is not loaded. Does not write disk.
+     */
+    bool createScene(const std::string& sceneId, const nlohmann::json& sceneObject);
+
+    /**
+     * Deep-copy sourceId to a new unique id (source, source_2, …).
+     * Clears layout and outbound exits/movement/exitRequirements so the clone
+     * is an independent room. Returns the new id, or empty on failure.
+     */
+    std::string duplicateScene(const std::string& sourceId);
+
+    /** Next free id: base, base_2, base_3, … */
+    std::string allocateUniqueSceneId(const std::string& baseId) const;
+
     SceneLayout getLayout(const std::string& sceneId) const;
     void setLayout(const std::string& sceneId, const SceneLayout& layout);
+    void clearLayout(const std::string& sceneId);
 
     std::vector<SceneActor> getActors(const std::string& sceneId) const;
-    void setActors(const std::string& sceneId, const std::vector<SceneActor>& actors);
 
     std::string getSceneImagePath(const std::string& sceneId) const;
-    std::string getSceneDescription(const std::string& sceneId) const;
+
+    /** First music bed path under audio.music, or empty. */
+    std::string getSceneMusicPath(const std::string& sceneId) const;
+
+    /** First ambient bed path under audio.ambient[], or empty. */
+    std::string getSceneAmbientPath(const std::string& sceneId) const;
 
     const nlohmann::json& document() const { return root; }
     nlohmann::json* sceneJson(const std::string& sceneId);

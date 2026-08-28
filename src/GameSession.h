@@ -31,6 +31,7 @@
 #include <ItemDef.h>
 #include <DropConfirmMgr.h>
 #include <SaveLoadMenuMgr.h>
+#include <MainMenuBackdrop.h>
 #include <PauseMenuMgr.h>
 #include <SaveGame.h>
 #include <TakeMgr.h>
@@ -59,6 +60,11 @@
 #include <set>
 #include <string>
 #include <vector>
+
+#if defined(HIGHLINE_DEV_TOOLS)
+#include <DevConsole.h>
+#endif
+
 namespace timberline_engine
 {
 
@@ -85,16 +91,6 @@ class GameSession
     void applyInputConfig();
     void persistDisplayConfig();
 
-    Texture2D getImage() const;
-     char* getDescription() const;
-    const Font getDescriptionFont() const;
-    bool isUp() const;
-    bool isDown() const;
-    bool isForward() const;
-    bool isBackward() const;
-    bool isLeft() const;
-    bool isRight() const;
-
     void update();
     void draw() const;
     void appendExamineDetails();
@@ -107,10 +103,20 @@ class GameSession
     void handlePauseMenuInput();
     void handleSaveLoadMenuInput();
     void handleQuickSaveInput();
+    void refreshContinueAvailability();
+    void enterTitleScreen();
+    void leaveTitleScreen();
+    bool startNewGame();
+    bool continueMostRecentSave();
+    bool isTitleScreenActive() const { return titleScreenActive; }
+    void resetDevSceneImagePreview();
+#if defined(HIGHLINE_DEV_TOOLS)
     void handleDevOverlayInput();
     void handleDevAltImageInput();
-    void resetDevSceneImagePreview();
+    void handleDevConsoleToggle();
     void drawDevOverlay() const;
+    bool devGiveItem(const std::string& itemId, std::string& message);
+#endif
     void applyGrantedStoryFlag(const std::string& flag);
     void syncKnownActorsFromProgress();
     void relayoutForScreenSize(int width, int height);
@@ -136,6 +142,7 @@ class GameSession
     void clearItemExamineAudio();
     bool canTakeFromExaminedItem() const;
     void takeFromExaminedItem();
+    bool isCurrentSceneTtsEnabled() const;
     void playDialogAudio(const SpeakResult& result);
     void playInteractionTts(const SceneInteractionDef& interaction, bool includeAfter = false);
     void playSceneNarrativeTts(const ItemTtsDef& tts);
@@ -263,8 +270,11 @@ class GameSession
     PauseMenuMgr pauseMenu;
     SaveLoadMenuMgr saveLoadMenu;
     DropConfirmMgr dropConfirmMgr;
+    MainMenuBackdrop mainMenuBackdrop;
     std::string gameConfigPath;
     bool quitRequested = false;
+    bool titleScreenActive = false;
+    bool openingHypoxiaArmed = false;
 
     Texture2D locationImage{};
     bool ownsLocationImage = false;
@@ -280,6 +290,9 @@ class GameSession
     std::string useDetails;
     float useHealthDelta = 0.0f;
     float useEnergyDelta = 0.0f;
+    float useResolveDelta = 0.0f;
+    float useLucidityDelta = 0.0f;
+    float useCharismaDelta = 0.0f;
     bool useRepeatStatus = false;
     bool useRequiresExamine = true;
     bool useAdvancesDay = false;
@@ -321,10 +334,13 @@ class GameSession
     std::vector<std::string> delayedSceneNarrativeTtsPaths;
     std::string transientMessage;
     float transientMessageTimer = 0.0f;
+#if defined(HIGHLINE_DEV_TOOLS)
     bool devOverlayVisible = false;
     int devSceneImagePreviewIndex = -1;
     mutable Rectangle devAltImagePrevBounds{};
     mutable Rectangle devAltImageNextBounds{};
+    DevConsole devConsole;
+#endif
 
     mutable WorldState worldState;
     SceneController sceneController;

@@ -50,7 +50,8 @@ class XaiTtsClient
     static std::vector<TtsVoiceEntry> collectVoiceEntries(
         const std::string& conversationsPath,
         const std::string& scenesPath,
-        const std::string& defaultVoiceId,
+        const std::string& itemsPath,
+        const std::string& combinationsPath,
         const std::string& refreshFilter = "");
 
     static int refreshBundledVoices(
@@ -58,7 +59,8 @@ class XaiTtsClient
         const std::string& assetRoot,
         const std::string& conversationsPath,
         const std::string& scenesPath,
-        const std::string& defaultVoiceId,
+        const std::string& itemsPath,
+        const std::string& combinationsPath,
         bool forceRefresh = false,
         const std::string& refreshFilter = "");
 
@@ -78,12 +80,16 @@ class XaiTtsClient
     static bool persistVoiceTextSha256(
         const std::string& conversationsPath,
         const std::string& scenesPath,
+        const std::string& itemsPath,
+        const std::string& combinationsPath,
         const std::string& audioPath,
         const std::string& textSha256);
 
     static bool persistVoiceAudioSegments(
         const std::string& conversationsPath,
         const std::string& scenesPath,
+        const std::string& itemsPath,
+        const std::string& combinationsPath,
         const std::string& audioPath,
         const std::vector<std::string>& segmentPaths);
 };

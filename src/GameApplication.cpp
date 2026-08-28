@@ -19,20 +19,77 @@
 
 #include "GameApplication.h"
 
+#include <AssetStore.h>
 #include <GameConfig.h>
+#include <ImageCompression.h>
 #include <LocationStruct.h>
 #include <PlatformPath.h>
+#include <TtsContentValidator.h>
 #include <XaiTtsClient.h>
 #include <raylib.h>
+#include <cstdarg>
+#include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <ctime>
 #include <iostream>
+
+#if defined(HIGHLINE_EMBED_RESOURCES)
+#include "EmbeddedAssets.h"
+#endif
 
 namespace timberline_engine
 {
 
 namespace
 {
+
+#if defined(HIGHLINE_RELEASE)
+// Dev builds keep raylib's default TraceLog → stdout. Release routes the same
+// prefixed lines to stderr so stdout stays clean for pipes/launchers.
+void releaseTraceLog(int logType, const char* text, va_list args)
+{
+    char buffer[256] = {0};
+    switch (logType)
+    {
+        case LOG_TRACE:
+            std::strcpy(buffer, "TRACE: ");
+            break;
+        case LOG_DEBUG:
+            std::strcpy(buffer, "DEBUG: ");
+            break;
+        case LOG_INFO:
+            std::strcpy(buffer, "INFO: ");
+            break;
+        case LOG_WARNING:
+            std::strcpy(buffer, "WARNING: ");
+            break;
+        case LOG_ERROR:
+            std::strcpy(buffer, "ERROR: ");
+            break;
+        case LOG_FATAL:
+            std::strcpy(buffer, "FATAL: ");
+            break;
+        default:
+            break;
+    }
+
+    const auto textSize = static_cast<unsigned>(std::strlen(text));
+    const auto prefixLen = std::strlen(buffer);
+    const unsigned copyLen =
+        (textSize < (sizeof(buffer) - prefixLen - 2u)) ? textSize
+                                                      : static_cast<unsigned>(sizeof(buffer) - prefixLen - 2u);
+    std::memcpy(buffer + prefixLen, text, copyLen);
+    buffer[prefixLen + copyLen] = '\n';
+    buffer[prefixLen + copyLen + 1] = '\0';
+
+    std::vfprintf(stderr, buffer, args);
+    std::fflush(stderr);
+
+    if (logType == LOG_FATAL)
+        std::exit(EXIT_FAILURE);
+}
+#endif
 
 struct CommandLineOptions
 {
@@ -176,13 +233,23 @@ bool GameApplication::initializeWindow(const GameConfig& config)
 
 bool GameApplication::loadDatabases()
 {
+    std::string scenesPath = "resources/scenes.json";
+    std::string conversationsPath = "resources/conversations.json";
+    std::string itemsPath = "resources/items.json";
+
     const bool scenesLoaded =
-        sceneDatabase.load("resources/scenes.json", ".") ||
+        sceneDatabase.load(scenesPath, ".") ||
         sceneDatabase.load("../resources/scenes.json", "..");
     if (!scenesLoaded)
     {
         TraceLog(LOG_ERROR, "Failed to load scenes from resources/scenes.json");
         return false;
+    }
+    if (!FileExists(scenesPath.c_str()) && FileExists("../resources/scenes.json"))
+    {
+        scenesPath = "../resources/scenes.json";
+        conversationsPath = "../resources/conversations.json";
+        itemsPath = "../resources/items.json";
     }
 
     const bool milestonesLoaded =
@@ -197,11 +264,12 @@ bool GameApplication::loadDatabases()
     if (!itemsLoaded)
         TraceLog(LOG_WARNING, "Failed to load items from resources/items.json");
 
-    const bool combinationsLoaded =
-        itemCombinationDatabase.load("resources/item_combinations.json") ||
-        itemCombinationDatabase.load("../resources/item_combinations.json");
-    if (!combinationsLoaded)
-        TraceLog(LOG_WARNING, "Failed to load item combinations from resources/item_combinations.json");
+    // Craft recipes live on product items (components); no separate combinations file.
+    if (!validateTtsResourcesOrLog(scenesPath, conversationsPath, itemsPath, ""))
+    {
+        TraceLog(LOG_ERROR, "Aborting load: TTS resource validation failed");
+        return false;
+    }
 
     return true;
 }
@@ -217,6 +285,10 @@ void GameApplication::shutdown()
 
 int GameApplication::run(int argc, char* argv[])
 {
+#if defined(HIGHLINE_RELEASE)
+    SetTraceLogCallback(releaseTraceLog);
+#endif
+
     const CommandLineOptions commandLine = parseCommandLine(argc, argv);
     if (commandLine.showHelp)
     {
@@ -224,6 +296,43 @@ int GameApplication::run(int argc, char* argv[])
         return 0;
     }
 
+#if defined(HIGHLINE_EMBED_RESOURCES)
+    {
+        std::string pakError;
+        bool pakOk = false;
+#if defined(__APPLE__)
+        // Mach-O: C symbols are underscored in the object file; the extern names
+        // in EmbeddedAssets.h are the C names (compiler adds _).
+#endif
+        pakOk = PakAssetStore::openMemory(
+            embeddedPakBytes(), embeddedPakSize(), pakAssets, pakError);
+        if (!pakOk)
+        {
+            // Fallback: highline_assets.pak beside the executable.
+            const char* appDir = GetApplicationDirectory();
+            const std::string pakPath = pathJoin(
+                appDir != nullptr ? appDir : ".", kEmbeddedAssetPakFile);
+            pakOk = PakAssetStore::openFile(pakPath, pakAssets, pakError);
+        }
+        if (!pakOk)
+        {
+            TraceLog(LOG_ERROR, "Failed to open embedded asset pak: %s", pakError.c_str());
+            std::cerr << "Failed to open embedded assets: " << pakError << "\n";
+            return 1;
+        }
+        setAssets(&pakAssets);
+        usingPakAssets = true;
+        TraceLog(
+            LOG_INFO,
+            "Using embedded asset pak (%zu entries)",
+            pakAssets.entryCount());
+
+        // Still try to park CWD next to the binary for any relative fallbacks.
+        if (const char* appDir = GetApplicationDirectory();
+            appDir != nullptr && appDir[0] != '\0')
+            ChangeDirectory(appDir);
+    }
+#else
     if (!locateGameResources())
     {
         TraceLog(LOG_ERROR, "Could not locate resources/scenes.json next to executable or working directory");
@@ -235,12 +344,43 @@ int GameApplication::run(int argc, char* argv[])
         return 1;
     }
 
+    diskAssets = DiskAssetStore(".");
+    setAssets(&diskAssets);
+    usingPakAssets = false;
+#endif
+
+    TraceLog(LOG_INFO, "User data directory: %s", userDataRoot().c_str());
+
+#if defined(HIGHLINE_EMBED_RESOURCES)
+    // Defaults from pack; user overrides live in user_config.json (Phase 2.1).
+    {
+        std::string configText;
+        if (assets().readText("resources/game_config.json", configText))
+        {
+            // loadGameConfig still wants a path — write a temp default into user
+            // data only if missing, else keep disk API for now.
+            const std::string userCfg = userConfigPath();
+            if (!FileExists(userCfg.c_str()))
+            {
+                ensureParentDirectories(userCfg);
+                writeBinaryFile(
+                    userCfg,
+                    reinterpret_cast<const unsigned char*>(configText.data()),
+                    configText.size());
+            }
+            gameConfigPath = userCfg;
+        }
+    }
+#endif
+
     if (!loadGameConfig(gameConfigPath, gameConfig))
     {
+#if !defined(HIGHLINE_EMBED_RESOURCES)
         if (loadGameConfig("../resources/game_config.json", gameConfig))
             gameConfigPath = "../resources/game_config.json";
         else
-            TraceLog(LOG_WARNING, "Failed to load resources/game_config.json; using defaults");
+#endif
+            TraceLog(LOG_WARNING, "Failed to load game config; using defaults");
     }
 
     const bool refreshRequested =
@@ -257,12 +397,15 @@ int GameApplication::run(int argc, char* argv[])
             resourcePathForRefreshRead("resources/conversations.json");
         const std::string scenesPath =
             resourcePathForRefreshRead("resources/scenes.json");
+        const std::string itemsPath =
+            resourcePathForRefreshRead("resources/items.json");
         return XaiTtsClient::refreshBundledVoices(
             commandLine.apiKey,
             ".",
             conversationsPath,
             scenesPath,
-            gameConfig.tts.voiceId,
+            itemsPath,
+            "",
             commandLine.forceRefreshVoices,
             commandLine.refreshAllVoices ? "" : commandLine.refreshFilter);
     }

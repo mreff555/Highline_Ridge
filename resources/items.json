@@ -1,382 +1,518 @@
 {
   "items": {
-    "wallet": {
-      "name": "Wallet",
-      "description": "The wallet is worked from thick full-grain leather, hand-stitched along the edges with waxed thread the color of strong tea. The dye is uneven in the way of good hides, not factory perfect. A maker's stamp inside the flap is too worn to read. It sits heavy in your palm, the sort of piece a man buys once and carries for years.",
-      "weightLb": 0.18,
-      "visuals": {
-        "image": "resources/images/wallet_examine.png"
-      },
-      "icons": {
-        "icon": "resources/icons/wallet_icon.png"
-      },
-      "container": {
-        "isContainer": true,
-        "decomposes": false,
-        "contents": [
-          {
-            "itemId": "wallet_slip",
-            "quantity": 1,
-            "extractable": true,
-            "examineNote": "Examining the pockets carefully, you identify a small piece of carefully folded paper tucked deep into a corner seam."
-          }
-        ]
-      }
-    },
-    "wallet_slip": {
-      "name": "Slip of Paper",
-      "description": "A small slip of paper, folded until the creases have gone soft. The ink is faded but legible.",
-      "weightLb": 0.01,
-      "icons": {
-        "icon": "resources/icons/wallet_slip_icon.png"
-      }
-    },
-    "lard": {
-      "name": "Lard",
-      "description": "A wide-mouth mason jar packed with smooth, ivory-white rendered lard. The waxed lid is screwed down tight, and a faint waxy scent rises when you tilt it toward the light.",
-      "weightLb": 1.42,
-      "visuals": {
-        "image": "resources/images/lard_examine.png"
-      },
-      "icons": {
-        "icon": "resources/icons/lard_icon.png"
-      }
-    },
-    "lamp_oil": {
-      "name": "Lamp Oil",
-      "description": "A small mason jar, half full of pale golden lamp oil. The glass is wick-yellow at the shoulder where oil has crept up the sides. The cork stopper is stained and fits tight.",
-      "alternateDescription": "A small mason jar, half full of pale golden lamp oil. The glass is wick-yellow at the shoulder where oil has crept up the sides. The cork stopper is stained and fits tight, though a crude hole has been bored through the top where someone used a knife tip to pierce it.",
-      "alternateDescriptionFlag": "drilled_stopper",
-      "weightLb": 0.64,
-      "icons": {
-        "icon": "resources/icons/lamp_oil_icon.png"
-      }
-    },
-    "hunting_knife": {
-      "name": "Hunting Knife",
-      "description": "A fixed-blade hunting knife in a dark leather sheath scuffed from carry. The wooden handle is smooth where a palm has worn it. When you ease the blade free, the edge catches the bare bulb's light\u2014recently honed, and kept close at hand.",
-      "weightLb": 0.87,
-      "icons": {
-        "icon": "resources/icons/hunting_knife_icon.png"
-      }
-    },
-    "fedora": {
-      "name": "Fedora",
-      "description": "A weathered felt fedora, dark charcoal gone dusty at the brim. The grosgrain ribbon is stained where smoke and rain have worked the same habit. The crown is dented from carry and sleep. It smells faintly of cigarettes and another room.",
-      "weightLb": 0.31,
-      "icons": {
-        "icon": "resources/icons/fedora_icon.png"
-      }
-    },
-    "mens_cologne": {
-      "name": "Men's Cologne",
-      "description": "A heavy glass bottle of men's cologne with a ground stopper and a label printed in restrained copperplate. The scent is cedar, bergamot, and something drier beneath\u2014tobacco leaf, perhaps, or the memory of it. The Ridge Haberdashery wraps its goods as though altitude might bruise them.",
-      "weightLb": 0.42,
-      "visuals": {
-        "image": "resources/images/mens_cologne_examine.png"
-      },
-      "icons": {
-        "icon": "resources/icons/mens_cologne_icon.png"
-      }
-    },
-    "straight_razor": {
-      "name": "Straight Razor",
-      "description": "A straight razor in a fitted leather sheath, the blade hollow-ground and polished to a mirror that shows your face in fragments. The handle is horn, warm from the maker's bench, pinned with a brass tang. The edge is sharp enough to part a hair without complaint.",
-      "weightLb": 0.22,
-      "visuals": {
-        "image": "resources/images/straight_razor_examine.png"
-      },
-      "icons": {
-        "icon": "resources/icons/straight_razor_icon.png"
-      }
-    },
-    "hair_tonic": {
-      "name": "Hair Tonic",
-      "description": "A cobalt bottle of hair tonic with a cork sealed in red wax. The label promises restorative virtue in language more medical than honest. The liquid smells of bay rum and barber soap. A man's vanity in a bottle small enough to hide in a coat pocket.",
-      "weightLb": 0.28,
-      "visuals": {
-        "image": "resources/images/hair_tonic_examine.png"
-      },
-      "icons": {
-        "icon": "resources/icons/hair_tonic_icon.png"
-      }
-    },
-    "shaving_brush": {
-      "name": "Shaving Brush",
-      "description": "A shaving brush with a turned handle of pale boxwood and a knot of badger hair dense enough to hold a proper lather. The ferrule is nickel silver, stamped with a London maker's mark worn thin at the edge. Used with care, it would last longer than most resolutions on the High Line.",
-      "weightLb": 0.14,
-      "visuals": {
-        "image": "resources/images/shaving_brush_examine.png"
-      },
-      "icons": {
-        "icon": "resources/icons/shaving_brush_icon.png"
-      }
-    },
-    "cuff_links": {
-      "name": "Cuff Links",
-      "description": "A pair of cuff links in a small velvet tray: onyx faces set in sterling, engine-turned at the border so they catch lamplight without shouting. The posts click shut with the satisfying precision of good mechanism. The sort of detail a man buys when he wants a room to revise its estimate of him.",
-      "weightLb": 0.08,
-      "visuals": {
-        "image": "resources/images/cuff_links_examine.png"
-      },
-      "icons": {
-        "icon": "resources/icons/cuff_links_icon.png"
-      }
-    },
-    "bow_tie": {
-      "name": "Bow Tie",
-      "description": "A bow tie of black silk grosgrain, pre-tied on a band but finished well enough that the deception would pass at a distance. The fabric has a dry hand and a subtle rib that speaks of formal rooms and better lighting than the ridge usually affords.",
-      "weightLb": 0.05,
-      "visuals": {
-        "image": "resources/images/bow_tie_examine.png"
-      },
-      "icons": {
-        "icon": "resources/icons/bow_tie_icon.png"
-      }
-    },
-    "custom_shirt": {
-      "name": "Custom Men's Shirt",
-      "description": "A measurement card and fabric swatch pinned to a tailor's ticket for a custom shirt: long-grain cotton, mother-of-pearl buttons, collar cut to your measure. The haberdasher notes a six-week lead time and, with quiet pride, Savile Row construction. The garment itself is not here yet. The promise is.",
-      "weightLb": 0.55,
-      "visuals": {
-        "image": "resources/images/custom_shirt_examine.png"
-      },
-      "icons": {
-        "icon": "resources/icons/custom_shirt_icon.png"
-      }
-    },
-    "custom_trousers": {
-      "name": "Custom Men's Trousers",
-      "description": "A tailor's order for custom trousers: waist, inseam, and rise recorded in ink that does not smudge. The cloth sample is worsted wool, dark enough for church and boardrooms that do not exist on the High Line but might in Graysmill. Six weeks, the card says. Made on Savile Row in London.",
-      "weightLb": 0.72,
-      "visuals": {
-        "image": "resources/images/custom_trousers_examine.png"
-      },
-      "icons": {
-        "icon": "resources/icons/custom_trousers_icon.png"
-      }
-    },
-    "custom_jacket": {
-      "name": "Custom Men's Jacket",
-      "description": "A commission card for a custom jacket: shoulder width, chest, and lapel style noted with the care of a man who believes fit is morality. The fabric sample is long-grain wool in charcoal, substantial enough to hold a ridge wind at bay. Six weeks' lead. Designed and constructed on Savile Row in London, as though the address itself were a kind of guarantee.",
-      "weightLb": 1.35,
-      "visuals": {
-        "image": "resources/images/custom_jacket_examine.png"
-      },
-      "icons": {
-        "icon": "resources/icons/custom_jacket_icon.png"
-      }
-    },
-    "mens_pea_coat": {
-      "name": "Men's Pea Coat",
-      "description": "A men's pea coat of heavy navy melton wool, double-breasted with anchor buttons and a collar that can be turned against wind that has never learned manners. The lining is quilted. The shoulders are broad. It smells of new cloth and cold air, as though it has been waiting for a ship that docks at altitude.",
-      "weightLb": 2.8,
-      "visuals": {
-        "image": "resources/images/mens_pea_coat_examine.png"
-      },
-      "icons": {
-        "icon": "resources/icons/mens_pea_coat_icon.png"
-      }
-    },
-    "mens_duster": {
-      "name": "Men's Duster",
-      "description": "A full-length men's duster in oiled canvas the color of winter road dust, with a split back for riding and pockets deep enough to lose a man's intentions. The metal buttons are darkened against tarnish. It is less garment than declaration: a man who expects distance, weather, and the kind of work that keeps his hands dirty.",
-      "weightLb": 3.1,
-      "visuals": {
-        "image": "resources/images/mens_duster_examine.png"
-      },
-      "icons": {
-        "icon": "resources/icons/mens_duster_icon.png"
-      }
-    },
-    "wool_fabric_sample": {
-      "name": "Wool Fabric Sample",
-      "description": "A small cut of premium long-grain wool, one hundred percent, folded into a card and tied with twine. The hand is dense and cool, the weave tight enough that light passes reluctantly. The haberdasher's note on the card reads simply: for consideration.",
-      "weightLb": 0.02,
-      "visuals": {
-        "image": "resources/images/wool_fabric_sample_examine.png"
-      },
-      "icons": {
-        "icon": "resources/icons/wool_fabric_sample_icon.png"
-      }
-    },
-    "mining_pick": {
-      "name": "Mining Pick",
-      "description": "A prospector's pick with a hickory handle darkened by pitch and honest sweat. The head is forged steel, double-bit, with an edge that has been dressed recently on a wheel. Weighted for mountain ground: quartz, shale, and the stubborn ribs of ore that men chase above the timberline.",
-      "weightLb": 4.8,
-      "visuals": {
-        "image": "resources/images/mining_pick_examine.png"
-      },
-      "icons": {
-        "icon": "resources/icons/mining_pick_icon.png"
-      }
-    },
-    "shovel": {
-      "name": "Shovel",
-      "description": "A round-point shovel with a long ash handle and a steel blade rolled at the edge. The socket is riveted true, the grip worn smooth where working hands have found the balance. Built for snow, gravel, and the endless digging that altitude demands.",
-      "weightLb": 3.6,
-      "visuals": {
-        "image": "resources/images/shovel_examine.png"
-      },
-      "icons": {
-        "icon": "resources/icons/shovel_icon.png"
-      }
-    },
-    "garden_rake": {
-      "name": "Garden Rake",
-      "description": "A bow rake with sixteen forged tines and a handle cut from straight-grained ash. The head is pinned, not merely nailed, the way tools were made when men expected to keep them through more than one hard season.",
-      "weightLb": 2.1,
-      "visuals": {
-        "image": "resources/images/garden_rake_examine.png"
-      },
-      "icons": {
-        "icon": "resources/icons/garden_rake_icon.png"
-      }
-    },
-    "hand_drill": {
-      "name": "Hand Drill",
-      "description": "A carpenter's brace-and-bit hand drill in beech and steel, the chuck tight, the crank worn bright at the palm. Three interchangeable bits ride in a cloth wrap: steel made for timber, cabinet work, and the small precise holes hardware men trust more than luck.",
-      "weightLb": 1.4,
-      "visuals": {
-        "image": "resources/images/hand_drill_examine.png"
-      },
-      "icons": {
-        "icon": "resources/icons/hand_drill_icon.png"
-      }
-    },
-    "blacksmith_hammer": {
-      "name": "Blacksmith's Hammer",
-      "description": "A cross-peen blacksmith's hammer with a hickory handle shaped to the swing. The head carries the honest scars of work, peened and polished where countless blows have landed true. Not a wall decoration. A tool meant to move hot iron.",
-      "weightLb": 2.8,
-      "visuals": {
-        "image": "resources/images/blacksmith_hammer_examine.png"
-      },
-      "icons": {
-        "icon": "resources/icons/blacksmith_hammer_icon.png"
-      }
-    },
-    "mid_anvil": {
-      "name": "Mid-Sized Anvil",
-      "description": "A mid-sized cast-steel anvil, roughly eighty pounds, with a clean face, hard horn, and a hardy hole dark from use. The waist is stamped with a Pittsburgh maker's mark. It rings when you tap it, a bright note that says the steel was tempered by someone who understood the trade.",
-      "weightLb": 68.0,
-      "visuals": {
-        "image": "resources/images/mid_anvil_examine.png"
-      },
-      "icons": {
-        "icon": "resources/icons/mid_anvil_icon.png"
-      }
-    },
-    "box_of_nails": {
-      "name": "Box of Nails",
-      "description": "A pine box of cut common nails, four-penny weight, the heads slightly proud, the points sharp enough to bite on first strike. The lid is chalk-marked with the count and the date received. The small arithmetic of every cabin, fence, and mine brace on the ridge.",
-      "weightLb": 1.0,
-      "visuals": {
-        "image": "resources/images/box_of_nails_examine.png"
-      },
-      "icons": {
-        "icon": "resources/icons/box_of_nails_icon.png"
-      }
-    },
     "bent_nails": {
-      "name": "Bent Nails",
+      "consumeOnCombine": false,
       "description": "Two ten-penny cut nails, iron gone dull with ridge damp. Both are bent a few degrees below the head where a hammer glanced wrong and someone pried them free rather than drive them true. The points are still sharp. Whoever lost them was in a hurry.",
-      "weightLb": 0.04,
+      "icons": {
+        "icon": "resources/icons/bent_nails_icon.png"
+      },
+      "name": "Bent Nails",
       "visuals": {
         "image": "resources/images/bent_nails_examine.png"
       },
+      "weightLb": 0.04
+    },
+    "blacksmith_hammer": {
+      "description": "A cross-peen blacksmith's hammer with a hickory handle shaped to the swing. The head carries the honest scars of work, peened and polished where countless blows have landed true. Not a wall decoration. A tool meant to move hot iron.",
       "icons": {
-        "icon": "resources/icons/bent_nails_icon.png"
-      }
+        "icon": "resources/icons/blacksmith_hammer_icon.png"
+      },
+      "name": "Blacksmith's Hammer",
+      "visuals": {
+        "image": "resources/images/blacksmith_hammer_examine.png"
+      },
+      "weightLb": 2.8
+    },
+    "bow_tie": {
+      "description": "A bow tie of black silk grosgrain, pre-tied on a band but finished well enough that the deception would pass at a distance. The fabric has a dry hand and a subtle rib that speaks of formal rooms and better lighting than the ridge usually affords.",
+      "icons": {
+        "icon": "resources/icons/bow_tie_icon.png"
+      },
+      "name": "Bow Tie",
+      "visuals": {
+        "image": "resources/images/bow_tie_examine.png"
+      },
+      "weightLb": 0.05
+    },
+    "box_of_nails": {
+      "description": "A pine box of cut common nails, four-penny weight, the heads slightly proud, the points sharp enough to bite on first strike. The lid is chalk-marked with the count and the date received. The small arithmetic of every cabin, fence, and mine brace on the ridge.",
+      "icons": {
+        "icon": "resources/icons/box_of_nails_icon.png"
+      },
+      "name": "Box of Nails",
+      "visuals": {
+        "image": "resources/images/box_of_nails_examine.png"
+      },
+      "weightLb": 1.0
     },
     "copper_wire_spool": {
-      "name": "Spool of Copper Wire",
       "description": "A small spool of bare eighteen-gauge copper wire wound tight on a turned wooden core. The strand is fine as a pencil lead, rose-bright and springy, the sort of wire used for lantern leads, telegraph repairs, and the small electrical improvisations men make when the valley is too far below. The spool is light in the hand and the coils sit close, kept dry against mountain damp.",
-      "weightLb": 0.35,
+      "icons": {
+        "icon": "resources/icons/copper_wire_spool_icon.png"
+      },
+      "name": "Spool of Copper Wire",
+      "quantity": {
+        "defaultQuantity": 10,
+        "stackable": true,
+        "unitLabel": "use",
+        "unitWeightLb": 0.035
+      },
       "visuals": {
         "image": "resources/images/copper_wire_spool_examine.png"
       },
-      "icons": {
-        "icon": "resources/icons/copper_wire_spool_icon.png"
-      }
-    },
-    "wick": {
-      "name": "Wick",
-      "description": "A short wick improvised from a twist of dense wool fabric wrapped around a fine strand of bare copper wire. The wool drinks oil readily; the wire gives the bundle enough spine to stand upright in a narrow opening. Crude work, but serviceable.",
-      "weightLb": 0.02,
-      "visuals": {
-        "image": "resources/images/wick_examine.png"
-      },
-      "icons": {
-        "icon": "resources/icons/wick_icon.png"
-      }
-    },
-    "crude_lantern": {
-      "name": "Crude Lantern",
-      "description": "A makeshift lantern built from the mason jar of lamp oil, its cork stopper pierced to admit a wool-and-copper wick. No chimney, no brasswork\u2014only glass, oil, and patience. When you strike a match to the wick, the flame catches unevenly but holds, throwing a small honest circle of light at your feet.",
-      "weightLb": 0.68,
-      "lightSource": true,
-      "visuals": {
-        "image": "resources/images/crude_lantern_examine.png"
-      },
-      "icons": {
-        "icon": "resources/icons/crude_lantern_icon.png"
-      }
-    },
-    "texas_ranger_badge": {
-      "name": "Texas Ranger Badge",
-      "description": "A small circular brass badge with the Texas Ranger star stamped at the center. The metal is tarnished along the rim but the star still reads clear. The pin back is bent where it was torn from cloth. It is lighter than it looks in your palm.",
-      "alternateDescription": "A small circular brass badge with the Texas Ranger star stamped at the center. The metal has been polished bright, catching light along every edge. The pin back is still bent from its hasty removal.",
-      "alternateDescriptionFlag": "polished",
-      "weightLb": 0.09,
-      "visuals": {
-        "image": "resources/images/texas_ranger_badge_examine.png",
-        "alternateImage": "resources/images/texas_ranger_badge_polished_examine.png",
-        "alternateImageFlag": "polished"
-      },
-      "icons": {
-        "icon": "resources/icons/texas_ranger_badge_icon.png"
-      }
-    },
-    "independence_hall_locket": {
-      "name": "Independence Hall Locket",
-      "description": "An oval souvenir locket of tarnished silver plate over brass, the sort sold to travelers who want memory made portable. Independence Hall is worked in relief across the face, with 1776 arched above the cupola. The hinge is stiff with age and the catch holds fast. Whatever was kept inside has not seen daylight in some time.",
-      "alternateDescription": "The locket lies open in your palm, both halves spread wide. Inside the right compartment, an oval scrap of yellowed paper has been cut to fit the cavity. On it, a delicate graphite portrait shows a pretty young mother beside her eight-year-old daughter, both in simple dresses, their faces rendered with tender, lifelike care.",
-      "alternateDescriptionFlag": "open",
-      "examineRevealFlag": "examined",
-      "useRequiresFlag": "examined",
-      "useRevealFlag": "open",
-      "useNarrative": "You work the stiff catch with your thumbnail until the locket gives. Inside, on oval paper yellowed with age, a delicate pencil portrait shows a pretty young mother beside her eight-year-old daughter, both smiling as though they once sat for a keepsake and meant to be remembered that way.\n\nYou have no idea where this locket came from. The depictions seem slightly familiar, but you do not know why.",
-      "weightLb": 0.11,
-      "visuals": {
-        "image": "resources/images/locket_closed_examine.png",
-        "alternateImage": "resources/images/locket_open_examine.png",
-        "alternateImageFlag": "open"
-      },
-      "icons": {
-        "icon": "resources/icons/locket_icon.png"
-      }
+      "weightLb": 0.35
     },
     "crampons": {
-      "name": "Crampons",
       "description": "A pair of forged-steel crampons with twelve front points and four rear spikes, strapped to leather and canvas bindings sized for mountain boots. The frames are blued against ridge damp, the points dressed sharp on a wheel. Built for glazed snow and bare ice above timberline, where a boot alone is only a polite way to die.",
-      "weightLb": 1.8,
+      "icons": {
+        "icon": "resources/icons/crampons_icon.png"
+      },
+      "name": "Crampons",
       "visuals": {
         "image": "resources/images/crampons_examine.png"
       },
+      "weightLb": 1.8
+    },
+    "crude_lantern": {
+      "assembleNarrative": "You seat the wool-and-wire wick in the pierced cork and settle the jar in your hand. Glass, oil, and patience—a crude lantern, but it will hold a flame.",
+      "components": [
+        {
+          "consume": true,
+          "itemId": "lamp_oil_prepared",
+          "reqQty": 1
+        },
+        {
+          "consume": true,
+          "itemId": "wick",
+          "reqQty": 1
+        }
+      ],
+      "description": "A makeshift lantern built from the mason jar of lamp oil, its cork stopper pierced to admit a wool-and-copper wick. No chimney, no brasswork—only glass, oil, and patience. When you strike a match to the wick, the flame catches unevenly but holds, throwing a small honest circle of light at your feet.",
       "icons": {
-        "icon": "resources/icons/crampons_icon.png"
-      }
+        "icon": "resources/icons/crude_lantern_icon.png"
+      },
+      "lightSource": true,
+      "name": "Crude Lantern",
+      "visuals": {
+        "image": "resources/images/crude_lantern_examine.png"
+      },
+      "weightLb": 0.66
+    },
+    "cuff_links": {
+      "description": "A pair of cuff links in a small velvet tray: onyx faces set in sterling, engine-turned at the border so they catch lamplight without shouting. The posts click shut with the satisfying precision of good mechanism. The sort of detail a man buys when he wants a room to revise its estimate of him.",
+      "icons": {
+        "icon": "resources/icons/cuff_links_icon.png"
+      },
+      "name": "Cuff Links",
+      "visuals": {
+        "image": "resources/images/cuff_links_examine.png"
+      },
+      "weightLb": 0.08
+    },
+    "custom_jacket": {
+      "description": "A commission card for a custom jacket: shoulder width, chest, and lapel style noted with the care of a man who believes fit is morality. The fabric sample is long-grain wool in charcoal, substantial enough to hold a ridge wind at bay. Six weeks' lead. Designed and constructed on Savile Row in London, as though the address itself were a kind of guarantee.",
+      "icons": {
+        "icon": "resources/icons/custom_jacket_icon.png"
+      },
+      "name": "Custom Men's Jacket",
+      "visuals": {
+        "image": "resources/images/custom_jacket_examine.png"
+      },
+      "weightLb": 1.35
+    },
+    "custom_shirt": {
+      "description": "A measurement card and fabric swatch pinned to a tailor's ticket for a custom shirt: long-grain cotton, mother-of-pearl buttons, collar cut to your measure. The haberdasher notes a six-week lead time and, with quiet pride, Savile Row construction. The garment itself is not here yet. The promise is.",
+      "icons": {
+        "icon": "resources/icons/custom_shirt_icon.png"
+      },
+      "name": "Custom Men's Shirt",
+      "visuals": {
+        "image": "resources/images/custom_shirt_examine.png"
+      },
+      "weightLb": 0.55
+    },
+    "custom_trousers": {
+      "description": "A tailor's order for custom trousers: waist, inseam, and rise recorded in ink that does not smudge. The cloth sample is worsted wool, dark enough for church and boardrooms that do not exist on the High Line but might in Graysmill. Six weeks, the card says. Made on Savile Row in London.",
+      "icons": {
+        "icon": "resources/icons/custom_trousers_icon.png"
+      },
+      "name": "Custom Men's Trousers",
+      "visuals": {
+        "image": "resources/images/custom_trousers_examine.png"
+      },
+      "weightLb": 0.72
+    },
+    "fedora": {
+      "description": "A weathered felt fedora, dark charcoal gone dusty at the brim. The grosgrain ribbon is stained where smoke and rain have worked the same habit. The crown is dented from carry and sleep. It smells faintly of cigarettes and another room.",
+      "icons": {
+        "icon": "resources/icons/fedora_icon.png"
+      },
+      "name": "Fedora",
+      "weightLb": 0.31
+    },
+    "garden_rake": {
+      "description": "A bow rake with sixteen forged tines and a handle cut from straight-grained ash. The head is pinned, not merely nailed, the way tools were made when men expected to keep them through more than one hard season.",
+      "icons": {
+        "icon": "resources/icons/garden_rake_icon.png"
+      },
+      "name": "Garden Rake",
+      "visuals": {
+        "image": "resources/images/garden_rake_examine.png"
+      },
+      "weightLb": 2.1
+    },
+    "hair_tonic": {
+      "description": "A cobalt bottle of hair tonic with a cork sealed in red wax. The label promises restorative virtue in language more medical than honest. The liquid smells of bay rum and barber soap. A man's vanity in a bottle small enough to hide in a coat pocket.",
+      "icons": {
+        "icon": "resources/icons/hair_tonic_icon.png"
+      },
+      "name": "Hair Tonic",
+      "visuals": {
+        "image": "resources/images/hair_tonic_examine.png"
+      },
+      "weightLb": 0.28
+    },
+    "hand_drill": {
+      "description": "A carpenter's brace-and-bit hand drill in beech and steel, the chuck tight, the crank worn bright at the palm. Three interchangeable bits ride in a cloth wrap: steel made for timber, cabinet work, and the small precise holes hardware men trust more than luck.",
+      "icons": {
+        "icon": "resources/icons/hand_drill_icon.png"
+      },
+      "name": "Hand Drill",
+      "visuals": {
+        "image": "resources/images/hand_drill_examine.png"
+      },
+      "weightLb": 1.4
+    },
+    "hunting_knife": {
+      "consumeOnCombine": false,
+      "consumeOnUse": false,
+      "description": "A fixed-blade hunting knife in a dark leather sheath scuffed from carry. The wooden handle is smooth where a palm has worn it. Ambient light reflects off the recently honed carbon steel.",
+      "examineTts": {
+        "enabled": true,
+        "text": "A fixed-blade hunting knife in a dark leather sheath scuffed from carry.[pause] The wooden handle is smooth where a palm has worn it. Ambient light reflects off the recently honed carbon steel."
+      },
+      "icons": {
+        "icon": "resources/icons/hunting_knife_icon.png"
+      },
+      "name": "Hunting Knife",
+      "sfx": {
+        "examine": "resources/audio/sfx/hunting_knife_examine.mp3",
+        "use": "resources/audio/sfx/hunting_knife_use.mp3"
+      },
+      "ttsDefaultVoice": "leo",
+      "ttsEnabled": true,
+      "visuals": {
+        "image": "resources/images/hunting_knife_examine.png"
+      },
+      "weightLb": 0.8700000047683716
+    },
+    "independence_hall_locket": {
+      "alternateDescription": "The locket lies open in your palm, both halves spread wide. Inside the right compartment, an oval scrap of yellowed paper has been cut to fit the cavity. On it, a delicate graphite portrait shows a pretty young mother beside her eight-year-old daughter, both in simple dresses, their faces rendered with tender, lifelike care.",
+      "alternateDescriptionFlag": "open",
+      "description": "An oval souvenir locket of tarnished silver plate over brass, the sort sold to travelers who want memory made portable. Independence Hall is worked in relief across the face, with 1776 arched above the cupola. The hinge is stiff with age and the catch holds fast. Whatever was kept inside has not seen daylight in some time.",
+      "examineRevealFlag": "examined",
+      "icons": {
+        "icon": "resources/icons/locket_icon.png"
+      },
+      "name": "Independence Hall Locket",
+      "useNarrative": "You work the stiff catch with your thumbnail until the locket gives. Inside, on oval paper yellowed with age, a delicate pencil portrait shows a pretty young mother beside her eight-year-old daughter, both smiling as though they once sat for a keepsake and meant to be remembered that way.\n\nYou have no idea where this locket came from. The depictions seem slightly familiar, but you do not know why.",
+      "useRequiresFlag": "examined",
+      "useRevealFlag": "open",
+      "visuals": {
+        "alternateImage": "resources/images/locket_open_examine.png",
+        "alternateImageFlag": "open",
+        "image": "resources/images/locket_closed_examine.png"
+      },
+      "weightLb": 0.11
+    },
+    "lamp_oil": {
+      "alternateDescription": "A small mason jar, half full of pale golden lamp oil. The glass is wick-yellow at the shoulder where oil has crept up the sides. The cork stopper is stained and fits tight, though a crude hole has been bored through the top where someone used a knife tip to pierce it.",
+      "alternateDescriptionFlag": "drilled_stopper",
+      "description": "A small mason jar, half full of pale golden lamp oil. The glass is wick-yellow at the shoulder where oil has crept up the sides. The cork stopper is stained and fits tight.",
+      "icons": {
+        "icon": "resources/icons/lamp_oil_icon.png"
+      },
+      "name": "Lamp Oil",
+      "visuals": {
+        "image": "resources/images/lamp_oil_examine.png"
+      },
+      "weightLb": 0.64
+    },
+    "lamp_oil_prepared": {
+      "assembleNarrative": "You brace the mason jar against your knee and work a steel tip through the cork stopper, twisting slowly until it bites a narrow hole through the center. Crude, but wide enough for a wick.",
+      "components": [
+        {
+          "consume": true,
+          "itemId": "lamp_oil",
+          "reqQty": 1
+        },
+        {
+          "alternates": [
+            "bent_nails"
+          ],
+          "consume": false,
+          "itemId": "hunting_knife",
+          "reqQty": 1
+        }
+      ],
+      "consumeOnCombine": true,
+      "description": "A small mason jar, half full of pale golden lamp oil. The glass is wick-yellow at the shoulder where oil has crept up the sides. The cork stopper is stained and fits tight, though a crude hole has been bored through the top where someone used a knife tip to pierce it.",
+      "icons": {
+        "icon": "resources/icons/lamp_oil_prepared_icon.png"
+      },
+      "name": "Prepared Lamp Oil",
+      "visuals": {
+        "image": "resources/images/lamp_oil_prepared_examine.png"
+      },
+      "weightLb": 0.64
+    },
+    "lard": {
+      "description": "A wide-mouth mason jar packed with smooth, ivory-white rendered lard. The waxed lid is screwed down tight, and a faint waxy scent rises when you tilt it toward the light.",
+      "icons": {
+        "icon": "resources/icons/lard_icon.png"
+      },
+      "name": "Lard",
+      "visuals": {
+        "image": "resources/images/lard_examine.png"
+      },
+      "weightLb": 1.42
+    },
+    "mens_cologne": {
+      "description": "A heavy glass bottle of men's cologne with a ground stopper and a label printed in restrained copperplate. The scent is cedar, bergamot, and something drier beneath—tobacco leaf, perhaps, or the memory of it. The Ridge Haberdashery wraps its goods as though altitude might bruise them.",
+      "icons": {
+        "icon": "resources/icons/mens_cologne_icon.png"
+      },
+      "name": "Men's Cologne",
+      "visuals": {
+        "image": "resources/images/mens_cologne_examine.png"
+      },
+      "weightLb": 0.42
+    },
+    "mens_duster": {
+      "description": "A full-length men's duster in oiled canvas the color of winter road dust, with a split back for riding and pockets deep enough to lose a man's intentions. The metal buttons are darkened against tarnish. It is less garment than declaration: a man who expects distance, weather, and the kind of work that keeps his hands dirty.",
+      "icons": {
+        "icon": "resources/icons/mens_duster_icon.png"
+      },
+      "name": "Men's Duster",
+      "visuals": {
+        "image": "resources/images/mens_duster_examine.png"
+      },
+      "weightLb": 3.1
+    },
+    "mens_pea_coat": {
+      "description": "A men's pea coat of heavy navy melton wool, double-breasted with anchor buttons and a collar that can be turned against wind that has never learned manners. The lining is quilted. The shoulders are broad. It smells of new cloth and cold air, as though it has been waiting for a ship that docks at altitude.",
+      "icons": {
+        "icon": "resources/icons/mens_pea_coat_icon.png"
+      },
+      "name": "Men's Pea Coat",
+      "visuals": {
+        "image": "resources/images/mens_pea_coat_examine.png"
+      },
+      "weightLb": 2.8
+    },
+    "mid_anvil": {
+      "description": "A mid-sized cast-steel anvil, roughly eighty pounds, with a clean face, hard horn, and a hardy hole dark from use. The waist is stamped with a Pittsburgh maker's mark. It rings when you tap it, a bright note that says the steel was tempered by someone who understood the trade.",
+      "icons": {
+        "icon": "resources/icons/mid_anvil_icon.png"
+      },
+      "name": "Mid-Sized Anvil",
+      "visuals": {
+        "image": "resources/images/mid_anvil_examine.png"
+      },
+      "weightLb": 68.0
+    },
+    "mining_pick": {
+      "description": "A prospector's pick with a hickory handle darkened by pitch and honest sweat. The head is forged steel, double-bit, with an edge that has been dressed recently on a wheel. Weighted for mountain ground: quartz, shale, and the stubborn ribs of ore that men chase above the timberline.",
+      "icons": {
+        "icon": "resources/icons/mining_pick_icon.png"
+      },
+      "name": "Mining Pick",
+      "visuals": {
+        "image": "resources/images/mining_pick_examine.png"
+      },
+      "weightLb": 4.8
+    },
+    "remington_model_1890_revolver": {
+      "consumeOnCombine": false,
+      "consumeOnUse": false,
+      "description": "You hold in your hand a Remington Model 1890 Revolver.  Chambered in .44 cal, with a blued finish.  The rubber handle melts into your hand like it was made for it.  You flip open the cylinder to inspect the barrel.  Empty.  It has been cleaned recently, however, it has also been fired recently.  Flipping the cylinder closed and instinctually pulling back the hammer, you realize that you do not recall if you have ever even held a pistol before.  However, something about it feels so natural.  As you more carefully inspect the handle, above the grip you notice an engraving of a five pointed star with a circle around it.",
+      "examineTts": {
+        "enabled": true,
+        "text": "You hold in your hand a Remington Model 1890 Revolver,[pause]  chambered in 44 caliber, with a blued finish.  The rubber handle melts into your hand like it was made for it.  You flip open the cylinder to inspect the barrel.[long-pause]  Empty.[pause]  It has been cleaned recently, however, it has also been fired recently.  Flipping the cylinder closed and instinctually pulling back the hammer, you realize that you do not recall if you have ever even held a pistol before.[long-pause]  However, something about it feels so natural.  As you more carefully inspect the handle, above the grip you notice an engraving of a five pointed star with a circle around it."
+      },
+      "icons": {
+        "icon": "resources/icons/remington_model_1890_revolver_icon.png"
+      },
+      "name": "Remington Model 1890 Revolver",
+      "sfx": {
+        "examine": "resources/audio/sfx/remington_model_1890_revolver_examine.mp3",
+        "use": "resources/audio/sfx/remington_model_1890_revolver_use.mp3"
+      },
+      "ttsDefaultVoice": "leo",
+      "ttsEnabled": true,
+      "visuals": {
+        "image": "resources/images/remington_model_1890_revolver_examine.png"
+      },
+      "weightLb": 2.0
+    },
+    "shaving_brush": {
+      "description": "A shaving brush with a turned handle of pale boxwood and a knot of badger hair dense enough to hold a proper lather. The ferrule is nickel silver, stamped with a London maker's mark worn thin at the edge. Used with care, it would last longer than most resolutions on the High Line.",
+      "icons": {
+        "icon": "resources/icons/shaving_brush_icon.png"
+      },
+      "name": "Shaving Brush",
+      "visuals": {
+        "image": "resources/images/shaving_brush_examine.png"
+      },
+      "weightLb": 0.14
+    },
+    "shovel": {
+      "description": "A round-point shovel with a long ash handle and a steel blade rolled at the edge. The socket is riveted true, the grip worn smooth where working hands have found the balance. Built for snow, gravel, and the endless digging that altitude demands.",
+      "icons": {
+        "icon": "resources/icons/shovel_icon.png"
+      },
+      "name": "Shovel",
+      "visuals": {
+        "image": "resources/images/shovel_examine.png"
+      },
+      "weightLb": 3.6
     },
     "spent_9mm_bullet": {
+      "description": "A nine-millimeter bullet retrieved from the dead man's thigh — projectile only, no brass casing attached. The round has been fired: the copper jacket is split and the lead nose is slightly mushroomed and misshapen from impact and whatever tissue it crossed before lodging against bone. Frozen blood still clings to the rifling grooves. Evidence, if you can find a laboratory above timberline.",
+      "icons": {
+        "icon": "resources/icons/spent_9mm_bullet_icon.png"
+      },
       "name": "Spent 9mm Bullet",
-      "description": "A nine-millimeter bullet retrieved from the dead man's thigh \u2014 projectile only, no brass casing attached. The round has been fired: the copper jacket is split and the lead nose is slightly mushroomed and misshapen from impact and whatever tissue it crossed before lodging against bone. Frozen blood still clings to the rifling grooves. Evidence, if you can find a laboratory above timberline.",
-      "weightLb": 0.02,
       "visuals": {
         "image": "resources/images/spent_9mm_bullet_examine.png"
       },
+      "weightLb": 0.02
+    },
+    "straight_razor": {
+      "description": "A straight razor in a fitted leather sheath, the spanish tip blade is hollow-ground and polished to a mirror that shows your face in fragments. The handle is horn and pinned with a brass tang. The edge is sharp enough to part a hair without complaint.",
+      "examineTts": {
+        "tts": true,
+        "ttsAudio": "resources/audio/tts/items/straight_razor/examine.mp3",
+        "ttsText": "A straight razor in a fitted leather sheath, the spanish tip blade is hollow-ground and polished to a mirror that shows your face in fragments. The handle is horn and pinned with a brass tang. The edge is sharp enough to part a hair without complaint.",
+        "ttsTextSha256": "1af3e70c3c771fdd7a87d9d6892e4bb06599f8eb5105e93f5af91ef9e2059eb3",
+        "ttsVoice": "leo"
+      },
       "icons": {
-        "icon": "resources/icons/spent_9mm_bullet_icon.png"
-      }
+        "icon": "resources/icons/straight_razor_icon.png"
+      },
+      "name": "Straight Razor",
+      "ttsDefaultVoice": "leo",
+      "ttsEnabled": true,
+      "visuals": {
+        "image": "resources/images/straight_razor_examine.png"
+      },
+      "weightLb": 0.22
+    },
+    "texas_ranger_badge": {
+      "alternateDescription": "A small circular brass badge with the Texas Ranger star stamped at the center. The metal has been polished bright, catching light along every edge. The pin back is still bent from its hasty removal.",
+      "alternateDescriptionFlag": "polished",
+      "description": "A small circular brass badge with the Texas Ranger star stamped at the center. The metal is tarnished along the rim but the star still reads clear. The pin back is bent where it was torn from cloth. It is lighter than it looks in your palm.",
+      "icons": {
+        "icon": "resources/icons/texas_ranger_badge_icon.png"
+      },
+      "name": "Texas Ranger Badge",
+      "visuals": {
+        "alternateImage": "resources/images/texas_ranger_badge_polished_examine.png",
+        "alternateImageFlag": "polished",
+        "image": "resources/images/texas_ranger_badge_examine.png"
+      },
+      "weightLb": 0.09
+    },
+    "texas_ranger_badge_polished": {
+      "assembleNarrative": "You uncork the mason jar and wet a fold of cloth with lamp oil. Working in small circles, you lift the tarnish from the brass until the Texas Ranger star catches the light again — sharp, deliberate, and recently cared for, as though someone polished it before hiding it here and the mountain only half forgot.\n\nThe badge looks the same in every line and curve. Only the surface has changed: dull bloom traded for a bright, honest mirror of whoever holds it.",
+      "components": [
+        {
+          "consume": true,
+          "itemId": "texas_ranger_badge",
+          "reqQty": 1
+        },
+        {
+          "consume": false,
+          "itemId": "lamp_oil",
+          "reqQty": 1
+        }
+      ],
+      "consumeOnCombine": true,
+      "description": "A small circular brass badge with the Texas Ranger star stamped at the center. The metal has been polished bright, catching light along every edge. The pin back is still bent from its hasty removal.",
+      "icons": {
+        "icon": "resources/icons/texas_ranger_badge_icon.png"
+      },
+      "name": "Texas Ranger Badge",
+      "visuals": {
+        "image": "resources/images/texas_ranger_badge_polished_examine.png"
+      },
+      "weightLb": 0.09
+    },
+    "wallet": {
+      "container": {
+        "contents": [
+          {
+            "examineNote": "Examining the pockets carefully, you identify a small piece of carefully folded paper tucked deep into a corner seam.",
+            "extractable": true,
+            "itemId": "wallet_slip",
+            "quantity": 1
+          }
+        ],
+        "decomposes": false,
+        "isContainer": true
+      },
+      "description": "The wallet is worked from thick full-grain leather, hand-stitched along the edges with waxed thread the color of strong tea. The dye is uneven in the way of good hides, not factory perfect. A maker's stamp inside the flap is too worn to read. It sits heavy in your palm, the sort of piece a man buys once and carries for years.",
+      "icons": {
+        "icon": "resources/icons/wallet_icon.png"
+      },
+      "name": "Wallet",
+      "visuals": {
+        "image": "resources/images/wallet_examine.png"
+      },
+      "weightLb": 0.18
+    },
+    "wallet_slip": {
+      "description": "A small slip of paper, folded until the creases have gone soft. The ink is faded but legible.",
+      "icons": {
+        "icon": "resources/icons/wallet_slip_icon.png"
+      },
+      "name": "Slip of Paper",
+      "weightLb": 0.01
+    },
+    "wick": {
+      "assembleNarrative": "You twist a strip of the wool around a length of copper wire until the fabric holds a short, upright wick—rough work, but it will drink oil.",
+      "components": [
+        {
+          "consume": true,
+          "itemId": "wool_fabric_sample",
+          "reqQty": 1
+        },
+        {
+          "consume": true,
+          "itemId": "copper_wire_spool",
+          "reqQty": 1
+        }
+      ],
+      "description": "A short wick improvised from a twist of dense wool fabric wrapped around a fine strand of bare copper wire. The wool drinks oil readily; the wire gives the bundle enough spine to stand upright in a narrow opening. Crude work, but serviceable.",
+      "icons": {
+        "icon": "resources/icons/wick_icon.png"
+      },
+      "name": "Wick",
+      "visuals": {
+        "image": "resources/images/wick_examine.png"
+      },
+      "weightLb": 0.02
+    },
+    "wool_fabric_sample": {
+      "description": "A small cut of premium long-grain wool, one hundred percent, folded into a card and tied with twine. The hand is dense and cool, the weave tight enough that light passes reluctantly. The haberdasher's note on the card reads simply: for consideration.",
+      "icons": {
+        "icon": "resources/icons/wool_fabric_sample_icon.png"
+      },
+      "name": "Wool Fabric Sample",
+      "visuals": {
+        "image": "resources/images/wool_fabric_sample_examine.png"
+      },
+      "weightLb": 0.02
     }
   }
 }

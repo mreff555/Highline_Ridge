@@ -20,6 +20,7 @@
 #include "Button.h"
 #include "ButtonMgr.h"
 #include <RaylibCompat.h>
+#include <SceneLoader.h>
 #include <algorithm>
 #include <cstdio>
 #include <vector>
@@ -196,6 +197,89 @@ void ButtonMgr::setClickHoldDuration(float seconds)
 
 ButtonMgr::~ButtonMgr()
 {
+    if (needsLightIcon.id != 0)
+        UnloadTexture(needsLightIcon);
+}
+
+void ButtonMgr::setMovementBlockOverlays(const MovementBlockOverlays& overlays)
+{
+    movementBlockOverlays = overlays;
+}
+
+void ButtonMgr::ensureBlockIconsLoaded() const
+{
+    if (blockIconsLoaded)
+        return;
+    blockIconsLoaded = true;
+
+    Texture2D texture{};
+    if (loadResourceTexture(".", "resources/ui/exit_needs_light_icon.png", texture))
+        needsLightIcon = texture;
+    else
+        TraceLog(LOG_WARNING, "Failed to load movement block icon resources/ui/exit_needs_light_icon.png");
+}
+
+const Texture2D* ButtonMgr::iconForBlockReason(MovementBlockReason reason) const
+{
+    ensureBlockIconsLoaded();
+    switch (reason)
+    {
+        case MovementBlockReason::NeedsLight:
+            return needsLightIcon.id != 0 ? &needsLightIcon : nullptr;
+        case MovementBlockReason::None:
+        case MovementBlockReason::Other:
+        default:
+            return nullptr;
+    }
+}
+
+MovementBlockReason ButtonMgr::blockReasonForMovementIndex(int buttonIndex) const
+{
+    switch (buttonIndex)
+    {
+        case 0: return movementBlockOverlays.up;
+        case 1: return movementBlockOverlays.down;
+        case 2: return movementBlockOverlays.forward;
+        case 3: return movementBlockOverlays.left;
+        case 4: return movementBlockOverlays.right;
+        case 5: return movementBlockOverlays.backward;
+        default: return MovementBlockReason::None;
+    }
+}
+
+bool ButtonMgr::movementIndexHasBlockIcon(int buttonIndex) const
+{
+    return iconForBlockReason(blockReasonForMovementIndex(buttonIndex)) != nullptr;
+}
+
+void ButtonMgr::drawDisabledMovementChrome(Rectangle bounds) const
+{
+    DrawRectangleRounded(bounds, buttonStyle.roundness, 8, buttonStyle.disabledBg);
+    DrawRoundedBorder(bounds, buttonStyle.roundness, 8, 2.0f, buttonStyle.disabledBorderColor);
+}
+
+void ButtonMgr::drawMovementBlockBadge(int buttonIndex, Rectangle bounds) const
+{
+    const MovementBlockReason reason = blockReasonForMovementIndex(buttonIndex);
+    const Texture2D* icon = iconForBlockReason(reason);
+    if (icon == nullptr)
+        return;
+
+    // Quiet centered outline glyph, tinted to match disabled button text.
+    const float badge = std::min(bounds.width, bounds.height) * 0.55f;
+    const Rectangle dest = {
+        bounds.x + (bounds.width - badge) * 0.5f,
+        bounds.y + (bounds.height - badge) * 0.5f,
+        badge,
+        badge
+    };
+    const Rectangle src = {
+        0.0f,
+        0.0f,
+        static_cast<float>(icon->width),
+        static_cast<float>(icon->height)
+    };
+    DrawTexturePro(*icon, src, dest, {0.0f, 0.0f}, 0.0f, buttonStyle.disabledTextColor);
 }
 
 void ButtonMgr::setStatus(float health, float energy, float resolve, float lucidity, float charisma)
@@ -564,8 +648,22 @@ void ButtonMgr::draw() const
     drawStatusBar("Lucidity", lucidityBarBounds, lucidityPercent);
     drawStatusBar("Charisma", charismaBarBounds, charismaPercent);
 
-    for (const auto& button : buttons)
-        button.draw();
+    for (size_t i = 0; i < buttons.size(); ++i)
+    {
+        const int index = static_cast<int>(i);
+        const Rectangle bounds = buttons[i].getBounds();
+        // Darkness (etc.) badges replace the direction label so the outline glyph
+        // stays quiet and centered instead of stacking on the text.
+        if (i < 6 && !buttons[i].isEnabled() && movementIndexHasBlockIcon(index))
+        {
+            drawDisabledMovementChrome(bounds);
+            drawMovementBlockBadge(index, bounds);
+        }
+        else
+        {
+            buttons[i].draw();
+        }
+    }
 }
 
 }

@@ -40,11 +40,33 @@
 # debug information files
 *.dwo
 
-build
-tools/scene-editor/build
+# Local / alternate CMake build trees (never commit)
+/build/
+/build-*/
+!/build-release.sh
+tools/scene-editor/build/
+compile_commands.json
+**/compile_commands.json
+CMakeUserPresets.json
+
+# Secrets and local runtime caches
+**/xai_api_key
+resources/xai_api_key
+.env
+**/cache/
+
+# Runtime / player data
+saves/
+**/*.sav
+
+# Item/scene authoring AI job sidecars (external gen tools)
+resources/.authoring/
 
 # Audio assets are stored xz-compressed in git; keep local uncompressed copies untracked.
 resources/audio/**/*.mp3
+resources/audio/**/*.opus
+resources/audio/**/*.ogg
+resources/audio/**/*.wav
 
 # Image assets are stored xz-compressed in git; keep local uncompressed copies untracked.
 resources/**/*.png
@@ -59,5 +81,19 @@ Unknown.png
 # Story planning doc lives on storyboard-planning; ignore on main
 storyboard.md
 
+# Tooling / IDE noise
 .DS_Store
-tools/__pycache__
+tools/__pycache__/
+*.pyc
+*.dSYM/
+*~
+*.swp
+*.swo
+.idea/
+.vscode/detective-game-vscode-backup/
+
+# One-off restore dumps and authoring source intermediates
+_github_restore/
+tools/hardware_sources/
+tools/**/*_src.jpg
+tools/**/*_source.jpg

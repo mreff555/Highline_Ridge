@@ -40,6 +40,13 @@ enum class PauseMenuPanel
     Config
 };
 
+/** Title = boot main menu; InGame = ESC pause menu. */
+enum class PauseMenuContext
+{
+    Title,
+    InGame
+};
+
 class PauseMenuMgr
 {
     public:
@@ -52,10 +59,18 @@ class PauseMenuMgr
     void setUiBackdrop(const UiBackdrop* backdrop);
     void setOnDisplaySettingsChanged(const std::function<void()>& callback);
     void setOnInputSettingsChanged(const std::function<void()>& callback);
+    /** When false, Continue is disabled on the title screen. */
+    void setContinueAvailable(bool available);
 
     bool isOpen() const { return open; }
     bool isConfigPanel() const { return panel == PauseMenuPanel::Config; }
+    bool isTitleContext() const { return context == PauseMenuContext::Title; }
+    PauseMenuContext getContext() const { return context; }
+
+    /** ESC pause menu (Resume instead of Continue). */
     void openMenu();
+    /** Boot / main menu (Continue / New Game / …). */
+    void openTitleMenu();
     void closeMenu();
     void showConfigPanel();
     void showMainPanel();
@@ -66,6 +81,9 @@ class PauseMenuMgr
     bool consumeQuitRequest();
     bool consumeOpenSaveMenuRequest();
     bool consumeOpenLoadMenuRequest();
+    bool consumeContinueRequest();
+    bool consumeNewGameRequest();
+    bool consumeResumeRequest();
     void setStatusMessage(const std::string& message, float durationSeconds = 2.5f);
     const std::string& getStatusMessage() const { return statusMessage; }
 
@@ -90,6 +108,7 @@ class PauseMenuMgr
     void handleMainInput();
     void handleConfigInput();
     void drawPanelFrame(const char* title) const;
+    const char* mainPanelTitle() const;
     void drawStatusMessage() const;
     void drawConfigPanel() const;
     void drawSliderRow(
@@ -129,7 +148,9 @@ class PauseMenuMgr
     std::function<void()> onInputSettingsChanged;
 
     bool open = false;
+    PauseMenuContext context = PauseMenuContext::InGame;
     PauseMenuPanel panel = PauseMenuPanel::Main;
+    bool continueAvailable = false;
     ButtonStyle baseButtonStyle{};
     ButtonStyle buttonStyle{};
     const UiBackdrop* uiBackdrop = nullptr;
@@ -138,6 +159,9 @@ class PauseMenuMgr
     bool quitRequested = false;
     bool openSaveMenuRequested = false;
     bool openLoadMenuRequested = false;
+    bool continueRequested = false;
+    bool newGameRequested = false;
+    bool resumeRequested = false;
 
     std::string statusMessage;
     float statusMessageTimer = 0.0f;

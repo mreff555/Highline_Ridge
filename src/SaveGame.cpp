@@ -19,6 +19,7 @@
 
 #include "SaveGame.h"
 
+#include <AssetStore.h>
 #include <ItemInstance.h>
 #include <PlatformPath.h>
 #include <TakeableItemDef.h>
@@ -443,17 +444,23 @@ bool isSaveFileName(const std::string& name)
 
 const char* defaultSavePath()
 {
-    return "saves/timberline_engine.sav";
+    static thread_local std::string path;
+    path = pathJoin(userSavesDirectory(), "timberline_engine.sav");
+    return path.c_str();
 }
 
 const char* savesDirectory()
 {
-    return "saves";
+    static thread_local std::string path;
+    path = userSavesDirectory();
+    return path.c_str();
 }
 
 const char* quickSavePath()
 {
-    return "saves/quick.sav";
+    static thread_local std::string path;
+    path = pathJoin(userSavesDirectory(), "quick.sav");
+    return path.c_str();
 }
 
 std::string currentTimestampIso(long long& outUnixTime)

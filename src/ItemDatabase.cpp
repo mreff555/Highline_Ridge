@@ -18,6 +18,7 @@
  ******************************************************************************/
 
 #include "ItemDatabase.h"
+#include <AssetStore.h>
 
 #include <cmath>
 #include <fstream>
@@ -213,11 +214,19 @@ bool parseItemDef(const std::string& id, const nlohmann::json& json, ItemDef& ou
             json.value("alternate_icon_flag", ""));
     }
 
+    parseTtsOwnerPolicyFromJsonFields(
+        json.value("ttsEnabled", false),
+        json.value("ttsDefaultVoice", ""),
+        out.ttsPolicy);
     parseItemTts(json.value("examineTts", json.value("examine_tts", nlohmann::json::object())), out.examineTts);
+    parseItemTts(json.value("useTts", json.value("use_tts", nlohmann::json::object())), out.useTts);
+    parseItemTts(json.value("takeTts", json.value("take_tts", nlohmann::json::object())), out.takeTts);
     parseItemSfx(json.value("sfx", nlohmann::json::object()), out.sfx);
     parseItemAudioOverlay(json.value("examineAudio", json.value("examine_audio", nlohmann::json::object())), out.examineAudio);
     parseItemContainer(json.value("container", nlohmann::json::object()), out.container);
     parseItemQuantity(json.value("quantity", nlohmann::json::object()), out.quantity);
+    out.consumeOnCombine = json.value("consumeOnCombine", json.value("consume_on_combine", true));
+    out.consumeOnUse = json.value("consumeOnUse", json.value("consume_on_use", true));
     out.lightSource = json.value("lightSource", json.value("light_source", false));
     out.examineRevealFlag = json.value(
         "examineRevealFlag",
@@ -231,6 +240,51 @@ bool parseItemDef(const std::string& id, const nlohmann::json& json, ItemDef& ou
     out.useNarrative = json.value(
         "useNarrative",
         json.value("use_narrative", ""));
+    out.assembleNarrative = json.value(
+        "assembleNarrative",
+        json.value("assemble_narrative", ""));
+    parseItemTts(
+        json.value("assembleTts", json.value("assemble_tts", nlohmann::json::object())),
+        out.assembleTts);
+
+    out.components.clear();
+    const nlohmann::json& components = json.value("components", nlohmann::json::array());
+    if (components.is_array())
+    {
+        for (const nlohmann::json& entry : components)
+        {
+            if (!entry.is_object())
+                continue;
+            ItemComponentDef component;
+            component.itemId = entry.value("itemId", entry.value("id", ""));
+            component.reqQty = entry.value("reqQty", entry.value("req_qty", 1));
+            component.alternates.clear();
+            const nlohmann::json& alternates =
+                entry.value("alternates", entry.value("alternateItemIds", nlohmann::json::array()));
+            if (alternates.is_array())
+            {
+                for (const nlohmann::json& alternate : alternates)
+                {
+                    if (alternate.is_string() && !alternate.get<std::string>().empty())
+                        component.alternates.push_back(alternate.get<std::string>());
+                }
+            }
+            if (entry.contains("consume"))
+            {
+                component.consume = entry.value("consume", true);
+                component.consumeSpecified = true;
+            }
+            else if (entry.contains("consumeOnCombine") || entry.contains("consume_on_combine"))
+            {
+                component.consume = entry.value(
+                    "consumeOnCombine",
+                    entry.value("consume_on_combine", true));
+                component.consumeSpecified = true;
+            }
+            if (!component.itemId.empty())
+                out.components.push_back(component);
+        }
+    }
 
     return !out.id.empty() && !out.name.empty();
 }
@@ -263,18 +317,20 @@ bool ItemDatabase::load(const std::string& path, const std::string& assetRoot)
 {
     (void)assetRoot;
 
-    std::ifstream file(path.c_str());
-    if (!file.is_open())
-        return false;
-
     nlohmann::json root;
-    try
+    std::string text;
+    if (assets().readText(path, text) || assets().readText("resources/items.json", text))
     {
-        file >> root;
+        try { root = nlohmann::json::parse(text); }
+        catch (const nlohmann::json::exception&) { return false; }
     }
-    catch (const nlohmann::json::exception&)
+    else
     {
-        return false;
+        std::ifstream file(path.c_str());
+        if (!file.is_open())
+            return false;
+        try { file >> root; }
+        catch (const nlohmann::json::exception&) { return false; }
     }
 
     items.clear();
@@ -289,6 +345,21 @@ bool ItemDatabase::load(const std::string& path, const std::string& assetRoot)
         if (!parseItemDef(it.key(), it.value(), parsed))
             return false;
         items[it.key()] = parsed;
+    }
+
+    // Resolve component consume defaults from the component item's consumeOnCombine.
+    for (auto& itemEntry : items)
+    {
+        for (ItemComponentDef& component : itemEntry.second.components)
+        {
+            if (component.consumeSpecified)
+                continue;
+            const ItemDef* componentDef = getDef(component.itemId);
+            if (componentDef != nullptr)
+                component.consume = componentDef->consumeOnCombine;
+            else
+                component.consume = true;
+        }
     }
 
     return !items.empty();
@@ -307,6 +378,33 @@ bool ItemDatabase::hasDef(const std::string& id) const
     return items.find(id) != items.end();
 }
 
+std::vector<const ItemDef*> ItemDatabase::findCraftProductsForPair(
+    const std::string& itemIdA,
+    const std::string& itemIdB) const
+{
+    std::vector<const ItemDef*> products;
+    if (itemIdA.empty() || itemIdB.empty() || itemIdA == itemIdB)
+        return products;
+
+    for (const auto& entry : items)
+    {
+        const ItemDef& def = entry.second;
+        if (def.components.size() != 2)
+            continue;
+
+        const ItemComponentDef& c0 = def.components[0];
+        const ItemComponentDef& c1 = def.components[1];
+        // Either assignment of the two dragged items onto the two slots.
+        const bool match =
+            (c0.acceptsItemId(itemIdA) && c1.acceptsItemId(itemIdB))
+            || (c0.acceptsItemId(itemIdB) && c1.acceptsItemId(itemIdA));
+        if (match)
+            products.push_back(&def);
+    }
+
+    return products;
+}
+
 ItemInstance ItemDatabase::createInstance(
     const std::string& defId,
     const std::vector<std::string>& storyFlags) const
@@ -319,10 +417,8 @@ ItemInstance ItemDatabase::createInstance(
     if (def == nullptr)
         return instance;
 
-    if (def->quantity.stackable)
-        instance.quantity = std::max(1, def->quantity.defaultQuantity);
-    else
-        instance.quantity = 1;
+    // All items may carry quantity (stacks and multi-use spools). Default is 1.
+    instance.quantity = std::max(1, def->quantity.defaultQuantity);
 
     appendStoryFlags(instance.activeFlags, storyFlags);
 
