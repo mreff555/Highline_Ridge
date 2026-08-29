@@ -131,7 +131,7 @@ main.cpp
 
 ### TTS (text to speech)
 
-Audio is enabled for some dialogs. Voices must be generated if you want TTS playback; see `--help` on the game binary. As a general overview you will need to go to the [xAI console](https://console.x.ai). You will need to purchase credits to generate TTS. The cost should be minimal to regenerate voices.
+Audio is enabled for some dialogs. Voices must be generated if you want TTS playback; see `--help` on the game binary. As a general overview you will need to go to the [xAI console](https://console.x.ai). You will need to purchase credits to generate TTS. The cost should be minimal to regenerate voices.  Note that release builds do not store a resources folder and rather create binary blobs (pak files) to hold resources.  Once build you can not regenerate voices.  Once voices have been generated via a DEV build a clean build-release will package those voices in the release.
 
 **Inline tags** (Grok TTS realism tags; Timberline also uses brace tags to switch voices mid-line):
 
@@ -152,7 +152,8 @@ Audio is enabled for some dialogs. Voices must be generated if you want TTS play
 
 **Voice substitution** — e.g. `{{voice:eve}}Hello,[pause] I am Eve{{/voice}}`
 
-Timberline is designed to incorporate Grok TTS voices as they are added. Currently valid voices include: **ara**, **eve**, **helios**, **leo**, **rex**, **rigel**, **sal**.
+Timberline is designed to incorporate Grok TTS voices. Currently valid voices include: **ara**, **eve**, **helios**, **leo**, **rex**, **rigel**, **sal**.
+
 
 ---
 
@@ -169,6 +170,7 @@ Timberline is designed to incorporate Grok TTS voices as they are added. Current
 | `-force`, `--force` | With refresh, ignore text hashes and regenerate matching lines |
 
 Normal play uses already-bundled voice files under `resources/audio/tts/` and does **not** call xAI.
+Release builds data files are immutable and therefore these commands are not available.
 
 Examples:
 
