@@ -19,7 +19,7 @@ The year is roughly **1891**. You wake in a cave, injured and with total memory 
   - **Health** — at 0%, you die; increases with sleep
   - **Energy** — stamina for hard work; increases with sleep
   - **Resolve** — grit for demanding tasks; stimulants or booze can help
-  - **Lucidity** — grip on reality; sleep helps; matters for conversation and intellect
+  - **Lucidity** — grip on reality; sleep helps; matters for conversation and intellect.  If it drops to 0% the game will transition to you waking up in the cave again.
   - **Charisma** — improves odds in conversation
 - Progress via **milestones**, story flags, and conversation phases
 - **Save / load** under the platform user-data directory (not next to the release binary)
