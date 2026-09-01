@@ -78,6 +78,8 @@ struct ThumbnailEntry
     Texture2D texture{};
     bool loaded = false;
     bool missing = false;
+    /** True while a JobSystem decode is in flight (not yet uploaded). */
+    bool loading = false;
 };
 const float kTreeRowHeight = 24.0f;
 const float kTreeIndent = 18.0f;

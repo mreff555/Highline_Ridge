@@ -18,6 +18,7 @@
  ******************************************************************************/
 
 #include "EditorLayout.h"
+#include "EditorInput.h"
 
 namespace timberline_editor
 {
@@ -174,7 +175,7 @@ void EditorLayout::handleDividerInput(int screenWidth, int screenHeight)
     else
         SetMouseCursor(MOUSE_CURSOR_DEFAULT);
 
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    if (editorMousePressed(MOUSE_BUTTON_LEFT))
     {
         // Prefer the split under the cursor; vertical first if both overlap.
         if (overVertical)
@@ -183,19 +184,19 @@ void EditorLayout::handleDividerInput(int screenWidth, int screenHeight)
             draggingHorizontalDivider = true;
     }
 
-    if (draggingVerticalDivider && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+    if (draggingVerticalDivider && editorMouseDown(MOUSE_BUTTON_LEFT))
     {
         leftPaneWidth = mouse.x - vDiv.width * 0.5f;
         userResizedLeftSplit = true;
     }
 
-    if (draggingHorizontalDivider && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+    if (draggingHorizontalDivider && editorMouseDown(MOUSE_BUTTON_LEFT))
     {
         topAreaHeight = mouse.y - hDiv.height * 0.5f;
         userResizedTopSplit = true;
     }
 
-    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+    if (editorMouseReleased(MOUSE_BUTTON_LEFT))
         cancelDividerDrag();
 
     clamp(screenWidth, screenHeight);

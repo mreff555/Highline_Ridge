@@ -4,6 +4,7 @@
  ******************************************************************************/
 
 #include "SceneInventoryDialog.h"
+#include "EditorInput.h"
 #include "EditorButton.h"
 #include "EditorTheme.h"
 #include "EditorUiDraw.h"
@@ -333,7 +334,7 @@ void SceneInventoryDialog::handleInput(int screenW, int screenH)
 
     if (waitMouseRelease)
     {
-        if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        if (!editorMouseDown(MOUSE_BUTTON_LEFT))
             waitMouseRelease = false;
         return;
     }
@@ -364,7 +365,7 @@ void SceneInventoryDialog::draw(int screenW, int screenH)
     const Vector2 mouse = GetMousePosition();
     const bool canClick =
         !waitMouseRelease && ignoreInputFrames <= 0
-        && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+        && editorMousePressed(MOUSE_BUTTON_LEFT);
 
     DrawRectangle(0, 0, screenW, screenH, kModalOverlay);
 

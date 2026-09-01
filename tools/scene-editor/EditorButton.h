@@ -74,21 +74,40 @@ struct EditorButton
     void layout(Font font, const EditorButtonConfig& config);
     /**
      * Hit-test / press state. Returns true the frame the mouse is pressed
-     * over the button (safe for stack-local buttons recreated each frame).
+     * over the button (uses editorMousePressed sticky edges — safe for brief
+     * trackpad taps and stack-local buttons recreated each frame).
      * Call after layout(); uses preferred for hit if bounds empty.
      */
     bool update(const EditorButtonConfig& config);
     void draw(Font font, const EditorButtonConfig& config) const;
 };
 
+/** Working-overlay spinner (from editor_ui_config.json workingOverlay). */
+struct EditorWorkingOverlayConfig
+{
+    /** Rigid: texture width/height must equal sizePx (see config comments). */
+    int sizePx = 64;
+    float revolutionsPerSecond = 1.0f;
+    std::string spinnerPath = "resources/ui/editor_working_spinner.png";
+    std::string title = "Working - Please wait";
+};
+
 /** Global button config + skins for the editor session. */
 struct EditorButtonResources
 {
     EditorButtonConfig config{};
+    /** Multiline / caret fields (from editor_ui_config.json textFields). */
+    float caretBlinkHz = 1.5f;
+    float textFieldPadX = 8.0f;
+    float textFieldPadY = 6.0f;
+    float textFieldScrollGutter = 12.0f;
+    EditorWorkingOverlayConfig working{};
     Texture2D raised{};
     Texture2D depressed{};
+    Texture2D workingSpinner{};
     bool raisedLoaded = false;
     bool depressedLoaded = false;
+    bool workingSpinnerLoaded = false;
     bool configLoaded = false;
 
     void load(const std::string& resourceDir, const std::string& assetRoot);
@@ -97,6 +116,12 @@ struct EditorButtonResources
 
 /** Shared instance wired by SceneEditorApp. */
 EditorButtonResources& editorButtons();
+
+/**
+ * Persist current button/textField/workingOverlay metrics to
+ * resources/editor_ui_config.json (under resourceDir).
+ */
+bool saveEditorUiConfig(const std::string& resourceDir, const EditorButtonResources& res);
 
 /**
  * Drop-in skinned button draw into fixed bounds. Press visual follows the mouse;

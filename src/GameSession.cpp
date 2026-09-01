@@ -18,7 +18,9 @@
  ******************************************************************************/
 
 #include <GameSession.h>
+#include <DisplayAspect.h>
 #include <ImageCompression.h>
+#include <JobSystem.h>
 #include <MovementBlockReason.h>
 #include <MovementMappingDef.h>
 #include <PlayerStats.h>
@@ -30,6 +32,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
+#include <memory>
 
 namespace timberline_engine
 {
@@ -38,6 +41,40 @@ namespace
 {
     const float kDialogHeightShareWhenSidePanelOpen = 2.0f / 3.0f;
     const float kSidePanelHeightShare = 1.0f / 3.0f;
+    /** Fixed right chrome width — docked to the right edge so the scene image gets the rest. */
+    const float kUiColumnWidth = 400.0f;
+    /** Bottom controls block (status + move/actions + inventory). Taller than the notebook
+     *  share so the STATUS/MOVE/ACTIONS frame surrounds more of the column chrome. */
+    const float kUiControlsMinHeight = 320.0f;
+    const float kUiControlsMaxHeight = 420.0f;
+
+    float uiColumnWidthForScreen(int screenW)
+    {
+        // Prefer ~400px; never more than ~42% so large scenes keep image real estate.
+        const float maxW = std::max(320.0f, static_cast<float>(screenW) * 0.42f);
+        return std::clamp(kUiColumnWidth, 320.0f, maxW);
+    }
+
+    void enterExclusiveFullscreen()
+    {
+        // macOS/raylib: ToggleFullscreen alone often keeps the old window size,
+        // leaving the game letterboxed in the middle of a black desktop. Size to
+        // the active monitor first so chrome fills the vertical range.
+        const int monitor = GetCurrentMonitor();
+        const int monW = GetMonitorWidth(monitor);
+        const int monH = GetMonitorHeight(monitor);
+        if (monW > 0 && monH > 0)
+            SetWindowSize(monW, monH);
+        if (!IsWindowFullscreen())
+            ToggleFullscreen();
+    }
+
+    void exitExclusiveFullscreen(const DisplayConfig& windowed)
+    {
+        if (IsWindowFullscreen())
+            ToggleFullscreen();
+        applySavedWindowPlacement(windowed);
+    }
     // Dev overlay hover accent (notebook palette lives in NarrativeNotebook.cpp).
     const Color kChoiceHover = {148, 88, 28, 255};
 
@@ -285,13 +322,14 @@ namespace
       backward(locationStruct.movementFilter.backward),
       left(locationStruct.movementFilter.left),
       right(locationStruct.movementFilter.right),
-      textBox{screenWidth / 2.0f, 0, screenWidth / 2.0f, screenHeight * 2.0f / 3.0f},
-      buttonBox{screenWidth / 2.0f, screenHeight * 2.0f / 3.0f, screenWidth / 2.0f, screenHeight / 3.0f},
-      fullDialogHeight(screenHeight * 2.0f / 3.0f),
+      textBox{},
+      buttonBox{},
+      fullDialogHeight(0.0f),
       buttonMgr(buttonBox, locationStruct.uiFont, locationStruct.boldFont),
       progressionService(milestoneMgr),
       sceneController(sceneDatabase, audioManager)
     {
+        relayoutForScreenSize(screenWidth, screenHeight);
         inventoryMgr.setFont(locationStruct.uiFont);
         takeMgr.setFont(locationStruct.uiFont);
         interactionMgr.setFont(locationStruct.uiFont);
@@ -384,25 +422,37 @@ namespace
     {
         screenWidth = width;
         screenHeight = height;
+
+        const float uiW = uiColumnWidthForScreen(screenWidth);
+        const float uiX = static_cast<float>(screenWidth) - uiW;
+        // Controls own more of the column (case notes shrinks) so the STATUS /
+        // MOVE / ACTIONS bounding box surrounds the extended chrome, not a
+        // floating island under a tall empty notebook.
+        float controlsH = std::clamp(
+            static_cast<float>(screenHeight) * 0.40f,
+            kUiControlsMinHeight,
+            kUiControlsMaxHeight);
+        if (controlsH > static_cast<float>(screenHeight) * 0.58f)
+            controlsH = static_cast<float>(screenHeight) * 0.58f;
+
         textBox = {
-            screenWidth / 2.0f,
+            uiX,
             0.0f,
-            screenWidth / 2.0f,
-            screenHeight * 2.0f / 3.0f
+            uiW,
+            static_cast<float>(screenHeight) - controlsH
         };
         buttonBox = {
-            screenWidth / 2.0f,
-            screenHeight * 2.0f / 3.0f,
-            screenWidth / 2.0f,
-            screenHeight / 3.0f
+            uiX,
+            static_cast<float>(screenHeight) - controlsH,
+            uiW,
+            controlsH
         };
-        fullDialogHeight = screenHeight * 2.0f / 3.0f;
+        fullDialogHeight = textBox.height;
         buttonMgr.relayout(buttonBox);
         blackjackPanel.setPanelBounds(buttonBox);
         pauseMenu.setScreenSize(screenWidth, screenHeight);
         saveLoadMenu.setScreenSize(screenWidth, screenHeight);
         dropConfirmMgr.setScreenSize(screenWidth, screenHeight);
-
 
         narrativeNotebook.invalidateLayout();
         inventoryMgr.reloadItemIconsIfNeeded();
@@ -413,18 +463,26 @@ namespace
     {
         if (gameConfig.display.fullscreen)
         {
-            if (!IsWindowFullscreen())
-                ToggleFullscreen();
-
-            relayoutForScreenSize(GetScreenWidth(), GetScreenHeight());
+            enterExclusiveFullscreen();
+            // Prefer live framebuffer size; fall back to monitor if raylib still
+            // reports the pre-toggle window dimensions for a frame.
+            int liveW = GetScreenWidth();
+            int liveH = GetScreenHeight();
+            const int monitor = GetCurrentMonitor();
+            const int monW = GetMonitorWidth(monitor);
+            const int monH = GetMonitorHeight(monitor);
+            if (monW > 0 && monH > 0 && (liveW < monW * 9 / 10 || liveH < monH * 9 / 10))
+            {
+                liveW = monW;
+                liveH = monH;
+            }
+            relayoutForScreenSize(liveW, liveH);
             syncDisplayConfigFromWindow(gameConfig.display);
+            gameConfig.display.fullscreen = true;
             return;
         }
 
-        if (IsWindowFullscreen())
-            ToggleFullscreen();
-
-        applySavedWindowPlacement(gameConfig.display);
+        exitExclusiveFullscreen(gameConfig.display);
         relayoutForScreenSize(GetScreenWidth(), GetScreenHeight());
         syncDisplayConfigFromWindow(gameConfig.display);
     }
@@ -442,8 +500,26 @@ namespace
 
     void GameSession::trackDisplayConfigChanges()
     {
-        if (IsWindowResized())
-            relayoutForScreenSize(GetScreenWidth(), GetScreenHeight());
+        // Fullscreen / maximize often changes drawable size without a reliable
+        // IsWindowResized pulse on macOS — always dock UI to the live framebuffer.
+        int liveW = GetScreenWidth();
+        int liveH = GetScreenHeight();
+        if (IsWindowFullscreen())
+        {
+            const int monitor = GetCurrentMonitor();
+            const int monW = GetMonitorWidth(monitor);
+            const int monH = GetMonitorHeight(monitor);
+            // If we're fullscreen but still letterboxed to the old window size,
+            // force layout (and window) to the monitor so chrome fills vertically.
+            if (monW > 0 && monH > 0 && (liveW < monW * 9 / 10 || liveH < monH * 9 / 10))
+            {
+                SetWindowSize(monW, monH);
+                liveW = monW;
+                liveH = monH;
+            }
+        }
+        if (IsWindowResized() || liveW != screenWidth || liveH != screenHeight)
+            relayoutForScreenSize(liveW, liveH);
 
         DisplayConfig current = gameConfig.display;
         syncDisplayConfigFromWindow(current);
@@ -478,7 +554,13 @@ namespace
 
     Rectangle GameSession::getMainImageBounds() const
     {
-        return { 0.0f, 0.0f, (float)screenWidth * 0.5f, (float)screenHeight };
+        const float uiW = uiColumnWidthForScreen(screenWidth);
+        return {
+            0.0f,
+            0.0f,
+            std::max(1.0f, static_cast<float>(screenWidth) - uiW),
+            static_cast<float>(screenHeight)
+        };
     }
 
 
@@ -503,31 +585,30 @@ namespace
     {
         const Rectangle mainBounds = getMainImageBounds();
 
+        auto drawCover = [&](const Texture2D& tex) {
+            if (tex.id == 0 || !IsTextureValid(tex))
+                return;
+            const Rectangle src = coverCropSourceRect(
+                static_cast<float>(tex.width),
+                static_cast<float>(tex.height),
+                mainBounds.width,
+                mainBounds.height);
+            DrawTexturePro(tex, src, mainBounds, {0.0f, 0.0f}, 0.0f, WHITE);
+        };
+
         if (inventoryMgr.isOpen() && inventoryMgr.isExaminingItem())
         {
             const InventoryItem* item = inventoryMgr.getSelectedItem();
             if (item != nullptr && item->examineImage.id != 0 && IsTextureValid(item->examineImage))
             {
-                DrawTexturePro(
-                    item->examineImage,
-                    { 0.0f, 0.0f, (float)item->examineImage.width, (float)item->examineImage.height },
-                    mainBounds,
-                    { 0.0f, 0.0f },
-                    0.0f,
-                    WHITE);
+                drawCover(item->examineImage);
                 return;
             }
         }
 
         if (locationImage.id != 0)
         {
-            DrawTexturePro(
-                locationImage,
-                { 0.0f, 0.0f, (float)locationImage.width, (float)locationImage.height },
-                mainBounds,
-                { 0.0f, 0.0f },
-                0.0f,
-                WHITE);
+            drawCover(locationImage);
         }
         else
         {
@@ -2620,6 +2701,10 @@ namespace
 
     void GameSession::tryMove(const std::string& direction)
     {
+        // Hold exits until the previous room's replacement texture has uploaded.
+        if (sceneImageLoadPending)
+            return;
+
         if (maybeRevealIceHouseInteriorDeparture(direction))
             return;
 
@@ -2712,17 +2797,305 @@ namespace
         if (!sceneDatabase.loadScene(
                 worldState.currentSceneId,
                 resolvedSubSceneId,
-                locationStruct))
+                locationStruct,
+                false))
         {
             return;
         }
 
         worldState.activeSubSceneId = resolvedSubSceneId;
-        sceneController.getActiveScene().unloadOwnedImage();
         sceneController.getActiveScene().loadFromStruct(worldState.currentSceneId, locationStruct);
         syncFromActiveScene();
         refreshSpeakTargets();
         updateActionAvailability();
+    }
+
+    bool GameSession::preferSyncSceneImageLoad()
+    {
+        const char* env = std::getenv("HIGHLINE_SYNC_SCENE_LOAD");
+        return env != nullptr && env[0] == '1' && env[1] == '\0';
+    }
+
+    void GameSession::refreshSceneImageSync(const std::string& imagePath)
+    {
+        sceneImageLoadPending = false;
+        pendingSceneImagePath.clear();
+        if (!sceneController.getActiveScene().replaceLocationImage(sceneDatabase, imagePath))
+            return;
+        syncFromActiveScene();
+    }
+
+    bool GameSession::tryAdoptPrefetchedSceneImage(const std::string& imagePath)
+    {
+        if (imagePath.empty())
+            return false;
+        auto it = sceneImagePrefetch.find(imagePath);
+        if (it == sceneImagePrefetch.end() || !it->second.ready || it->second.texture.id == 0)
+            return false;
+
+        Texture2D tex = it->second.texture;
+        it->second.texture = Texture2D{};
+        it->second.ready = false;
+        sceneImagePrefetch.erase(it);
+
+        sceneController.getActiveScene().adoptOwnedTexture(tex, false);
+        syncFromActiveScene();
+        TraceLog(LOG_INFO, "Adopted prefetched scene image: %s", imagePath.c_str());
+        return true;
+    }
+
+    void GameSession::pruneSceneImagePrefetch(const std::set<std::string>& keepPaths)
+    {
+        for (auto it = sceneImagePrefetch.begin(); it != sceneImagePrefetch.end();)
+        {
+            if (keepPaths.count(it->first) > 0)
+            {
+                ++it;
+                continue;
+            }
+            if (it->second.ready && it->second.texture.id != 0)
+                UnloadTexture(it->second.texture);
+            it = sceneImagePrefetch.erase(it);
+        }
+        // In-flight jobs for pruned paths are ignored via prefetchGeneration.
+        ++sceneImagePrefetchGeneration;
+    }
+
+    void GameSession::enqueueSceneImagePrefetch(const std::string& imagePath)
+    {
+        if (imagePath.empty() || preferSyncSceneImageLoad())
+            return;
+
+        PrefetchedSceneImage& slot = sceneImagePrefetch[imagePath];
+        if (slot.ready || slot.loading || slot.failed)
+            return;
+
+        slot.loading = true;
+        const std::uint64_t gen = sceneImagePrefetchGeneration;
+        const std::string assetRoot = sceneDatabase.getAssetRoot();
+
+        struct DecodeResult
+        {
+            std::uint64_t generation = 0;
+            std::string path;
+            std::string assetRoot;
+            Image image{};
+            bool ok = false;
+        };
+        auto result = std::make_shared<DecodeResult>();
+        result->generation = gen;
+        result->path = imagePath;
+        result->assetRoot = assetRoot;
+
+        JobSystem::global().enqueue(
+            [result]() {
+                result->ok = loadResourceImage(result->assetRoot, result->path, result->image);
+            },
+            [this, result]() {
+                auto it = sceneImagePrefetch.find(result->path);
+                if (it == sceneImagePrefetch.end())
+                {
+                    if (result->ok && result->image.data != nullptr)
+                        UnloadImage(result->image);
+                    return;
+                }
+
+                if (result->generation != sceneImagePrefetchGeneration)
+                {
+                    it->second.loading = false;
+                    if (result->ok && result->image.data != nullptr)
+                        UnloadImage(result->image);
+                    return;
+                }
+
+                it->second.loading = false;
+                if (!result->ok || result->image.data == nullptr)
+                {
+                    it->second.failed = true;
+                    return;
+                }
+
+                Texture2D tex = LoadTextureFromImage(result->image);
+                UnloadImage(result->image);
+                result->image = Image{};
+                if (tex.id == 0)
+                {
+                    it->second.failed = true;
+                    return;
+                }
+
+                // If the player is waiting on this exact path, adopt immediately.
+                if (sceneImageLoadPending && pendingSceneImagePath == result->path)
+                {
+                    sceneController.getActiveScene().adoptOwnedTexture(tex, false);
+                    syncFromActiveScene();
+                    sceneImageLoadPending = false;
+                    pendingSceneImagePath.clear();
+                    ++sceneImageLoadGeneration; // ignore any parallel direct-load job
+                    TraceLog(LOG_INFO, "Prefetch satisfied pending scene image: %s", result->path.c_str());
+                    sceneImagePrefetch.erase(it);
+                    return;
+                }
+
+                it->second.texture = tex;
+                it->second.ready = true;
+                TraceLog(LOG_INFO, "Prefetched scene image: %s", result->path.c_str());
+            });
+    }
+
+    void GameSession::prefetchNeighborSceneImages()
+    {
+        if (preferSyncSceneImageLoad())
+            return;
+
+        const SceneData* scene = sceneDatabase.getScene(worldState.currentSceneId);
+        if (scene == nullptr)
+            return;
+
+        // Same-level compass exits (skip up/down stair links).
+        static const char* kDirs[] = {"forward", "backward", "left", "right"};
+        std::set<std::string> keepPaths;
+        if (!pendingSceneImagePath.empty())
+            keepPaths.insert(pendingSceneImagePath);
+
+        const Rectangle mainBounds = getMainImageBounds();
+        DisplayAspectPreference pref;
+        pref.mode = gameConfig.display.aspectPreference;
+        const DisplayAspectBucket bucket =
+            resolveAspectBucket(pref, mainBounds.width, mainBounds.height);
+
+        std::vector<std::string> toEnqueue;
+        for (const char* dir : kDirs)
+        {
+            const std::string raw = sceneDatabase.getExitSceneId(worldState.currentSceneId, dir);
+            if (raw.empty())
+                continue;
+            const MovementTarget target = parseMovementTarget(raw);
+            if (target.sceneId.empty() || target.sceneId == worldState.currentSceneId)
+                continue;
+
+            const SceneData* neighbor = sceneDatabase.getScene(target.sceneId);
+            if (neighbor == nullptr)
+                continue;
+
+            const std::string subId = target.subSceneId.empty()
+                ? sceneDatabase.resolveActiveSubSceneId(
+                      *neighbor,
+                      worldState.storyFlags,
+                      "",
+                      SubSceneResolveMode::OnEnter,
+                      [this](const std::string& phaseId) {
+                          return conversationMgr.isPhaseComplete(phaseId);
+                      })
+                : target.subSceneId;
+
+            const std::string imagePath = sceneDatabase.resolveSceneImagePathForAspect(
+                *neighbor,
+                subId,
+                worldState.storyFlags,
+                [this](const std::string& phaseId) {
+                    return conversationMgr.isPhaseComplete(phaseId);
+                },
+                bucket);
+            if (imagePath.empty())
+                continue;
+
+            keepPaths.insert(imagePath);
+            toEnqueue.push_back(imagePath);
+        }
+
+        // Prune first (bumps generation), then enqueue so jobs use the new gen.
+        pruneSceneImagePrefetch(keepPaths);
+        for (const std::string& imagePath : toEnqueue)
+            enqueueSceneImagePrefetch(imagePath);
+    }
+
+    void GameSession::beginAsyncSceneImageLoad(const std::string& imagePath)
+    {
+        if (imagePath.empty())
+        {
+            sceneImageLoadPending = false;
+            pendingSceneImagePath.clear();
+            return;
+        }
+
+        // Instant transition when a neighbor prefetch already finished.
+        if (tryAdoptPrefetchedSceneImage(imagePath))
+        {
+            sceneImageLoadPending = false;
+            pendingSceneImagePath.clear();
+            ++sceneImageLoadGeneration;
+            return;
+        }
+
+        const std::uint64_t generation = ++sceneImageLoadGeneration;
+        sceneImageLoadPending = true;
+        pendingSceneImagePath = imagePath;
+
+        // Prefetch already decoding this path — wait for it instead of a duplicate job.
+        auto it = sceneImagePrefetch.find(imagePath);
+        if (it != sceneImagePrefetch.end() && it->second.loading)
+            return;
+
+        struct DecodeResult
+        {
+            std::uint64_t generation = 0;
+            std::string path;
+            std::string assetRoot;
+            Image image{};
+            bool ok = false;
+        };
+
+        auto result = std::make_shared<DecodeResult>();
+        result->generation = generation;
+        result->path = imagePath;
+        result->assetRoot = sceneDatabase.getAssetRoot();
+
+        JobSystem::global().enqueue(
+            [result]() {
+                result->ok = loadResourceImage(result->assetRoot, result->path, result->image);
+            },
+            [this, result]() {
+                if (result->generation != sceneImageLoadGeneration)
+                {
+                    if (result->ok && result->image.data != nullptr)
+                        UnloadImage(result->image);
+                    return;
+                }
+
+                sceneImageLoadPending = false;
+                pendingSceneImagePath.clear();
+
+                if (!result->ok || result->image.data == nullptr)
+                {
+                    TraceLog(
+                        LOG_WARNING,
+                        "Async scene image decode failed (%s); keeping previous texture",
+                        result->path.c_str());
+                    return;
+                }
+
+                const double uploadStart = GetTime();
+                Texture2D texture = LoadTextureFromImage(result->image);
+                UnloadImage(result->image);
+                result->image = Image{};
+                if (texture.id == 0)
+                {
+                    TraceLog(
+                        LOG_WARNING,
+                        "Async scene image upload failed (%s)",
+                        result->path.c_str());
+                    return;
+                }
+
+                sceneController.getActiveScene().adoptOwnedTexture(texture, false);
+                syncFromActiveScene();
+                TraceLog(
+                    LOG_INFO,
+                    "Async scene image ready: %s (upload %.1f ms)",
+                    result->path.c_str(),
+                    (GetTime() - uploadStart) * 1000.0);
+            });
     }
 
     void GameSession::refreshSceneImage()
@@ -2742,20 +3115,31 @@ namespace
         }
         else
         {
-            imagePath = sceneDatabase.resolveSceneImagePath(
+            const Rectangle mainBounds = getMainImageBounds();
+            DisplayAspectPreference pref;
+            pref.mode = gameConfig.display.aspectPreference;
+            const DisplayAspectBucket bucket =
+                resolveAspectBucket(pref, mainBounds.width, mainBounds.height);
+            imagePath = sceneDatabase.resolveSceneImagePathForAspect(
                 *scene,
                 worldState.activeSubSceneId,
                 worldState.storyFlags,
                 [this](const std::string& phaseId)
                 {
                     return conversationMgr.isPhaseComplete(phaseId);
-                });
+                },
+                bucket);
         }
 
-        if (!sceneController.getActiveScene().replaceLocationImage(sceneDatabase, imagePath))
+        if (preferSyncSceneImageLoad())
+        {
+            refreshSceneImageSync(imagePath);
+            prefetchNeighborSceneImages();
             return;
+        }
 
-        syncFromActiveScene();
+        beginAsyncSceneImageLoad(imagePath);
+        prefetchNeighborSceneImages();
     }
 
     void GameSession::syncFromActiveScene()
@@ -4002,6 +4386,25 @@ namespace
 
         drawMainImage();
         overlayMgr.draw(getMainImageBounds());
+
+        // Full-height chrome docked to the right edge (fills tall/wide monitors).
+        const float uiW = uiColumnWidthForScreen(screenWidth);
+        const Rectangle uiColumn = {
+            static_cast<float>(screenWidth) - uiW,
+            0.0f,
+            uiW,
+            static_cast<float>(screenHeight)
+        };
+        if (uiBackdrop.isActive())
+            uiBackdrop.drawPanel(uiColumn, 0.0f, 0);
+        else
+            DrawRectangleRec(uiColumn, Color{28, 26, 34, 255});
+        // One outer bound for the whole column so controls don't look like a
+        // floating island over empty chrome.
+        DrawRectangleLinesEx(
+            uiColumn,
+            2.0f,
+            uiBackdrop.isActive() ? uiBackdrop.panelBorderColor() : Color{168, 138, 72, 255});
 
         const Rectangle dialog = getDialogBounds();
         drawNotebookBackdrop(dialog);

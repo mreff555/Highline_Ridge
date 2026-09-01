@@ -8,6 +8,8 @@ The game uses CMake, bundled raylib 5.5, and three native libraries for assets/a
 - **libjpeg** — JPEG examine art
 - **libopusfile** + **libopus** — dialog TTS playback
 
+Multi-core / SIMD / GPU compute work is documented in [docs/platform-parallelism.md](docs/platform-parallelism.md) (`JobSystem` is in-tree; async asset decode and Metal/Vulkan compute follow).
+
 Resources are copied into the build directory automatically (`sync_resources`).
 
 Preferred workflow is the classic out-of-source Makefile build (**dev default**):
@@ -57,7 +59,7 @@ make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
 ./Highline\ Ridge
 ```
 
-`HIGHLINE_RELEASE=ON` turns **embed ON** and routes game `TraceLog` output to **stderr** (dev builds keep stdout). The editor defaults to **OFF** in that mode, but you can keep it with `-DHIGHLINE_BUILD_EDITOR=ON` (or `./build-release.sh --with-scene-editor`). In-game developer tools (Ctrl+Shift+S overlay, `~` console) default **ON** for normal builds and **OFF** for release unless `-DHIGHLINE_DEV_TOOLS=ON` / `--with-dev-tools`.
+`HIGHLINE_RELEASE=ON` turns **embed ON** and routes game `TraceLog` output to **stderr** (dev builds keep stdout). The editor defaults to **OFF** in that mode, but you can keep it with `-DHIGHLINE_BUILD_EDITOR=ON` (or `./build-release.sh --with-scene-editor`). In-game developer tools (Ctrl+Shift+S overlay, `~` console) default **ON** for normal builds and **OFF** for release unless `-DHIGHLINE_DEV_TOOLS=ON` / `--with-dev-tools`. TTS refresh CLI (`--key`, `--refresh-voices`, …) is **compiled out** of release binaries — refresh with a dev build, then rebuild release to repack.
 
 - `HIGHLINE_EMBED_RESOURCES` — pack assets into the binary (default **OFF** / dev).
 - `HIGHLINE_BUILD_EDITOR` — build `scene-editor` (default **ON** / dev; default OFF when using `HIGHLINE_RELEASE` alone).

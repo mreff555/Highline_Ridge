@@ -19,7 +19,14 @@
 
 #include "SceneEditorApp.h"
 #include "EditorButton.h"
+#include "EditorInput.h"
 #include "EditorPaths.h"
+
+#include "JobSystem.h"
+
+#if defined(__APPLE__)
+#include "macos/EditorNativeMenu.h"
+#endif
 
 #include <raylib.h>
 
@@ -28,6 +35,7 @@
 using timberline_editor::SceneEditorApp;
 using timberline_editor::editorButtons;
 using timberline_editor::ensureValidResourcePaths;
+using timberline_engine::JobSystem;
 
 int main(int argc, char** argv)
 {
@@ -37,6 +45,11 @@ int main(int argc, char** argv)
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
     InitWindow(screenWidth, screenHeight, "Timberline Resource Editor");
     SetTargetFPS(60);
+    editorInputInit();
+
+#if defined(__APPLE__)
+    editorInstallNativePreferencesMenu(nullptr);
+#endif
 
     SceneEditorApp app;
 
@@ -67,14 +80,19 @@ int main(int argc, char** argv)
     app.document.refreshTabs();
     app.loadActiveDocument();
 
+    (void)JobSystem::global();
+
     while (!WindowShouldClose())
     {
+        editorInputBeginFrame();
+        app.thumbnails.poll();
         app.update();
         app.draw();
     }
 
     editorButtons().unload();
     app.unloadThumbnails();
+    JobSystem::shutdownGlobal();
     app.unloadUiFont();
     if (app.document.dirty)
         app.saveDocument();

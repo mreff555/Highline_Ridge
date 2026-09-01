@@ -22,6 +22,7 @@
 #include <AssetStore.h>
 #include <GameConfig.h>
 #include <ImageCompression.h>
+#include <JobSystem.h>
 #include <LocationStruct.h>
 #include <PlatformPath.h>
 #include <TtsContentValidator.h>
@@ -94,12 +95,16 @@ void releaseTraceLog(int logType, const char* text, va_list args)
 struct CommandLineOptions
 {
     bool showHelp = false;
+#if !defined(HIGHLINE_RELEASE)
+    // TTS refresh is a disk authoring workflow — omitted from release binaries.
     bool forceRefreshVoices = false;
     bool refreshAllVoices = false;
     std::string apiKey;
     std::string refreshFilter;
+#endif
 };
 
+#if !defined(HIGHLINE_RELEASE)
 bool extractPrefixedValue(const std::string& argument, const std::string& prefix, std::string& out)
 {
     if (argument.compare(0, prefix.size(), prefix) != 0)
@@ -108,6 +113,7 @@ bool extractPrefixedValue(const std::string& argument, const std::string& prefix
     out = argument.substr(prefix.size());
     return true;
 }
+#endif
 
 CommandLineOptions parseCommandLine(int argc, char* argv[])
 {
@@ -122,6 +128,7 @@ CommandLineOptions parseCommandLine(int argc, char* argv[])
             continue;
         }
 
+#if !defined(HIGHLINE_RELEASE)
         if (argument == "-force" || argument == "--force")
         {
             options.forceRefreshVoices = true;
@@ -156,20 +163,24 @@ CommandLineOptions parseCommandLine(int argc, char* argv[])
             options.refreshAllVoices = true;
             continue;
         }
+#endif
 
         std::cerr << "Unknown option: " << argument << "\n";
         options.showHelp = true;
     }
 
+#if !defined(HIGHLINE_RELEASE)
     if (options.refreshAllVoices && !options.refreshFilter.empty())
     {
         std::cerr << "Cannot combine --refresh-voices with --refresh=ID\n";
         options.showHelp = true;
     }
+#endif
 
     return options;
 }
 
+#if !defined(HIGHLINE_RELEASE)
 std::string resourcePathForRefreshRead(const char* relativePath)
 {
     const std::string fromSource = pathJoin("..", relativePath);
@@ -178,6 +189,7 @@ std::string resourcePathForRefreshRead(const char* relativePath)
 
     return relativePath;
 }
+#endif
 
 }
 
@@ -223,7 +235,16 @@ bool GameApplication::initializeWindow(const GameConfig& config)
     InitWindow(config.display.width, config.display.height, "Highline Ridge");
     SetExitKey(0);
     if (config.display.fullscreen)
+    {
+        // Size to the active monitor before toggling — otherwise raylib keeps the
+        // windowed framebuffer and the UI floats in a black letterbox.
+        const int monitor = GetCurrentMonitor();
+        const int monW = GetMonitorWidth(monitor);
+        const int monH = GetMonitorHeight(monitor);
+        if (monW > 0 && monH > 0)
+            SetWindowSize(monW, monH);
         ToggleFullscreen();
+    }
     else
         applySavedWindowPlacement(config.display);
     if (!IsAudioDeviceReady())
@@ -280,6 +301,7 @@ void GameApplication::shutdown()
         session->persistDisplayConfig();
     session.reset();
     audioManager.shutdown();
+    JobSystem::shutdownGlobal();
     CloseWindow();
 }
 
@@ -339,8 +361,10 @@ int GameApplication::run(int argc, char* argv[])
         std::cerr << "Could not find game resources (resources/scenes.json).\n"
                   << "Run the game from the build directory, e.g. ./build/Highline\\ Ridge\n"
                   << "or rebuild so resources are synced: cmake --build build\n";
+#if !defined(HIGHLINE_RELEASE)
         if (commandLine.refreshAllVoices || !commandLine.refreshFilter.empty())
             std::cerr << "Cannot refresh voices without game resources.\n";
+#endif
         return 1;
     }
 
@@ -383,6 +407,8 @@ int GameApplication::run(int argc, char* argv[])
             TraceLog(LOG_WARNING, "Failed to load game config; using defaults");
     }
 
+#if !defined(HIGHLINE_RELEASE)
+    // Authoring-only: writes resources/audio/tts on disk; does not update the pak.
     const bool refreshRequested =
         commandLine.refreshAllVoices || !commandLine.refreshFilter.empty();
     if (refreshRequested)
@@ -409,6 +435,7 @@ int GameApplication::run(int argc, char* argv[])
             commandLine.forceRefreshVoices,
             commandLine.refreshAllVoices ? "" : commandLine.refreshFilter);
     }
+#endif
 
     std::srand((unsigned int)std::time(nullptr));
 
@@ -436,9 +463,11 @@ int GameApplication::run(int argc, char* argv[])
         return 1;
     }
 
+    // Prefer the live drawable size (monitor-sized after fullscreen toggle),
+    // not the saved windowed config — otherwise chrome letterboxes mid-screen.
     const Vector2 screenSize = {
-        (float)gameConfig.display.width,
-        (float)gameConfig.display.height
+        (float)GetScreenWidth(),
+        (float)GetScreenHeight()
     };
 
     session.reset(new GameSession(
@@ -459,8 +488,13 @@ int GameApplication::run(int argc, char* argv[])
 
     SetTargetFPS(60);
 
+    // Ensure the shared pool exists before the first frame (workers stay idle
+    // until asset-decode jobs are wired in).
+    (void)JobSystem::global();
+
     while (!WindowShouldClose() && !session->shouldQuit())
     {
+        JobSystem::global().pollCompletions();
         session->update();
         BeginDrawing();
         session->draw();

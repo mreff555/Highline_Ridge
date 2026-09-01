@@ -6,6 +6,7 @@
  ******************************************************************************/
 
 #include "EditorButton.h"
+#include "EditorInput.h"
 
 #include "EditorTheme.h"
 #include "ImageCompression.h"
@@ -230,6 +231,68 @@ EditorButtonResources& editorButtons()
     return instance;
 }
 
+bool saveEditorUiConfig(const std::string& resourceDir, const EditorButtonResources& res)
+{
+    if (resourceDir.empty())
+        return false;
+
+    nlohmann::json root = nlohmann::json::object();
+    root["description"] =
+        "Timberline resource editor UI metrics. Loaded at editor start; edit freely without recompiling.";
+
+    root["textFields"] = {
+        {"caretBlinkHz", res.caretBlinkHz},
+        {"padX", res.textFieldPadX},
+        {"padY", res.textFieldPadY},
+        {"scrollGutter", res.textFieldScrollGutter},
+    };
+
+    root["workingOverlay"] = {
+        {"_comment_sizePx",
+         "Spinner texture MUST be exactly sizePx x sizePx pixels (currently 64). "
+         "Loader rejects other sizes. May change later or move to SVG."},
+        {"sizePx", res.working.sizePx},
+        {"_comment_revolutionsPerSecond", "Clockwise spin rate of the working spinner."},
+        {"revolutionsPerSecond", res.working.revolutionsPerSecond},
+        {"spinnerPath", res.working.spinnerPath},
+        {"title", res.working.title},
+    };
+
+    const EditorButtonConfig& c = res.config;
+    root["buttons"] = {
+        {"minWidth", c.minWidth},
+        {"maxWidth", c.maxWidth},
+        {"minHeight", c.minHeight},
+        {"maxHeight", c.maxHeight},
+        {"padX", c.padX},
+        {"padY", c.padY},
+        {"fontSize", c.fontSize},
+        {"lineSpacing", c.lineSpacing},
+        {"wordWrap", c.wordWrap},
+        {"sliceLeft", c.sliceLeft},
+        {"sliceTop", c.sliceTop},
+        {"sliceRight", c.sliceRight},
+        {"sliceBottom", c.sliceBottom},
+        {"raisedSkin", c.raisedSkinPath},
+        {"depressedSkin", c.depressedSkinPath},
+        {"labelOffsetPressedX", c.labelOffsetPressedX},
+        {"labelOffsetPressedY", c.labelOffsetPressedY},
+    };
+
+    const std::string configPath = pathJoin(resourceDir, "editor_ui_config.json");
+    std::ofstream out(configPath.c_str());
+    if (!out)
+    {
+        TraceLog(
+            LOG_WARNING,
+            "TIMBERLINE: failed to write editor_ui_config.json at %s",
+            configPath.c_str());
+        return false;
+    }
+    out << root.dump(2) << '\n';
+    return static_cast<bool>(out);
+}
+
 void EditorButtonResources::load(
     const std::string& resourceDir,
     const std::string& assetRoot)
@@ -270,6 +333,37 @@ void EditorButtonResources::load(
                 b.value("labelOffsetPressedX", config.labelOffsetPressedX);
             config.labelOffsetPressedY =
                 b.value("labelOffsetPressedY", config.labelOffsetPressedY);
+
+            const nlohmann::json& tf =
+                root.contains("textFields") && root["textFields"].is_object()
+                ? root["textFields"]
+                : root;
+            caretBlinkHz = tf.value("caretBlinkHz", caretBlinkHz);
+            if (caretBlinkHz < 0.2f)
+                caretBlinkHz = 0.2f;
+            if (caretBlinkHz > 8.0f)
+                caretBlinkHz = 8.0f;
+            textFieldPadX = tf.value("padX", textFieldPadX);
+            textFieldPadY = tf.value("padY", textFieldPadY);
+            textFieldScrollGutter = tf.value("scrollGutter", textFieldScrollGutter);
+
+            if (root.contains("workingOverlay") && root["workingOverlay"].is_object())
+            {
+                const nlohmann::json& w = root["workingOverlay"];
+                working.sizePx = w.value("sizePx", working.sizePx);
+                working.revolutionsPerSecond =
+                    w.value("revolutionsPerSecond", working.revolutionsPerSecond);
+                working.spinnerPath = w.value("spinnerPath", working.spinnerPath);
+                working.title = w.value("title", working.title);
+                if (working.sizePx < 16)
+                    working.sizePx = 16;
+                if (working.sizePx > 512)
+                    working.sizePx = 512;
+                if (working.revolutionsPerSecond < 0.05f)
+                    working.revolutionsPerSecond = 0.05f;
+                if (working.revolutionsPerSecond > 8.0f)
+                    working.revolutionsPerSecond = 8.0f;
+            }
             configLoaded = true;
         }
         catch (const nlohmann::json::exception& ex)
@@ -291,11 +385,33 @@ void EditorButtonResources::load(
         config.raisedSkinPath, resourceDir, assetRoot, raised);
     depressedLoaded = loadTextureFromRoots(
         config.depressedSkinPath, resourceDir, assetRoot, depressed);
+
+    workingSpinnerLoaded = loadTextureFromRoots(
+        working.spinnerPath, resourceDir, assetRoot, workingSpinner);
+    if (workingSpinnerLoaded)
+    {
+        if (workingSpinner.width != working.sizePx
+            || workingSpinner.height != working.sizePx)
+        {
+            TraceLog(
+                LOG_WARNING,
+                "TIMBERLINE: working spinner '%s' is %dx%d; config sizePx=%d — rejecting "
+                "(dimensions are rigidly enforced)",
+                working.spinnerPath.c_str(),
+                workingSpinner.width,
+                workingSpinner.height,
+                working.sizePx);
+            UnloadTexture(workingSpinner);
+            workingSpinner = {};
+            workingSpinnerLoaded = false;
+        }
+    }
     TraceLog(
         LOG_INFO,
-        "TIMBERLINE: editor buttons skins raised=%s depressed=%s",
+        "TIMBERLINE: editor buttons skins raised=%s depressed=%s spinner=%s",
         raisedLoaded ? "ok" : "missing",
-        depressedLoaded ? "ok" : "missing");
+        depressedLoaded ? "ok" : "missing",
+        workingSpinnerLoaded ? "ok" : "missing");
 }
 
 void EditorButtonResources::unload()
@@ -311,6 +427,12 @@ void EditorButtonResources::unload()
         UnloadTexture(depressed);
         depressed = {};
         depressedLoaded = false;
+    }
+    if (workingSpinnerLoaded)
+    {
+        UnloadTexture(workingSpinner);
+        workingSpinner = {};
+        workingSpinnerLoaded = false;
     }
     configLoaded = false;
 }
@@ -387,10 +509,10 @@ bool EditorButton::update(const EditorButtonConfig& config)
     }
 
     // Callers often construct EditorButton on the stack each frame, so there is
-    // no durable press-tracking across frames. Use held-over for the depressed
-    // skin, and fire on press (same pattern as dialog canClick).
-    pressed = hovered && IsMouseButtonDown(MOUSE_BUTTON_LEFT);
-    if (hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    // no durable press-tracking across frames. Use editorMouse* sticky edges so
+    // brief macOS trackpad taps still register (raylib alone often misses them).
+    pressed = hovered && editorMouseDown(MOUSE_BUTTON_LEFT);
+    if (hovered && editorMousePressed(MOUSE_BUTTON_LEFT))
         clicked = true;
 
     return clicked;
@@ -466,7 +588,7 @@ void drawEditorButton(
     btn.bounds = bounds;
     const Vector2 mouse = GetMousePosition();
     btn.hovered = enabled && CheckCollisionPointRec(mouse, bounds);
-    btn.pressed = btn.hovered && IsMouseButtonDown(MOUSE_BUTTON_LEFT);
+    btn.pressed = btn.hovered && editorMouseDown(MOUSE_BUTTON_LEFT);
     btn.draw(font, editorButtons().config);
 }
 

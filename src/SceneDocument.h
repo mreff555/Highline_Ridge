@@ -66,6 +66,12 @@ public:
     bool removeScene(const std::string& sceneId);
 
     /**
+     * Rename scenes[oldId] → scenes[newId] and retarget inbound exit strings.
+     * Fails if old missing, new empty/taken, or ids equal. Does not write disk.
+     */
+    bool renameScene(const std::string& oldId, const std::string& newId);
+
+    /**
      * Insert a new scene object under scenes[sceneId]. Fails if the id already
      * exists or the document is not loaded. Does not write disk.
      */

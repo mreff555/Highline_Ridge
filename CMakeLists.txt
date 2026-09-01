@@ -47,6 +47,9 @@ set(SOURCES
     src/SpeakTargetMgr.cpp
     src/ImageCompression.cpp
     src/AssetStore.cpp
+    src/JobSystem.cpp
+    src/SimdUtil.cpp
+    src/DisplayAspect.cpp
     src/PlatformPath.cpp
     src/GameConfig.cpp
     src/AudioManager.cpp
@@ -71,6 +74,9 @@ include(FetchContent)
 # Bundle raylib 5.5 for reliable miniaudio/CoreAudio output.
 # Homebrew raylib 5.0-dev can initialize with backend "Null" (no audible output on macOS).
 option(HIGHLINE_USE_SYSTEM_RAYLIB "Use system raylib instead of bundled 5.5" OFF)
+# 0 = auto (hardware_concurrency - 1). Applies when code uses JobSystem(workerOverride).
+set(HIGHLINE_JOB_WORKERS "0" CACHE STRING "JobSystem worker count (0=auto)")
+option(HIGHLINE_SIMD "Enable NEON/SSE-tuned simdFillBytes (downscale always built)" ON)
 # Dev default: disk resources + scene editor.
 # Release: -DHIGHLINE_RELEASE=ON → embed ON; editor stays OFF unless you pass
 # -DHIGHLINE_BUILD_EDITOR=ON explicitly (RELEASE no longer FORCE-overwrites it).
@@ -348,6 +354,9 @@ else()
     message(STATUS "HIGHLINE_BUILD_EDITOR=OFF — skipping scene editor")
 endif()
 
+find_package(Threads REQUIRED)
+target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads)
+
 # 8. Hard-fail the build when TTS policy / markup is invalid (same rules as load/refresh).
 add_executable(validate_tts tools/validate_tts.cpp
     src/TtsVoiceMarkup.cpp
@@ -366,6 +375,10 @@ if(APPLE)
         "-framework CoreFoundation"
     )
 endif()
+
+add_executable(test_job_system tools/test_job_system.cpp src/JobSystem.cpp)
+target_include_directories(test_job_system PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(test_job_system PRIVATE Threads::Threads)
 
 add_custom_target(check_tts_resources ALL
     COMMAND validate_tts

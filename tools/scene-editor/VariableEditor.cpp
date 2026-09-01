@@ -18,11 +18,13 @@
  ******************************************************************************/
 
 #include "VariableEditor.h"
+#include "EditorInput.h"
 
 #include "ConversationHelpers.h"
 #include "DocumentWorkspace.h"
 #include "EditorButton.h"
 #include "EditorPaths.h"
+#include "EditorPrefs.h"
 #include "EditorTheme.h"
 #include "EditorTypes.h"
 #include "EditorUiDraw.h"
@@ -1010,7 +1012,7 @@ void VariableEditor::handleVariableEditorTextInput()
     const Vector2 mouse = GetMousePosition();
 
     // Buttons take priority over the text field (handled here in update).
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    if (editorMousePressed(MOUSE_BUTTON_LEFT))
     {
         if (CheckCollisionPointRec(mouse, saveBtn))
         {
@@ -1080,7 +1082,7 @@ void VariableEditor::handleVariableEditorTextInput()
         return;
 
     // Click to place caret; double-click selects word; drag extends selection.
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, field))
+    if (editorMousePressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, field))
     {
         const int pos = editorCursorFromClick(
             lines(), field, pad, fontSize, lineHeight, mouse);
@@ -1115,7 +1117,7 @@ void VariableEditor::handleVariableEditorTextInput()
             fontSize);
         ensureCursorVisible(lines(), field.height, localPad, localLineHeight);
     }
-    else if (mouseSelecting && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+    else if (mouseSelecting && editorMouseDown(MOUSE_BUTTON_LEFT))
     {
         // Only extend selection while the pointer is over the field.
         if (CheckCollisionPointRec(mouse, field))
@@ -1133,7 +1135,7 @@ void VariableEditor::handleVariableEditorTextInput()
             ensureCursorVisible(lines(), field.height, localPad, localLineHeight);
         }
     }
-    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+    if (editorMouseReleased(MOUSE_BUTTON_LEFT))
         mouseSelecting = false;
 
     // Copy / cut / paste / select-all
@@ -1650,7 +1652,7 @@ void VariableEditor::drawVariableEditor(int screenWidth, int screenHeight)
 }
 
 
-void VariableEditor::drawVariablesPane(Rectangle paneBounds)
+void VariableEditor::drawVariablesPane(Rectangle paneBounds, bool allowInteraction)
 {
     // Capture once so list + editor always use the same scene for this frame.
     const std::string sceneId = (*selectionSceneId);
@@ -1763,8 +1765,9 @@ void VariableEditor::drawVariablesPane(Rectangle paneBounds)
                    kFontBody, 1.0f, kTextMuted);
         // Still allow AI Assist when the scene has no variable rows.
         const Vector2 mouseEmpty = GetMousePosition();
-        const bool canInteractEmpty = !open && !(*stackDialogOpen);
-        if (canInteractEmpty && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        const bool canInteractEmpty =
+            allowInteraction && !open && !(*stackDialogOpen);
+        if (canInteractEmpty && editorMousePressed(MOUSE_BUTTON_LEFT))
         {
             if (CheckCollisionPointRec(mouseEmpty, effectsBtn) && onSceneEffects)
                 onSceneEffects();
@@ -1793,9 +1796,9 @@ void VariableEditor::drawVariablesPane(Rectangle paneBounds)
 
     const Rectangle listBounds = {paneBounds.x, listTop, paneBounds.width, listHeight};
     const Vector2 mouse = GetMousePosition();
-    const bool canInteract = !open && !(*stackDialogOpen);
+    const bool canInteract = allowInteraction && !open && !(*stackDialogOpen);
 
-    if (canInteract && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    if (canInteract && editorMousePressed(MOUSE_BUTTON_LEFT))
     {
         if (CheckCollisionPointRec(mouse, effectsBtn) && onSceneEffects)
         {
@@ -1946,27 +1949,10 @@ void VariableEditor::ensureGlobalDefaultVoiceLoaded()
     if (globalDefaultVoiceLoaded)
         return;
     globalDefaultVoiceLoaded = true;
-    globalDefaultVoice = "leo";
-
-    const std::string configPath = pathJoin(docs->resourceDir, "game_config.json");
-    std::ifstream file(configPath.c_str());
-    if (!file.is_open())
-        return;
-
-    try
-    {
-        nlohmann::json config;
-        file >> config;
-        if (config.is_object() && config.contains("tts") && config["tts"].is_object())
-        {
-            const std::string voice = config["tts"].value("voice", globalDefaultVoice);
-            if (!voice.empty())
-                globalDefaultVoice = voice;
-        }
-    }
-    catch (const nlohmann::json::exception&)
-    {
-    }
+    if (docs != nullptr && !docs->resourceDir.empty())
+        globalDefaultVoice = preferredTtsDefaultVoice(docs->resourceDir);
+    else
+        globalDefaultVoice = "leo";
 }
 
 
@@ -2069,6 +2055,8 @@ bool VariableEditor::applyOwnerTtsPolicySelection(const std::string& selection)
         }
         (*owner)["ttsEnabled"] = true;
         (*owner)["ttsDefaultVoice"] = voice;
+        if (!docs->resourceDir.empty())
+            rememberTtsDefaultVoice(docs->resourceDir, voice);
     }
 
     docs->markDirty();

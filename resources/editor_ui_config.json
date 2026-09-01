@@ -1,22 +1,36 @@
 {
-  "description": "Timberline resource editor UI metrics. Loaded at editor start; edit freely without recompiling.",
   "buttons": {
-    "minWidth": 72,
-    "maxWidth": 480,
-    "minHeight": 28,
-    "maxHeight": 72,
-    "padX": 12,
-    "padY": 8,
-    "fontSize": 16,
-    "lineSpacing": 3,
-    "wordWrap": true,
-    "sliceLeft": 10,
-    "sliceTop": 10,
-    "sliceRight": 10,
-    "sliceBottom": 10,
-    "raisedSkin": "resources/ui/editor/button_raised.png",
     "depressedSkin": "resources/ui/editor/button_depressed.png",
-    "labelOffsetPressedX": 1,
-    "labelOffsetPressedY": 1
+    "fontSize": 16.0,
+    "labelOffsetPressedX": 1.0,
+    "labelOffsetPressedY": 1.0,
+    "lineSpacing": 3.0,
+    "maxHeight": 72.0,
+    "maxWidth": 480.0,
+    "minHeight": 28.0,
+    "minWidth": 72.0,
+    "padX": 12.0,
+    "padY": 8.0,
+    "raisedSkin": "resources/ui/editor/button_raised.png",
+    "sliceBottom": 10,
+    "sliceLeft": 10,
+    "sliceRight": 10,
+    "sliceTop": 10,
+    "wordWrap": true
+  },
+  "description": "Timberline resource editor UI metrics. Loaded at editor start; edit freely without recompiling.",
+  "textFields": {
+    "caretBlinkHz": 1.5,
+    "padX": 10.0,
+    "padY": 14.0,
+    "scrollGutter": 14.0
+  },
+  "workingOverlay": {
+    "_comment_revolutionsPerSecond": "Clockwise spin rate of the working spinner.",
+    "_comment_sizePx": "Spinner texture MUST be exactly sizePx x sizePx pixels (currently 64). Loader rejects other sizes. May change later or move to SVG.",
+    "revolutionsPerSecond": 1.0,
+    "sizePx": 64,
+    "spinnerPath": "resources/ui/editor_working_spinner.png",
+    "title": "Working - Please wait"
   }
 }

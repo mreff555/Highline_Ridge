@@ -146,6 +146,8 @@ namespace timberline_engine
         MovementBlockOverlays movementBlockOverlays{};
         mutable bool blockIconsLoaded = false;
         mutable Texture2D needsLightIcon{};
+        mutable Texture2D needsGearIcon{};
+        mutable Texture2D needsLockIcon{};
     };
 }
 

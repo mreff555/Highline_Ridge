@@ -18,13 +18,17 @@
  ******************************************************************************/
 
 #include "AudioManager.h"
+#include "AssetStore.h"
 #include "ImageCompression.h"
+#include "JobSystem.h"
 #include "OpusAudio.h"
 
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <cstdlib>
 #include <fstream>
+#include <memory>
 #include <sstream>
 #include <unordered_set>
 
@@ -278,8 +282,28 @@ bool AudioManager::resolveMusicAssetFile(
     return false;
 }
 
+bool AudioManager::preferSyncAudioLoad()
+{
+    // Always sync for now. Async JobSystem audio decompress raced with repeated
+    // onRoomEnter/syncRoomStreams and silenced beds; re-enable behind a flag only
+    // after that path is hardened end-to-end.
+    return true;
+}
+
 bool AudioManager::resolveAssetBytes(const std::string& relativePath, std::vector<unsigned char>& outBytes) const
 {
+    outBytes.clear();
+
+    // Pak / DiskAssetStore (transparent .xz) — preferred for release + editor.
+    {
+        AssetBytes packed;
+        if (assets().readBytes(relativePath, packed) && !packed.data.empty())
+        {
+            outBytes.swap(packed.data);
+            return true;
+        }
+    }
+
     const std::vector<std::string> paths = buildAssetSearchPaths(assetRoot, relativePath);
     for (const std::string& path : paths)
     {
@@ -294,8 +318,16 @@ bool AudioManager::resolveAssetBytes(const std::string& relativePath, std::vecto
     return false;
 }
 
-bool AudioManager::loadMusicClip(const std::string& path, Music& outMusic, std::string& outTempFile)
+bool AudioManager::loadMusicClip(
+    const std::string& path,
+    Music& outMusic,
+    std::vector<unsigned char>& outMemoryBytes,
+    std::string& outTempFile)
 {
+    outMusic = Music{};
+    outMemoryBytes.clear();
+    outTempFile.clear();
+
     const std::string extension = fileExtensionFromPath(stripXzSuffix(path));
     if (extension != ".mp3")
     {
@@ -303,6 +335,9 @@ bool AudioManager::loadMusicClip(const std::string& path, Music& outMusic, std::
         return false;
     }
 
+    // Proven path: resolve to a real file (or /tmp extract from .xz) + LoadMusicStream.
+    // FromMemory is opt-in — drmp3 keeps a pointer into the buffer and we hit
+    // silent-failure cases when mixing that with track lifetime / JobSystem.
     std::string playablePath;
     if (!resolveMusicAssetFile(path, playablePath, outTempFile))
         return false;
@@ -321,6 +356,10 @@ bool AudioManager::loadSoundClip(
     float& outDurationSeconds,
     std::string& outTempFile)
 {
+    outSound = Sound{};
+    outDurationSeconds = 0.0f;
+    outTempFile.clear();
+
     const std::string extension = fileExtensionFromPath(stripXzSuffix(path));
     if (extension != ".mp3")
     {
@@ -391,16 +430,10 @@ bool AudioManager::acquireAmbientSound(const std::string& path, Sound& outSound,
     outSound = Sound{};
     outUsesAlias = false;
 
+    if (!ensureAmbientSampleLoadedSync(path))
+        return false;
+
     CachedAmbientSample& cachedSample = ambientSampleCache[path];
-    if (!cachedSample.loaded)
-    {
-        float durationSeconds = 0.0f;
-        if (!loadSoundClip(path, cachedSample.sound, durationSeconds, cachedSample.tempFilePath))
-            return false;
-
-        cachedSample.loaded = true;
-    }
-
     outSound = LoadSoundAlias(cachedSample.sound);
     if (outSound.frameCount == 0)
         return false;
@@ -425,14 +458,17 @@ void AudioManager::releaseAmbientSound(const std::string& path, Sound& sound, bo
 
 void AudioManager::unloadMusicTrack(FadingMusicTrack& track)
 {
-    if (!track.loaded)
+    if (!track.loaded && track.memoryBytes.empty() && track.tempFilePath.empty())
         return;
 
-    if (track.playing)
-        StopMusicStream(track.music);
-
-    UnloadMusicStream(track.music);
+    if (track.loaded)
+    {
+        if (track.playing)
+            StopMusicStream(track.music);
+        UnloadMusicStream(track.music);
+    }
     removeTempFile(track.tempFilePath);
+    // Free retained MP3 bytes only after UnloadMusicStream (drmp3 pointed at them).
     track = FadingMusicTrack{};
 }
 
@@ -492,16 +528,27 @@ void AudioManager::fadeOutAmbientTrack(FadingAmbientTrack& track, float fadeOutS
     }
 }
 
-void AudioManager::startMusicTrack(FadingMusicTrack& track, const AudioClipDef& clip)
+void AudioManager::applyMusicFromMemory(
+    FadingMusicTrack& track,
+    const AudioClipDef& clip,
+    std::vector<unsigned char>&& bytes)
+{
+    // Prefer writing a temp file + LoadMusicStream — same as the stable sync path.
+    (void)bytes;
+    startMusicTrackSync(track, clip);
+}
+
+void AudioManager::startMusicTrackSync(FadingMusicTrack& track, const AudioClipDef& clip)
 {
     unloadMusicTrack(track);
 
-    if (clip.path.empty())
+    if (clip.path.empty() || !ensureDeviceReady())
         return;
 
     Music music{};
+    std::vector<unsigned char> memoryBytes;
     std::string tempFile;
-    if (!loadMusicClip(clip.path, music, tempFile))
+    if (!loadMusicClip(clip.path, music, memoryBytes, tempFile))
     {
         TraceLog(LOG_WARNING, "Failed to load music clip: %s", clip.path.c_str());
         return;
@@ -510,6 +557,7 @@ void AudioManager::startMusicTrack(FadingMusicTrack& track, const AudioClipDef& 
     track.music = music;
     track.loaded = true;
     track.path = clip.path;
+    track.memoryBytes = std::move(memoryBytes);
     track.tempFilePath = tempFile;
     track.sourceClipVolume = clip.volume;
     track.targetVolume = effectiveVolume(AudioCategory::Music, clip.volume);
@@ -528,7 +576,114 @@ void AudioManager::startMusicTrack(FadingMusicTrack& track, const AudioClipDef& 
     TraceLog(LOG_INFO, "Started music: %s", clip.path.c_str());
 }
 
-void AudioManager::startAmbientTrack(const AudioClipDef& clip)
+void AudioManager::startMusicTrack(FadingMusicTrack& track, const AudioClipDef& clip)
+{
+    if (clip.path.empty())
+    {
+        unloadMusicTrack(track);
+        pendingMusicLoadPath.clear();
+        return;
+    }
+    if (!ensureDeviceReady())
+        return;
+
+    if (preferSyncAudioLoad())
+    {
+        pendingMusicLoadPath.clear();
+        startMusicTrackSync(track, clip);
+        return;
+    }
+
+    // Already fetching this exact bed — don't cancel ourselves.
+    if (pendingMusicLoadPath == clip.path && !track.loaded
+        && (&track == &musicTrack || &track == &itemMusicTrack))
+    {
+        return;
+    }
+
+    // Fade/stop current, then decompress on a worker; stream on main when ready.
+    unloadMusicTrack(track);
+    const std::uint64_t generation = ++musicLoadGeneration;
+    pendingMusicLoadPath = clip.path;
+    const std::string root = assetRoot;
+    const AudioClipDef clipCopy = clip;
+    FadingMusicTrack* trackPtr = &track;
+
+    struct DecodeResult
+    {
+        std::uint64_t generation = 0;
+        std::string path;
+        std::string assetRoot;
+        std::vector<unsigned char> bytes;
+        bool ok = false;
+    };
+    auto result = std::make_shared<DecodeResult>();
+    result->generation = generation;
+    result->path = clip.path;
+    result->assetRoot = root;
+
+    JobSystem::global().enqueue(
+        [result]() {
+            AssetBytes packed;
+            if (assets().readBytes(result->path, packed) && !packed.data.empty())
+            {
+                result->bytes.swap(packed.data);
+                result->ok = true;
+                return;
+            }
+            const std::vector<std::string> paths =
+                buildAssetSearchPaths(result->assetRoot, result->path);
+            for (const std::string& diskPath : paths)
+            {
+                if (FileExists(diskPath.c_str())
+                    && loadAssetBytesFromFile(diskPath, result->bytes))
+                {
+                    result->ok = true;
+                    return;
+                }
+                const std::string compressed = compressedAssetPath(diskPath);
+                if (FileExists(compressed.c_str())
+                    && loadAssetBytesFromFile(compressed, result->bytes))
+                {
+                    result->ok = true;
+                    return;
+                }
+            }
+        },
+        [this, result, clipCopy, trackPtr]() {
+            if (result->generation != musicLoadGeneration)
+                return;
+            if (trackPtr != &musicTrack && trackPtr != &itemMusicTrack)
+                return;
+            pendingMusicLoadPath.clear();
+            if (!result->ok || result->bytes.empty())
+            {
+                TraceLog(
+                    LOG_WARNING,
+                    "Async music decode failed: %s — falling back to sync",
+                    clipCopy.path.c_str());
+                startMusicTrackSync(*trackPtr, clipCopy);
+                return;
+            }
+            applyMusicFromMemory(*trackPtr, clipCopy, std::move(result->bytes));
+        });
+}
+
+bool AudioManager::ensureAmbientSampleLoadedSync(const std::string& path)
+{
+    CachedAmbientSample& cachedSample = ambientSampleCache[path];
+    if (cachedSample.loaded)
+        return true;
+
+    float durationSeconds = 0.0f;
+    if (!loadSoundClip(path, cachedSample.sound, durationSeconds, cachedSample.tempFilePath))
+        return false;
+
+    cachedSample.loaded = true;
+    return true;
+}
+
+void AudioManager::startAmbientTrackSync(const AudioClipDef& clip)
 {
     if (clip.path.empty() || !ensureDeviceReady())
         return;
@@ -561,6 +716,105 @@ void AudioManager::startAmbientTrack(const AudioClipDef& clip)
     track.playing = true;
     ambientTracks.push_back(track);
     TraceLog(LOG_INFO, "Started ambient: %s (vol %.2f)", clip.path.c_str(), track.currentVolume);
+}
+
+void AudioManager::startAmbientTrack(const AudioClipDef& clip)
+{
+    if (clip.path.empty() || !ensureDeviceReady())
+        return;
+
+    // Already decoded — start immediately.
+    if (ambientSampleCache.count(clip.path) && ambientSampleCache[clip.path].loaded)
+    {
+        startAmbientTrackSync(clip);
+        return;
+    }
+
+    if (preferSyncAudioLoad())
+    {
+        startAmbientTrackSync(clip);
+        return;
+    }
+
+    // If a decode is already running for this path, keep it — do not drop the
+    // request when syncRoomStreams bumps ambientLoadGeneration.
+    if (pendingAmbientLoads.count(clip.path) > 0)
+        return;
+
+    pendingAmbientLoads.insert(clip.path);
+    const std::string root = assetRoot;
+    const AudioClipDef clipCopy = clip;
+
+    struct DecodeResult
+    {
+        std::string path;
+        std::string assetRoot;
+        std::vector<unsigned char> bytes;
+        bool ok = false;
+    };
+    auto result = std::make_shared<DecodeResult>();
+    result->path = clip.path;
+    result->assetRoot = root;
+
+    JobSystem::global().enqueue(
+        [result]() {
+            AssetBytes packed;
+            if (assets().readBytes(result->path, packed) && !packed.data.empty())
+            {
+                result->bytes.swap(packed.data);
+                result->ok = true;
+                return;
+            }
+            const std::vector<std::string> paths =
+                buildAssetSearchPaths(result->assetRoot, result->path);
+            for (const std::string& diskPath : paths)
+            {
+                if (FileExists(diskPath.c_str())
+                    && loadAssetBytesFromFile(diskPath, result->bytes))
+                {
+                    result->ok = true;
+                    return;
+                }
+                const std::string compressed = compressedAssetPath(diskPath);
+                if (FileExists(compressed.c_str())
+                    && loadAssetBytesFromFile(compressed, result->bytes))
+                {
+                    result->ok = true;
+                    return;
+                }
+            }
+        },
+        [this, result, clipCopy]() {
+            pendingAmbientLoads.erase(result->path);
+            // Still desired for the *current* room (generation may have moved on
+            // if sync ran again with the same ambient list).
+            if (desiredAmbientPaths.count(result->path) == 0)
+                return;
+            if (!result->ok || result->bytes.empty())
+            {
+                TraceLog(
+                    LOG_WARNING,
+                    "Async ambient decode failed: %s — trying sync",
+                    clipCopy.path.c_str());
+                if (desiredAmbientPaths.count(clipCopy.path) > 0
+                    && findAmbientTrackByPath(clipCopy.path) == nullptr)
+                    startAmbientTrackSync(clipCopy);
+                return;
+            }
+
+            // Cache + start via the stable file LoadSound path.
+            if (!ensureAmbientSampleLoadedSync(result->path))
+            {
+                TraceLog(
+                    LOG_WARNING,
+                    "Async ambient upload failed: %s",
+                    clipCopy.path.c_str());
+                return;
+            }
+
+            if (findAmbientTrackByPath(clipCopy.path) == nullptr)
+                startAmbientTrackSync(clipCopy);
+        });
 }
 
 void AudioManager::updateMusicTrack(FadingMusicTrack& track, float deltaSeconds)
@@ -1103,6 +1357,14 @@ void AudioManager::syncRoomStreams(const RoomAudioConfig& roomAudio)
         roomAudio.hasMusic ? roomAudio.music.path.c_str() : "(none)",
         roomAudio.ambient.size());
 
+    ++ambientLoadGeneration;
+    desiredAmbientPaths.clear();
+    for (const AudioClipDef& ambientClip : roomAudio.ambient)
+    {
+        if (!ambientClip.path.empty())
+            desiredAmbientPaths.insert(ambientClip.path);
+    }
+
     if (roomAudio.hasMusic)
     {
         if (musicTrack.loaded && musicTrack.path == roomAudio.music.path && isMusicStreamActive(musicTrack))
@@ -1113,6 +1375,7 @@ void AudioManager::syncRoomStreams(const RoomAudioConfig& roomAudio)
         else if (isMusicStreamActive(musicTrack))
         {
             fadeOutMusicTrack(musicTrack, musicTrack.fadeOutSeconds);
+            ++musicLoadGeneration; // cancel in-flight async loads for the old bed
             pendingMusicClip = roomAudio.music;
             pendingMusicStart = true;
         }

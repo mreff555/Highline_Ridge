@@ -24,6 +24,7 @@
 #include "DialogWalkthrough.h"
 #include "DocumentWorkspace.h"
 #include "EditorLayout.h"
+#include "EditorPreferencesDialog.h"
 #include "ItemEditor.h"
 #include "SceneGraphModel.h"
 #include "SceneMapCanvas.h"
@@ -49,6 +50,7 @@ struct SceneEditorApp
     ItemEditor itemEditor;
     SceneGraphModel sceneGraph;
     SceneMapCanvas mapCanvas;
+    EditorPreferencesDialog preferences;
 
     std::string selectedSceneId;
     float variablesScroll = 0.0f;

@@ -6,9 +6,11 @@
  ******************************************************************************/
 
 #include "DialogWalkthrough.h"
+#include "EditorInput.h"
 
 #include "ConversationHelpers.h"
 #include "EditorButton.h"
+#include "EditorPrefs.h"
 #include "EditorTheme.h"
 #include "EditorUiDraw.h"
 #include "TtsVoiceMarkup.h"
@@ -868,8 +870,10 @@ bool DialogWalkthrough::handleVoiceMenuClick(Vector2 mouse)
         int i = static_cast<int>((mouse.y - voiceMenuRect.y - 2.0f) / rowH);
         if (i >= 0 && i < static_cast<int>(voices.size()))
         {
-            ttsVoice = voices[static_cast<size_t>(i)];
+            ttsVoice = normalizeVoiceId(voices[static_cast<size_t>(i)]);
             dirtyStep = true;
+            if (docs != nullptr && !docs->resourceDir.empty())
+                rememberTtsDefaultVoice(docs->resourceDir, ttsVoice);
         }
         voiceMenuOpen = false;
         ignoreInputFrames = 1;
@@ -951,7 +955,7 @@ void DialogWalkthrough::handleInput(Rectangle pane)
     }
 
     const Vector2 mouse = GetMousePosition();
-    const bool canClick = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    const bool canClick = editorMousePressed(MOUSE_BUTTON_LEFT);
 
     // Voice menu is modal for clicks — handle first so it is never under other controls.
     if (canClick && voiceMenuOpen && handleVoiceMenuClick(mouse))
@@ -1028,7 +1032,7 @@ void DialogWalkthrough::draw(Rectangle pane)
     // Clicks on the voice menu are handled in handleInput (before draw) so they
     // never fall through to buttons underneath.
     const bool canClick =
-        ignoreInputFrames <= 0 && !voiceMenuOpen && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+        ignoreInputFrames <= 0 && !voiceMenuOpen && editorMousePressed(MOUSE_BUTTON_LEFT);
 
     DrawRectangleRec(pane, Color{22, 20, 28, 255});
     DrawRectangleLinesEx(pane, 1.0f, kPanelInnerEdge);

@@ -82,6 +82,10 @@ bool loadGameConfig(const std::string& configPath, GameConfig& outConfig)
         outConfig.display.x = display.value("x", outConfig.display.x);
         outConfig.display.y = display.value("y", outConfig.display.y);
         outConfig.display.monitor = display.value("monitor", outConfig.display.monitor);
+        outConfig.display.aspectPreference =
+            display.value("aspectPreference", outConfig.display.aspectPreference);
+        if (outConfig.display.aspectPreference.empty())
+            outConfig.display.aspectPreference = "auto";
     }
 
     if (config.contains("audio") && config["audio"].is_object())
@@ -154,7 +158,9 @@ bool saveGameConfig(const std::string& configPath, const GameConfig& config)
         {"fullscreen", config.display.fullscreen},
         {"x", config.display.x},
         {"y", config.display.y},
-        {"monitor", config.display.monitor}
+        {"monitor", config.display.monitor},
+        {"aspectPreference",
+         config.display.aspectPreference.empty() ? "auto" : config.display.aspectPreference}
     };
     root["audio"] = {
         {"master", config.audio.master},

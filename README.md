@@ -164,20 +164,27 @@ Timberline is designed to incorporate Grok TTS voices. Currently valid voices in
 | Command | Purpose |
 |---------|---------|
 | `-h`, `--help` | Show help |
+
+**Dev / authoring builds only** (stripped when `HIGHLINE_RELEASE=ON` so player builds stay unambiguous):
+
+| Command | Purpose |
+|---------|---------|
 | `--key=API_KEY` | xAI API key for TTS refresh (not stored) |
 | `--refresh-voices` | Regenerate bundled TTS for all `ttsEnabled` owners; requires `--key` |
 | `--refresh=ID` | Same, limited to one conversation / scene / item / recipe id |
 | `-force`, `--force` | With refresh, ignore text hashes and regenerate matching lines |
 
 Normal play uses already-bundled voice files under `resources/audio/tts/` and does **not** call xAI.
-Release builds data files are immutable and therefore these commands are not available.
+Refresh writes `resources/audio/tts/*.mp3.xz` and JSON hashes on **disk**. It does **not** patch an embedded pak — rebuild release afterward to bake voices in.
+Release builds keep data files immutable, so these refresh commands are not available there.
 
-Examples:
+Examples (dev build):
 
 ```bash
 ./Highline\ Ridge --key=YOUR_XAI_API_KEY --refresh-voices
 ./Highline\ Ridge --key=YOUR_XAI_API_KEY --refresh=saloon_interior
 ./Highline\ Ridge --key=YOUR_XAI_API_KEY --force --refresh=blackjack_invite
+./build-release.sh   # then rebuild so the pak includes new audio
 ```
 
 ### In-game developer tools
