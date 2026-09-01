@@ -514,4 +514,90 @@ int moveCursorVertical(
     return best;
 }
 
+bool caretBlinkVisible(float hz)
+{
+    const float rate = std::max(0.2f, hz);
+    return (static_cast<int>(GetTime() * rate * 2.0) % 2) == 0;
+}
+
+int utf8PrevIndex(const std::string& buffer, int cursor)
+{
+    if (cursor <= 0)
+        return 0;
+    int i = cursor - 1;
+    while (i > 0
+           && (static_cast<unsigned char>(buffer[static_cast<size_t>(i)]) & 0xC0) == 0x80)
+        --i;
+    return i;
+}
+
+int utf8NextIndex(const std::string& buffer, int cursor)
+{
+    const int n = static_cast<int>(buffer.size());
+    if (cursor >= n)
+        return n;
+    int i = cursor + 1;
+    while (i < n
+           && (static_cast<unsigned char>(buffer[static_cast<size_t>(i)]) & 0xC0) == 0x80)
+        ++i;
+    return i;
+}
+
+void drawOnOffSwitch(
+    Font font,
+    Rectangle track,
+    bool on,
+    const char* label,
+    bool canClick,
+    bool& outToggled)
+{
+    outToggled = false;
+    DrawRectangleRounded(track, 0.5f, 6, Color{44, 42, 52, 255});
+    DrawRectangleLinesEx(track, 1.0f, kPanelBorder);
+    if (on)
+    {
+        DrawRectangleRec(
+            {track.x + track.width * 0.5f, track.y + 1.0f,
+             track.width * 0.5f - 1.0f, track.height - 2.0f},
+            kPanelAccent);
+    }
+    else
+    {
+        DrawRectangleRec(
+            {track.x + 1.0f, track.y + 1.0f,
+             track.width * 0.5f - 1.0f, track.height - 2.0f},
+            Color{36, 34, 44, 255});
+    }
+    const float knobSize = track.height - 6.0f;
+    const float knobX = on
+        ? (track.x + track.width - knobSize - 3.0f)
+        : (track.x + 3.0f);
+    DrawRectangleRounded(
+        {knobX, track.y + 3.0f, knobSize, knobSize},
+        0.5f,
+        6,
+        kTextPrimary);
+    DrawTextEx(
+        font,
+        on ? "ON" : "OFF",
+        {track.x + track.width + 8.0f,
+         track.y + (track.height - kFontTiny) * 0.5f},
+        kFontTiny,
+        1.0f,
+        kPanelBorder);
+    if (label != nullptr && label[0] != '\0')
+    {
+        DrawTextEx(
+            font,
+            label,
+            {track.x + track.width + 40.0f,
+             track.y + (track.height - kFontSmall) * 0.5f},
+            kFontSmall,
+            1.0f,
+            kTextPrimary);
+    }
+    if (canClick && CheckCollisionPointRec(GetMousePosition(), track))
+        outToggled = true;
+}
+
 } // namespace timberline_editor

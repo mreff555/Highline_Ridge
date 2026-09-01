@@ -18,9 +18,14 @@
  ******************************************************************************/
 
 #include "SceneEditorApp.h"
+#include "EditorInput.h"
 #include "EditorPaths.h"
 
 #include "EditorTheme.h"
+
+#if defined(__APPLE__)
+#include "macos/EditorNativeMenu.h"
+#endif
 
 #include <raylib.h>
 
@@ -100,6 +105,13 @@ void SceneEditorApp::wireModules()
     mapCanvas.sceneAuthoring.onCreated = [this](const std::string& id)
     {
         thumbnails.clear();
+        // selectSceneForEditor is a no-op when id is already selected, so always
+        // invalidate bottom-pane media. Otherwise a prior failed load (files not
+        // on disk yet) keeps Play disabled after Generate/Confirm writes them.
+        mapCanvas.previewMusicPath.clear();
+        mapCanvas.previewAmbientPath.clear();
+        mapCanvas.previewLargePath.clear();
+        mapCanvas.previewBoundSceneId.clear();
         selectSceneForEditor(id);
     };
 
@@ -136,6 +148,12 @@ void SceneEditorApp::wireModules()
         if (!selectedSceneId.empty())
             mapCanvas.sceneEffects.openForScene(selectedSceneId);
     };
+
+    mapCanvas.preferences = &preferences;
+    mapCanvas.openPreferences = [this]()
+    {
+        preferences.openDialog(document.resourceDir, document.assetRoot);
+    };
 }
 
 void SceneEditorApp::syncModuleFonts()
@@ -158,6 +176,8 @@ void SceneEditorApp::syncModuleFonts()
     mapCanvas.sceneInventory.uiFontBold = uiFontBold;
     mapCanvas.sceneEffects.uiFont = uiFont;
     mapCanvas.sceneEffects.uiFontBold = uiFontBold;
+    preferences.uiFont = uiFont;
+    preferences.uiFontBold = uiFontBold;
 }
 
 Font SceneEditorApp::textFont() const
@@ -367,58 +387,42 @@ bool SceneEditorApp::loadActiveDocument()
 
 bool SceneEditorApp::deleteSelectedScene()
 {
-    if (variableEditor.open || sceneGraph.stackDialogOpen || itemEditor.blocksInput())
+    // Opens the shared confirm (+ optional purge) flow on the map canvas.
+    if (preferences.blocksInput() || variableEditor.open || sceneGraph.stackDialogOpen
+        || itemEditor.blocksInput()
+        || mapCanvas.blocksInput()
+        || mapCanvas.contextMenuSource != SceneMapCanvas::ContextMenuSource::None)
         return false;
     if (selectedSceneId.empty() || !document.scenes.hasScene(selectedSceneId))
         return false;
-
-    const std::string removedId = selectedSceneId;
-    if (!document.scenes.removeScene(removedId))
-        return false;
-
-    // Drop cached art for the removed id (and any stale entries).
-    thumbnails.clear();
-    mapCanvas.cancelLinkDrag();
-    mapCanvas.cancelPortDrag();
-    mapCanvas.dragSource = DragSource::None;
-    mapCanvas.dragSceneId.clear();
-
-    selectedSceneId.clear();
-    variableEditor.selectedVariableKey.clear();
-    variablesScroll = 0.0f;
-
-    const std::vector<std::string> remaining = document.scenes.sceneIds();
-    if (!remaining.empty())
-        selectedSceneId = remaining.front();
-
-    if (document.isConversationsTab())
-    {
-        conversation.selectedKey.clear();
-        conversation.rebuildConversationTree();
-        for (const ConversationTreeNode& root : conversation.roots)
-            conversation.expanded.insert(root.key);
-    }
-
-    document.markDirty();
+    mapCanvas.requestDeleteSelectedScene();
     return true;
 }
 
 void SceneEditorApp::handleShortcuts()
 {
-    if (variableEditor.open || sceneGraph.stackDialogOpen || itemEditor.blocksInput()
+    if (preferences.blocksInput() || variableEditor.open || sceneGraph.stackDialogOpen
+        || itemEditor.blocksInput()
         || mapCanvas.sceneAuthoring.blocksInput()
         || mapCanvas.sceneAssist.blocksInput()
         || mapCanvas.sceneInventory.blocksInput()
-        || mapCanvas.sceneEffects.blocksInput())
+        || mapCanvas.sceneEffects.blocksInput()
+        || mapCanvas.confirmMode != SceneMapCanvas::ConfirmMode::None
+        || mapCanvas.contextMenuSource != SceneMapCanvas::ContextMenuSource::None)
         return;
 
-    if (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL))
+    const bool ctrl = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
+    const bool super = IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER);
+    if (ctrl || super)
     {
-        if (IsKeyPressed(KEY_S))
+        if (IsKeyPressed(KEY_S) && ctrl)
             saveDocument();
+        // Ctrl+, / Cmd+, — Preferences (macOS also has a native menu item).
+        if (IsKeyPressed(KEY_COMMA))
+            preferences.openDialog(document.resourceDir, document.assetRoot);
     }
 
-    // Delete / Forward-Delete removes the selected scene from the map and JSON.
+    // Delete key uses the same confirm + optional purge flow as the list menu.
     if (IsKeyPressed(KEY_DELETE))
         deleteSelectedScene();
 }
@@ -430,16 +434,35 @@ void SceneEditorApp::update()
     layout.syncToWindow(screenWidth, screenHeight);
     syncModuleFonts();
 
+#if defined(__APPLE__)
+    // Native Preferences… menu (⌘,) sets this flag from Cocoa.
+    if (gEditorPreferencesMenuRequested.exchange(false))
+    {
+        if (!preferences.blocksInput() && !variableEditor.open && !itemEditor.blocksInput()
+            && !mapCanvas.sceneAuthoring.blocksInput()
+            && !mapCanvas.sceneAssist.blocksInput()
+            && !mapCanvas.sceneInventory.blocksInput()
+            && !mapCanvas.sceneEffects.blocksInput()
+            && mapCanvas.confirmMode == SceneMapCanvas::ConfirmMode::None)
+        {
+            preferences.openDialog(document.resourceDir, document.assetRoot);
+        }
+    }
+#endif
+
     handleShortcuts();
 
-    if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+    if (!editorMouseDown(MOUSE_BUTTON_LEFT))
         layout.cancelDividerDrag();
 
-    if (!variableEditor.open && !sceneGraph.stackDialogOpen && !itemEditor.blocksInput()
+    if (!preferences.blocksInput() && !variableEditor.open && !sceneGraph.stackDialogOpen
+        && !itemEditor.blocksInput()
         && !mapCanvas.sceneAuthoring.blocksInput()
         && !mapCanvas.sceneAssist.blocksInput()
         && !mapCanvas.sceneInventory.blocksInput()
-        && !mapCanvas.sceneEffects.blocksInput())
+        && !mapCanvas.sceneEffects.blocksInput()
+        && mapCanvas.confirmMode == SceneMapCanvas::ConfirmMode::None
+        && mapCanvas.contextMenuSource == SceneMapCanvas::ContextMenuSource::None)
     {
         const Rectangle left = layout.leftPaneBounds(screenWidth);
         const Rectangle listBounds = {
@@ -451,6 +474,13 @@ void SceneEditorApp::update()
             conversation.handleConversationTreeInput(listBounds);
         else if (document.isItemsTab())
             itemEditor.handleInput(listBounds);
+    }
+
+    // Preferences is topmost when open.
+    if (preferences.blocksInput())
+    {
+        preferences.handleInput(screenWidth, screenHeight);
+        return;
     }
 
     if (variableEditor.open)
@@ -471,15 +501,10 @@ void SceneEditorApp::update()
         return;
     }
 
-    if (mapCanvas.sceneAuthoring.blocksInput())
+    // Topmost modal wins input (draw order: authoring → assist → inventory → effects → prefs).
+    if (mapCanvas.sceneEffects.blocksInput())
     {
-        mapCanvas.sceneAuthoring.handleInput(screenWidth, screenHeight);
-        return;
-    }
-
-    if (mapCanvas.sceneAssist.blocksInput())
-    {
-        mapCanvas.sceneAssist.handleInput(screenWidth, screenHeight);
+        mapCanvas.sceneEffects.handleInput(screenWidth, screenHeight);
         return;
     }
 
@@ -489,11 +514,21 @@ void SceneEditorApp::update()
         return;
     }
 
-    if (mapCanvas.sceneEffects.blocksInput())
+    if (mapCanvas.sceneAssist.blocksInput())
     {
-        mapCanvas.sceneEffects.handleInput(screenWidth, screenHeight);
+        mapCanvas.sceneAssist.handleInput(screenWidth, screenHeight);
         return;
     }
+
+    if (mapCanvas.sceneAuthoring.blocksInput())
+    {
+        mapCanvas.sceneAuthoring.handleInput(screenWidth, screenHeight);
+        return;
+    }
+
+    if (mapCanvas.confirmMode != SceneMapCanvas::ConfirmMode::None
+        || mapCanvas.contextMenuSource != SceneMapCanvas::ContextMenuSource::None)
+        return;
 
     if (sceneGraph.stackDialogOpen)
         return;

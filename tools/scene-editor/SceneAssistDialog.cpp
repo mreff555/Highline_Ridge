@@ -4,6 +4,7 @@
  ******************************************************************************/
 
 #include "SceneAssistDialog.h"
+#include "EditorInput.h"
 #include "EditorButton.h"
 #include "EditorPaths.h"
 #include "EditorTheme.h"
@@ -559,7 +560,7 @@ void SceneAssistDialog::handleInput(int screenW, int screenH)
 
     if (waitMouseRelease)
     {
-        if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        if (!editorMouseDown(MOUSE_BUTTON_LEFT))
             waitMouseRelease = false;
         return;
     }
@@ -594,7 +595,7 @@ void SceneAssistDialog::draw(int screenW, int screenH)
     const bool busy = generateBusy.load();
     const bool canClick =
         !waitMouseRelease && ignoreInputFrames <= 0 && !busy
-        && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+        && editorMousePressed(MOUSE_BUTTON_LEFT);
 
     DrawRectangle(0, 0, screenW, screenH, kModalOverlay);
 

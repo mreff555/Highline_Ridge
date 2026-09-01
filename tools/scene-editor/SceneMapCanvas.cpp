@@ -18,6 +18,7 @@
  ******************************************************************************/
 
 #include "SceneMapCanvas.h"
+#include "EditorInput.h"
 
 #include "ConversationHelpers.h"
 #include "DocumentWorkspace.h"
@@ -26,9 +27,11 @@
 #include "EditorTheme.h"
 #include "EditorTypes.h"
 #include "EditorUiDraw.h"
+#include "SceneAuthoring.h"
 #include "SceneAuthoringDialog.h"
 #include "SceneAssistDialog.h"
 #include "SceneEffectsDialog.h"
+#include "EditorPreferencesDialog.h"
 #include "ImageCompression.h"
 #include "PlatformPath.h"
 #include "RaylibCompat.h"
@@ -65,6 +68,98 @@ namespace fs = std::filesystem;
 
 namespace timberline_editor
 {
+
+namespace
+{
+
+/** One-line description preview: word-safe fit with "..." (no space before ellipsis). */
+std::string fitSceneListDescriptionPreview(
+    Font font,
+    const std::string& raw,
+    float maxWidth,
+    float fontSize)
+{
+    if (maxWidth < 8.0f)
+        return {};
+
+    // Flatten whitespace to single spaces.
+    std::string text;
+    text.reserve(raw.size());
+    bool prevSpace = true;
+    for (unsigned char uch : raw)
+    {
+        char ch = static_cast<char>(uch);
+        if (ch == '\n' || ch == '\r' || ch == '\t')
+            ch = ' ';
+        if (ch == ' ')
+        {
+            if (prevSpace)
+                continue;
+            prevSpace = true;
+            text.push_back(' ');
+        }
+        else
+        {
+            prevSpace = false;
+            text.push_back(ch);
+        }
+    }
+    while (!text.empty() && text.back() == ' ')
+        text.pop_back();
+    if (text.empty())
+        return {};
+
+    if (measureUiTextWidth(font, text, fontSize) <= maxWidth)
+        return text;
+
+    const std::string ellipsis = "...";
+    // Largest prefix length n where prefix + "..." fits.
+    size_t lo = 0;
+    size_t hi = text.size();
+    size_t best = 0;
+    while (lo <= hi)
+    {
+        const size_t mid = lo + (hi - lo) / 2;
+        const std::string candidate = text.substr(0, mid) + ellipsis;
+        if (measureUiTextWidth(font, candidate, fontSize) <= maxWidth)
+        {
+            best = mid;
+            lo = mid + 1;
+        }
+        else
+        {
+            if (mid == 0)
+                break;
+            hi = mid - 1;
+        }
+    }
+    if (best == 0)
+        return ellipsis;
+
+    // Drop a partial final word when possible.
+    size_t cut = best;
+    if (cut < text.size())
+    {
+        const size_t sp = text.find_last_of(' ', cut - 1);
+        if (sp != std::string::npos && sp + 1 < cut)
+            cut = sp;
+    }
+    while (cut > 0 && text[cut - 1] == ' ')
+        --cut;
+    if (cut == 0)
+    {
+        // Single long word: hard-cut to whatever still fits with ellipsis.
+        cut = best;
+        while (cut > 0
+               && measureUiTextWidth(font, text.substr(0, cut) + ellipsis, fontSize) > maxWidth)
+            --cut;
+        if (cut == 0)
+            return ellipsis;
+    }
+    return text.substr(0, cut) + ellipsis;
+}
+
+} // namespace
 
 Vector2 SceneMapCanvas::sceneCardScreenPos(const SceneLayout& sceneLayout, Rectangle canvasBounds) const
 {
@@ -858,6 +953,10 @@ std::string SceneMapCanvas::sceneCardAtPoint(Vector2 mouse, Rectangle canvasBoun
 {
     if (!docs || !docs->scenes.isLoaded())
         return "";
+    // Prefer the card whose center is closest to the cursor among hits. First-match
+    // on sceneIds() order made overlapping / stacked cards feel one-directional.
+    std::string bestId;
+    float bestDistSq = 1.0e12f;
     const std::vector<std::string> ids = docs->scenes.sceneIds();
     for (const std::string& id : ids)
     {
@@ -866,10 +965,21 @@ std::string SceneMapCanvas::sceneCardAtPoint(Vector2 mouse, Rectangle canvasBoun
         const SceneLayout sceneLayout = docs->scenes.getLayout(id);
         if (sceneLayout.level != level)
             continue;
-        if (CheckCollisionPointRec(mouse, sceneCardBounds(id, canvasBounds)))
-            return id;
+        const Rectangle card = sceneCardBounds(id, canvasBounds);
+        if (!CheckCollisionPointRec(mouse, card))
+            continue;
+        const float cx = card.x + card.width * 0.5f;
+        const float cy = card.y + card.height * 0.5f;
+        const float dx = mouse.x - cx;
+        const float dy = mouse.y - cy;
+        const float distSq = dx * dx + dy * dy;
+        if (distSq < bestDistSq)
+        {
+            bestDistSq = distSq;
+            bestId = id;
+        }
     }
-    return "";
+    return bestId;
 }
 
 Rectangle SceneMapCanvas::directionPortBounds(Rectangle card, const std::string& direction) const
@@ -897,7 +1007,11 @@ bool SceneMapCanvas::hitTestDirectionPort(
     if (!docs || !docs->scenes.isLoaded())
         return false;
 
+    // Closest port center wins. Adjacent cards' facing ports often overlap; the
+    // old first-match-by-sceneIds() order made only one facing port grabable.
     const char* dirs[] = {"forward", "backward", "left", "right"};
+    float bestDistSq = 1.0e12f;
+    bool found = false;
     const std::vector<std::string> ids = docs->scenes.sceneIds();
     for (const std::string& id : ids)
     {
@@ -908,15 +1022,24 @@ bool SceneMapCanvas::hitTestDirectionPort(
         const Rectangle card = sceneCardBounds(id, canvasBounds);
         for (const char* dir : dirs)
         {
-            if (CheckCollisionPointRec(mouse, directionPortBounds(card, dir)))
+            const Rectangle port = directionPortBounds(card, dir);
+            if (!CheckCollisionPointRec(mouse, port))
+                continue;
+            const float cx = port.x + port.width * 0.5f;
+            const float cy = port.y + port.height * 0.5f;
+            const float dx = mouse.x - cx;
+            const float dy = mouse.y - cy;
+            const float distSq = dx * dx + dy * dy;
+            if (distSq < bestDistSq)
             {
+                bestDistSq = distSq;
                 outSceneId = id;
                 outDirection = dir;
-                return true;
+                found = true;
             }
         }
     }
-    return false;
+    return found;
 }
 
 void SceneMapCanvas::cancelPortDrag()
@@ -932,6 +1055,13 @@ void SceneMapCanvas::drawDirectionPorts(Rectangle canvasBounds) const
 {
     if (!docs || !docs->scenes.isLoaded())
         return;
+
+    const Vector2 mouse = GetMousePosition();
+    std::string hoverScene;
+    std::string hoverDir;
+    const bool hoveringPort =
+        dragSource == DragSource::None
+        && hitTestDirectionPort(mouse, canvasBounds, hoverScene, hoverDir);
 
     const char* dirs[] = {"forward", "backward", "left", "right"};
     const std::vector<std::string> ids = docs->scenes.sceneIds();
@@ -950,18 +1080,25 @@ void SceneMapCanvas::drawDirectionPorts(Rectangle canvasBounds) const
                 dragSource == DragSource::ExitPort
                 && portDragFromId == id
                 && portDragDirection == dir;
-            Color fill = linked ? Color{168, 138, 72, 220} : Color{70, 64, 82, 220};
+            const bool hovered =
+                hoveringPort && hoverScene == id && hoverDir == dir;
+            // Empty ports used to be nearly invisible (dark on dark) — users only
+            // discovered linked/gold ports or top ports by accident.
+            Color fill = linked ? Color{168, 138, 72, 230} : Color{120, 112, 140, 230};
+            if (hovered)
+                fill = Color{200, 185, 140, 255};
             if (active)
                 fill = Color{220, 190, 100, 255};
+            const float radius = port.width * 0.42f;
             DrawCircleV(
                 {port.x + port.width * 0.5f, port.y + port.height * 0.5f},
-                port.width * 0.35f,
+                radius,
                 fill);
             DrawCircleLines(
                 static_cast<int>(port.x + port.width * 0.5f),
                 static_cast<int>(port.y + port.height * 0.5f),
-                port.width * 0.35f,
-                kPanelBorder);
+                radius,
+                hovered || active ? Color{240, 220, 160, 255} : kPanelBorder);
         }
     }
 }
@@ -977,11 +1114,18 @@ void SceneMapCanvas::drawPortDragPreview(Rectangle canvasBounds) const
     const Rectangle port = directionPortBounds(fromCard, portDragDirection);
     const Vector2 start = {port.x + port.width * 0.5f, port.y + port.height * 0.5f};
     const Vector2 mouse = GetMousePosition();
-    const bool valid =
-        !linkDragHoverTarget.empty()
-        && linkDragHoverTarget != portDragFromId
-        && graph
-        && graph->isSameLevelLink(portDragFromId, linkDragHoverTarget);
+
+    const char* invalidReason = nullptr;
+    bool valid = false;
+    if (linkDragHoverTarget.empty() || linkDragHoverTarget == portDragFromId)
+        invalidReason = "Drop on another scene";
+    else if (!graph || !graph->isSameLevelLink(portDragFromId, linkDragHoverTarget))
+        invalidReason = "Different map level";
+    else if (graph->exitDirectionAlreadyLeadsTo(
+                 portDragDirection, linkDragHoverTarget, portDragFromId))
+        invalidReason = "That direction already enters target";
+    else
+        valid = true;
 
     DrawLineEx(start, mouse, 2.0f, valid ? Color{220, 190, 100, 255} : Color{160, 80, 80, 200});
     DrawCircleV(mouse, 5.0f, valid ? Color{220, 190, 100, 255} : Color{160, 80, 80, 200});
@@ -994,7 +1138,8 @@ void SceneMapCanvas::drawPortDragPreview(Rectangle canvasBounds) const
             valid ? Color{220, 190, 100, 255} : Color{160, 80, 80, 200});
         DrawTextEx(
             (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
-            valid ? "Drop to create exit" : "Invalid target",
+            valid ? "Drop to create exit (sets reciprocal if free)"
+                  : (invalidReason ? invalidReason : "Invalid target"),
             {target.x, target.y - 18.0f},
             kFontTiny,
             1.0f,
@@ -1296,7 +1441,7 @@ void SceneMapCanvas::drawLevelChrome(Rectangle canvasBounds)
         1.0f,
         canGoUp ? kTextPrimary : kTextDisabled);
 
-    if (!graph->stackDialogOpen && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    if (!graph->stackDialogOpen && editorMousePressed(MOUSE_BUTTON_LEFT))
     {
         const Vector2 mouse = GetMousePosition();
         if (canGoDown && CheckCollisionPointRec(mouse, levelDownBtn))
@@ -1432,7 +1577,7 @@ void SceneMapCanvas::drawCanvasScrollBars(
 
         if (canDragBar)
         {
-            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, thumb))
+            if (editorMousePressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, thumb))
             {
                 draggingHScroll = true;
                 hScrollGrabOffset = mouse.x - thumb.x;
@@ -1440,7 +1585,7 @@ void SceneMapCanvas::drawCanvasScrollBars(
                 dragSceneId.clear();
                 cancelLinkDrag();
             }
-            else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, track))
+            else if (editorMousePressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, track))
             {
                 const float center = mouse.x - thumbW * 0.5f;
                 const float ratio = (center - track.x) / std::max(1.0f, track.width - thumbW);
@@ -1450,7 +1595,7 @@ void SceneMapCanvas::drawCanvasScrollBars(
             }
         }
 
-        if (draggingHScroll && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        if (draggingHScroll && editorMouseDown(MOUSE_BUTTON_LEFT))
         {
             const float thumbPos = mouse.x - hScrollGrabOffset;
             const float ratio = (thumbPos - track.x) / std::max(1.0f, track.width - thumbW);
@@ -1489,7 +1634,7 @@ void SceneMapCanvas::drawCanvasScrollBars(
 
         if (canDragBar)
         {
-            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, thumb))
+            if (editorMousePressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, thumb))
             {
                 draggingVScroll = true;
                 vScrollGrabOffset = mouse.y - thumb.y;
@@ -1497,7 +1642,7 @@ void SceneMapCanvas::drawCanvasScrollBars(
                 dragSceneId.clear();
                 cancelLinkDrag();
             }
-            else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, track))
+            else if (editorMousePressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, track))
             {
                 const float center = mouse.y - thumbH * 0.5f;
                 const float ratio = (center - track.y) / std::max(1.0f, track.height - thumbH);
@@ -1507,7 +1652,7 @@ void SceneMapCanvas::drawCanvasScrollBars(
             }
         }
 
-        if (draggingVScroll && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        if (draggingVScroll && editorMouseDown(MOUSE_BUTTON_LEFT))
         {
             const float thumbPos = mouse.y - vScrollGrabOffset;
             const float ratio = (thumbPos - track.y) / std::max(1.0f, track.height - thumbH);
@@ -1516,7 +1661,7 @@ void SceneMapCanvas::drawCanvasScrollBars(
         }
     }
 
-    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+    if (editorMouseReleased(MOUSE_BUTTON_LEFT))
     {
         draggingHScroll = false;
         draggingVScroll = false;
@@ -1636,9 +1781,30 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
 
     // Conversations tab: allow selecting scenes on the map so the left tree can
     // rebuild for another scene, but do not drag cards or retarget exit links.
+    // Modals (New Scene, etc.) must block map hit-testing — interaction still
+    // lives in this draw path, so open dialogs would otherwise steal presses
+    // from scrollbar/field drags and move cards underneath.
+    const bool modalOpen =
+        sceneAuthoring.blocksInput()
+        || sceneAssist.blocksInput()
+        || sceneInventory.blocksInput()
+        || sceneEffects.blocksInput()
+        || (preferences && preferences->blocksInput())
+        || (variableEditor && variableEditor->open)
+        || (itemEditor && itemEditor->blocksInput())
+        || confirmMode != ConfirmMode::None;
+    if ((modalOpen || contextMenuSource != ContextMenuSource::None)
+        && dragSource != DragSource::None)
+    {
+        dragSource = DragSource::None;
+        dragSceneId.clear();
+        cancelLinkDrag();
+        cancelPortDrag();
+    }
     const bool inputFree =
         !graph->stackDialogOpen
-        && !(variableEditor && variableEditor->open)
+        && !modalOpen
+        && contextMenuSource == ContextMenuSource::None
         && !(layout && layout->isDraggingDivider())
         && !draggingHScroll
         && !draggingVScroll;
@@ -1649,7 +1815,7 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
     // Start port / exit-link / card drag (ports win over wires; wires over cards).
     if (canEditMapGeometry
         && dragSource == DragSource::None
-        && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        && editorMousePressed(MOUSE_BUTTON_LEFT))
     {
         std::string portScene;
         std::string portDir;
@@ -1674,10 +1840,42 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         }
     }
 
+    // Right-click map card → context menu (select only; never starts drag).
+    // Only handle when the cursor is over the map — otherwise a list right-click
+    // would open a menu in drawSceneList and then get closed here on miss.
+    const bool canOpenMapContext =
+        !graph->stackDialogOpen
+        && !modalOpen
+        && !(layout && layout->isDraggingDivider())
+        && !draggingHScroll
+        && !draggingVScroll
+        && dragSource == DragSource::None;
+    if (canOpenMapContext && editorMousePressed(MOUSE_BUTTON_RIGHT)
+        && CheckCollisionPointRec(GetMousePosition(), contentView))
+    {
+        bool hitCard = false;
+        for (const std::string& id : ids)
+        {
+            if (!docs->scenes.hasMapPlacement(id))
+                continue;
+            const SceneLayout sceneLayout = docs->scenes.getLayout(id);
+            if (sceneLayout.level != level)
+                continue;
+            const Rectangle card = sceneCardBounds(id, canvasBounds);
+            if (!CheckCollisionPointRec(GetMousePosition(), card))
+                continue;
+            openContextMenu(ContextMenuSource::Map, id, GetMousePosition());
+            hitCard = true;
+            break;
+        }
+        if (!hitCard)
+            closeContextMenu();
+    }
+
     // Card select (all tabs that show the map). Drag only on scenes tab.
     if (canSelectScene
         && dragSource == DragSource::None
-        && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        && editorMousePressed(MOUSE_BUTTON_LEFT))
     {
         for (const std::string& id : ids)
         {
@@ -1704,14 +1902,14 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
     // Update existing-wire retarget drag.
     if (dragSource == DragSource::ExitLink && linkDragIndex >= 0)
     {
-        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        if (editorMouseDown(MOUSE_BUTTON_LEFT))
         {
             linkDragHoverTarget = sceneCardAtPoint(GetMousePosition(), canvasBounds);
             if (linkDragHoverTarget == cachedLinkRoutes[static_cast<size_t>(linkDragIndex)].fromId)
                 linkDragHoverTarget.clear();
         }
 
-        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+        if (editorMouseReleased(MOUSE_BUTTON_LEFT))
         {
             const SceneLinkRoute route = cachedLinkRoutes[static_cast<size_t>(linkDragIndex)];
             const std::string dropId = sceneCardAtPoint(GetMousePosition(), canvasBounds);
@@ -1730,19 +1928,43 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
     // Update new-connector port drag.
     if (dragSource == DragSource::ExitPort && !portDragFromId.empty())
     {
-        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        if (editorMouseDown(MOUSE_BUTTON_LEFT))
         {
             linkDragHoverTarget = sceneCardAtPoint(GetMousePosition(), canvasBounds);
             if (linkDragHoverTarget == portDragFromId)
                 linkDragHoverTarget.clear();
         }
 
-        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+        if (editorMouseReleased(MOUSE_BUTTON_LEFT))
         {
             const std::string dropId = sceneCardAtPoint(GetMousePosition(), canvasBounds);
             if (!dropId.empty() && dropId != portDragFromId && graph)
             {
-                graph->createExitLink(portDragFromId, portDragDirection, dropId, true);
+                if (graph->createExitLink(
+                        portDragFromId, portDragDirection, dropId, true))
+                {
+                    exitLinkFeedback.clear();
+                    exitLinkFeedbackUntil = 0.0;
+                }
+                else
+                {
+                    if (!graph->isSameLevelLink(portDragFromId, dropId))
+                        exitLinkFeedback = "Exit not created: scenes are on different levels";
+                    else if (graph->exitDirectionAlreadyLeadsTo(
+                                 portDragDirection, dropId, portDragFromId))
+                        exitLinkFeedback =
+                            "Exit not created: another scene already uses "
+                            + portDragDirection + " into that target";
+                    else
+                        exitLinkFeedback = "Exit not created (invalid link)";
+                    exitLinkFeedbackUntil = GetTime() + 4.0;
+                    TraceLog(
+                        LOG_WARNING,
+                        "TIMBERLINE: createExitLink %s --%s--> %s failed",
+                        portDragFromId.c_str(),
+                        portDragDirection.c_str(),
+                        dropId.c_str());
+                }
             }
             cancelPortDrag();
         }
@@ -1755,11 +1977,26 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
     if (dragSource == DragSource::ExitPort)
         drawPortDragPreview(canvasBounds);
 
+    if (!exitLinkFeedback.empty() && GetTime() <= exitLinkFeedbackUntil)
+    {
+        DrawTextEx(
+            (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
+            exitLinkFeedback.c_str(),
+            {contentView.x + 8.0f, contentView.y + contentView.height - 22.0f},
+            kFontTiny,
+            1.0f,
+            Color{220, 120, 100, 255});
+    }
+    else if (GetTime() > exitLinkFeedbackUntil)
+    {
+        exitLinkFeedback.clear();
+    }
+
     // Canvas card move commit (ghost is drawn AFTER EndScissorMode so list→map
     // ghosts are not clipped to the map viewport).
     if (!graph->stackDialogOpen &&
         dragSource == DragSource::Canvas &&
-        IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+        editorMouseReleased(MOUSE_BUTTON_LEFT))
     {
         if (CheckCollisionPointRec(GetMousePosition(), contentView) &&
             docs->scenes.hasScene(dragSceneId))
@@ -1803,21 +2040,21 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
 
     if (!graph->stackDialogOpen &&
         dragSource == DragSource::SceneList &&
-        IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+        editorMouseReleased(MOUSE_BUTTON_LEFT))
     {
         placeSceneListDrop(GetMousePosition(), canvasBounds, contentView);
         dragSource = DragSource::None;
         dragSceneId.clear();
     }
 
-    if (dragSource == DragSource::ExitLink && !IsMouseButtonDown(MOUSE_BUTTON_LEFT)
-        && !IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+    if (dragSource == DragSource::ExitLink && !editorMouseDown(MOUSE_BUTTON_LEFT)
+        && !editorMouseReleased(MOUSE_BUTTON_LEFT))
     {
         // Safety: mouse lost while dragging.
         cancelLinkDrag();
     }
-    if (dragSource == DragSource::ExitPort && !IsMouseButtonDown(MOUSE_BUTTON_LEFT)
-        && !IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+    if (dragSource == DragSource::ExitPort && !editorMouseDown(MOUSE_BUTTON_LEFT)
+        && !editorMouseReleased(MOUSE_BUTTON_LEFT))
     {
         cancelPortDrag();
     }
@@ -1827,7 +2064,7 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
     // Drag ghost above the scissor so list→map drags stay visible over the UI.
     if (!graph->stackDialogOpen
         && !dragSceneId.empty()
-        && IsMouseButtonDown(MOUSE_BUTTON_LEFT)
+        && editorMouseDown(MOUSE_BUTTON_LEFT)
         && (dragSource == DragSource::Canvas || dragSource == DragSource::SceneList))
     {
         const SceneMapCanvas::SceneCardMetrics dragMetrics = measureSceneCard(dragSceneId);
@@ -1880,7 +2117,19 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
     drawCanvasScrollBars(canvasBounds, contentView, content, showH, showV);
     clampCanvasScrollForCanvas(canvasBounds, contentView, content);
 
-    if (!graph->stackDialogOpen &&
+    const bool modalBlocksMapScroll =
+        graph->stackDialogOpen
+        || sceneAuthoring.blocksInput()
+        || sceneAssist.blocksInput()
+        || sceneInventory.blocksInput()
+        || sceneEffects.blocksInput()
+        || (preferences && preferences->blocksInput())
+        || (variableEditor && variableEditor->open)
+        || (itemEditor && itemEditor->blocksInput())
+        || confirmMode != ConfirmMode::None
+        || contextMenuSource != ContextMenuSource::None;
+
+    if (!modalBlocksMapScroll &&
         !draggingHScroll &&
         !draggingVScroll &&
         dragSource == DragSource::None &&
@@ -1911,6 +2160,525 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
     }
 }
 
+
+bool SceneMapCanvas::anyAuthoringModalOpen() const
+{
+    return sceneAuthoring.blocksInput()
+        || sceneAssist.blocksInput()
+        || sceneInventory.blocksInput()
+        || sceneEffects.blocksInput()
+        || (preferences && preferences->blocksInput())
+        || (variableEditor && variableEditor->open)
+        || (itemEditor && itemEditor->blocksInput())
+        || (graph && graph->stackDialogOpen);
+}
+
+bool SceneMapCanvas::blocksInput() const
+{
+    return confirmMode != ConfirmMode::None || anyAuthoringModalOpen();
+}
+
+void SceneMapCanvas::closeContextMenu()
+{
+    contextMenuSource = ContextMenuSource::None;
+    contextMenuSceneId.clear();
+    contextMenuBounds = {0.0f, 0.0f, 0.0f, 0.0f};
+    contextMenuAnchor = {0.0f, 0.0f};
+}
+
+void SceneMapCanvas::openContextMenu(
+    ContextMenuSource source,
+    const std::string& sceneId,
+    Vector2 mouse)
+{
+    if (source == ContextMenuSource::None || sceneId.empty() || docs == nullptr)
+        return;
+    if (!docs->scenes.hasScene(sceneId))
+        return;
+    if (blocksInput())
+        return;
+
+    // Select without starting a drag.
+    dragSource = DragSource::None;
+    dragSceneId.clear();
+    cancelLinkDrag();
+    cancelPortDrag();
+    if (selectSceneForEditor)
+        selectSceneForEditor(sceneId);
+
+    contextMenuSource = source;
+    contextMenuSceneId = sceneId;
+    contextMenuAnchor = mouse;
+    contextMenuBounds = {0.0f, 0.0f, 0.0f, 0.0f};
+}
+
+void SceneMapCanvas::cancelDragsForScene(const std::string& sceneId)
+{
+    if (!sceneId.empty() && dragSceneId == sceneId)
+    {
+        dragSource = DragSource::None;
+        dragSceneId.clear();
+    }
+    if (!portDragFromId.empty() && portDragFromId == sceneId)
+        cancelPortDrag();
+    if (linkDragIndex >= 0 && linkDragIndex < static_cast<int>(cachedLinkRoutes.size()))
+    {
+        const SceneLinkRoute& route = cachedLinkRoutes[static_cast<size_t>(linkDragIndex)];
+        if (route.fromId == sceneId || route.toId == sceneId)
+            cancelLinkDrag();
+    }
+}
+
+void SceneMapCanvas::beginRemoveFromMapConfirm(const std::string& sceneId)
+{
+    closeContextMenu();
+    if (docs == nullptr || sceneId.empty() || !docs->scenes.hasScene(sceneId))
+        return;
+    if (!docs->scenes.hasMapPlacement(sceneId))
+        return;
+    confirmMode = ConfirmMode::RemoveFromMap;
+    confirmSceneId = sceneId;
+    pendingPurgePaths.clear();
+    purgeListScroll = 0.0f;
+    confirmWaitMouseRelease = true;
+}
+
+void SceneMapCanvas::beginDeleteSceneConfirm(const std::string& sceneId)
+{
+    closeContextMenu();
+    if (docs == nullptr || sceneId.empty() || !docs->scenes.hasScene(sceneId))
+        return;
+    confirmMode = ConfirmMode::DeleteScene;
+    confirmSceneId = sceneId;
+    // Collect before removal so the confirm dialog can list unique resources.
+    pendingPurgePaths = collectUniqueSceneAssetPaths(*docs, sceneId);
+    purgeListScroll = 0.0f;
+    confirmWaitMouseRelease = true;
+}
+
+void SceneMapCanvas::requestDeleteSelectedScene()
+{
+    if (selectionSceneId == nullptr || selectionSceneId->empty())
+        return;
+    if (blocksInput())
+        return;
+    beginDeleteSceneConfirm(*selectionSceneId);
+}
+
+void SceneMapCanvas::performRemoveFromMap()
+{
+    if (docs == nullptr || confirmSceneId.empty())
+    {
+        confirmMode = ConfirmMode::None;
+        confirmSceneId.clear();
+        confirmWaitMouseRelease = false;
+        return;
+    }
+    const std::string id = confirmSceneId;
+    docs->scenes.clearLayout(id);
+    docs->markDirty();
+    cancelDragsForScene(id);
+    confirmMode = ConfirmMode::None;
+    confirmSceneId.clear();
+    confirmWaitMouseRelease = false;
+}
+
+void SceneMapCanvas::performDeleteScene(bool purgeUniqueAssets)
+{
+    if (docs == nullptr || confirmSceneId.empty() || !docs->scenes.hasScene(confirmSceneId))
+    {
+        confirmMode = ConfirmMode::None;
+        confirmSceneId.clear();
+        pendingPurgePaths.clear();
+        confirmWaitMouseRelease = false;
+        return;
+    }
+
+    const std::string removedId = confirmSceneId;
+    std::vector<std::string> uniquePaths = pendingPurgePaths;
+    if (uniquePaths.empty())
+        uniquePaths = collectUniqueSceneAssetPaths(*docs, removedId);
+
+    if (!docs->scenes.removeScene(removedId))
+    {
+        confirmMode = ConfirmMode::None;
+        confirmSceneId.clear();
+        pendingPurgePaths.clear();
+        confirmWaitMouseRelease = false;
+        return;
+    }
+
+    if (thumbnails)
+        thumbnails->clear();
+    cancelLinkDrag();
+    cancelPortDrag();
+    cancelDragsForScene(removedId);
+    dragSource = DragSource::None;
+    dragSceneId.clear();
+
+    if (selectionSceneId && *selectionSceneId == removedId)
+        selectionSceneId->clear();
+    if (variableEditor)
+        variableEditor->selectedVariableKey.clear();
+    if (variablesScroll)
+        *variablesScroll = 0.0f;
+
+    const std::vector<std::string> remaining = docs->scenes.sceneIds();
+    if (selectionSceneId && selectionSceneId->empty() && !remaining.empty())
+        *selectionSceneId = remaining.front();
+
+    if (docs->isConversationsTab() && conversation)
+    {
+        conversation->selectedKey.clear();
+        conversation->rebuildConversationTree();
+        for (const ConversationTreeNode& root : conversation->roots)
+            conversation->expanded.insert(root.key);
+    }
+
+    docs->markDirty();
+
+    if (purgeUniqueAssets && !uniquePaths.empty())
+        purgeSceneAssetFiles(docs->assetRoot, uniquePaths);
+
+    confirmMode = ConfirmMode::None;
+    confirmSceneId.clear();
+    pendingPurgePaths.clear();
+    purgeListScroll = 0.0f;
+    confirmWaitMouseRelease = false;
+}
+
+bool SceneMapCanvas::handleContextMenuClick(Vector2 mouse)
+{
+    if (contextMenuSource == ContextMenuSource::None)
+        return false;
+    if (contextMenuBounds.width < 1.0f)
+        return false;
+
+    if (!CheckCollisionPointRec(mouse, contextMenuBounds))
+    {
+        closeContextMenu();
+        return true;
+    }
+
+    const float rowH = 22.0f;
+    int i = static_cast<int>((mouse.y - contextMenuBounds.y - 2.0f) / rowH);
+    const std::string sceneId = contextMenuSceneId;
+    const ContextMenuSource source = contextMenuSource;
+
+    if (i == 0)
+    {
+        closeContextMenu();
+        sceneAuthoring.openEditDialog(sceneId);
+        return true;
+    }
+    if (i == 1)
+    {
+        if (source == ContextMenuSource::Map)
+            beginRemoveFromMapConfirm(sceneId);
+        else
+            beginDeleteSceneConfirm(sceneId);
+        return true;
+    }
+
+    closeContextMenu();
+    return true;
+}
+
+void SceneMapCanvas::drawContextMenu()
+{
+    if (contextMenuSource == ContextMenuSource::None || contextMenuSceneId.empty())
+    {
+        contextMenuBounds = {0.0f, 0.0f, 0.0f, 0.0f};
+        return;
+    }
+
+    const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
+    // ASCII "..." — UI fonts often lack U+2026 and draw it as '?'.
+    const char* item0 = "Edit...";
+    const char* item1 = (contextMenuSource == ContextMenuSource::Map)
+        ? "Remove from map"
+        : "Delete scene...";
+    const float rowH = 22.0f;
+    const float pad = 10.0f;
+    const float w0 = MeasureTextEx(font, item0, kFontSmall, 1.0f).x;
+    const float w1 = MeasureTextEx(font, item1, kFontSmall, 1.0f).x;
+    const float menuW = std::max(160.0f, std::max(w0, w1) + pad * 2.0f);
+    const float menuH = rowH * 2.0f + 4.0f;
+
+    float x = contextMenuAnchor.x;
+    float y = contextMenuAnchor.y;
+    const float screenW = static_cast<float>(GetScreenWidth());
+    const float screenH = static_cast<float>(GetScreenHeight());
+    if (x + menuW > screenW - 4.0f)
+        x = screenW - menuW - 4.0f;
+    if (y + menuH > screenH - 4.0f)
+        y = screenH - menuH - 4.0f;
+    if (x < 4.0f)
+        x = 4.0f;
+    if (y < 4.0f)
+        y = 4.0f;
+
+    contextMenuBounds = {x, y, menuW, menuH};
+    DrawRectangleRec(contextMenuBounds, Color{36, 32, 44, 255});
+    DrawRectangleLinesEx(contextMenuBounds, 1.0f, kPanelBorder);
+
+    const Vector2 mouse = GetMousePosition();
+    const char* items[2] = {item0, item1};
+    float my = contextMenuBounds.y + 2.0f;
+    for (int i = 0; i < 2; ++i)
+    {
+        const Rectangle row = {
+            contextMenuBounds.x + 2.0f,
+            my,
+            contextMenuBounds.width - 4.0f,
+            rowH - 2.0f};
+        if (CheckCollisionPointRec(mouse, row))
+            DrawRectangleRec(row, Color{60, 54, 72, 220});
+        DrawTextEx(
+            font,
+            items[i],
+            {row.x + 8.0f, row.y + 3.0f},
+            kFontSmall,
+            1.0f,
+            kTextPrimary);
+        my += rowH;
+    }
+
+    if (editorMousePressed(MOUSE_BUTTON_LEFT))
+        handleContextMenuClick(mouse);
+    if (IsKeyPressed(KEY_ESCAPE))
+        closeContextMenu();
+}
+
+void SceneMapCanvas::drawConfirmDialogs(int screenWidth, int screenHeight)
+{
+    if (confirmMode == ConfirmMode::None)
+        return;
+
+    if (confirmWaitMouseRelease)
+    {
+        if (!editorMouseDown(MOUSE_BUTTON_LEFT))
+            confirmWaitMouseRelease = false;
+    }
+
+    const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
+    const Font bold = (uiFontBold.texture.id != 0 ? uiFontBold : font);
+    DrawRectangle(0, 0, screenWidth, screenHeight, kModalOverlay);
+    const bool canClick =
+        !confirmWaitMouseRelease && editorMousePressed(MOUSE_BUTTON_LEFT);
+
+    if (confirmMode == ConfirmMode::RemoveFromMap)
+    {
+        const float dialogW = 460.0f;
+        const float dialogH = 180.0f;
+        const Rectangle dialog = {
+            (static_cast<float>(screenWidth) - dialogW) * 0.5f,
+            (static_cast<float>(screenHeight) - dialogH) * 0.5f,
+            dialogW,
+            dialogH};
+        DrawRectangleRounded(dialog, 0.04f, 8, kModalFill);
+        DrawRectangleLinesEx(dialog, 2.0f, kPanelBorder);
+
+        DrawTextEx(
+            bold,
+            "Remove from map",
+            {dialog.x + 20.0f, dialog.y + 18.0f},
+            kFontHeading,
+            1.0f,
+            kTextPrimary);
+        drawWrappedText(
+            font,
+            "Remove " + confirmSceneId + " from the map? Scene stays in the list.",
+            {dialog.x + 20.0f, dialog.y + 56.0f},
+            dialogW - 40.0f,
+            kFontBody,
+            4.0f,
+            kTextMuted);
+
+        const float btnW = 120.0f;
+        const float btnH = 34.0f;
+        const float btnY = dialog.y + dialogH - btnH - 18.0f;
+        const Rectangle confirmBtn = {
+            dialog.x + dialogW - btnW * 2.0f - 36.0f, btnY, btnW, btnH};
+        const Rectangle cancelBtn = {
+            dialog.x + dialogW - btnW - 18.0f, btnY, btnW, btnH};
+        drawEditorButton(font, confirmBtn, "Remove", true, true);
+        drawEditorButton(font, cancelBtn, "Cancel", false, true);
+
+        if (canClick)
+        {
+            const Vector2 mouse = GetMousePosition();
+            if (CheckCollisionPointRec(mouse, confirmBtn))
+                performRemoveFromMap();
+            else if (CheckCollisionPointRec(mouse, cancelBtn)
+                || !CheckCollisionPointRec(mouse, dialog))
+            {
+                confirmMode = ConfirmMode::None;
+                confirmSceneId.clear();
+            }
+        }
+        if (IsKeyPressed(KEY_ESCAPE))
+        {
+            confirmMode = ConfirmMode::None;
+            confirmSceneId.clear();
+            confirmWaitMouseRelease = false;
+        }
+        return;
+    }
+
+    // DeleteScene — one dialog with unique resource list + purge/keep/cancel.
+    const bool hasUnique = !pendingPurgePaths.empty();
+    const float dialogW = 560.0f;
+    const float dialogH = hasUnique ? 360.0f : 200.0f;
+    const Rectangle dialog = {
+        (static_cast<float>(screenWidth) - dialogW) * 0.5f,
+        (static_cast<float>(screenHeight) - dialogH) * 0.5f,
+        dialogW,
+        dialogH};
+    DrawRectangleRounded(dialog, 0.04f, 8, kModalFill);
+    DrawRectangleLinesEx(dialog, 2.0f, kPanelBorder);
+
+    DrawTextEx(
+        bold,
+        "Delete scene",
+        {dialog.x + 20.0f, dialog.y + 16.0f},
+        kFontHeading,
+        1.0f,
+        kTextPrimary);
+    drawWrappedText(
+        font,
+        "Delete scene " + confirmSceneId + " permanently from the project?",
+        {dialog.x + 20.0f, dialog.y + 48.0f},
+        dialogW - 40.0f,
+        kFontBody,
+        4.0f,
+        kTextMuted);
+
+    if (hasUnique)
+    {
+        DrawTextEx(
+            font,
+            "These resources are only used by this scene. Delete them too?",
+            {dialog.x + 20.0f, dialog.y + 88.0f},
+            kFontTiny,
+            1.0f,
+            kTextMuted);
+
+        const Rectangle listArea = {
+            dialog.x + 16.0f,
+            dialog.y + 110.0f,
+            dialogW - 32.0f,
+            dialogH - 180.0f};
+        DrawRectangleRec(listArea, Color{18, 16, 24, 255});
+        DrawRectangleLinesEx(listArea, 1.0f, kPanelInnerEdge);
+
+        const float rowH = 18.0f;
+        const float contentH = static_cast<float>(pendingPurgePaths.size()) * rowH;
+        const float maxScroll = std::max(0.0f, contentH - listArea.height + 8.0f);
+        if (CheckCollisionPointRec(GetMousePosition(), listArea))
+            purgeListScroll -= GetMouseWheelMove() * 24.0f;
+        purgeListScroll = std::clamp(purgeListScroll, 0.0f, maxScroll);
+
+        BeginScissorMode(
+            static_cast<int>(listArea.x),
+            static_cast<int>(listArea.y),
+            static_cast<int>(listArea.width),
+            static_cast<int>(listArea.height));
+        float y = listArea.y + 6.0f - purgeListScroll;
+        for (const std::string& path : pendingPurgePaths)
+        {
+            DrawTextEx(
+                font,
+                path.c_str(),
+                {listArea.x + 8.0f, y},
+                kFontTiny,
+                1.0f,
+                kTextPrimary);
+            y += rowH;
+        }
+        EndScissorMode();
+    }
+    else
+    {
+        DrawTextEx(
+            font,
+            "No unique asset files (shared resources will be kept).",
+            {dialog.x + 20.0f, dialog.y + 96.0f},
+            kFontTiny,
+            1.0f,
+            kTextMuted);
+    }
+
+    const float btnH = 34.0f;
+    const float btnY = dialog.y + dialogH - btnH - 16.0f;
+    const float gap = 10.0f;
+    if (hasUnique)
+    {
+        const float purgeW = 150.0f;
+        const float keepW = 150.0f;
+        const float cancelW = 100.0f;
+        const Rectangle purgeBtn = {
+            dialog.x + dialogW - purgeW - keepW - cancelW - gap * 2.0f - 18.0f,
+            btnY,
+            purgeW,
+            btnH};
+        const Rectangle keepBtn = {
+            dialog.x + dialogW - keepW - cancelW - gap - 18.0f, btnY, keepW, btnH};
+        const Rectangle cancelBtn = {
+            dialog.x + dialogW - cancelW - 18.0f, btnY, cancelW, btnH};
+        drawEditorButton(font, purgeBtn, "Delete & purge", true, true);
+        drawEditorButton(font, keepBtn, "Delete, keep files", true, true);
+        drawEditorButton(font, cancelBtn, "Cancel", false, true);
+
+        if (canClick)
+        {
+            const Vector2 mouse = GetMousePosition();
+            if (CheckCollisionPointRec(mouse, purgeBtn))
+                performDeleteScene(true);
+            else if (CheckCollisionPointRec(mouse, keepBtn))
+                performDeleteScene(false);
+            else if (CheckCollisionPointRec(mouse, cancelBtn)
+                || !CheckCollisionPointRec(mouse, dialog))
+            {
+                confirmMode = ConfirmMode::None;
+                confirmSceneId.clear();
+                pendingPurgePaths.clear();
+            }
+        }
+    }
+    else
+    {
+        const float btnW = 120.0f;
+        const Rectangle confirmBtn = {
+            dialog.x + dialogW - btnW * 2.0f - 36.0f, btnY, btnW, btnH};
+        const Rectangle cancelBtn = {
+            dialog.x + dialogW - btnW - 18.0f, btnY, btnW, btnH};
+        drawEditorButton(font, confirmBtn, "Delete", true, true);
+        drawEditorButton(font, cancelBtn, "Cancel", false, true);
+
+        if (canClick)
+        {
+            const Vector2 mouse = GetMousePosition();
+            if (CheckCollisionPointRec(mouse, confirmBtn))
+                performDeleteScene(false);
+            else if (CheckCollisionPointRec(mouse, cancelBtn)
+                || !CheckCollisionPointRec(mouse, dialog))
+            {
+                confirmMode = ConfirmMode::None;
+                confirmSceneId.clear();
+                pendingPurgePaths.clear();
+            }
+        }
+    }
+
+    if (IsKeyPressed(KEY_ESCAPE))
+    {
+        confirmMode = ConfirmMode::None;
+        confirmSceneId.clear();
+        pendingPurgePaths.clear();
+        confirmWaitMouseRelease = false;
+    }
+}
 
 void SceneMapCanvas::drawStackDialog(int screenWidth, int screenHeight)
 {
@@ -1970,7 +2738,7 @@ void SceneMapCanvas::drawStackDialog(int screenWidth, int screenHeight)
     drawEditorButton(stackFont, downBtn, "Down", true, true);
     drawEditorButton(stackFont, cancelBtn, "Cancel", false, true);
 
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    if (editorMousePressed(MOUSE_BUTTON_LEFT))
     {
         const Vector2 mouse = GetMousePosition();
         if (CheckCollisionPointRec(mouse, upBtn))
@@ -2020,9 +2788,12 @@ void SceneMapCanvas::drawSceneList(Rectangle listBounds)
         && !sceneAuthoring.blocksInput()
         && !sceneAssist.blocksInput()
         && !sceneInventory.blocksInput()
-        && !sceneEffects.blocksInput();
+        && !sceneEffects.blocksInput()
+        && !(preferences && preferences->blocksInput())
+        && confirmMode == ConfirmMode::None
+        && contextMenuSource == ContextMenuSource::None;
 
-    // Header: New Scene button
+    // Header: New Scene
     const float headerH = 28.0f;
     const Rectangle newBtn = {
         listBounds.x + listBounds.width - 108.0f,
@@ -2037,7 +2808,7 @@ void SceneMapCanvas::drawSceneList(Rectangle listBounds)
         1.0f,
         kPanelBorder);
     drawEditorButton(font, newBtn, "New Scene", true, canInteract);
-    if (canInteract && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
+    if (canInteract && editorMousePressed(MOUSE_BUTTON_LEFT)
         && CheckCollisionPointRec(mouse, newBtn))
     {
         sceneAuthoring.openDialog();
@@ -2089,27 +2860,70 @@ void SceneMapCanvas::drawSceneList(Rectangle listBounds)
                 WHITE);
         }
 
-        const bool placed = docs->scenes.hasMapPlacement(id);
-        const int sceneLevel = placed ? docs->scenes.getLayout(id).level : 0;
         const float textX = row.x + kListThumbSize + 14.0f;
-        const float textY =
-            row.y + (kListRowHeight - kListNameFont - kListMetaFont - 8.0f) * 0.5f;
+        const float textRightMargin = 10.0f;
+        const float textMaxW = std::max(8.0f, row.x + row.width - textRightMargin - textX);
+        // Keep text block aligned with the thumb (top pad matches thumbRect.y inset).
+        const float textY = row.y + 6.0f;
         DrawTextEx(font, id.c_str(), {textX, textY}, kListNameFont, 1.0f, kTextPrimary);
-        DrawTextEx(
-            font,
-            placed ? TextFormat("L%d", sceneLevel) : "not on map",
-            {textX, textY + kListNameFont + 6.0f},
-            kListMetaFont,
-            1.0f,
-            kTextMuted);
+
+        std::string description;
+        if (const nlohmann::json* scene = docs->scenes.sceneJson(id);
+            scene != nullptr && scene->is_object())
+            description = scene->value("description", "");
+        const std::string preview = fitSceneListDescriptionPreview(
+            font, description, textMaxW, kListMetaFont);
+        if (!preview.empty())
+        {
+            // Dimmer than kTextMuted so the id stays primary.
+            const Color descColor{100, 92, 78, 200};
+            DrawTextEx(
+                font,
+                preview.c_str(),
+                {textX, textY + kListNameFont + 6.0f},
+                kListMetaFont,
+                1.0f,
+                descColor);
+        }
 
         y += kListRowHeight;
     }
 
     EndScissorMode();
 
+    // Right-click list row → context menu (select only; never starts drag).
+    // Menu itself is drawn later from draw() so the list scissor cannot clip it.
+    const bool canOpenContext =
+        !graph->stackDialogOpen
+        && !(variableEditor && variableEditor->open)
+        && !(layout && layout->isDraggingDivider())
+        && !sceneAuthoring.blocksInput()
+        && !sceneAssist.blocksInput()
+        && !sceneInventory.blocksInput()
+        && !sceneEffects.blocksInput()
+        && !(preferences && preferences->blocksInput())
+        && confirmMode == ConfirmMode::None;
+    if (canOpenContext && CheckCollisionPointRec(mouse, treeBounds)
+        && editorMousePressed(MOUSE_BUTTON_RIGHT))
+    {
+        const float localY = (mouse.y - treeBounds.y) + listScroll;
+        if (localY >= 0.0f)
+        {
+            const int index = static_cast<int>(localY / kListRowHeight);
+            if (index >= 0 && index < static_cast<int>(ids.size()))
+                openContextMenu(
+                    ContextMenuSource::List,
+                    ids[static_cast<size_t>(index)],
+                    mouse);
+            else
+                closeContextMenu();
+        }
+        else
+            closeContextMenu();
+    }
+
     if (canInteract && CheckCollisionPointRec(mouse, treeBounds)
-        && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        && editorMousePressed(MOUSE_BUTTON_LEFT))
     {
         const float localY = (mouse.y - treeBounds.y) + listScroll;
         if (localY >= 0.0f)
@@ -2131,7 +2945,9 @@ void SceneMapCanvas::drawSceneList(Rectangle listBounds)
         }
     }
 
-    if (CheckCollisionPointRec(GetMousePosition(), treeBounds))
+    if (CheckCollisionPointRec(GetMousePosition(), treeBounds)
+        && confirmMode == ConfirmMode::None
+        && contextMenuSource == ContextMenuSource::None)
         listScroll -= GetMouseWheelMove() * 24.0f;
     if (listScroll < 0.0f)
         listScroll = 0.0f;
@@ -2234,7 +3050,7 @@ void SceneMapCanvas::drawTabs(Rectangle leftBounds)
             1.0f,
             active ? kTextPrimary : kTextMuted);
 
-        if (CheckCollisionPointRec(GetMousePosition(), tab) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        if (CheckCollisionPointRec(GetMousePosition(), tab) && editorMousePressed(MOUSE_BUTTON_LEFT))
         {
             docs->activeTabIndex = static_cast<int>(i);
             thumbnails->clear();
@@ -2453,7 +3269,13 @@ void SceneMapCanvas::syncScenePreviewMedia()
     if (imagePath != previewLargePath)
         loadScenePreviewTexture(imagePath);
 
-    if (musicPath != previewMusicPath)
+    // Reload when the path changes, or when a previous attempt failed (e.g. file
+    // appeared after Generate). Clearing the cached path on failure lets the next
+    // frame retry without waiting for an explicit invalidate.
+    const bool musicNeedsLoad =
+        (musicPath != previewMusicPath)
+        || (!musicPath.empty() && !previewMusicLoaded);
+    if (musicNeedsLoad)
     {
         if (previewMusicLoaded && IsMusicStreamPlaying(previewMusic))
             StopMusicStream(previewMusic);
@@ -2473,9 +3295,14 @@ void SceneMapCanvas::syncScenePreviewMedia()
         if (!musicPath.empty())
             previewMusicLoaded =
                 loadScenePreviewMusic(musicPath, previewMusic, previewMusicTempFile);
+        if (!previewMusicLoaded)
+            previewMusicPath.clear();
     }
 
-    if (ambientPath != previewAmbientPath)
+    const bool ambientNeedsLoad =
+        (ambientPath != previewAmbientPath)
+        || (!ambientPath.empty() && !previewAmbientLoaded);
+    if (ambientNeedsLoad)
     {
         if (previewAmbientLoaded && IsMusicStreamPlaying(previewAmbient))
             StopMusicStream(previewAmbient);
@@ -2495,6 +3322,8 @@ void SceneMapCanvas::syncScenePreviewMedia()
         if (!ambientPath.empty())
             previewAmbientLoaded = loadScenePreviewMusic(
                 ambientPath, previewAmbient, previewAmbientTempFile);
+        if (!previewAmbientLoaded)
+            previewAmbientPath.clear();
     }
 
     if (previewMusicLoaded && previewMusicPlaying)
@@ -2550,7 +3379,9 @@ void SceneMapCanvas::drawScenePreviewPane(Rectangle paneBounds)
         && !sceneAuthoring.blocksInput()
         && !sceneAssist.blocksInput()
         && !sceneInventory.blocksInput()
-        && !sceneEffects.blocksInput();
+        && !sceneEffects.blocksInput()
+        && !(preferences && preferences->blocksInput())
+        && confirmMode == ConfirmMode::None;
 
     auto drawTransportBtn = [&](Rectangle btn, const char* label, bool enabled, bool active) {
         drawEditorButton(font, btn, label, active, enabled);
@@ -2691,7 +3522,7 @@ void SceneMapCanvas::drawScenePreviewPane(Rectangle paneBounds)
             summary.empty() ? kTextMuted : Color{160, 180, 120, 255});
     }
 
-    if (canInteract && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    if (canInteract && editorMousePressed(MOUSE_BUTTON_LEFT))
     {
         if (previewMusicLoaded && CheckCollisionPointRec(mouse, musicBtn))
         {
@@ -2798,7 +3629,15 @@ void SceneMapCanvas::drawBottomPane(Rectangle bottomBounds)
         1.5f,
         kDividerGrip);
 
-    variableEditor->drawVariablesPane(variablesBounds);
+    const bool paneInteract = !sceneAuthoring.blocksInput()
+        && !sceneAssist.blocksInput()
+        && !sceneInventory.blocksInput()
+        && !sceneEffects.blocksInput()
+        && !(preferences && preferences->blocksInput())
+        && !(itemEditor && itemEditor->blocksInput())
+        && !(variableEditor && variableEditor->open)
+        && confirmMode == ConfirmMode::None;
+    variableEditor->drawVariablesPane(variablesBounds, paneInteract);
     drawScenePreviewPane(previewBounds);
 }
 
@@ -2812,6 +3651,7 @@ void SceneMapCanvas::drawDividers(int screenWidth, int screenHeight) const
 
 void SceneMapCanvas::drawStatusBar(int screenWidth, int screenHeight)
 {
+    const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
     const std::string status = docs->dirty ? "Modified" : "Saved";
     std::string pathLabel = "Resources: " + docs->resourceDir;
     if (docs->isConversationsTab() && docs->conversationsLoaded)
@@ -2820,11 +3660,76 @@ void SceneMapCanvas::drawStatusBar(int screenWidth, int screenHeight)
         pathLabel = docs->itemsPath;
     else if (docs->scenes.isLoaded())
         pathLabel = docs->scenes.path();
-    DrawTextEx((uiFont.texture.id != 0 ? uiFont : GetFontDefault()), pathLabel.c_str(), {8.0f, static_cast<float>(screenHeight) - 18.0f},
-               kFontTiny, 1.0f, kTextMuted);
-    DrawTextEx((uiFont.texture.id != 0 ? uiFont : GetFontDefault()), status.c_str(),
-               {static_cast<float>(screenWidth) - 70.0f, static_cast<float>(screenHeight) - 18.0f},
-               kFontTiny, 1.0f, docs->dirty ? Color{200, 140, 80, 255} : kTextMuted);
+
+    const float statusX = static_cast<float>(screenWidth) - 70.0f;
+    const float statusY = static_cast<float>(screenHeight) - 18.0f;
+    // Compact gear hit target just left of the Saved/Modified label.
+    const float gearSize = 12.0f;
+    const Rectangle gearBtn = {
+        statusX - gearSize - 10.0f,
+        static_cast<float>(screenHeight) - 17.0f,
+        gearSize,
+        gearSize};
+    const bool canPrefs = !(preferences && preferences->blocksInput())
+        && !(variableEditor && variableEditor->open)
+        && !sceneAuthoring.blocksInput()
+        && !sceneAssist.blocksInput()
+        && !sceneInventory.blocksInput()
+        && !sceneEffects.blocksInput()
+        && confirmMode == ConfirmMode::None;
+
+    DrawTextEx(
+        font,
+        pathLabel.c_str(),
+        {8.0f, statusY},
+        kFontTiny,
+        1.0f,
+        kTextMuted);
+
+    // Procedural gear: round hub + 8 square teeth fused to the rim.
+    {
+        const Vector2 c = {
+            gearBtn.x + gearBtn.width * 0.5f,
+            gearBtn.y + gearBtn.height * 0.5f};
+        const float bodyR = gearSize * 0.32f;
+        const float toothW = gearSize * 0.22f;
+        const float toothH = gearSize * 0.28f; // radial length; overlaps body
+        const bool hover = CheckCollisionPointRec(GetMousePosition(), gearBtn);
+        const Color gearColor = !canPrefs
+            ? kTextDisabled
+            : (hover ? kPanelBorder : kTextMuted);
+
+        DrawCircleV(c, bodyR, gearColor);
+        for (int i = 0; i < 8; ++i)
+        {
+            const float a = static_cast<float>(i) * (3.14159265f * 0.25f);
+            // Center of tooth sits on the rim so it connects to the hub.
+            const float midR = bodyR - 0.5f;
+            const Vector2 mid = {
+                c.x + std::cos(a) * midR,
+                c.y + std::sin(a) * midR};
+            DrawRectanglePro(
+                {mid.x, mid.y, toothW, toothH},
+                {toothW * 0.5f, toothH * 0.15f},
+                a * (180.0f / 3.14159265f) + 90.0f,
+                gearColor);
+        }
+        DrawCircleV(c, bodyR * 0.42f, Color{14, 13, 18, 255});
+    }
+
+    DrawTextEx(
+        font,
+        status.c_str(),
+        {statusX, statusY},
+        kFontTiny,
+        1.0f,
+        docs->dirty ? Color{200, 140, 80, 255} : kTextMuted);
+
+    if (canPrefs && openPreferences && editorMousePressed(MOUSE_BUTTON_LEFT)
+        && CheckCollisionPointRec(GetMousePosition(), gearBtn))
+    {
+        openPreferences();
+    }
 }
 
 
@@ -2910,7 +3815,10 @@ void SceneMapCanvas::draw()
     drawBottomPane(bottom);
     drawDividers(screenWidth, screenHeight);
     drawStatusBar(screenWidth, screenHeight);
+    // Context menu after list/canvas (and their scissors) so it is never clipped.
+    drawContextMenu();
     drawStackDialog(screenWidth, screenHeight);
+    drawConfirmDialogs(screenWidth, screenHeight);
     if (itemEditor)
         itemEditor->drawNewItemDialog(screenWidth, screenHeight);
     if (variableEditor)
@@ -2919,6 +3827,8 @@ void SceneMapCanvas::draw()
     sceneAssist.draw(screenWidth, screenHeight);
     sceneInventory.draw(screenWidth, screenHeight);
     sceneEffects.draw(screenWidth, screenHeight);
+    if (preferences)
+        preferences->draw(screenWidth, screenHeight);
 
     EndDrawing();
 }

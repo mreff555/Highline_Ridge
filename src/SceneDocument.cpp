@@ -236,6 +236,36 @@ bool SceneDocument::removeScene(const std::string& sceneId)
     return true;
 }
 
+bool SceneDocument::renameScene(const std::string& oldId, const std::string& newId)
+{
+    if (!isLoaded() || oldId.empty() || newId.empty() || oldId == newId)
+        return false;
+    if (!hasScene(oldId) || hasScene(newId))
+        return false;
+
+    nlohmann::json& scenes = root["scenes"];
+    nlohmann::json moved = scenes[oldId];
+    scenes.erase(oldId);
+    scenes[newId] = std::move(moved);
+
+    // Retarget inbound exit links that pointed at the old id.
+    for (auto it = scenes.begin(); it != scenes.end(); ++it)
+    {
+        if (!it.value().is_object())
+            continue;
+        nlohmann::json& scene = it.value();
+        if (!scene.contains("exits") || !scene["exits"].is_object())
+            continue;
+        for (auto exitIt = scene["exits"].begin(); exitIt != scene["exits"].end(); ++exitIt)
+        {
+            if (exitIt.value().is_string()
+                && exitIt.value().get<std::string>() == oldId)
+                exitIt.value() = newId;
+        }
+    }
+    return true;
+}
+
 SceneLayout SceneDocument::getLayout(const std::string& sceneId) const
 {
     SceneLayout layout;
@@ -301,6 +331,17 @@ std::string SceneDocument::getSceneImagePath(const std::string& sceneId) const
     const nlohmann::json* scene = sceneJson(sceneId);
     if (scene == nullptr)
         return "";
+    // Prefer authored 16x9 master when present (editor thumbs / map cards).
+    if (scene->contains("imageVariants") && (*scene)["imageVariants"].is_object())
+    {
+        const auto& variants = (*scene)["imageVariants"];
+        if (variants.contains("16x9") && variants["16x9"].is_string())
+        {
+            const std::string v = variants["16x9"].get<std::string>();
+            if (!v.empty())
+                return v;
+        }
+    }
     return scene->value("image", "");
 }
 

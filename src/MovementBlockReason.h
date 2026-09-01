@@ -28,7 +28,9 @@ enum class MovementBlockReason
 {
     None,       // available, or no exit in that direction
     NeedsLight, // dark destination / missing lantern or light source
-    Other       // locked, story flag, gear, etc. (icons reserved for later)
+    NeedsGear,  // missing required inventory gear (e.g. pick / crampons)
+    NeedsLock,  // locked door / unmet story gate / room not purchased
+    Other       // mixed or unclassified blockers
 };
 
 /** Per-direction overlay hints for MOVE buttons (indices match ButtonMgr 0–5). */

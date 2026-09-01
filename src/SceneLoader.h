@@ -21,6 +21,7 @@
 #define SCENE_LOADER_H
 
 #include <AudioTypes.h>
+#include <DisplayAspect.h>
 #include <ItemDef.h>
 #include <ConversationStruct.h>
 #include <LocationStruct.h>
@@ -50,6 +51,13 @@ enum class SubSceneResolveMode
 
 bool loadResourceTexture(const std::string& assetRoot, const std::string& relativePath, Texture2D& outTexture);
 
+/**
+ * CPU-only scene/image decode (xz + PNG/JPEG). Safe for JobSystem workers.
+ * Does not create GPU textures — call LoadTextureFromImage on the main thread.
+ * Serialized internally (raylib stb is not multi-decode-safe in this build).
+ */
+bool loadResourceImage(const std::string& assetRoot, const std::string& relativePath, Image& outImage);
+
 struct SceneData
 {
     std::string id;
@@ -57,6 +65,11 @@ struct SceneData
     /** Scene-level TTS gate. Off by default; when on, defaultVoice must be a known voice. */
     TtsOwnerPolicy ttsPolicy;
     std::string imagePath;
+    /**
+     * Optional aspect plates for the canonical main image (not story alternates).
+     * Keys: "16x9", "16x10", "21x9". Missing keys fall back to imagePath + cover-crop.
+     */
+    std::map<std::string, std::string> imageVariants;
     std::string alternateImagePath;
     std::string alternateImageFlag;
     std::string alternateImageUntilPhase;
@@ -106,11 +119,17 @@ class SceneDatabase
 
     bool load(const std::string& configPath, const std::string& assetRoot);
     bool loadStartScene(LocationStruct& outLocation, std::string& outSceneId) const;
-    bool loadScene(const std::string& sceneId, LocationStruct& outLocation) const;
+    bool loadScene(
+        const std::string& sceneId,
+        LocationStruct& outLocation,
+        bool loadTexture = true) const;
     bool loadScene(
         const std::string& sceneId,
         const std::string& subSceneId,
-        LocationStruct& outLocation) const;
+        LocationStruct& outLocation,
+        bool loadTexture = true) const;
+    /** CPU decode only (for JobSystem workers). */
+    bool decodeSceneImage(const std::string& imagePath, Image& outImage) const;
     std::string getExitSceneId(const std::string& sceneId, const std::string& direction) const;
     bool getExitRequirement(
         const std::string& sceneId,
@@ -146,6 +165,17 @@ class SceneDatabase
         const std::string& subSceneId,
         const std::set<std::string>& storyFlags,
         const std::function<bool(const std::string& phaseId)>& isPhaseComplete) const;
+    /**
+     * Story path (subscene / alternate / image) then optional imageVariants for
+     * the active display aspect bucket. When an alternate/subscene plate is
+     * active, variants are skipped (v1).
+     */
+    std::string resolveSceneImagePathForAspect(
+        const SceneData& scene,
+        const std::string& subSceneId,
+        const std::set<std::string>& storyFlags,
+        const std::function<bool(const std::string& phaseId)>& isPhaseComplete,
+        DisplayAspectBucket aspectBucket) const;
     std::vector<std::string> collectSceneImagePaths(const SceneData& scene) const;
     bool loadSceneTexture(const std::string& imagePath, Texture2D& outTexture) const;
 
@@ -153,7 +183,8 @@ class SceneDatabase
     bool buildLocationStruct(
         const SceneData& scene,
         const std::string& subSceneId,
-        LocationStruct& outLocation) const;
+        LocationStruct& outLocation,
+        bool loadTexture = true) const;
     bool tryLoadSceneImage(const std::string& imagePath, Texture2D& outTexture) const;
     void ensureUnderConstructionImage() const;
     Texture2D createOwnedPlaceholderTexture() const;

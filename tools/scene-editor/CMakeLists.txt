@@ -89,6 +89,8 @@ endif()
 set(EDITOR_SOURCES
     main.cpp
     EditorPaths.cpp
+    EditorPrefs.cpp
+    EditorInput.cpp
     EditorUiDraw.cpp
     EditorButton.cpp
     ConversationHelpers.cpp
@@ -106,17 +108,38 @@ set(EDITOR_SOURCES
     SceneAssistDialog.cpp
     SceneInventoryDialog.cpp
     SceneEffectsDialog.cpp
+    EditorPreferencesDialog.cpp
     SceneGraphModel.cpp
     SceneMapCanvas.cpp
     SceneEditorApp.cpp
     ${_ENGINE_SRC}/SceneDocument.cpp
     ${_ENGINE_SRC}/ImageCompression.cpp
+    ${_ENGINE_SRC}/JobSystem.cpp
+    ${_ENGINE_SRC}/SimdUtil.cpp
     ${_ENGINE_SRC}/PlatformPath.cpp
     ${_ENGINE_SRC}/TtsVoiceMarkup.cpp
     ${_ENGINE_SRC}/AssetStore.cpp
 )
 
+if(APPLE)
+    list(APPEND EDITOR_SOURCES
+        macos/EditorNativeMenu.mm
+        macos/EditorInput_macos.mm
+    )
+endif()
+
 add_executable(scene-editor ${EDITOR_SOURCES})
+
+if(APPLE)
+    # Compile as Objective-C++ without requiring project-level OBJCXX language.
+    set_source_files_properties(
+        macos/EditorNativeMenu.mm
+        macos/EditorInput_macos.mm
+        PROPERTIES
+            COMPILE_FLAGS "-x objective-c++ -fobjc-arc"
+            LANGUAGE CXX
+    )
+endif()
 
 target_include_directories(scene-editor PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -139,7 +162,8 @@ elseif(DEFINED LIBJPEG)
     list(APPEND _image_deps ${LIBJPEG})
 endif()
 
-target_link_libraries(scene-editor PRIVATE raylib ${_image_deps})
+find_package(Threads REQUIRED)
+target_link_libraries(scene-editor PRIVATE raylib ${_image_deps} Threads::Threads)
 
 # Nested build: put scene-editor next to Highline Ridge in the top build dir.
 if(NOT _EDITOR_STANDALONE)

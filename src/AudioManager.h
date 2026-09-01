@@ -24,7 +24,9 @@
 #include <ItemDef.h>
 #include <GameConfig.h>
 #include <raylib.h>
+#include <cstdint>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -80,7 +82,9 @@ class AudioManager
         bool fadingIn = false;
         bool fadingOut = false;
         std::string path;
-        std::string tempFilePath;
+        /** Kept alive for LoadMusicStreamFromMemory (drmp3 holds a pointer). */
+        std::vector<unsigned char> memoryBytes;
+        std::string tempFilePath; // legacy fallback only
         bool loop = true;
     };
 
@@ -117,7 +121,11 @@ class AudioManager
     float appliedVolume(float baseVolume) const;
 
     bool ensureDeviceReady();
-    bool loadMusicClip(const std::string& path, Music& outMusic, std::string& outTempFile);
+    bool loadMusicClip(
+        const std::string& path,
+        Music& outMusic,
+        std::vector<unsigned char>& outMemoryBytes,
+        std::string& outTempFile);
     bool loadSoundClip(const std::string& path, Sound& outSound, float& outDurationSeconds, std::string& outTempFile);
     bool loadDialogClip(const std::string& path, Sound& outSound, float& outDurationSeconds);
     bool acquireAmbientSound(const std::string& path, Sound& outSound, bool& outUsesAlias);
@@ -126,8 +134,16 @@ class AudioManager
     bool resolveMusicAssetFile(const std::string& relativePath, std::string& outPlayablePath, std::string& outTempFile) const;
     void removeTempFile(const std::string& path);
     float effectiveVolume(AudioCategory category, float clipVolume) const;
+    static bool preferSyncAudioLoad();
     void startMusicTrack(FadingMusicTrack& track, const AudioClipDef& clip);
+    void startMusicTrackSync(FadingMusicTrack& track, const AudioClipDef& clip);
+    void applyMusicFromMemory(
+        FadingMusicTrack& track,
+        const AudioClipDef& clip,
+        std::vector<unsigned char>&& bytes);
     void startAmbientTrack(const AudioClipDef& clip);
+    void startAmbientTrackSync(const AudioClipDef& clip);
+    bool ensureAmbientSampleLoadedSync(const std::string& path);
     void fadeOutMusicTrack(FadingMusicTrack& track, float fadeOutSeconds);
     void fadeOutAmbientTrack(FadingAmbientTrack& track, float fadeOutSeconds);
     void updateMusicTrack(FadingMusicTrack& track, float deltaSeconds);
@@ -154,13 +170,20 @@ class AudioManager
     {
         Sound sound{};
         bool loaded = false;
-        std::string tempFilePath;
+        std::string tempFilePath; // legacy fallback only
     };
 
     std::string assetRoot;
     AudioVolumeConfig volumes;
     bool deviceReady = false;
     std::map<std::string, CachedAmbientSample> ambientSampleCache;
+    std::set<std::string> pendingAmbientLoads;
+    std::uint64_t musicLoadGeneration = 0;
+    std::uint64_t ambientLoadGeneration = 0;
+    /** Paths requested by the latest syncRoomStreams (for stale async ambient). */
+    std::set<std::string> desiredAmbientPaths;
+    /** In-flight async room music target (empty when idle / sync). */
+    std::string pendingMusicLoadPath;
 
     FadingMusicTrack musicTrack;
     std::vector<FadingAmbientTrack> ambientTracks;

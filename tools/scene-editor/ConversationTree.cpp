@@ -18,6 +18,7 @@
  ******************************************************************************/
 
 #include "ConversationTree.h"
+#include "EditorInput.h"
 
 #include "ConversationHelpers.h"
 #include "DialogWalkthrough.h"
@@ -516,7 +517,7 @@ void ConversationTree::handleConversationTreeInput(Rectangle listBounds)
     const float headerToggleY = listBounds.y + (20.0f - kTreeToggleSize) * 0.5f;
     const Rectangle headerToggle = {
         headerToggleX, headerToggleY, kTreeToggleSize, kTreeToggleSize};
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
+    if (editorMousePressed(MOUSE_BUTTON_LEFT)
         && CheckCollisionPointRec(mouse, headerToggle))
     {
         toggleExpandAllSceneRoots();
@@ -535,7 +536,7 @@ void ConversationTree::handleConversationTreeInput(Rectangle listBounds)
         listBounds.width,
         listBounds.height - 20.0f};
 
-    if (CheckCollisionPointRec(mouse, treeBounds) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    if (CheckCollisionPointRec(mouse, treeBounds) && editorMousePressed(MOUSE_BUTTON_LEFT))
     {
         const float localY = (mouse.y - treeBounds.y - 4.0f) + (*leftScroll);
         if (localY >= 0.0f)

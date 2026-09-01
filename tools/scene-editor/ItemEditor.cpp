@@ -18,6 +18,7 @@
  ******************************************************************************/
 
 #include "ItemEditor.h"
+#include "EditorInput.h"
 
 #include "EditorButton.h"
 #include "EditorTheme.h"
@@ -395,7 +396,7 @@ void ItemEditor::handleInput(Rectangle listBounds)
     if (listScroll < 0.0f)
         listScroll = 0.0f;
 
-    if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    if (!editorMousePressed(MOUSE_BUTTON_LEFT))
         return;
 
     // Header expand/collapse-all control (same style as row toggles).

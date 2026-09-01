@@ -2,19 +2,8 @@
  * Timberline engine
  * Copyright (C) 2026 Dan Feerst
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the Free
- * Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * Lazy scene image thumbnails for the list and map cards.
+ * CPU decode runs on JobSystem; GPU upload on the main thread via poll().
  ******************************************************************************/
 
 #ifndef TIMBERLINE_THUMBNAIL_CACHE_H
@@ -23,22 +12,30 @@
 #include "EditorTypes.h"
 #include "SceneDocument.h"
 
+#include <cstdint>
 #include <map>
+#include <set>
 #include <string>
 
 namespace timberline_editor
 {
 
-// Lazy scene image thumbnails for the list and map cards.
 class ThumbnailCache
 {
 public:
-    // Load on first request; returns a stable entry (loaded or missing).
+    /**
+     * Begin (or return) a thumbnail for sceneId. Never blocks on xz/PNG decode —
+     * returns a not-yet-loaded entry while a JobSystem worker runs; call poll()
+     * each frame so completed Images become textures.
+     */
     ThumbnailEntry& getOrLoad(
         const std::string& sceneId,
         const timberline_engine::SceneDocument& scenes,
         const std::string& assetRoot,
         const std::string& resourceDir);
+
+    /** Drain JobSystem completions that belong to this cache (main / GL thread). */
+    void poll();
 
     void clear();
 
@@ -46,7 +43,15 @@ public:
     void invalidate(const std::string& sceneId);
 
 private:
+    void enqueueDecode(
+        const std::string& sceneId,
+        const std::string& imagePath,
+        const std::string& assetRoot,
+        const std::string& resourceDir);
+
     std::map<std::string, ThumbnailEntry> entries;
+    std::set<std::string> inFlight;
+    std::uint64_t generation = 0;
 };
 
 } // namespace timberline_editor

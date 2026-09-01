@@ -6,6 +6,7 @@
  ******************************************************************************/
 
 #include "ItemEditor.h"
+#include "EditorInput.h"
 
 #include "EditorButton.h"
 #include "EditorTheme.h"
@@ -308,53 +309,7 @@ void ItemEditor::drawOnOffSwitch(
     bool canClick,
     bool& outToggled)
 {
-    outToggled = false;
-    DrawRectangleRounded(track, 0.5f, 6, Color{44, 42, 52, 255});
-    DrawRectangleLinesEx(track, 1.0f, kPanelBorder);
-    if (on)
-    {
-        DrawRectangleRec(
-            {track.x + track.width * 0.5f, track.y + 1.0f,
-             track.width * 0.5f - 1.0f, track.height - 2.0f},
-            kPanelAccent);
-    }
-    else
-    {
-        DrawRectangleRec(
-            {track.x + 1.0f, track.y + 1.0f,
-             track.width * 0.5f - 1.0f, track.height - 2.0f},
-            Color{36, 34, 44, 255});
-    }
-    const float knobSize = track.height - 6.0f;
-    const float knobX = on
-        ? (track.x + track.width - knobSize - 3.0f)
-        : (track.x + 3.0f);
-    DrawRectangleRounded(
-        {knobX, track.y + 3.0f, knobSize, knobSize},
-        0.5f,
-        6,
-        kTextPrimary);
-    DrawTextEx(
-        font,
-        on ? "ON" : "OFF",
-        {track.x + track.width + 8.0f,
-         track.y + (track.height - kFontTiny) * 0.5f},
-        kFontTiny,
-        1.0f,
-        kPanelBorder);
-    if (label != nullptr && label[0] != '\0')
-    {
-        DrawTextEx(
-            font,
-            label,
-            {track.x + track.width + 40.0f,
-             track.y + (track.height - kFontSmall) * 0.5f},
-            kFontSmall,
-            1.0f,
-            kTextPrimary);
-    }
-    if (canClick && CheckCollisionPointRec(GetMousePosition(), track))
-        outToggled = true;
+    timberline_editor::drawOnOffSwitch(font, track, on, label, canClick, outToggled);
 }
 
 void ItemEditor::unloadAuthoringPreviews()
@@ -974,7 +929,8 @@ bool ItemEditor::generateAuthoringAssetsNow(int target)
 
     ItemAuthoringPayload planPayload = authoringPayload;
     planPayload.aiAssist = flags;
-    const ItemAiAssistPlan plan = planItemAiAssist(planPayload);
+    const ItemAiAssistPlan plan = planItemAiAssist(
+        planPayload, docs != nullptr ? docs->resourceDir : std::string{});
     if (plan.empty())
     {
         lastAuthoringStatus =
@@ -1752,7 +1708,7 @@ void ItemEditor::handleSubEditInput()
 
     // Mouse selection / click-to-place caret
     const Vector2 mouse = GetMousePosition();
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
+    if (editorMousePressed(MOUSE_BUTTON_LEFT)
         && CheckCollisionPointRec(mouse, subEditFieldRect))
     {
         const float maxW = subEditFieldRect.width - kSubEditPad * 2.0f;
@@ -1786,7 +1742,7 @@ void ItemEditor::handleSubEditInput()
         subEditSetCursor(best, shift);
         subEditMouseSelecting = true;
     }
-    if (subEditMouseSelecting && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+    if (subEditMouseSelecting && editorMouseDown(MOUSE_BUTTON_LEFT))
     {
         if (subEditSelectAnchor < 0)
             subEditSelectAnchor = subEditCursor;
@@ -1819,7 +1775,7 @@ void ItemEditor::handleSubEditInput()
         }
         subEditCursor = best;
     }
-    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+    if (editorMouseReleased(MOUSE_BUTTON_LEFT))
         subEditMouseSelecting = false;
 
     if (CheckCollisionPointRec(mouse, subEditFieldRect))
@@ -1943,7 +1899,7 @@ void ItemEditor::drawSubEditDialog(int screenWidth, int screenHeight)
     drawEditorButton(font, saveBtn, "Apply", true, true);
     drawEditorButton(font, cancelBtn, "Cancel", false, true);
 
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !subEditMouseSelecting)
+    if (editorMousePressed(MOUSE_BUTTON_LEFT) && !subEditMouseSelecting)
     {
         const Vector2 mouse = GetMousePosition();
         if (CheckCollisionPointRec(mouse, saveBtn))
@@ -2054,7 +2010,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
 
     pollAuthoringGenerateResult();
 
-    if (authoringWaitMouseRelease && !IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+    if (authoringWaitMouseRelease && !editorMouseDown(MOUSE_BUTTON_LEFT))
         authoringWaitMouseRelease = false;
 
     const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
@@ -2065,7 +2021,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
         && authoringIgnoreInputFrames <= 0
         && !subEditOpen
         && !generateBusy
-        && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+        && editorMousePressed(MOUSE_BUTTON_LEFT);
 
     auto drawWorkingLabel = [&](Rectangle afterBtn) {
         if (!generateBusy)
@@ -2253,7 +2209,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
         DrawRectangleRec(thumb, kScrollThumb);
         if (canClick && CheckCollisionPointRec(mouse, thumb))
             authoringDraggingScroll = true;
-        if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        if (!editorMouseDown(MOUSE_BUTTON_LEFT))
             authoringDraggingScroll = false;
         if (authoringDraggingScroll)
         {

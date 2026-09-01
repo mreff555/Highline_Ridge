@@ -88,21 +88,42 @@ void ButtonMgr::buildButtonLayout()
 {
     buttons.clear();
 
-    const float pad = 18.0f;
-    const float labelHeight = 22.0f;
-    const float gap = 10.0f;
-    const float inventoryHeight = 52.0f;
+    const float pad = 14.0f;
+    const float gap = 8.0f;
+    const float inventoryHeight = 48.0f;
+    // Compact horizontal status strip (per-stat label + thin bar).
+    // Labels are 14pt (+1 from prior compact pass); reserve matching strip height.
+    const float statusLabelH = 15.0f;
+    const float statusBarH = 14.0f;
+    const float statusBlockH = statusLabelH + statusBarH + 4.0f;
+    const float sectionLabelH = 18.0f;
+    const float statusToBarsGap = 2.0f;      // STATUS caption → bar labels
+    const float statusToMoveGap = 3.0f;      // status bars → MOVE/ACTIONS captions
 
     const float contentX = buttonBox.x + pad;
-    const float contentY = buttonBox.y + pad + labelHeight;
     const float contentW = buttonBox.width - pad * 2.0f;
-    const float contentH = buttonBox.height - pad * 2.0f - labelHeight - inventoryHeight - gap;
 
-    const float moveW = contentW * 0.30f;
-    const float actionW = contentW * 0.30f;
-    const float statusW = contentW - moveW - actionW - gap * 2.0f;
+    // STATUS — full width row above MOVE/ACTIONS (below a small section caption).
+    const float statusY = buttonBox.y + pad + sectionLabelH + statusToBarsGap;
+    const float statusGap = 6.0f;
+    const int statusCount = 5;
+    const float statusBarW =
+        (contentW - statusGap * static_cast<float>(statusCount - 1)) / static_cast<float>(statusCount);
+    healthBarBounds = { contentX, statusY, statusBarW, statusBlockH };
+    energyBarBounds = { contentX + (statusBarW + statusGap) * 1.0f, statusY, statusBarW, statusBlockH };
+    resolveBarBounds = { contentX + (statusBarW + statusGap) * 2.0f, statusY, statusBarW, statusBlockH };
+    lucidityBarBounds = { contentX + (statusBarW + statusGap) * 3.0f, statusY, statusBarW, statusBlockH };
+    charismaBarBounds = { contentX + (statusBarW + statusGap) * 4.0f, statusY, statusBarW, statusBlockH };
+    reservedBarBounds = { 0, 0, 0, 0 };
+
+    const float controlsTop = statusY + statusBlockH + statusToMoveGap + sectionLabelH;
+    const float inventoryY = buttonBox.y + buttonBox.height - pad - inventoryHeight;
+    const float controlsBottom = inventoryY - gap;
+    const float contentH = std::max(72.0f, controlsBottom - controlsTop);
+
+    const float moveW = contentW * 0.48f;
+    const float actionW = contentW - moveW - gap;
     const float actionX = contentX + moveW + gap;
-    const float statusX = actionX + actionW + gap;
     const float actionCols = 2.0f;
     const float actionRows = 3.0f;
     const float actionBtnW = (actionW - gap) / actionCols;
@@ -114,6 +135,7 @@ void ButtonMgr::buildButtonLayout()
     const float verticalBtnH = (contentH - gap) / 2.0f;
     const float movePadBtnW = (moveColRightW - gap) / 2.0f;
     const float movePadBtnH = (contentH - gap * 2.0f) / 3.0f;
+    const float contentY = controlsTop;
 
     addButton("Up",
         { contentX, contentY, moveColLeftW, verticalBtnH });
@@ -148,18 +170,6 @@ void ButtonMgr::buildButtonLayout()
     addButton("Attack",
         { actionX, contentY + (actionBtnH + gap) * 2.0f, actionW, actionBtnH });
 
-    const float statusRowH = (contentH - gap * 2.0f) / 3.0f;
-    const float statusBarW = (statusW - gap) / 2.0f;
-    const float statusRow2Y = contentY + statusRowH + gap;
-    const float statusRow3Y = contentY + (statusRowH + gap) * 2.0f;
-    healthBarBounds = { statusX, contentY, statusBarW, statusRowH };
-    energyBarBounds = { statusX + statusBarW + gap, contentY, statusBarW, statusRowH };
-    resolveBarBounds = { statusX, statusRow2Y, statusBarW, statusRowH };
-    lucidityBarBounds = { statusX + statusBarW + gap, statusRow2Y, statusBarW, statusRowH };
-    charismaBarBounds = { statusX, statusRow3Y, statusBarW, statusRowH };
-    reservedBarBounds = { statusX + statusBarW + gap, statusRow3Y, statusBarW, statusRowH };
-
-    const float inventoryY = buttonBox.y + buttonBox.height - pad - inventoryHeight;
     addButton("Inventory",
         { contentX, inventoryY, contentW, inventoryHeight });
 
@@ -199,6 +209,10 @@ ButtonMgr::~ButtonMgr()
 {
     if (needsLightIcon.id != 0)
         UnloadTexture(needsLightIcon);
+    if (needsGearIcon.id != 0)
+        UnloadTexture(needsGearIcon);
+    if (needsLockIcon.id != 0)
+        UnloadTexture(needsLockIcon);
 }
 
 void ButtonMgr::setMovementBlockOverlays(const MovementBlockOverlays& overlays)
@@ -212,11 +226,23 @@ void ButtonMgr::ensureBlockIconsLoaded() const
         return;
     blockIconsLoaded = true;
 
-    Texture2D texture{};
-    if (loadResourceTexture(".", "resources/ui/exit_needs_light_icon.png", texture))
-        needsLightIcon = texture;
+    Texture2D lightTex{};
+    if (loadResourceTexture(".", "resources/ui/exit_needs_light_icon.png", lightTex))
+        needsLightIcon = lightTex;
     else
         TraceLog(LOG_WARNING, "Failed to load movement block icon resources/ui/exit_needs_light_icon.png");
+
+    Texture2D gearTex{};
+    if (loadResourceTexture(".", "resources/ui/exit_needs_gear_icon.png", gearTex))
+        needsGearIcon = gearTex;
+    else
+        TraceLog(LOG_WARNING, "Failed to load movement block icon resources/ui/exit_needs_gear_icon.png");
+
+    Texture2D lockTex{};
+    if (loadResourceTexture(".", "resources/ui/exit_needs_lock_icon.png", lockTex))
+        needsLockIcon = lockTex;
+    else
+        TraceLog(LOG_WARNING, "Failed to load movement block icon resources/ui/exit_needs_lock_icon.png");
 }
 
 const Texture2D* ButtonMgr::iconForBlockReason(MovementBlockReason reason) const
@@ -226,6 +252,10 @@ const Texture2D* ButtonMgr::iconForBlockReason(MovementBlockReason reason) const
     {
         case MovementBlockReason::NeedsLight:
             return needsLightIcon.id != 0 ? &needsLightIcon : nullptr;
+        case MovementBlockReason::NeedsGear:
+            return needsGearIcon.id != 0 ? &needsGearIcon : nullptr;
+        case MovementBlockReason::NeedsLock:
+            return needsLockIcon.id != 0 ? &needsLockIcon : nullptr;
         case MovementBlockReason::None:
         case MovementBlockReason::Other:
         default:
@@ -308,9 +338,11 @@ void ButtonMgr::drawSectionLabel(const char* label, float x, float y) const
 
 void ButtonMgr::drawStatusBar(const char* label, Rectangle bounds, float percent) const
 {
-    const float labelHeight = 17.0f;
+    // Compact strip: short label above a thin track (fits a 5-across row).
+    const float labelFontSize = 14.0f; // one point larger than prior compact pass
+    const float labelHeight = 15.0f;
     const float barTop = bounds.y + labelHeight;
-    const float barHeight = bounds.height - labelHeight - 4.0f;
+    const float barHeight = std::max(10.0f, bounds.height - labelHeight - 2.0f);
     const Rectangle track = { bounds.x, barTop, bounds.width, barHeight };
     const float fillWidth = (bounds.width - 4.0f) * (percent / 100.0f);
     const Rectangle fill = {
@@ -330,9 +362,9 @@ void ButtonMgr::drawStatusBar(const char* label, Rectangle bounds, float percent
         ? uiBackdrop->panelBorderColor()
         : kPanelBorder;
 
-    DrawTextEx(buttonFont, label, { bounds.x, bounds.y }, 15.0f, 1, sectionLabel);
+    DrawTextEx(buttonFont, label, { bounds.x, bounds.y }, labelFontSize, 1, sectionLabel);
     DrawRectangleRounded(track, 0.18f, 8, statusTrack);
-    DrawRoundedBorder(track, 0.18f, 8, 2.0f, panelBorder);
+    DrawRoundedBorder(track, 0.18f, 8, 1.5f, panelBorder);
 
     if (fillWidth > 0.0f)
     {
@@ -341,7 +373,7 @@ void ButtonMgr::drawStatusBar(const char* label, Rectangle bounds, float percent
 
     char percentText[8];
     snprintf(percentText, sizeof(percentText), "%d%%", (int)percent);
-    const float percentFontSize = 20.0f;
+    const float percentFontSize = 14.0f;
     const Vector2 textSize = MeasureTextEx(boldButtonFont, percentText, percentFontSize, 1);
     DrawTextEx(
         boldButtonFont,
@@ -615,17 +647,19 @@ bool ButtonMgr::consumeHitButtonClick()
 
 void ButtonMgr::draw() const
 {
-    const float pad = 18.0f;
+    const float pad = 14.0f;
     const Color panelBorder = (uiBackdrop != nullptr)
         ? uiBackdrop->panelBorderColor()
         : kPanelBorder;
 
+    // Fill the whole controls box (extends with column height on tall screens).
+    // Outer column border is drawn by GameSession; keep an inner accent only.
     if (uiBackdrop != nullptr)
-        uiBackdrop->drawPanel(buttonBox, 0.04f, 10);
+        uiBackdrop->drawPanel(buttonBox, 0.0f, 0);
     else
-        DrawRectangleRounded(buttonBox, 0.04f, 10, kPanelFill);
+        DrawRectangleRec(buttonBox, kPanelFill);
 
-    DrawRoundedBorder(buttonBox, 0.04f, 10, 3.0f, panelBorder);
+    DrawRectangleLinesEx(buttonBox, 2.0f, panelBorder);
 
     Rectangle accentBar = {
         buttonBox.x + 8.0f,
@@ -638,15 +672,20 @@ void ButtonMgr::draw() const
     else
         DrawRectangleRounded(accentBar, 1.0f, 4, kPanelAccent);
 
-    drawSectionLabel("MOVE", buttonBox.x + pad, buttonBox.y + pad);
-    drawSectionLabel("ACTIONS", buttonBox.x + pad + buttonBox.width * 0.32f, buttonBox.y + pad);
-    drawSectionLabel("STATUS", healthBarBounds.x, buttonBox.y + pad);
-
+    // STATUS sits in a compact row above MOVE / ACTIONS.
+    // Gaps must match buildButtonLayout: 2px under STATUS, 3px above MOVE/ACTIONS.
+    constexpr float statusToMoveGap = 3.0f;
+    drawSectionLabel("STATUS", buttonBox.x + pad, buttonBox.y + pad);
     drawStatusBar("Health", healthBarBounds, healthPercent);
     drawStatusBar("Energy", energyBarBounds, energyPercent);
     drawStatusBar("Resolve", resolveBarBounds, resolvePercent);
     drawStatusBar("Lucidity", lucidityBarBounds, lucidityPercent);
     drawStatusBar("Charisma", charismaBarBounds, charismaPercent);
+
+    const float moveLabelY = healthBarBounds.y + healthBarBounds.height + statusToMoveGap;
+    drawSectionLabel("MOVE", buttonBox.x + pad, moveLabelY);
+    const float actionColX = buttonBox.x + pad + (buttonBox.width - pad * 2.0f) * 0.48f + 8.0f;
+    drawSectionLabel("ACTIONS", actionColX, moveLabelY);
 
     for (size_t i = 0; i < buttons.size(); ++i)
     {

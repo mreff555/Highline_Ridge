@@ -2,38 +2,87 @@
  * Timberline engine
  * Copyright (C) 2026 Dan Feerst
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the Free
- * Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * Async scene thumbnails: JobSystem decodes images; main thread uploads.
  ******************************************************************************/
 
 #include "ThumbnailCache.h"
 
 #include "EditorPaths.h"
 #include "ImageCompression.h"
+#include "JobSystem.h"
 #include "PlatformPath.h"
+#include "SimdUtil.h"
 
 #include <raylib.h>
 
+#include <memory>
+#include <mutex>
 #include <vector>
 
+using timberline_engine::JobSystem;
 using timberline_engine::buildAssetSearchPaths;
 using timberline_engine::compressedAssetPath;
-using timberline_engine::loadTextureFromAssetFile;
+using timberline_engine::downscaleImageToFit;
+using timberline_engine::kEditorThumbMaxH;
+using timberline_engine::kEditorThumbMaxW;
+using timberline_engine::loadImageFromAssetFile;
 using timberline_engine::pathJoin;
 
 namespace timberline_editor
 {
+namespace
+{
+
+std::mutex gThumbDecodeMutex;
+
+bool tryDecodeImageAtPath(const std::string& path, Image& outImage)
+{
+    const std::string compressedPath = compressedAssetPath(path);
+    if (FileExists(compressedPath.c_str()))
+    {
+        std::lock_guard<std::mutex> lock(gThumbDecodeMutex);
+        if (loadImageFromAssetFile(compressedPath, outImage))
+            return true;
+    }
+    if (FileExists(path.c_str()))
+    {
+        std::lock_guard<std::mutex> lock(gThumbDecodeMutex);
+        if (loadImageFromAssetFile(path, outImage))
+            return true;
+    }
+    return false;
+}
+
+bool decodeSceneThumbnailImage(
+    const std::string& imagePath,
+    const std::string& assetRoot,
+    const std::string& resourceDir,
+    Image& outImage)
+{
+    outImage = Image{};
+    const std::vector<std::string> paths = buildAssetSearchPaths(assetRoot, imagePath);
+    for (const std::string& path : paths)
+    {
+        if (tryDecodeImageAtPath(path, outImage))
+            return true;
+    }
+
+    const std::string underResources = pathJoin(parentDirectory(resourceDir), imagePath);
+    if (!underResources.empty() && tryDecodeImageAtPath(underResources, outImage))
+        return true;
+
+    return false;
+}
+
+struct ThumbDecodeResult
+{
+    std::uint64_t generation = 0;
+    std::string sceneId;
+    Image image{};
+    bool ok = false;
+};
+
+} // namespace
 
 ThumbnailEntry& ThumbnailCache::getOrLoad(
     const std::string& sceneId,
@@ -42,7 +91,7 @@ ThumbnailEntry& ThumbnailCache::getOrLoad(
     const std::string& resourceDir)
 {
     ThumbnailEntry& entry = entries[sceneId];
-    if (entry.loaded || entry.missing)
+    if (entry.loaded || entry.missing || entry.loading)
         return entry;
 
     const std::string imagePath = scenes.getSceneImagePath(sceneId);
@@ -52,65 +101,100 @@ ThumbnailEntry& ThumbnailCache::getOrLoad(
         return entry;
     }
 
-    // Match SceneLoader: prefer .png.xz (git-stored) then uncompressed paths.
-    const std::vector<std::string> paths = buildAssetSearchPaths(assetRoot, imagePath);
-    for (const std::string& path : paths)
-    {
-        const std::string compressedPath = compressedAssetPath(path);
-        if (FileExists(compressedPath.c_str()) &&
-            loadTextureFromAssetFile(compressedPath, entry.texture))
-        {
-            entry.loaded = true;
-            return entry;
-        }
-
-        if (FileExists(path.c_str()) &&
-            loadTextureFromAssetFile(path, entry.texture))
-        {
-            entry.loaded = true;
-            return entry;
-        }
-    }
-
-    // Also search under the resource directory itself (resourceDir may be a
-    // symlink beside the binary while image paths are resources/images/...).
-    const std::string underResources = pathJoin(parentDirectory(resourceDir), imagePath);
-    if (!underResources.empty())
-    {
-        const std::string compressedPath = compressedAssetPath(underResources);
-        if (FileExists(compressedPath.c_str()) &&
-            loadTextureFromAssetFile(compressedPath, entry.texture))
-        {
-            entry.loaded = true;
-            return entry;
-        }
-
-        if (FileExists(underResources.c_str()) &&
-            loadTextureFromAssetFile(underResources, entry.texture))
-        {
-            entry.loaded = true;
-            return entry;
-        }
-    }
-
-    entry.missing = true;
+    entry.loading = true;
+    enqueueDecode(sceneId, imagePath, assetRoot, resourceDir);
     return entry;
+}
+
+void ThumbnailCache::enqueueDecode(
+    const std::string& sceneId,
+    const std::string& imagePath,
+    const std::string& assetRoot,
+    const std::string& resourceDir)
+{
+    if (inFlight.count(sceneId) > 0)
+        return;
+    inFlight.insert(sceneId);
+
+    const std::uint64_t gen = generation;
+    auto result = std::make_shared<ThumbDecodeResult>();
+    result->generation = gen;
+    result->sceneId = sceneId;
+
+    const std::string pathCopy = imagePath;
+    const std::string rootCopy = assetRoot;
+    const std::string resCopy = resourceDir;
+
+    JobSystem::global().enqueue(
+        [result, pathCopy, rootCopy, resCopy]() {
+            result->ok =
+                decodeSceneThumbnailImage(pathCopy, rootCopy, resCopy, result->image);
+            if (result->ok)
+                downscaleImageToFit(result->image, kEditorThumbMaxW, kEditorThumbMaxH);
+        },
+        [this, result]() {
+            inFlight.erase(result->sceneId);
+            if (result->generation != generation)
+            {
+                if (result->ok && result->image.data != nullptr)
+                    UnloadImage(result->image);
+                return;
+            }
+
+            auto it = entries.find(result->sceneId);
+            if (it == entries.end())
+            {
+                if (result->ok && result->image.data != nullptr)
+                    UnloadImage(result->image);
+                return;
+            }
+
+            ThumbnailEntry& entry = it->second;
+            entry.loading = false;
+
+            if (!result->ok || result->image.data == nullptr)
+            {
+                entry.missing = true;
+                return;
+            }
+
+            Texture2D tex = LoadTextureFromImage(result->image);
+            UnloadImage(result->image);
+            result->image = Image{};
+            if (tex.id == 0)
+            {
+                entry.missing = true;
+                return;
+            }
+
+            if (entry.loaded && entry.texture.id != 0)
+                UnloadTexture(entry.texture);
+            entry.texture = tex;
+            entry.loaded = true;
+            entry.missing = false;
+        });
+}
+
+void ThumbnailCache::poll()
+{
+    JobSystem::global().pollCompletions();
 }
 
 void ThumbnailCache::clear()
 {
-    for (std::map<std::string, ThumbnailEntry>::iterator it = entries.begin();
-         it != entries.end();
-         ++it)
+    ++generation;
+    inFlight.clear();
+    for (auto& pair : entries)
     {
-        if (it->second.loaded && it->second.texture.id != 0)
-            UnloadTexture(it->second.texture);
+        if (pair.second.loaded && pair.second.texture.id != 0)
+            UnloadTexture(pair.second.texture);
     }
     entries.clear();
 }
 
 void ThumbnailCache::invalidate(const std::string& sceneId)
 {
+    inFlight.erase(sceneId);
     auto it = entries.find(sceneId);
     if (it == entries.end())
         return;

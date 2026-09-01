@@ -69,6 +69,8 @@ MaskEvalContext SceneController::buildMaskContext(
     context.inventoryMgr = &inventoryMgr;
     context.itemDatabase = &itemDatabase;
     context.activeSubSceneId = worldState.activeSubSceneId;
+    context.currentDay = worldState.day;
+    context.saloonRoomPurchasedDay = worldState.saloonRoomPurchasedDay;
     context.sceneInventoryHasItem = [&](const std::string& defId)
     {
         return sceneInventoryHasItem(worldState.sceneInventories, worldState.currentSceneId, defId);
@@ -120,11 +122,11 @@ bool SceneController::transitionToScene(
         SubSceneResolveMode::OnEnter,
         isPhaseComplete);
 
+    // Defer GPU texture upload to GameSession::refreshSceneImage (JobSystem).
+    // Keep the previous room image drawn until that completes.
     LocationStruct nextLocation;
-    if (!sceneDatabase.loadScene(nextSceneId, resolvedSubSceneId, nextLocation))
+    if (!sceneDatabase.loadScene(nextSceneId, resolvedSubSceneId, nextLocation, false))
         return false;
-
-    activeScene.unloadOwnedImage();
 
     const std::string fromSceneId = worldState.currentSceneId;
     const std::string fromSubSceneId = worldState.activeSubSceneId;

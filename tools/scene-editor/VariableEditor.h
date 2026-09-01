@@ -206,7 +206,8 @@ void syncDialogLayout(int screenWidth, int screenHeight);
 
 void drawVariableEditor(int screenWidth, int screenHeight);
 
-void drawVariablesPane(Rectangle paneBounds);
+/** allowInteraction=false when a scene modal (New Scene, Inventory, …) is open. */
+void drawVariablesPane(Rectangle paneBounds, bool allowInteraction = true);
 
 static bool isTtsJsonKey(const std::string& key);
 

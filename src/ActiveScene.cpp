@@ -30,9 +30,28 @@ ActiveScene::ActiveScene()
 
 void ActiveScene::loadFromStruct(const std::string& id, const LocationStruct& locationStruct)
 {
+    // Async scene loads pass a struct without a texture so we can keep drawing
+    // the previous room until JobSystem uploads the next one.
+    Texture2D preserved{};
+    bool preserve = false;
+    if ((!locationStruct.ownsLocationImage || locationStruct.locationImage.id == 0)
+        && view.ownsLocationImage
+        && view.locationImage.id != 0)
+    {
+        preserved = view.locationImage;
+        preserve = true;
+        view.ownsLocationImage = false;
+        view.locationImage = Texture2D{};
+    }
+
     unloadOwnedImage();
     sceneId = id;
     view = locationStruct;
+    if (preserve)
+    {
+        view.locationImage = preserved;
+        view.ownsLocationImage = true;
+    }
 }
 
 void ActiveScene::unloadOwnedImage()
@@ -51,11 +70,16 @@ bool ActiveScene::replaceLocationImage(const SceneDatabase& database, const std:
     if (!database.loadSceneTexture(imagePath, sceneTexture))
         return false;
 
-    unloadOwnedImage();
-    view.locationImage = sceneTexture;
-    view.ownsLocationImage = true;
-    view.isUnderConstruction = false;
+    adoptOwnedTexture(sceneTexture, false);
     return true;
+}
+
+void ActiveScene::adoptOwnedTexture(Texture2D texture, bool underConstruction)
+{
+    unloadOwnedImage();
+    view.locationImage = texture;
+    view.ownsLocationImage = (texture.id != 0);
+    view.isUnderConstruction = underConstruction;
 }
 
 }

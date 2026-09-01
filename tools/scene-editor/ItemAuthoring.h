@@ -156,7 +156,9 @@ nlohmann::json applyPayloadToItemJson(
     const ItemAuthoringPayload& payload,
     const nlohmann::json* existingOrNull);
 
-ItemAiAssistPlan planItemAiAssist(const ItemAuthoringPayload& payload);
+ItemAiAssistPlan planItemAiAssist(
+    const ItemAuthoringPayload& payload,
+    const std::string& resourceDir = {});
 
 bool writeItemAiAssistJobsFile(
     const std::string& assetRoot,

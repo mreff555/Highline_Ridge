@@ -124,6 +124,12 @@ bool storyFlagSet(const MaskEvalContext& context, const std::string& flag)
         && context.storyFlags->count(flag) > 0;
 }
 
+/** Wall-lamp / torch story gates (e.g. cellar_passage:lanterns_lit). */
+bool isLanternsLitStoryFlag(const std::string& flag)
+{
+    return flag.find("lanterns_lit") != std::string::npos;
+}
+
 bool maskConditionIsLightRequirement(
     const MaskCondition& condition,
     const MaskEvalContext& context)
@@ -132,7 +138,62 @@ bool maskConditionIsLightRequirement(
         return condition.value == "light_source";
     if (condition.type == MaskConditionType::PlayerHasItem)
         return itemDefIsLightSource(context, condition.value);
+    // Passage lamps lit via Use — treat as darkness/light, not a padlock.
+    if (condition.type == MaskConditionType::Flag && isLanternsLitStoryFlag(condition.value))
+        return true;
+    if (condition.type == MaskConditionType::All || condition.type == MaskConditionType::Any)
+    {
+        for (const MaskCondition& child : condition.children)
+        {
+            if (maskConditionIsLightRequirement(child, context))
+                return true;
+        }
+    }
     return false;
+}
+
+bool maskConditionIsGearRequirement(
+    const MaskCondition& condition,
+    const MaskEvalContext& context)
+{
+    if (condition.type == MaskConditionType::PlayerHasItem)
+        return !itemDefIsLightSource(context, condition.value);
+    if (condition.type == MaskConditionType::All || condition.type == MaskConditionType::Any)
+    {
+        for (const MaskCondition& child : condition.children)
+        {
+            if (maskConditionIsGearRequirement(child, context))
+                return true;
+        }
+    }
+    return false;
+}
+
+bool maskConditionIsLockRequirement(const MaskCondition& condition)
+{
+    if (condition.type == MaskConditionType::Flag)
+        return !isLanternsLitStoryFlag(condition.value);
+    if (condition.type == MaskConditionType::All || condition.type == MaskConditionType::Any)
+    {
+        for (const MaskCondition& child : condition.children)
+        {
+            if (maskConditionIsLockRequirement(child))
+                return true;
+        }
+    }
+    return false;
+}
+
+bool exitBlockedByRoomPurchase(
+    const SceneDatabase& database,
+    const SceneData& scene,
+    const std::string& direction,
+    const MaskEvalContext& context)
+{
+    ExitRequirementDef requirement;
+    if (!database.getExitRequirement(scene.id, direction, requirement))
+        return false;
+    return requirement.requiresRoomPurchasedToday && !context.roomPurchasedToday();
 }
 
 }
@@ -158,6 +219,8 @@ MovementBlockReason MovementResolver::blockReasonForDirection(
         return MovementBlockReason::None;
 
     bool needsLight = false;
+    bool needsGear = false;
+    bool needsLock = false;
     bool otherBlock = false;
 
     ExitRequirementDef requirement;
@@ -173,34 +236,34 @@ MovementBlockReason MovementResolver::blockReasonForDirection(
             if (itemDefIsLightSource(context, requirement.requiresInventoryItem))
                 needsLight = true;
             else
-                otherBlock = true;
+                needsGear = true;
         }
 
         if (!requirement.requiresInventoryItems.empty())
         {
-            bool missingLight = false;
-            bool missingOther = false;
             for (const std::string& itemId : requirement.requiresInventoryItems)
             {
                 if (playerHasItemDef(context, itemId))
                     continue;
                 if (itemDefIsLightSource(context, itemId))
-                    missingLight = true;
+                    needsLight = true;
                 else
-                    missingOther = true;
+                    needsGear = true;
             }
-            if (missingOther)
-                otherBlock = true;
-            else if (missingLight)
-                needsLight = true;
         }
 
-        if (requirement.requiresRoomPurchasedToday)
-            otherBlock = true;
+        if (requirement.requiresRoomPurchasedToday && !context.roomPurchasedToday())
+            needsLock = true;
 
         if (!requirement.requiresStoryFlag.empty()
             && !storyFlagSet(context, requirement.requiresStoryFlag))
-            otherBlock = true;
+        {
+            // e.g. cellar_passage:lanterns_lit → darkness badge, not padlock.
+            if (isLanternsLitStoryFlag(requirement.requiresStoryFlag))
+                needsLight = true;
+            else
+                needsLock = true;
+        }
     }
 
     const bool illuminated = hasIllumination(scene, activeSubSceneId, context);
@@ -208,13 +271,17 @@ MovementBlockReason MovementResolver::blockReasonForDirection(
     {
         if (isMappingEffectivelyMasked(mapping, context))
         {
-            if (maskConditionIsLightRequirement(mapping.unmaskWhen, context)
-                && !isMaskConditionMet(mapping.unmaskWhen, context))
-                needsLight = true;
-            else if (mapping.defaultMasked
-                && !isMaskConditionMet(mapping.unmaskWhen, context)
-                && !maskConditionIsLightRequirement(mapping.unmaskWhen, context))
-                otherBlock = true;
+            if (!isMaskConditionMet(mapping.unmaskWhen, context) && mapping.defaultMasked)
+            {
+                if (maskConditionIsLightRequirement(mapping.unmaskWhen, context))
+                    needsLight = true;
+                else if (maskConditionIsGearRequirement(mapping.unmaskWhen, context))
+                    needsGear = true;
+                else if (maskConditionIsLockRequirement(mapping.unmaskWhen))
+                    needsLock = true;
+                else
+                    otherBlock = true;
+            }
             continue;
         }
 
@@ -222,11 +289,19 @@ MovementBlockReason MovementResolver::blockReasonForDirection(
             needsLight = true;
     }
 
-    // Darkness badge only when light is the blocking reason — not when another
-    // lock would still keep the exit closed even with a lantern.
-    if (needsLight && !otherBlock)
-        return MovementBlockReason::NeedsLight;
-    if (needsLight || otherBlock)
+    // Show a specific badge only when that reason is the sole blocker.
+    const int reasonCount =
+        (needsLight ? 1 : 0) + (needsGear ? 1 : 0) + (needsLock ? 1 : 0) + (otherBlock ? 1 : 0);
+    if (reasonCount == 1)
+    {
+        if (needsLight)
+            return MovementBlockReason::NeedsLight;
+        if (needsGear)
+            return MovementBlockReason::NeedsGear;
+        if (needsLock)
+            return MovementBlockReason::NeedsLock;
+    }
+    if (reasonCount > 0)
         return MovementBlockReason::Other;
     return MovementBlockReason::Other;
 }
@@ -312,6 +387,10 @@ MovementResolution MovementResolver::resolveDirection(
         return resolution;
 
     if (!isDirectionBlanketed(scene, activeSubSceneId, direction))
+        return resolution;
+
+    // Hotel-style locks: requiresRoomPurchasedToday is not a mask condition.
+    if (exitBlockedByRoomPurchase(database, scene, direction, context))
         return resolution;
 
     const bool illuminated = hasIllumination(scene, activeSubSceneId, context);

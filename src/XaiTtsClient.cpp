@@ -1028,7 +1028,9 @@ void printGameHelp(const char* executableName)
         << "Usage:\n"
         << "  \"" << programName << "\" [options]\n\n"
         << "Options:\n"
-        << "  -h, --help                 Show this help message\n"
+        << "  -h, --help                 Show this help message\n";
+#if !defined(HIGHLINE_RELEASE)
+    std::cout
         << "  --key=API_KEY              x.ai API key for TTS refresh commands.\n"
         << "                             The key is not stored.\n"
         << "  --refresh-voices           After editing dialog in conversations.json,\n"
@@ -1044,24 +1046,35 @@ void printGameHelp(const char* executableName)
         << "                             to switch voices mid-line (ara, eve, leo, rex, sal).\n"
         << "                             Multi-voice lines save ttsAudioSegments and play\n"
         << "                             each segment in order.\n"
+        << "                             Dev/authoring only — not in release builds.\n"
+        << "                             Rebuild release after refreshing so the pak updates.\n"
         << "  --refresh=ID               Same as --refresh-voices, but only for one\n"
         << "                             conversation phase id, random line id, dialog\n"
         << "                             choice id, scene id, item id, or combine recipe id.\n"
         << "                             Requires --key.\n"
         << "  -force, --force            With refresh commands, ignore stored text\n"
-        << "                             hashes and regenerate every matching line.\n\n"
+        << "                             hashes and regenerate every matching line.\n\n";
+#endif
 #if defined(HIGHLINE_DEV_TOOLS)
+    std::cout
         << "In-game developer tools (this build):\n"
         << "  Ctrl+Shift+S               Toggle scene debug overlay\n"
         << "  ` or ~                     Toggle developer command console\n"
-        << "    give-item <item id>      Add an item (stacks if stackable)\n\n"
+        << "    give-item <item id>      Add an item (stacks if stackable)\n\n";
 #endif
+#if !defined(HIGHLINE_RELEASE)
+    std::cout
         << "Examples:\n"
         << "  \"" << programName << "\" --key=YOUR_XAI_API_KEY --refresh-voices\n"
         << "  \"" << programName << "\" --key=YOUR_XAI_API_KEY --refresh=blackjack_invite\n"
         << "  \"" << programName << "\" --key=YOUR_XAI_API_KEY --refresh=saloon_interior\n\n"
         << "Normal play uses the bundled voice files already in resources/audio/tts/\n"
         << "and does not call x.ai or require an API key.\n";
+#else
+    std::cout
+        << "This is a release build. TTS refresh CLI options are omitted;\n"
+        << "refresh voices with a dev build, then rebuild release to repack assets.\n";
+#endif
 }
 
 std::vector<TtsVoiceEntry> XaiTtsClient::collectVoiceEntries(

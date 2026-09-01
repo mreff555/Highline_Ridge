@@ -147,6 +147,8 @@ const std::vector<PauseMenuMgr::ConfigRow>& PauseMenuMgr::getConfigRows() const
         { ConfigRowType::SectionHeader, "DISPLAY", -1 },
         { ConfigRowType::CycleButton, "Resolution", -1 },
         { ConfigRowType::ToggleButton, "Fullscreen", -1 },
+        // Aspect preference stays "auto" in v1 (match window). Forced 16x9/16x10/21x9
+        // are supported in DisplayConfig / imageVariants for later UI.
         { ConfigRowType::SectionHeader, "INPUT", -1 },
         { ConfigRowType::Slider, "Click Hold Duration", kClickHoldSliderIndex },
         { ConfigRowType::SectionHeader, "SAVES", -1 },
@@ -158,9 +160,12 @@ const std::vector<PauseMenuMgr::ConfigRow>& PauseMenuMgr::getConfigRows() const
 Rectangle PauseMenuMgr::getPanelBounds() const
 {
     const float panelWidth = 460.0f;
-    // Title/in-game main panels now hold 5 rows.
+    // Title: 5 rows. In-game pause: 6 rows (includes Save Game).
+    float mainHeight = 500.0f;
+    if (panel == PauseMenuPanel::Main && context == PauseMenuContext::InGame)
+        mainHeight = 560.0f;
     const float panelHeight = panel == PauseMenuPanel::Main
-        ? 500.0f
+        ? mainHeight
         : std::min(760.0f, (float)screenHeight * 0.88f);
     return {
         (screenWidth - panelWidth) * 0.5f,
@@ -244,21 +249,39 @@ void PauseMenuMgr::layoutMainButtons()
     float startY = panel.y + 100.0f;
 
     // Title: Continue, Load Game, New Game, Config, Exit
-    // In-game: Resume, Load Game, New Game, Config, Exit
-    const char* first = context == PauseMenuContext::Title ? "Continue" : "Resume";
-    const char* labels[] = { first, "Load Game", "New Game", "Config", "Exit" };
-    for (size_t i = 0; i < 5; ++i)
+    // In-game: Resume, Save Game, Load Game, New Game, Config, Exit
+    // (Save was dropped when title/pause menus were unified; restore for in-game.)
+    if (context == PauseMenuContext::Title)
     {
-        buttons.push_back(Button(
-            labels[i],
-            { startX, startY },
-            { buttonWidth, buttonHeight },
-            uiFont,
-            buttonStyle));
-        // Continue disabled when no save exists.
-        if (i == 0 && context == PauseMenuContext::Title && !continueAvailable)
-            buttons.back().setEnabled(false);
-        startY += buttonHeight + gap;
+        const char* labels[] = { "Continue", "Load Game", "New Game", "Config", "Exit" };
+        for (size_t i = 0; i < 5; ++i)
+        {
+            buttons.push_back(Button(
+                labels[i],
+                { startX, startY },
+                { buttonWidth, buttonHeight },
+                uiFont,
+                buttonStyle));
+            if (i == 0 && !continueAvailable)
+                buttons.back().setEnabled(false);
+            startY += buttonHeight + gap;
+        }
+    }
+    else
+    {
+        const char* labels[] = {
+            "Resume", "Save Game", "Load Game", "New Game", "Config", "Exit"
+        };
+        for (size_t i = 0; i < 6; ++i)
+        {
+            buttons.push_back(Button(
+                labels[i],
+                { startX, startY },
+                { buttonWidth, buttonHeight },
+                uiFont,
+                buttonStyle));
+            startY += buttonHeight + gap;
+        }
     }
 }
 
@@ -650,29 +673,32 @@ void PauseMenuMgr::handleMainInput()
         if (!button.isClicked())
             continue;
 
-        // 0 Continue/Resume, 1 Load Game, 2 New Game, 3 Config, 4 Exit
-        switch (i)
+        // Title: 0 Continue, 1 Load, 2 New, 3 Config, 4 Exit
+        // In-game: 0 Resume, 1 Save, 2 Load, 3 New, 4 Config, 5 Exit
+        if (context == PauseMenuContext::Title)
         {
-            case 0:
-                if (context == PauseMenuContext::Title)
-                    continueRequested = true;
-                else
-                    resumeRequested = true;
-                break;
-            case 1:
-                openLoadMenuRequested = true;
-                break;
-            case 2:
-                newGameRequested = true;
-                break;
-            case 3:
-                showConfigPanel();
-                break;
-            case 4:
-                quitRequested = true;
-                break;
-            default:
-                break;
+            switch (i)
+            {
+                case 0: continueRequested = true; break;
+                case 1: openLoadMenuRequested = true; break;
+                case 2: newGameRequested = true; break;
+                case 3: showConfigPanel(); break;
+                case 4: quitRequested = true; break;
+                default: break;
+            }
+        }
+        else
+        {
+            switch (i)
+            {
+                case 0: resumeRequested = true; break;
+                case 1: openSaveMenuRequested = true; break;
+                case 2: openLoadMenuRequested = true; break;
+                case 3: newGameRequested = true; break;
+                case 4: showConfigPanel(); break;
+                case 5: quitRequested = true; break;
+                default: break;
+            }
         }
     }
 }

@@ -18,7 +18,7 @@
  ******************************************************************************/
 
 #include "ItemAuthoring.h"
-
+#include "EditorPrefs.h"
 #include "PlatformPath.h"
 
 #include <cctype>
@@ -539,13 +539,19 @@ nlohmann::json applyPayloadToItemJson(
     return item;
 }
 
-ItemAiAssistPlan planItemAiAssist(const ItemAuthoringPayload& payload)
+ItemAiAssistPlan planItemAiAssist(
+    const ItemAuthoringPayload& payload,
+    const std::string& resourceDir)
 {
     ItemAiAssistPlan plan;
     const std::string& desc = payload.description;
+    const std::string styleBlock = resourceDir.empty()
+        ? std::string{}
+        : formatGenerationStyleBlock(loadGenerationStyleFilter(resourceDir));
     const std::string styleHint =
         "Period western mountain-ridge adventure game, grounded physical prop, "
-        "no UI chrome, no text watermark.";
+        "no UI chrome, no text watermark. "
+        + styleBlock;
 
     if (payload.aiAssist.generateImageFromDescription)
     {

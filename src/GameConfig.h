@@ -42,6 +42,11 @@ struct DisplayConfig
     int x = -1;
     int y = -1;
     int monitor = -1;
+    /**
+     * Scene plate aspect preference: "auto" | "16x9" | "16x10" | "21x9".
+     * v1 UI stays on auto (match window); forced modes are ready for later.
+     */
+    std::string aspectPreference = "auto";
 };
 
 struct InputConfig

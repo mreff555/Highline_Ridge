@@ -43,6 +43,8 @@
 namespace timberline_editor
 {
 
+struct EditorPreferencesDialog;
+
 using timberline_engine::SceneLayout;
 
 
@@ -112,12 +114,17 @@ struct SceneMapCanvas
     std::vector<SceneLinkRoute> cachedLinkRoutes;
     int linkDragIndex = -1; // index into cachedLinkRoutes while dragging
     std::string linkDragHoverTarget;
-    static constexpr float kLinkHitSlop = 10.0f;
+    static constexpr float kLinkHitSlop = 12.0f;
 
     // New connector drag from a card direction port (F/B/L/R).
     std::string portDragFromId;
     std::string portDragDirection;
-    static constexpr float kPortHitSize = 14.0f;
+    /** Hit/visual size for F/B/L/R ports. Keep large — empty ports have no wire
+     *  to grab, and adjacent cards' facing ports often nearly overlap. */
+    static constexpr float kPortHitSize = 26.0f;
+    /** Brief HUD after a failed exit drop (cleared on next successful action). */
+    std::string exitLinkFeedback;
+    double exitLinkFeedbackUntil = 0.0;
 
     DocumentWorkspace* docs = nullptr;
     SceneGraphModel* graph = nullptr;
@@ -131,6 +138,9 @@ struct SceneMapCanvas
     SceneAssistDialog sceneAssist;
     SceneInventoryDialog sceneInventory;
     SceneEffectsDialog sceneEffects;
+    /** Optional topmost preferences modal (owned by SceneEditorApp). */
+    EditorPreferencesDialog* preferences = nullptr;
+    std::function<void()> openPreferences;
     std::string* selectionSceneId = nullptr;
     float* variablesScroll = nullptr;
     std::function<void()> requestReload;
@@ -138,6 +148,49 @@ struct SceneMapCanvas
     std::function<bool()> saveDocument;
     Font uiFont{};
     Font uiFontBold{};
+
+    // Right-click scene context menu (drawn late so list scissor cannot clip it).
+    enum class ContextMenuSource
+    {
+        None,
+        List,
+        Map
+    };
+    ContextMenuSource contextMenuSource = ContextMenuSource::None;
+    std::string contextMenuSceneId;
+    Rectangle contextMenuBounds{0.0f, 0.0f, 0.0f, 0.0f};
+    Vector2 contextMenuAnchor{0.0f, 0.0f};
+
+    // Confirm / purge overlays (hosted like the stack dialog).
+    enum class ConfirmMode
+    {
+        None,
+        RemoveFromMap,
+        DeleteScene
+    };
+    ConfirmMode confirmMode = ConfirmMode::None;
+    std::string confirmSceneId;
+    std::vector<std::string> pendingPurgePaths;
+    float purgeListScroll = 0.0f;
+    bool confirmWaitMouseRelease = false;
+
+    bool blocksInput() const;
+    bool anyAuthoringModalOpen() const;
+    void closeContextMenu();
+    void openContextMenu(
+        ContextMenuSource source,
+        const std::string& sceneId,
+        Vector2 mouse);
+    void beginRemoveFromMapConfirm(const std::string& sceneId);
+    void beginDeleteSceneConfirm(const std::string& sceneId);
+    void requestDeleteSelectedScene();
+    void cancelDragsForScene(const std::string& sceneId);
+    void performRemoveFromMap();
+    /** purgeUniqueAssets: delete unique files after removing the scene JSON. */
+    void performDeleteScene(bool purgeUniqueAssets);
+    void drawContextMenu();
+    void drawConfirmDialogs(int screenWidth, int screenHeight);
+    bool handleContextMenuClick(Vector2 mouse);
 
 
 Vector2 sceneCardScreenPos(const SceneLayout& sceneLayout, Rectangle canvasBounds) const;
