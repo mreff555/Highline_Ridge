@@ -108,6 +108,7 @@ set(EDITOR_SOURCES
     SceneAssistDialog.cpp
     SceneInventoryDialog.cpp
     SceneEffectsDialog.cpp
+    SceneTransitionDialog.cpp
     EditorPreferencesDialog.cpp
     SceneGraphModel.cpp
     SceneMapCanvas.cpp

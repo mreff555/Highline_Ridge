@@ -46,6 +46,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -107,6 +108,218 @@ void SceneGraphModel::clearExitTarget(const std::string& sceneId, const std::str
     // Direction-scoped requirements no longer apply without an exit.
     if (scene->contains("exitRequirements") && (*scene)["exitRequirements"].is_object())
         (*scene)["exitRequirements"].erase(direction);
+}
+
+
+bool SceneGraphModel::deleteExitLink(
+    const std::string& fromId,
+    const std::string& direction,
+    bool clearReciprocal)
+{
+    if (!docs || !docs->scenes.isLoaded())
+        return false;
+    if (fromId.empty() || direction.empty() || !docs->scenes.hasScene(fromId))
+        return false;
+
+    const std::string toId = getExitTarget(fromId, direction);
+    if (toId.empty())
+        return false;
+
+    const std::string reverseDir = oppositeDirection(direction);
+    const bool hadReciprocal =
+        clearReciprocal
+        && !reverseDir.empty()
+        && getExitTarget(toId, reverseDir) == fromId;
+
+    clearExitTarget(fromId, direction);
+    if (hadReciprocal)
+        clearExitTarget(toId, reverseDir);
+
+    docs->markDirty();
+    return true;
+}
+
+
+namespace
+{
+
+std::string sfxClipPath(const nlohmann::json& entry)
+{
+    if (entry.contains("path") && entry["path"].is_string())
+        return entry["path"].get<std::string>();
+    if (entry.contains("file") && entry["file"].is_string())
+        return entry["file"].get<std::string>();
+    return {};
+}
+
+std::string sfxClipTrigger(const nlohmann::json& entry)
+{
+    if (entry.contains("trigger") && entry["trigger"].is_string())
+        return entry["trigger"].get<std::string>();
+    return "on_enter";
+}
+
+bool isConstrainedEnter(const nlohmann::json& entry, const std::string& neighborId)
+{
+    if (sfxClipTrigger(entry) != "on_enter")
+        return false;
+    if (!entry.contains("from_room") || !entry["from_room"].is_string())
+        return false;
+    return entry["from_room"].get<std::string>() == neighborId;
+}
+
+bool isConstrainedExit(const nlohmann::json& entry, const std::string& neighborId)
+{
+    if (sfxClipTrigger(entry) != "on_exit")
+        return false;
+    if (!entry.contains("to_room") || !entry["to_room"].is_string())
+        return false;
+    return entry["to_room"].get<std::string>() == neighborId;
+}
+
+nlohmann::json* ensureSfxArray(nlohmann::json& scene)
+{
+    if (!scene.contains("audio") || !scene["audio"].is_object())
+        scene["audio"] = nlohmann::json::object();
+    nlohmann::json& audio = scene["audio"];
+    if (!audio.contains("sfx") || !audio["sfx"].is_array())
+        audio["sfx"] = nlohmann::json::array();
+    return &audio["sfx"];
+}
+
+} // namespace
+
+
+int SceneGraphModel::countConstrainedTransitionSfx(
+    const std::string& sceneId,
+    const std::string& neighborId) const
+{
+    const nlohmann::json* scene = docs ? docs->scenes.sceneJson(sceneId) : nullptr;
+    if (scene == nullptr || neighborId.empty())
+        return 0;
+    if (!scene->contains("audio") || !(*scene)["audio"].is_object())
+        return 0;
+    const auto& audio = (*scene)["audio"];
+    if (!audio.contains("sfx") || !audio["sfx"].is_array())
+        return 0;
+    int count = 0;
+    for (const auto& entry : audio["sfx"])
+    {
+        if (!entry.is_object())
+            continue;
+        if (isConstrainedEnter(entry, neighborId) || isConstrainedExit(entry, neighborId))
+            ++count;
+    }
+    return count;
+}
+
+
+std::string SceneGraphModel::preferTransitionSfxOwner(
+    const std::string& sceneA,
+    const std::string& sceneB,
+    const std::string& preferDefaultOwner) const
+{
+    const int countA = countConstrainedTransitionSfx(sceneA, sceneB);
+    const int countB = countConstrainedTransitionSfx(sceneB, sceneA);
+    if (countA > countB)
+        return sceneA;
+    if (countB > countA)
+        return sceneB;
+    if (!preferDefaultOwner.empty()
+        && (preferDefaultOwner == sceneA || preferDefaultOwner == sceneB))
+        return preferDefaultOwner;
+    return sceneB.empty() ? sceneA : sceneB;
+}
+
+
+SceneGraphModel::TransitionSfxPaths SceneGraphModel::readConstrainedTransitionSfx(
+    const std::string& ownerId,
+    const std::string& neighborId) const
+{
+    TransitionSfxPaths out;
+    const nlohmann::json* scene = docs ? docs->scenes.sceneJson(ownerId) : nullptr;
+    if (scene == nullptr || neighborId.empty())
+        return out;
+    if (!scene->contains("audio") || !(*scene)["audio"].is_object())
+        return out;
+    const auto& audio = (*scene)["audio"];
+    if (!audio.contains("sfx") || !audio["sfx"].is_array())
+        return out;
+    for (const auto& entry : audio["sfx"])
+    {
+        if (!entry.is_object())
+            continue;
+        if (out.enterPath.empty() && isConstrainedEnter(entry, neighborId))
+            out.enterPath = sfxClipPath(entry);
+        if (out.exitPath.empty() && isConstrainedExit(entry, neighborId))
+            out.exitPath = sfxClipPath(entry);
+    }
+    return out;
+}
+
+
+bool SceneGraphModel::upsertConstrainedTransitionSfx(
+    const std::string& ownerId,
+    const std::string& neighborId,
+    const std::string& enterPath,
+    const std::string& exitPath)
+{
+    if (!docs || !docs->scenes.isLoaded())
+        return false;
+    nlohmann::json* scene = docs->scenes.sceneJson(ownerId);
+    if (scene == nullptr || neighborId.empty() || ownerId == neighborId)
+        return false;
+
+    nlohmann::json* sfx = ensureSfxArray(*scene);
+    if (sfx == nullptr)
+        return false;
+
+    auto upsertOne = [&](bool isEnter, const std::string& path) {
+        const char* roomKey = isEnter ? "from_room" : "to_room";
+        const char* trigger = isEnter ? "on_enter" : "on_exit";
+        int found = -1;
+        for (int i = 0; i < static_cast<int>(sfx->size()); ++i)
+        {
+            const auto& entry = (*sfx)[static_cast<size_t>(i)];
+            if (!entry.is_object())
+                continue;
+            if (isEnter ? isConstrainedEnter(entry, neighborId)
+                        : isConstrainedExit(entry, neighborId))
+            {
+                found = i;
+                break;
+            }
+        }
+
+        if (path.empty())
+        {
+            if (found >= 0)
+                sfx->erase(sfx->begin() + found);
+            return;
+        }
+
+        if (found >= 0)
+        {
+            (*sfx)[static_cast<size_t>(found)]["path"] = path;
+            (*sfx)[static_cast<size_t>(found)]["trigger"] = trigger;
+            (*sfx)[static_cast<size_t>(found)][roomKey] = neighborId;
+            if (!(*sfx)[static_cast<size_t>(found)].contains("volume"))
+                (*sfx)[static_cast<size_t>(found)]["volume"] = 0.85f;
+            return;
+        }
+
+        nlohmann::json clip = nlohmann::json::object();
+        clip["path"] = path;
+        clip["trigger"] = trigger;
+        clip[roomKey] = neighborId;
+        clip["volume"] = 0.85f;
+        sfx->push_back(clip);
+    };
+
+    upsertOne(true, enterPath);
+    upsertOne(false, exitPath);
+    docs->markDirty();
+    return true;
 }
 
 
@@ -481,6 +694,204 @@ bool SceneGraphModel::directionDelta(const std::string& direction, int& outDCol,
 std::string SceneGraphModel::cellKey(int col, int row) const
 {
     return std::to_string(col) + "," + std::to_string(row);
+}
+
+
+void SceneGraphModel::cleanupLayoutLevel(int level)
+{
+    if (!docs || !docs->scenes.isLoaded())
+        return;
+
+    const std::vector<std::string> levelIds = scenesOnLevel(level);
+    if (levelIds.empty())
+        return;
+
+    // Continuous positions — do not re-grid / reshuffle the floor.
+    std::map<std::string, Vector2> pos;
+    std::map<std::string, float> height;
+    for (const std::string& id : levelIds)
+    {
+        const SceneLayout layout = docs->scenes.getLayout(id);
+        pos[id] = {layout.x, layout.y};
+        float h = kSceneCardMinHeight;
+        if (canvas != nullptr)
+            h = canvas->measureSceneCard(id).height;
+        height[id] = h;
+    }
+
+    const float cardW = kSceneCardWidth;
+    auto midX = [&](const std::string& id) {
+        return pos[id].x + cardW * 0.5f;
+    };
+    auto midY = [&](const std::string& id) {
+        return pos[id].y + height[id] * 0.5f;
+    };
+
+    struct Link
+    {
+        std::string from;
+        std::string to;
+        std::string dir;
+        int dCol = 0;
+        int dRow = 0;
+    };
+    std::vector<Link> links;
+    const char* dirs[] = {"forward", "backward", "left", "right"};
+    for (const std::string& id : levelIds)
+    {
+        for (const char* dir : dirs)
+        {
+            const std::string target = getExitTarget(id, dir);
+            if (target.empty() || pos.count(target) == 0)
+                continue;
+            if (!isSameLevelLink(id, target))
+                continue;
+            Link link;
+            link.from = id;
+            link.to = target;
+            link.dir = dir;
+            if (!directionDelta(dir, link.dCol, link.dRow))
+                continue;
+            links.push_back(link);
+        }
+    }
+
+    // Align ports on linked pairs so orthogonal stubs share an axis (straight mid-run).
+    // L/R → match mid-Y; F/B → match mid-X. Preserve neighborhood; average both cards.
+    for (int iter = 0; iter < 8; ++iter)
+    {
+        bool changed = false;
+        for (const Link& link : links)
+        {
+            if (link.dCol != 0)
+            {
+                // Horizontal exit: align vertical centers.
+                const float a = midY(link.from);
+                const float b = midY(link.to);
+                const float avg = 0.5f * (a + b);
+                const float newFromY = avg - height[link.from] * 0.5f;
+                const float newToY = avg - height[link.to] * 0.5f;
+                if (std::fabs(newFromY - pos[link.from].y) > 0.25f
+                    || std::fabs(newToY - pos[link.to].y) > 0.25f)
+                {
+                    pos[link.from].y = newFromY;
+                    pos[link.to].y = newToY;
+                    changed = true;
+                }
+            }
+            else if (link.dRow != 0)
+            {
+                // Vertical exit: align horizontal centers (width is uniform).
+                const float a = midX(link.from);
+                const float b = midX(link.to);
+                const float avg = 0.5f * (a + b);
+                const float newFromX = avg - cardW * 0.5f;
+                const float newToX = avg - cardW * 0.5f;
+                if (std::fabs(newFromX - pos[link.from].x) > 0.25f
+                    || std::fabs(newToX - pos[link.to].x) > 0.25f)
+                {
+                    pos[link.from].x = newFromX;
+                    pos[link.to].x = newToX;
+                    changed = true;
+                }
+            }
+        }
+        if (!changed)
+            break;
+    }
+
+    // Minimal overlap separation so cards do not stack after alignment.
+    const float gapX = kLayoutGapX * 0.35f;
+    const float gapY = kLayoutGapY * 0.35f;
+    for (int iter = 0; iter < 16; ++iter)
+    {
+        bool moved = false;
+        for (size_t i = 0; i < levelIds.size(); ++i)
+        {
+            for (size_t j = i + 1; j < levelIds.size(); ++j)
+            {
+                const std::string& a = levelIds[i];
+                const std::string& b = levelIds[j];
+                const float ax0 = pos[a].x;
+                const float ay0 = pos[a].y;
+                const float ax1 = ax0 + cardW;
+                const float ay1 = ay0 + height[a];
+                const float bx0 = pos[b].x;
+                const float by0 = pos[b].y;
+                const float bx1 = bx0 + cardW;
+                const float by1 = by0 + height[b];
+
+                const float overlapX = std::min(ax1, bx1) - std::max(ax0, bx0);
+                const float overlapY = std::min(ay1, by1) - std::max(ay0, by0);
+                if (overlapX <= 0.0f || overlapY <= 0.0f)
+                    continue;
+
+                // Push apart along the shallower penetration, plus a small gap.
+                if (overlapX < overlapY)
+                {
+                    const float push = (overlapX + gapX) * 0.5f;
+                    if (ax0 + cardW * 0.5f <= bx0 + cardW * 0.5f)
+                    {
+                        pos[a].x -= push;
+                        pos[b].x += push;
+                    }
+                    else
+                    {
+                        pos[a].x += push;
+                        pos[b].x -= push;
+                    }
+                }
+                else
+                {
+                    const float push = (overlapY + gapY) * 0.5f;
+                    if (ay0 + height[a] * 0.5f <= by0 + height[b] * 0.5f)
+                    {
+                        pos[a].y -= push;
+                        pos[b].y += push;
+                    }
+                    else
+                    {
+                        pos[a].y += push;
+                        pos[b].y -= push;
+                    }
+                }
+                moved = true;
+            }
+        }
+        if (!moved)
+            break;
+    }
+
+    // Re-run a couple of port-align passes after separation (separation can skew mids).
+    for (int iter = 0; iter < 4; ++iter)
+    {
+        for (const Link& link : links)
+        {
+            if (link.dCol != 0)
+            {
+                const float avg = 0.5f * (midY(link.from) + midY(link.to));
+                pos[link.from].y = avg - height[link.from] * 0.5f;
+                pos[link.to].y = avg - height[link.to] * 0.5f;
+            }
+            else if (link.dRow != 0)
+            {
+                const float avg = 0.5f * (midX(link.from) + midX(link.to));
+                pos[link.from].x = avg - cardW * 0.5f;
+                pos[link.to].x = avg - cardW * 0.5f;
+            }
+        }
+    }
+
+    for (const std::string& id : levelIds)
+    {
+        SceneLayout layout = docs->scenes.getLayout(id);
+        layout.x = pos[id].x;
+        layout.y = pos[id].y;
+        layout.level = level;
+        docs->scenes.setLayout(id, layout);
+    }
+
+    docs->markDirty();
 }
 
 
@@ -1016,11 +1427,21 @@ void SceneGraphModel::autoLayoutLevel(int level)
          ++it)
     {
         SceneLayout sceneLayout = docs->scenes.getLayout(it->first);
+        // Card width is uniform; vertically center shorter cards in the row cell
+        // so left/right mid-edge ports share a Y and wires can run straight.
+        float cardH = kSceneCardMinHeight;
+        if (canvas != nullptr)
+            cardH = canvas->measureSceneCard(it->first).height;
+        const float yPad = std::max(0.0f, (cellHeight - cardH) * 0.5f);
         sceneLayout.x = kLayoutOriginX + static_cast<float>(it->second.first - minCol) * pitchX;
-        sceneLayout.y = kLayoutOriginY + static_cast<float>(it->second.second - minRow) * pitchY;
+        sceneLayout.y = kLayoutOriginY
+            + static_cast<float>(it->second.second - minRow) * pitchY
+            + yPad;
         sceneLayout.level = level;
         docs->scenes.setLayout(it->first, sceneLayout);
     }
+
+    docs->markDirty();
 }
 
 

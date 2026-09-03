@@ -51,6 +51,7 @@ enum FocusId
     kFocusDepressed = 23,
     kFocusLabelOffX = 24,
     kFocusLabelOffY = 25,
+    kFocusMapDragPanSpeed = 26,
 };
 
 void insertUtf8(std::string& buffer, int codepoint)
@@ -250,6 +251,8 @@ std::string EditorPreferencesDialog::draftForField(int fieldId) const
         return fmtFloat(buttons.labelOffsetPressedX);
     case kFocusLabelOffY:
         return fmtFloat(buttons.labelOffsetPressedY);
+    case kFocusMapDragPanSpeed:
+        return fmtFloat(mapDragPanSpeed);
     default:
         return {};
     }
@@ -356,6 +359,10 @@ void EditorPreferencesDialog::commitFocusDraft()
         if (parseFloat(focusDraft, fv))
             buttons.labelOffsetPressedY = fv;
         break;
+    case kFocusMapDragPanSpeed:
+        if (parseFloat(focusDraft, fv))
+            mapDragPanSpeed = std::clamp(fv, 0.0f, 2000.0f);
+        break;
     default:
         break;
     }
@@ -385,6 +392,7 @@ void EditorPreferencesDialog::openDialog(
     resourceDir = resourceDirIn;
     assetRoot = assetRootIn;
     styleFilter = loadGenerationStyleFilter(resourceDir);
+    mapDragPanSpeed = loadMapDragPanSpeed(resourceDir);
     styleCaret = static_cast<int>(styleFilter.size());
     snapshotFromLive();
     status.clear();
@@ -424,6 +432,12 @@ bool EditorPreferencesDialog::applyAndSave()
         error = "Failed to save editor_prefs.json";
         return false;
     }
+    if (!saveMapDragPanSpeed(resourceDir, mapDragPanSpeed))
+    {
+        error = "Failed to save map drag/pan speed";
+        return false;
+    }
+    mapDragPanSpeed = loadMapDragPanSpeed(resourceDir);
 
     EditorButtonResources& res = editorButtons();
     res.working = working;
@@ -742,6 +756,32 @@ void EditorPreferencesDialog::draw(int screenW, int screenH)
         }
     }
     y += styleH + 16.0f;
+
+    // --- Map ---
+    DrawTextEx(font, "Map", {x, y}, kFontSmall, 1.0f, kTextPrimary);
+    y += 22.0f;
+    DrawTextEx(
+        font,
+        "Auto-pan speed when dragging near the map edge. 0 = off.",
+        {x, y},
+        kFontTiny,
+        1.0f,
+        kTextMuted);
+    y += 18.0f;
+    tryFocus(drawLabeledField(
+        font,
+        x,
+        y,
+        labelW,
+        120.0f,
+        fieldH,
+        "Drag/pan speed",
+        fieldValue(kFocusMapDragPanSpeed),
+        kFocusMapDragPanSpeed,
+        focusField,
+        canClick,
+        mouse));
+    y += rowGap + 8.0f;
 
     // --- Working overlay ---
     DrawTextEx(font, "Working overlay", {x, y}, kFontSmall, 1.0f, kTextPrimary);

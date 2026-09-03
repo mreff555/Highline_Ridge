@@ -130,6 +130,38 @@ bool saveGenerationStyleFilter(const std::string& resourceDir, const std::string
     return writePrefsObject(resourceDir, prefs);
 }
 
+namespace
+{
+constexpr float kDefaultMapDragPanSpeed = 320.0f;
+constexpr float kMinMapDragPanSpeed = 0.0f;
+constexpr float kMaxMapDragPanSpeed = 2000.0f;
+} // namespace
+
+float loadMapDragPanSpeed(const std::string& resourceDir)
+{
+    const nlohmann::json prefs = loadPrefsObject(resourceDir);
+    float speed = kDefaultMapDragPanSpeed;
+    if (prefs.contains("mapDragPanSpeed") && prefs["mapDragPanSpeed"].is_number())
+        speed = prefs["mapDragPanSpeed"].get<float>();
+    if (speed < kMinMapDragPanSpeed)
+        speed = kMinMapDragPanSpeed;
+    if (speed > kMaxMapDragPanSpeed)
+        speed = kMaxMapDragPanSpeed;
+    return speed;
+}
+
+bool saveMapDragPanSpeed(const std::string& resourceDir, float speedPxPerSec)
+{
+    float speed = speedPxPerSec;
+    if (speed < kMinMapDragPanSpeed)
+        speed = kMinMapDragPanSpeed;
+    if (speed > kMaxMapDragPanSpeed)
+        speed = kMaxMapDragPanSpeed;
+    nlohmann::json prefs = loadPrefsObject(resourceDir);
+    prefs["mapDragPanSpeed"] = speed;
+    return writePrefsObject(resourceDir, prefs);
+}
+
 std::vector<std::string> parseGenerationStyleClauses(const std::string& filter)
 {
     std::vector<std::string> out;

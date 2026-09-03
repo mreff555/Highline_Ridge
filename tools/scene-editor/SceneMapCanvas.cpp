@@ -24,6 +24,7 @@
 #include "DocumentWorkspace.h"
 #include "EditorButton.h"
 #include "EditorPaths.h"
+#include "EditorPrefs.h"
 #include "EditorTheme.h"
 #include "EditorTypes.h"
 #include "EditorUiDraw.h"
@@ -1403,8 +1404,9 @@ void SceneMapCanvas::drawLevelChrome(Rectangle canvasBounds)
         minLevel,
         maxLevel,
         onLevel);
+    const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
     DrawTextEx(
-        (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
+        font,
         levelLabel.c_str(),
         {canvasBounds.x + 12.0f, canvasBounds.y + 10.0f},
         kFontBody,
@@ -1422,19 +1424,43 @@ void SceneMapCanvas::drawLevelChrome(Rectangle canvasBounds)
         30.0f,
         24.0f};
 
+    // "Clean up" sized to the label (+ pad) so it is not ellipsized.
+    const char* cleanLabel = "Clean up";
+    const EditorButtonConfig& btnCfg = editorButtons().config;
+    const float cleanTextW = MeasureTextEx(font, cleanLabel, btnCfg.fontSize, 1.0f).x;
+    const float cleanW = std::clamp(
+        cleanTextW + btnCfg.padX * 2.0f + 8.0f,
+        std::max(btnCfg.minWidth, 96.0f),
+        btnCfg.maxWidth);
+    const float cleanH = std::max(24.0f, btnCfg.minHeight);
+    const Rectangle cleanBtn = {
+        levelDownBtn.x - cleanW - 8.0f,
+        canvasBounds.y + 8.0f,
+        cleanW,
+        cleanH};
+    const bool canClean =
+        docs->scenes.isLoaded()
+        && onLevel > 0
+        && !graph->stackDialogOpen
+        && !(docs->isConversationsTab())
+        && confirmMode == ConfirmMode::None
+        && contextMenuSource == ContextMenuSource::None
+        && !anyAuthoringModalOpen();
+
+    drawEditorButton(font, cleanBtn, cleanLabel, false, canClean);
     DrawRectangleRec(levelDownBtn, canGoDown ? kPanelAccent : kButtonDisabled);
     DrawRectangleRec(levelUpBtn, canGoUp ? kPanelAccent : kButtonDisabled);
     DrawRectangleLinesEx(levelDownBtn, 1.0f, canGoDown ? kPanelBorder : kTextDisabled);
     DrawRectangleLinesEx(levelUpBtn, 1.0f, canGoUp ? kPanelBorder : kTextDisabled);
     DrawTextEx(
-        (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
+        font,
         "-",
         {levelDownBtn.x + 10.0f, levelDownBtn.y + 3.0f},
         kFontTitle,
         1.0f,
         canGoDown ? kTextPrimary : kTextDisabled);
     DrawTextEx(
-        (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
+        font,
         "+",
         {levelUpBtn.x + 9.0f, levelUpBtn.y + 3.0f},
         kFontTitle,
@@ -1444,6 +1470,16 @@ void SceneMapCanvas::drawLevelChrome(Rectangle canvasBounds)
     if (!graph->stackDialogOpen && editorMousePressed(MOUSE_BUTTON_LEFT))
     {
         const Vector2 mouse = GetMousePosition();
+        if (canClean && CheckCollisionPointRec(mouse, cleanBtn))
+        {
+            // Port-align linked cards (keep neighborhood; straighten mid-runs).
+            graph->cleanupLayoutLevel(level);
+            cancelLinkDrag();
+            cancelPortDrag();
+            cachedLinkRoutes.clear();
+            exitLinkFeedback = "Map cleaned up";
+            exitLinkFeedbackUntil = GetTime() + 2.0;
+        }
         if (canGoDown && CheckCollisionPointRec(mouse, levelDownBtn))
             level -= 1;
         if (canGoUp && CheckCollisionPointRec(mouse, levelUpBtn))
@@ -1490,6 +1526,98 @@ SceneMapCanvas::CanvasContentBounds SceneMapCanvas::contentBoundsForLevel(int le
     return bounds;
 }
 
+
+void SceneMapCanvas::applyEdgeAutoPanWhileDragging(
+    Rectangle canvasBounds,
+    Rectangle contentView,
+    CanvasContentBounds& content,
+    float speedPxPerSec)
+{
+    if (speedPxPerSec <= 0.0f)
+        return;
+    if (draggingHScroll || draggingVScroll)
+        return;
+    if (!editorMouseDown(MOUSE_BUTTON_LEFT))
+        return;
+
+    const bool sceneDrag =
+        (dragSource == DragSource::Canvas || dragSource == DragSource::SceneList)
+        && !dragSceneId.empty();
+    const bool linkDrag =
+        dragSource == DragSource::ExitLink || dragSource == DragSource::ExitPort;
+    if (!sceneDrag && !linkDrag)
+        return;
+
+    Rectangle ghost{};
+    if (sceneDrag)
+    {
+        const SceneCardMetrics metrics = measureSceneCard(dragSceneId);
+        ghost = {
+            static_cast<float>(GetMouseX()) - dragOffset.x,
+            static_cast<float>(GetMouseY()) - dragOffset.y,
+            metrics.width,
+            metrics.height};
+    }
+    else
+    {
+        // Port/link: probe centered on cursor using half-card margins.
+        const float probeW = std::max(48.0f, kSceneCardWidth * 0.5f);
+        const float probeH = std::max(48.0f, kSceneCardMinHeight * 0.5f);
+        ghost = {
+            static_cast<float>(GetMouseX()) - probeW * 0.5f,
+            static_cast<float>(GetMouseY()) - probeH * 0.5f,
+            probeW,
+            probeH};
+    }
+
+    // Expand layout bounds so clamp allows panning past current content.
+    const float worldLeft = ghost.x - canvasBounds.x - scroll.x;
+    const float worldTop = ghost.y - canvasBounds.y - scroll.y;
+    const float worldRight = worldLeft + ghost.width;
+    const float worldBottom = worldTop + ghost.height;
+    if (!content.valid)
+    {
+        content.minX = worldLeft;
+        content.minY = worldTop;
+        content.maxX = worldRight;
+        content.maxY = worldBottom;
+        content.valid = true;
+    }
+    else
+    {
+        content.minX = std::min(content.minX, worldLeft);
+        content.minY = std::min(content.minY, worldTop);
+        content.maxX = std::max(content.maxX, worldRight);
+        content.maxY = std::max(content.maxY, worldBottom);
+    }
+
+    const float marginX = std::max(24.0f, ghost.width * 0.5f);
+    const float marginY = std::max(24.0f, ghost.height * 0.5f);
+    const float dt = GetFrameTime();
+    const float step = speedPxPerSec * dt;
+
+    // Overlap with edge strips inside contentView (half-card thick).
+    const bool hitLeft =
+        ghost.x < contentView.x + marginX && ghost.x + ghost.width > contentView.x;
+    const bool hitRight =
+        ghost.x + ghost.width > contentView.x + contentView.width - marginX
+        && ghost.x < contentView.x + contentView.width;
+    const bool hitTop =
+        ghost.y < contentView.y + marginY && ghost.y + ghost.height > contentView.y;
+    const bool hitBottom =
+        ghost.y + ghost.height > contentView.y + contentView.height - marginY
+        && ghost.y < contentView.y + contentView.height;
+
+    // scroll↑ moves content right on screen (reveals left). scroll↓ reveals right.
+    if (hitLeft)
+        scroll.x += step;
+    if (hitRight)
+        scroll.x -= step;
+    if (hitTop)
+        scroll.y += step;
+    if (hitBottom)
+        scroll.y -= step;
+}
 
 void SceneMapCanvas::clampCanvasScrollForCanvas(Rectangle canvasBounds, Rectangle contentView, const CanvasContentBounds& content)
 {
@@ -1701,7 +1829,7 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         return;
     }
 
-    const SceneMapCanvas::CanvasContentBounds content = contentBoundsForLevel(level);
+    SceneMapCanvas::CanvasContentBounds content = contentBoundsForLevel(level);
     const float fullViewW = canvasBounds.width;
     const float fullViewH = canvasBounds.height - kCanvasChromeHeight;
     bool showV = content.valid && content.height() > fullViewH + 0.5f;
@@ -1718,6 +1846,16 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         canvasBounds.width - (showV ? kScrollBarSize : 0.0f),
         canvasBounds.height - kCanvasChromeHeight - (showH ? kScrollBarSize : 0.0f)};
 
+    // Edge auto-pan while dragging (prefs: mapDragPanSpeed). Expands the
+    // content AABB so clamp allows panning past currently placed scenes.
+    if (docs != nullptr)
+    {
+        applyEdgeAutoPanWhileDragging(
+            canvasBounds,
+            contentView,
+            content,
+            loadMapDragPanSpeed(docs->resourceDir));
+    }
     clampCanvasScrollForCanvas(canvasBounds, contentView, content);
 
     BeginScissorMode(
@@ -1789,6 +1927,7 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         || sceneAssist.blocksInput()
         || sceneInventory.blocksInput()
         || sceneEffects.blocksInput()
+        || sceneTransition.blocksInput()
         || (preferences && preferences->blocksInput())
         || (variableEditor && variableEditor->open)
         || (itemEditor && itemEditor->blocksInput())
@@ -1840,9 +1979,10 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         }
     }
 
-    // Right-click map card → context menu (select only; never starts drag).
+    // Right-click map wire / card → context menu (select only; never starts drag).
     // Only handle when the cursor is over the map — otherwise a list right-click
     // would open a menu in drawSceneList and then get closed here on miss.
+    // Wires win over cards so edge connectors stay reachable.
     const bool canOpenMapContext =
         !graph->stackDialogOpen
         && !modalOpen
@@ -1853,22 +1993,36 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
     if (canOpenMapContext && editorMousePressed(MOUSE_BUTTON_RIGHT)
         && CheckCollisionPointRec(GetMousePosition(), contentView))
     {
-        bool hitCard = false;
-        for (const std::string& id : ids)
+        const Vector2 mouse = GetMousePosition();
+        bool opened = false;
+        // Exit-link menu is a geometry edit (delete / transition SFX).
+        if (!conversationsTab)
         {
-            if (!docs->scenes.hasMapPlacement(id))
-                continue;
-            const SceneLayout sceneLayout = docs->scenes.getLayout(id);
-            if (sceneLayout.level != level)
-                continue;
-            const Rectangle card = sceneCardBounds(id, canvasBounds);
-            if (!CheckCollisionPointRec(GetMousePosition(), card))
-                continue;
-            openContextMenu(ContextMenuSource::Map, id, GetMousePosition());
-            hitCard = true;
-            break;
+            const int linkHit = hitTestLinkRoute(mouse);
+            if (linkHit >= 0)
+            {
+                openLinkContextMenu(linkHit, mouse);
+                opened = true;
+            }
         }
-        if (!hitCard)
+        if (!opened)
+        {
+            for (const std::string& id : ids)
+            {
+                if (!docs->scenes.hasMapPlacement(id))
+                    continue;
+                const SceneLayout sceneLayout = docs->scenes.getLayout(id);
+                if (sceneLayout.level != level)
+                    continue;
+                const Rectangle card = sceneCardBounds(id, canvasBounds);
+                if (!CheckCollisionPointRec(mouse, card))
+                    continue;
+                openContextMenu(ContextMenuSource::Map, id, mouse);
+                opened = true;
+                break;
+            }
+        }
+        if (!opened)
             closeContextMenu();
     }
 
@@ -2123,6 +2277,7 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         || sceneAssist.blocksInput()
         || sceneInventory.blocksInput()
         || sceneEffects.blocksInput()
+        || sceneTransition.blocksInput()
         || (preferences && preferences->blocksInput())
         || (variableEditor && variableEditor->open)
         || (itemEditor && itemEditor->blocksInput())
@@ -2167,6 +2322,7 @@ bool SceneMapCanvas::anyAuthoringModalOpen() const
         || sceneAssist.blocksInput()
         || sceneInventory.blocksInput()
         || sceneEffects.blocksInput()
+        || sceneTransition.blocksInput()
         || (preferences && preferences->blocksInput())
         || (variableEditor && variableEditor->open)
         || (itemEditor && itemEditor->blocksInput())
@@ -2182,6 +2338,10 @@ void SceneMapCanvas::closeContextMenu()
 {
     contextMenuSource = ContextMenuSource::None;
     contextMenuSceneId.clear();
+    contextMenuLinkFromId.clear();
+    contextMenuLinkToId.clear();
+    contextMenuLinkDirection.clear();
+    contextMenuLinkReciprocal = false;
     contextMenuBounds = {0.0f, 0.0f, 0.0f, 0.0f};
     contextMenuAnchor = {0.0f, 0.0f};
 }
@@ -2191,7 +2351,8 @@ void SceneMapCanvas::openContextMenu(
     const std::string& sceneId,
     Vector2 mouse)
 {
-    if (source == ContextMenuSource::None || sceneId.empty() || docs == nullptr)
+    if (source == ContextMenuSource::None || source == ContextMenuSource::ExitLink
+        || sceneId.empty() || docs == nullptr)
         return;
     if (!docs->scenes.hasScene(sceneId))
         return;
@@ -2208,8 +2369,71 @@ void SceneMapCanvas::openContextMenu(
 
     contextMenuSource = source;
     contextMenuSceneId = sceneId;
+    contextMenuLinkFromId.clear();
+    contextMenuLinkToId.clear();
+    contextMenuLinkDirection.clear();
+    contextMenuLinkReciprocal = false;
     contextMenuAnchor = mouse;
     contextMenuBounds = {0.0f, 0.0f, 0.0f, 0.0f};
+}
+
+void SceneMapCanvas::openLinkContextMenu(int routeIndex, Vector2 mouse)
+{
+    if (routeIndex < 0 || routeIndex >= static_cast<int>(cachedLinkRoutes.size()))
+        return;
+    if (docs == nullptr || graph == nullptr)
+        return;
+    if (blocksInput())
+        return;
+
+    const SceneLinkRoute& route = cachedLinkRoutes[static_cast<size_t>(routeIndex)];
+    if (route.fromId.empty() || route.toId.empty() || route.direction.empty())
+        return;
+
+    dragSource = DragSource::None;
+    dragSceneId.clear();
+    cancelLinkDrag();
+    cancelPortDrag();
+
+    contextMenuSource = ContextMenuSource::ExitLink;
+    contextMenuSceneId.clear();
+    contextMenuLinkFromId = route.fromId;
+    contextMenuLinkToId = route.toId;
+    contextMenuLinkDirection = route.direction;
+    contextMenuLinkReciprocal = route.reciprocal;
+    contextMenuAnchor = mouse;
+    contextMenuBounds = {0.0f, 0.0f, 0.0f, 0.0f};
+}
+
+void SceneMapCanvas::deleteContextMenuLink()
+{
+    if (!graph || contextMenuLinkFromId.empty() || contextMenuLinkDirection.empty())
+        return;
+    graph->deleteExitLink(
+        contextMenuLinkFromId,
+        contextMenuLinkDirection,
+        /*clearReciprocal=*/true);
+    cancelLinkDrag();
+    cachedLinkRoutes.clear();
+}
+
+void SceneMapCanvas::editContextMenuLinkTransition()
+{
+    if (contextMenuLinkFromId.empty() || contextMenuLinkToId.empty())
+        return;
+    sceneTransition.docs = docs;
+    sceneTransition.graph = graph;
+    sceneTransition.uiFont = uiFont;
+    sceneTransition.uiFontBold = uiFontBold;
+    sceneTransition.onSaved = [this]() {
+        // Document already marked dirty by upsert.
+        (void)this;
+    };
+    // Prefer destination (toId) when neither side has constrained SFX yet.
+    sceneTransition.openForLink(
+        contextMenuLinkFromId,
+        contextMenuLinkToId,
+        contextMenuLinkToId);
 }
 
 void SceneMapCanvas::cancelDragsForScene(const std::string& sceneId)
@@ -2364,6 +2588,39 @@ bool SceneMapCanvas::handleContextMenuClick(Vector2 mouse)
     int i = static_cast<int>((mouse.y - contextMenuBounds.y - 2.0f) / rowH);
     const std::string sceneId = contextMenuSceneId;
     const ContextMenuSource source = contextMenuSource;
+    // Snapshot link identity before closeContextMenu() clears it.
+    const std::string linkFrom = contextMenuLinkFromId;
+    const std::string linkTo = contextMenuLinkToId;
+    const std::string linkDir = contextMenuLinkDirection;
+
+    if (source == ContextMenuSource::ExitLink)
+    {
+        closeContextMenu();
+        if (i == 0)
+        {
+            if (graph && !linkFrom.empty() && !linkDir.empty())
+            {
+                graph->deleteExitLink(linkFrom, linkDir, /*clearReciprocal=*/true);
+                cancelLinkDrag();
+                cachedLinkRoutes.clear();
+            }
+            return true;
+        }
+        if (i == 1)
+        {
+            if (!linkFrom.empty() && !linkTo.empty())
+            {
+                sceneTransition.docs = docs;
+                sceneTransition.graph = graph;
+                sceneTransition.uiFont = uiFont;
+                sceneTransition.uiFontBold = uiFontBold;
+                sceneTransition.onSaved = [this]() { (void)this; };
+                sceneTransition.openForLink(linkFrom, linkTo, linkTo);
+            }
+            return true;
+        }
+        return true;
+    }
 
     if (i == 0)
     {
@@ -2386,7 +2643,10 @@ bool SceneMapCanvas::handleContextMenuClick(Vector2 mouse)
 
 void SceneMapCanvas::drawContextMenu()
 {
-    if (contextMenuSource == ContextMenuSource::None || contextMenuSceneId.empty())
+    const bool isLinkMenu = contextMenuSource == ContextMenuSource::ExitLink;
+    if (contextMenuSource == ContextMenuSource::None
+        || (!isLinkMenu && contextMenuSceneId.empty())
+        || (isLinkMenu && contextMenuLinkFromId.empty()))
     {
         contextMenuBounds = {0.0f, 0.0f, 0.0f, 0.0f};
         return;
@@ -2394,15 +2654,17 @@ void SceneMapCanvas::drawContextMenu()
 
     const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
     // ASCII "..." — UI fonts often lack U+2026 and draw it as '?'.
-    const char* item0 = "Edit...";
-    const char* item1 = (contextMenuSource == ContextMenuSource::Map)
-        ? "Remove from map"
-        : "Delete scene...";
+    const char* item0 = isLinkMenu ? "Delete" : "Edit...";
+    const char* item1 = isLinkMenu
+        ? "Edit Transition..."
+        : ((contextMenuSource == ContextMenuSource::Map)
+               ? "Remove from map"
+               : "Delete scene...");
     const float rowH = 22.0f;
     const float pad = 10.0f;
     const float w0 = MeasureTextEx(font, item0, kFontSmall, 1.0f).x;
     const float w1 = MeasureTextEx(font, item1, kFontSmall, 1.0f).x;
-    const float menuW = std::max(160.0f, std::max(w0, w1) + pad * 2.0f);
+    const float menuW = std::max(180.0f, std::max(w0, w1) + pad * 2.0f);
     const float menuH = rowH * 2.0f + 4.0f;
 
     float x = contextMenuAnchor.x;
@@ -2789,6 +3051,7 @@ void SceneMapCanvas::drawSceneList(Rectangle listBounds)
         && !sceneAssist.blocksInput()
         && !sceneInventory.blocksInput()
         && !sceneEffects.blocksInput()
+        && !sceneTransition.blocksInput()
         && !(preferences && preferences->blocksInput())
         && confirmMode == ConfirmMode::None
         && contextMenuSource == ContextMenuSource::None;
@@ -2901,6 +3164,7 @@ void SceneMapCanvas::drawSceneList(Rectangle listBounds)
         && !sceneAssist.blocksInput()
         && !sceneInventory.blocksInput()
         && !sceneEffects.blocksInput()
+        && !sceneTransition.blocksInput()
         && !(preferences && preferences->blocksInput())
         && confirmMode == ConfirmMode::None;
     if (canOpenContext && CheckCollisionPointRec(mouse, treeBounds)
@@ -3380,6 +3644,7 @@ void SceneMapCanvas::drawScenePreviewPane(Rectangle paneBounds)
         && !sceneAssist.blocksInput()
         && !sceneInventory.blocksInput()
         && !sceneEffects.blocksInput()
+        && !sceneTransition.blocksInput()
         && !(preferences && preferences->blocksInput())
         && confirmMode == ConfirmMode::None;
 
@@ -3633,6 +3898,7 @@ void SceneMapCanvas::drawBottomPane(Rectangle bottomBounds)
         && !sceneAssist.blocksInput()
         && !sceneInventory.blocksInput()
         && !sceneEffects.blocksInput()
+        && !sceneTransition.blocksInput()
         && !(preferences && preferences->blocksInput())
         && !(itemEditor && itemEditor->blocksInput())
         && !(variableEditor && variableEditor->open)
@@ -3676,6 +3942,7 @@ void SceneMapCanvas::drawStatusBar(int screenWidth, int screenHeight)
         && !sceneAssist.blocksInput()
         && !sceneInventory.blocksInput()
         && !sceneEffects.blocksInput()
+        && !sceneTransition.blocksInput()
         && confirmMode == ConfirmMode::None;
 
     DrawTextEx(
@@ -3827,6 +4094,7 @@ void SceneMapCanvas::draw()
     sceneAssist.draw(screenWidth, screenHeight);
     sceneInventory.draw(screenWidth, screenHeight);
     sceneEffects.draw(screenWidth, screenHeight);
+    sceneTransition.draw(screenWidth, screenHeight);
     if (preferences)
         preferences->draw(screenWidth, screenHeight);
 
