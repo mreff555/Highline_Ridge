@@ -39,6 +39,8 @@ struct EditorPreferencesDialog
     float textFieldPadY = 6.0f;
     float textFieldScrollGutter = 12.0f;
     EditorButtonConfig buttons{};
+    /** Map edge auto-pan while dragging scenes (px/s). 0 = off. */
+    float mapDragPanSpeed = 320.0f;
 
     std::string status;
     std::string error;

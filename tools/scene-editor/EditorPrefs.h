@@ -34,6 +34,11 @@ std::string loadGenerationStyleFilter(const std::string& resourceDir);
 
 bool saveGenerationStyleFilter(const std::string& resourceDir, const std::string& filter);
 
+/** Map edge auto-pan speed while dragging (pixels/sec). 0 disables. Default 320. */
+float loadMapDragPanSpeed(const std::string& resourceDir);
+
+bool saveMapDragPanSpeed(const std::string& resourceDir, float speedPxPerSec);
+
 /** Split filter on ';' → trimmed non-empty clauses (order preserved). */
 std::vector<std::string> parseGenerationStyleClauses(const std::string& filter);
 

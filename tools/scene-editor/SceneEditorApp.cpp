@@ -148,6 +148,8 @@ void SceneEditorApp::wireModules()
         if (!selectedSceneId.empty())
             mapCanvas.sceneEffects.openForScene(selectedSceneId);
     };
+    mapCanvas.sceneTransition.docs = &document;
+    mapCanvas.sceneTransition.graph = &sceneGraph;
 
     mapCanvas.preferences = &preferences;
     mapCanvas.openPreferences = [this]()
@@ -176,6 +178,8 @@ void SceneEditorApp::syncModuleFonts()
     mapCanvas.sceneInventory.uiFontBold = uiFontBold;
     mapCanvas.sceneEffects.uiFont = uiFont;
     mapCanvas.sceneEffects.uiFontBold = uiFontBold;
+    mapCanvas.sceneTransition.uiFont = uiFont;
+    mapCanvas.sceneTransition.uiFontBold = uiFontBold;
     preferences.uiFont = uiFont;
     preferences.uiFontBold = uiFontBold;
 }
@@ -407,6 +411,7 @@ void SceneEditorApp::handleShortcuts()
         || mapCanvas.sceneAssist.blocksInput()
         || mapCanvas.sceneInventory.blocksInput()
         || mapCanvas.sceneEffects.blocksInput()
+        || mapCanvas.sceneTransition.blocksInput()
         || mapCanvas.confirmMode != SceneMapCanvas::ConfirmMode::None
         || mapCanvas.contextMenuSource != SceneMapCanvas::ContextMenuSource::None)
         return;
@@ -443,6 +448,7 @@ void SceneEditorApp::update()
             && !mapCanvas.sceneAssist.blocksInput()
             && !mapCanvas.sceneInventory.blocksInput()
             && !mapCanvas.sceneEffects.blocksInput()
+            && !mapCanvas.sceneTransition.blocksInput()
             && mapCanvas.confirmMode == SceneMapCanvas::ConfirmMode::None)
         {
             preferences.openDialog(document.resourceDir, document.assetRoot);
@@ -461,6 +467,7 @@ void SceneEditorApp::update()
         && !mapCanvas.sceneAssist.blocksInput()
         && !mapCanvas.sceneInventory.blocksInput()
         && !mapCanvas.sceneEffects.blocksInput()
+        && !mapCanvas.sceneTransition.blocksInput()
         && mapCanvas.confirmMode == SceneMapCanvas::ConfirmMode::None
         && mapCanvas.contextMenuSource == SceneMapCanvas::ContextMenuSource::None)
     {
@@ -501,7 +508,14 @@ void SceneEditorApp::update()
         return;
     }
 
-    // Topmost modal wins input (draw order: authoring → assist → inventory → effects → prefs).
+    // Topmost modal wins input (draw order: authoring → assist → inventory →
+    // effects → transition → prefs).
+    if (mapCanvas.sceneTransition.blocksInput())
+    {
+        mapCanvas.sceneTransition.handleInput(screenWidth, screenHeight);
+        return;
+    }
+
     if (mapCanvas.sceneEffects.blocksInput())
     {
         mapCanvas.sceneEffects.handleInput(screenWidth, screenHeight);

@@ -52,6 +52,50 @@ void setExitTarget(const std::string& sceneId, const std::string& direction, con
 // Remove exits[direction] and clear movement[direction].
 void clearExitTarget(const std::string& sceneId, const std::string& direction);
 
+/**
+ * Delete fromId --direction--> target. When clearReciprocal is true and the
+ * reverse exit points back, clears that too. Does not touch audio.sfx.
+ */
+bool deleteExitLink(
+    const std::string& fromId,
+    const std::string& direction,
+    bool clearReciprocal = true);
+
+struct TransitionSfxPaths
+{
+    std::string enterPath; // on_enter + from_room=neighbor
+    std::string exitPath;  // on_exit + to_room=neighbor
+};
+
+/** Count constrained enter/exit clips on sceneId that name neighborId. */
+int countConstrainedTransitionSfx(
+    const std::string& sceneId,
+    const std::string& neighborId) const;
+
+/**
+ * Prefer the endpoint that already owns door SFX for this edge; ties / none →
+ * preferDefaultOwner (usually the wire's toId).
+ */
+std::string preferTransitionSfxOwner(
+    const std::string& sceneA,
+    const std::string& sceneB,
+    const std::string& preferDefaultOwner) const;
+
+/** Read enter/exit paths stored on owner for neighbor. */
+TransitionSfxPaths readConstrainedTransitionSfx(
+    const std::string& ownerId,
+    const std::string& neighborId) const;
+
+/**
+ * Upsert/remove constrained enter/exit clips on owner for neighbor.
+ * Empty path removes that matching entry; unrelated sfx are left alone.
+ */
+bool upsertConstrainedTransitionSfx(
+    const std::string& ownerId,
+    const std::string& neighborId,
+    const std::string& enterPath,
+    const std::string& exitPath);
+
 // True if some scene other than ignoreFromId already has exits[direction] == targetId.
 bool exitDirectionAlreadyLeadsTo(
     const std::string& direction,
@@ -91,6 +135,12 @@ bool directionDelta(const std::string& direction, int& outDCol, int& outDRow) co
 std::string cellKey(int col, int row) const;
 
 void autoLayoutLevel(int level);
+
+/**
+ * Straighten wires on one floor without reshuffling: align mid-edge ports of
+ * linked F/B/L/R pairs (shared X or Y), then gently separate overlaps.
+ */
+void cleanupLayoutLevel(int level);
 
 void autoLayoutAllLevels();
 

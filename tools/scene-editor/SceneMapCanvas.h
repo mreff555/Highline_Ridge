@@ -34,6 +34,7 @@
 #include "SceneAssistDialog.h"
 #include "SceneInventoryDialog.h"
 #include "SceneEffectsDialog.h"
+#include "SceneTransitionDialog.h"
 
 #include <functional>
 #include <string>
@@ -138,6 +139,7 @@ struct SceneMapCanvas
     SceneAssistDialog sceneAssist;
     SceneInventoryDialog sceneInventory;
     SceneEffectsDialog sceneEffects;
+    SceneTransitionDialog sceneTransition;
     /** Optional topmost preferences modal (owned by SceneEditorApp). */
     EditorPreferencesDialog* preferences = nullptr;
     std::function<void()> openPreferences;
@@ -149,15 +151,21 @@ struct SceneMapCanvas
     Font uiFont{};
     Font uiFontBold{};
 
-    // Right-click scene context menu (drawn late so list scissor cannot clip it).
+    // Right-click scene / exit-link context menu (drawn late so list scissor
+    // cannot clip it).
     enum class ContextMenuSource
     {
         None,
         List,
-        Map
+        Map,
+        ExitLink
     };
     ContextMenuSource contextMenuSource = ContextMenuSource::None;
     std::string contextMenuSceneId;
+    std::string contextMenuLinkFromId;
+    std::string contextMenuLinkToId;
+    std::string contextMenuLinkDirection;
+    bool contextMenuLinkReciprocal = false;
     Rectangle contextMenuBounds{0.0f, 0.0f, 0.0f, 0.0f};
     Vector2 contextMenuAnchor{0.0f, 0.0f};
 
@@ -181,6 +189,9 @@ struct SceneMapCanvas
         ContextMenuSource source,
         const std::string& sceneId,
         Vector2 mouse);
+    void openLinkContextMenu(int routeIndex, Vector2 mouse);
+    void deleteContextMenuLink();
+    void editContextMenuLinkTransition();
     void beginRemoveFromMapConfirm(const std::string& sceneId);
     void beginDeleteSceneConfirm(const std::string& sceneId);
     void requestDeleteSelectedScene();
@@ -293,6 +304,16 @@ void drawLevelChrome(Rectangle canvasBounds);
 CanvasContentBounds contentBoundsForLevel(int level) const;
 
 void clampCanvasScrollForCanvas(Rectangle canvasBounds, Rectangle contentView, const CanvasContentBounds& content);
+
+/**
+ * While dragging near a viewport edge, pan the map. Expands clamp bounds so
+ * the ghost can pull the view past current content. speedPxPerSec from prefs.
+ */
+void applyEdgeAutoPanWhileDragging(
+    Rectangle canvasBounds,
+    Rectangle contentView,
+    CanvasContentBounds& content,
+    float speedPxPerSec);
 
 void drawCanvasScrollBars(
     Rectangle canvasBounds,
