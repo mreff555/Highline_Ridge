@@ -502,7 +502,8 @@ void SceneInventoryDialog::draw(int screenW, int screenH)
 
     const Rectangle addBtn = {
         content.x + 10.0f, content.y + content.height - 40.0f, 120.0f, 30.0f};
-    drawEditorButton(font, addBtn, "Add item…", true, true);
+    // ASCII "..." — UI fonts often lack U+2026 and draw it as '?'.
+    drawEditorButton(font, addBtn, "Add item...", true, true);
     if (canClick && CheckCollisionPointRec(mouse, addBtn))
     {
         addPickerOpen = !addPickerOpen;
