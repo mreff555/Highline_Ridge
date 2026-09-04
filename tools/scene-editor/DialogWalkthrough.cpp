@@ -1113,8 +1113,9 @@ void DialogWalkthrough::draw(Rectangle pane)
     bx += 118.0f;
     voiceBtnRect = {bx, by, 130.0f, btnH};
 
-    drawEditorButton(font, prevBtn, "◀ Prev", false, index > 0);
-    drawEditorButton(font, nextBtn, "Next ▶", false, index + 1 < static_cast<int>(steps.size()));
+    // ASCII-only labels: UI fonts often lack ◀/▶ and draw them as '?'.
+    drawEditorButton(font, prevBtn, "Prev", false, index > 0);
+    drawEditorButton(font, nextBtn, "Next", false, index + 1 < static_cast<int>(steps.size()));
     drawEditorButton(font, saveBtn, dirtyStep ? "Save *" : "Save", true, true);
 
     DrawRectangleRounded(sideTrack, 0.5f, 6, Color{44, 42, 52, 255});

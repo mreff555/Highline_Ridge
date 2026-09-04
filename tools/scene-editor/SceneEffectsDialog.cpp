@@ -515,7 +515,7 @@ void SceneEffectsDialog::draw(int screenW, int screenH)
 
     DrawTextEx(font, "Examine", {x, y}, kFontSmall, 1.0f, kTextPrimary);
     y += 22.0f;
-    DrawTextEx(font, "Lucidity Δ", {x, y}, kFontTiny, 1.0f, kTextMuted);
+    DrawTextEx(font, "Lucidity delta", {x, y}, kFontTiny, 1.0f, kTextMuted);
     const Rectangle examBox = {x, y + 16.0f, 120.0f, 28.0f};
     DrawRectangleRec(examBox, Color{22, 20, 28, 255});
     DrawRectangleLinesEx(
