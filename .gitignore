@@ -90,7 +90,7 @@ tools/__pycache__/
 *.swp
 *.swo
 .idea/
-.vscode/detective-game-vscode-backup/
+.vscode/
 
 # One-off restore dumps and authoring source intermediates
 _github_restore/
