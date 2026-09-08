@@ -466,7 +466,7 @@ void SceneInventoryDialog::draw(int screenW, int screenH)
                 std::string(entry.requiresExamine ? "Requires examine" : "Take anytime")
                 + (entry.requiresStoryFlag.empty()
                        ? ""
-                       : (" · flag: " + entry.requiresStoryFlag));
+                       : ("  |  flag: " + entry.requiresStoryFlag));
             DrawTextEx(
                 font,
                 meta.c_str(),
@@ -572,7 +572,7 @@ void SceneInventoryDialog::draw(int screenW, int screenH)
         DrawRectangleLinesEx(filter, 1.0f, kPanelBorder);
         DrawTextEx(
             font,
-            addFilter.empty() ? "Filter…" : addFilter.c_str(),
+            addFilter.empty() ? "Filter..." : addFilter.c_str(),
             {filter.x + 8.0f, filter.y + 6.0f},
             kFontSmall,
             1.0f,

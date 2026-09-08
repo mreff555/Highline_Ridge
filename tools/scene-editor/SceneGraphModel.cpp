@@ -1712,6 +1712,10 @@ bool SceneGraphModel::setUseBindingTarget(
     if (binding == "useExit")
     {
         (*node)["useExit"] = targetMapNode;
+        // Map-drawn Use exits should remain usable as transitions (not one-shot).
+        (*node)["useRepeatStatus"] = true;
+        if (node->value("useDetails", "").empty())
+            (*node)["useDetails"] = "You make your way through.";
         docs->markDirty();
         return true;
     }
@@ -1828,8 +1832,14 @@ std::string SceneGraphModel::createUseInteractionBinding(
     const std::string newId = "use_map_" + std::to_string(next);
     nlohmann::json stub = nlohmann::json::object();
     stub["id"] = newId;
-    stub["label"] = labelHint.empty() ? ("Use → " + targetMapNode) : labelHint;
+    stub["label"] = labelHint.empty() ? ("Use -> " + targetMapNode) : labelHint;
     stub["exitSceneId"] = targetMapNode;
+    // Map-drawn Use links are meant to stay available as room transitions.
+    stub["repeat"] = true;
+    if (!labelHint.empty())
+        stub["useDetails"] = labelHint;
+    else
+        stub["useDetails"] = "You make your way through.";
     interactions.push_back(stub);
     docs->markDirty();
     return "interaction:" + newId;

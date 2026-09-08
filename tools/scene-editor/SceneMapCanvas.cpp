@@ -1631,7 +1631,7 @@ bool SceneMapCanvas::placeSceneListDrop(Vector2 mouse, Rectangle canvasBounds, R
             return false;
         if (thumbnails)
             thumbnails->clear();
-        TraceLog(LOG_INFO, "TIMBERLINE: duplicated scene %s → %s", dragSceneId.c_str(), placeId.c_str());
+        TraceLog(LOG_INFO, "TIMBERLINE: duplicated scene %s -> %s", dragSceneId.c_str(), placeId.c_str());
     }
 
     SceneLayout sceneLayout{};
@@ -2443,19 +2443,60 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         else if (hitTestUseCornerPort(
                      GetMousePosition(), canvasBounds, portScene, portDir))
         {
-            portDragFromId = portScene;
-            portDragDirection = portDir;
-            portDragUseBinding = useBindingAtCorner(portScene, portDir);
-            portDragMovingExisting = !portDragUseBinding.empty();
-            dragSource = DragSource::UsePort;
-            linkDragHoverTarget.clear();
-            if (selectSceneForEditor)
+            bool asDestination = false;
+            const std::string binding =
+                useEndpointAtCorner(portScene, portDir, &asDestination);
+            // Destination-corner grab must retarget via the owning Use wire.
+            // Treating the destination card as the binding owner used to start a
+            // bogus create/move and made dest endpoints feel undraggable (#26).
+            int destRouteIndex = -1;
+            if (!binding.empty() && asDestination)
             {
-                std::string parent;
-                std::string sub;
-                timberline_engine::SceneDocument::parseMapNodeId(
-                    portScene, parent, sub);
-                selectSceneForEditor(parent.empty() ? portScene : parent);
+                for (size_t i = 0; i < cachedLinkRoutes.size(); ++i)
+                {
+                    const SceneLinkRoute& route = cachedLinkRoutes[i];
+                    if (route.isUseLink && route.useBinding == binding
+                        && route.toId == portScene && route.toCorner == portDir)
+                    {
+                        destRouteIndex = static_cast<int>(i);
+                        break;
+                    }
+                }
+            }
+            if (destRouteIndex >= 0)
+            {
+                linkDragIndex = destRouteIndex;
+                dragSource = DragSource::UseLink;
+                linkDragHoverTarget.clear();
+                if (selectSceneForEditor)
+                {
+                    std::string parent;
+                    std::string sub;
+                    timberline_engine::SceneDocument::parseMapNodeId(
+                        cachedLinkRoutes[static_cast<size_t>(destRouteIndex)].fromId,
+                        parent,
+                        sub);
+                    selectSceneForEditor(parent.empty()
+                        ? cachedLinkRoutes[static_cast<size_t>(destRouteIndex)].fromId
+                        : parent);
+                }
+            }
+            else
+            {
+                portDragFromId = portScene;
+                portDragDirection = portDir;
+                portDragUseBinding = binding;
+                portDragMovingExisting = !portDragUseBinding.empty();
+                dragSource = DragSource::UsePort;
+                linkDragHoverTarget.clear();
+                if (selectSceneForEditor)
+                {
+                    std::string parent;
+                    std::string sub;
+                    timberline_engine::SceneDocument::parseMapNodeId(
+                        portScene, parent, sub);
+                    selectSceneForEditor(parent.empty() ? portScene : parent);
+                }
             }
         }
         else
@@ -2930,7 +2971,7 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
                                 portDragFromId, created, dropPortDir);
                         }
                         cachedLinkRoutes.clear();
-                        exitLinkFeedback = "Use link created — Manage to rebind";
+                        exitLinkFeedback = "Use link created  -  Manage to rebind";
                         exitLinkFeedbackUntil = GetTime() + 2.5;
                     }
                 }

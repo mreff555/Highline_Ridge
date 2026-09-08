@@ -160,7 +160,7 @@ float drawLabeledField(
         box, 1.0f, focusField == fieldId ? kPanelBorder : kPanelInnerEdge);
 
     const std::string shown =
-        value.size() > 80 ? value.substr(0, 77) + "…" : value;
+        value.size() > 80 ? value.substr(0, 77) + "..." : value;
     DrawTextEx(
         font,
         shown.c_str(),

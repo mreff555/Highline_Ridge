@@ -345,7 +345,7 @@ void SceneAssistDialog::pollGenerateResult()
         if (!loadPreviewTexture(previewRelPath))
             error = "Generated, but could not load preview image.";
         else
-            status = "Preview ready — Accept to keep, or Revert.";
+            status = "Preview ready  -  Accept to keep, or Revert.";
     }
     else if (previewTarget == 2 || previewTarget == 3)
     {
@@ -353,7 +353,7 @@ void SceneAssistDialog::pollGenerateResult()
             error = "Generated, but could not load preview audio.";
         else
         {
-            status = "Preview ready — Play below, then Accept or Revert.";
+            status = "Preview ready  -  Play below, then Accept or Revert.";
             PlayMusicStream(previewMusic);
             previewMusicPlaying = true;
         }
@@ -376,7 +376,7 @@ void SceneAssistDialog::startGenerate(int target)
     error.clear();
     if (payload.description.empty())
     {
-        error = "Scene description is empty — AI needs it as context. "
+        error = "Scene description is empty  -  AI needs it as context. "
                 "Edit the description first.";
         return;
     }
@@ -403,7 +403,7 @@ void SceneAssistDialog::startGenerate(int target)
             status.clear();
             return;
         }
-        status = "No session key — using XAI_API_KEY / resources/xai_api_key.";
+        status = "No session key  -  using XAI_API_KEY / resources/xai_api_key.";
     }
 
     const std::string jobsPath = writeSceneAiPreviewJobsFile(
@@ -417,7 +417,7 @@ void SceneAssistDialog::startGenerate(int target)
     generateBusy = true;
     generateTarget = target;
     generateResultPending = false;
-    status = "Generating…";
+    status = "Generating...";
     const std::string keySnap = sessionApiKey;
     const std::string assetRoot = docs->assetRoot;
     const std::string resourceDir = docs->resourceDir;
@@ -458,7 +458,7 @@ void SceneAssistDialog::acceptPreview()
     previewTarget = 0;
     previewRelPath.clear();
     liveRelPath.clear();
-    status = "Accepted — scene assets updated.";
+    status = "Accepted  -  scene assets updated.";
     error.clear();
 
     if (onAccepted)
@@ -481,7 +481,7 @@ void SceneAssistDialog::revertPreview()
     previewTarget = 0;
     previewRelPath.clear();
     liveRelPath.clear();
-    status = "Reverted — kept previous assets.";
+    status = "Reverted  -  kept previous assets.";
     error.clear();
 
     if (onAccepted)
@@ -655,7 +655,7 @@ void SceneAssistDialog::draw(int screenW, int screenH)
     const float gapAfterKey = previewPending ? 14.0f : 0.0f;
 
     float y = content.y + innerPad;
-    drawLabel(font, "Description (AI context — edit via Scene Variables)", labelX, y);
+    drawLabel(font, "Description (AI context  -  edit via Scene Variables)", labelX, y);
     y += 18.0f;
 
     const float descBoxH = std::max(
@@ -869,7 +869,7 @@ void SceneAssistDialog::draw(int screenW, int screenH)
             {
                 DrawTextEx(
                     font,
-                    "…",
+                    "...",
                     {btn.x + btn.width * 0.5f - 4.0f, btn.y + 8.0f},
                     kFontTiny,
                     1.0f,
@@ -914,7 +914,7 @@ void SceneAssistDialog::draw(int screenW, int screenH)
             0.45f + 0.55f * (0.5f + 0.5f * std::sin(static_cast<float>(GetTime()) * 5.0f));
         DrawTextEx(
             font,
-            "Working…",
+            "Working...",
             {dialog.x + dialogW * 0.5f - 40.0f, dialog.y + 16.0f},
             kFontSmall,
             1.0f,

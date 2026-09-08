@@ -100,7 +100,7 @@ std::string summarizeAiPlan(const ItemAiAssistPlan& plan)
             stream << "; ";
         stream << jobTypeLabel(plan.jobs[i].type);
         if (!plan.jobs[i].outPath.empty())
-            stream << " → " << plan.jobs[i].outPath;
+            stream << " -> " << plan.jobs[i].outPath;
     }
     return stream.str();
 }

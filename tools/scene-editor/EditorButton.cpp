@@ -133,7 +133,8 @@ std::string ellipsizeLine(Font font, const std::string& text, float fontSize, fl
         || MeasureTextEx(font, text.c_str(), fontSize, 1.0f).x <= maxWidth)
         return text;
     std::string out = text;
-    const std::string ellipsis = "…";
+    // ASCII "..." — UI fonts often lack U+2026 and draw it as '?' (#24).
+    const std::string ellipsis = "...";
     while (!out.empty()
            && MeasureTextEx(font, (out + ellipsis).c_str(), fontSize, 1.0f).x > maxWidth)
         out.pop_back();
@@ -378,7 +379,7 @@ void EditorButtonResources::load(
     {
         TraceLog(
             LOG_INFO,
-            "TIMBERLINE: no editor_ui_config.json — using button defaults");
+            "TIMBERLINE: no editor_ui_config.json  -  using button defaults");
     }
 
     raisedLoaded = loadTextureFromRoots(
@@ -395,7 +396,7 @@ void EditorButtonResources::load(
         {
             TraceLog(
                 LOG_WARNING,
-                "TIMBERLINE: working spinner '%s' is %dx%d; config sizePx=%d — rejecting "
+                "TIMBERLINE: working spinner '%s' is %dx%d; config sizePx=%d  -  rejecting "
                 "(dimensions are rigidly enforced)",
                 working.spinnerPath.c_str(),
                 workingSpinner.width,
