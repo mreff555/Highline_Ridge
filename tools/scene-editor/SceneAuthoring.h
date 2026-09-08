@@ -39,6 +39,18 @@ struct SceneAuthoringPayload
     float layoutX = 0.0f;
     float layoutY = 0.0f;
     int layoutLevel = 0;
+
+    /**
+     * Alternate / focus view of an existing parent scene (same room + inventory).
+     * When alternateMode is true, upsert writes parent.subScenes[subSceneId]
+     * instead of replacing the parent scene object.
+     */
+    bool alternateMode = false;
+    std::string parentSceneId;
+    std::string subSceneId;
+    bool focusView = false;
+    bool showOnMap = false;
+    std::string useExit; // scene or scene#sub
 };
 
 enum class SceneAiJobType

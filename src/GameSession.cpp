@@ -1815,6 +1815,8 @@ namespace
 
         sceneController.getActiveScene().unloadOwnedImage();
         worldState.previousSceneId.clear();
+        worldState.previousSubSceneId.clear();
+        worldState.useReturnStack.clear();
         worldState.currentSceneId = startSceneId;
         closeAllUiPanels();
         applyLocationStruct(startLocation, worldState.currentSceneId, false, true);
@@ -1926,7 +1928,8 @@ namespace
                 [this](const std::string& phaseId)
                 {
                     return conversationMgr.isPhaseComplete(phaseId);
-                }))
+                },
+                SceneController::TransitionKind::Use))
         {
             return;
         }
@@ -2564,6 +2567,12 @@ namespace
             applyDirection(movement.backward, blockOverlays.backward, "backward");
             applyDirection(movement.left, blockOverlays.left, "left");
             applyDirection(movement.right, blockOverlays.right, "right");
+
+            // Use-arrival return: enable Back without an authored exits.backward
+            // (so the map does not draw a gold movement wire for it).
+            if (!worldState.useReturnStack.empty())
+                movement.backward = true;
+
 
             actions = baseActionFilter;
             const SceneSpeakConfig& speakConfig = sceneDatabase.getSpeakConfig(worldState.currentSceneId);

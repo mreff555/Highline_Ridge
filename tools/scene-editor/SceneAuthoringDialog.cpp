@@ -308,10 +308,16 @@ void SceneAuthoringDialog::openDialog()
     imageEdit = SingleLineState{};
     ambientEdit = SingleLineState{};
     musicEdit = SingleLineState{};
+    parentEdit = SingleLineState{};
+    subIdEdit = SingleLineState{};
+    useExitEdit = SingleLineState{};
     voiceMenuOpen = false;
     voiceBtnRect = {0, 0, 0, 0};
     voiceMenuRect = {0, 0, 0, 0};
     ttsSwitchTrack = {0, 0, 0, 0};
+    alternateSwitchTrack = {0, 0, 0, 0};
+    focusViewSwitchTrack = {0, 0, 0, 0};
+    showOnMapSwitchTrack = {0, 0, 0, 0};
     lastFormScrollTrack = {0, 0, 0, 0};
     lastFormScrollThumb = {0, 0, 0, 0};
     draggingFormScroll = false;
@@ -336,7 +342,18 @@ void SceneAuthoringDialog::openEditDialog(const std::string& sceneId)
     openDialog();
     editingExisting = true;
     payload = loaded;
-    idDraft = payload.id;
+    if (payload.alternateMode)
+    {
+        idDraft = timberline_engine::SceneDocument::makeMapNodeId(
+            payload.parentSceneId, payload.subSceneId);
+        focusField = 1;
+    }
+    else
+    {
+        idDraft = payload.id;
+        // Start on description; id field is editable for Rename only.
+        focusField = 1;
+    }
     syncSpeakWithTts();
     if (docs != nullptr && !docs->resourceDir.empty())
         payload.ttsDefaultVoice = normalizeVoiceId(
@@ -345,9 +362,10 @@ void SceneAuthoringDialog::openEditDialog(const std::string& sceneId)
                 : payload.ttsDefaultVoice);
     else
         payload.ttsDefaultVoice = normalizeVoiceId(payload.ttsDefaultVoice);
-    // Start on description; id field is editable for Rename only.
-    focusField = 1;
     idEdit.cursor = static_cast<int>(idDraft.size());
+    parentEdit.cursor = static_cast<int>(payload.parentSceneId.size());
+    subIdEdit.cursor = static_cast<int>(payload.subSceneId.size());
+    useExitEdit.cursor = static_cast<int>(payload.useExit.size());
     descriptionEdit.cursor = static_cast<int>(payload.description.size());
     examineEdit.cursor = static_cast<int>(payload.examineDetails.size());
     imageEdit.cursor = static_cast<int>(payload.imagePath.size());
@@ -533,13 +551,22 @@ float SceneAuthoringDialog::estimateFormContentHeight() const
 {
     // Must stay in sync with draw() layout spacing.
     float h = 12.0f;          // top pad
-    h += 16.0f + 32.0f + 12.0f; // id
+    h += 16.0f + 32.0f + 12.0f; // id (or parent/sub when alternate)
+    if (payload.alternateMode)
+    {
+        h += 16.0f + 32.0f + 12.0f; // parent
+        h += 16.0f + 32.0f + 12.0f; // sub id
+        h += 16.0f + 26.0f + 12.0f; // focus switch
+        h += 16.0f + 26.0f + 12.0f; // show on map
+        h += 16.0f + 32.0f + 12.0f; // useExit
+    }
     h += 16.0f + 110.0f + 12.0f; // description
     h += 16.0f + 88.0f + 12.0f; // examine
     h += 16.0f + 32.0f + 12.0f; // api key
-    h += 3.0f * (16.0f + 32.0f + 12.0f); // image/ambient/music
+    h += (payload.alternateMode ? 1.0f : 3.0f) * (16.0f + 32.0f + 12.0f); // image[/ambient/music]
+    h += 16.0f + 26.0f + 12.0f; // Alternate switch
     h += 16.0f + 26.0f + 12.0f; // TTS switch (+ label)
-    if (payload.ttsEnabled)
+    if (payload.ttsEnabled && !payload.alternateMode)
     {
         h += 16.0f + 28.0f + 8.0f;   // default voice
         h += 16.0f + 100.0f + 10.0f; // TTS description
@@ -565,6 +592,12 @@ SceneAuthoringDialog::SingleLineState* SceneAuthoringDialog::singleLineStateForF
         return &ambientEdit;
     case 6:
         return &musicEdit;
+    case 9:
+        return &parentEdit;
+    case 10:
+        return &subIdEdit;
+    case 11:
+        return &useExitEdit;
     default:
         return nullptr;
     }
@@ -584,6 +617,12 @@ std::string* SceneAuthoringDialog::singleLineBufferForFocus(int field)
         return &payload.ambientPath;
     case 6:
         return &payload.musicPath;
+    case 9:
+        return &payload.parentSceneId;
+    case 10:
+        return &payload.subSceneId;
+    case 11:
+        return &payload.useExit;
     default:
         return nullptr;
     }
@@ -864,6 +903,15 @@ void SceneAuthoringDialog::typeIntoFocusedField()
         target = &payload.ttsExamineDetails;
         multi = &ttsExamineEdit;
         break;
+    case 9:
+        target = &payload.parentSceneId;
+        break;
+    case 10:
+        target = &payload.subSceneId;
+        break;
+    case 11:
+        target = &payload.useExit;
+        break;
     default:
         break;
     }
@@ -978,10 +1026,18 @@ void SceneAuthoringDialog::typeIntoFocusedField()
     int cp = GetCharPressed();
     while (cp > 0)
     {
-        if (focusField == 0)
+        if (focusField == 0 || focusField == 9 || focusField == 10)
         {
             if (std::isalnum(static_cast<unsigned char>(cp)) || cp == '_' || cp == '-'
                 || cp == ' ')
+            {
+                insertUtf8At(*target, cursor, cp);
+            }
+        }
+        else if (focusField == 11)
+        {
+            if (std::isalnum(static_cast<unsigned char>(cp)) || cp == '_' || cp == '-'
+                || cp == '#' || cp == ' ')
             {
                 insertUtf8At(*target, cursor, cp);
             }
@@ -1049,8 +1105,27 @@ void SceneAuthoringDialog::typeIntoFocusedField()
         single->cursor = cursor;
 
     // New Scene: keep payload.id aligned with the draft for path defaults / generate.
-    if (!editingExisting && focusField == 0)
+    if (!editingExisting && !payload.alternateMode && focusField == 0)
         payload.id = idDraft;
+    if (!editingExisting && payload.alternateMode
+        && (focusField == 9 || focusField == 10))
+    {
+        const std::string parent = sanitizeSceneId(payload.parentSceneId);
+        const std::string sub = sanitizeSceneId(payload.subSceneId);
+        payload.parentSceneId = parent;
+        payload.subSceneId = sub;
+        if (!parent.empty() && !sub.empty())
+        {
+            const std::string nextId = parent + "_" + sub;
+            const std::string autoImg = "resources/images/" + nextId + ".png";
+            const std::string prevAuto =
+                payload.id.empty() ? std::string{}
+                                   : ("resources/images/" + payload.id + ".png");
+            if (payload.imagePath.empty() || payload.imagePath == prevAuto)
+                payload.imagePath = autoImg;
+            payload.id = nextId;
+        }
+    }
     (void)bufSize;
 }
 
@@ -1058,11 +1133,8 @@ bool SceneAuthoringDialog::canEnableCreate() const
 {
     if (editingExisting || docs == nullptr || generateBusy.load())
         return false;
-    const std::string id = sanitizeSceneId(idDraft);
-    if (!isValidSceneId(id) || docs->scenes.hasScene(id))
-        return false;
+
     std::string desc = payload.description;
-    // trim
     while (!desc.empty() && std::isspace(static_cast<unsigned char>(desc.front())))
         desc.erase(desc.begin());
     while (!desc.empty() && std::isspace(static_cast<unsigned char>(desc.back())))
@@ -1070,12 +1142,30 @@ bool SceneAuthoringDialog::canEnableCreate() const
     if (desc.empty())
         return false;
     const std::string root = docs->assetRoot.empty() ? "." : docs->assetRoot;
-    return sceneImageReferenceExists(root, payload.imagePath);
+    if (!sceneImageReferenceExists(root, payload.imagePath))
+        return false;
+
+    if (payload.alternateMode)
+    {
+        const std::string parent = sanitizeSceneId(payload.parentSceneId);
+        const std::string sub = sanitizeSceneId(payload.subSceneId);
+        if (!isValidSceneId(parent) || !docs->scenes.hasScene(parent))
+            return false;
+        if (!isValidSceneId(sub))
+            return false;
+        return true;
+    }
+
+    const std::string id = sanitizeSceneId(idDraft);
+    if (!isValidSceneId(id) || docs->scenes.hasScene(id))
+        return false;
+    return true;
 }
 
 bool SceneAuthoringDialog::canEnableRename() const
 {
-    if (!editingExisting || docs == nullptr || generateBusy.load())
+    if (!editingExisting || payload.alternateMode || docs == nullptr
+        || generateBusy.load())
         return false;
     const std::string next = sanitizeSceneId(idDraft);
     if (!isValidSceneId(next) || next == payload.id)
@@ -1113,7 +1203,13 @@ void SceneAuthoringDialog::commitSave(bool runAi, int aiTarget)
         return;
     error.clear();
     // Confirm (edit) never applies a pending rename — only Rename does.
-    if (!editingExisting)
+    if (payload.alternateMode)
+    {
+        payload.parentSceneId = sanitizeSceneId(payload.parentSceneId);
+        payload.subSceneId = sanitizeSceneId(payload.subSceneId);
+        payload.id = payload.parentSceneId + "_" + payload.subSceneId;
+    }
+    else if (!editingExisting)
         payload.id = sanitizeSceneId(idDraft);
     else
         payload.id = sanitizeSceneId(payload.id);
@@ -1122,10 +1218,12 @@ void SceneAuthoringDialog::commitSave(bool runAi, int aiTarget)
     {
         if (!canEnableCreate())
         {
-            error = "Need a unique valid id, non-empty description, and an existing image path.";
+            error = payload.alternateMode
+                ? "Need valid parent + sub id, description, and an existing image path."
+                : "Need a unique valid id, non-empty description, and an existing image path.";
             return;
         }
-        if (docs->scenes.hasScene(payload.id))
+        if (!payload.alternateMode && docs->scenes.hasScene(payload.id))
         {
             error = "Scene id already exists: " + payload.id;
             return;
@@ -1144,7 +1242,13 @@ void SceneAuthoringDialog::commitSave(bool runAi, int aiTarget)
         return;
     }
     if (onCreated)
-        onCreated(payload.id);
+    {
+        // Editors (inventory / TTS / etc.) stay keyed to the parent room.
+        if (payload.alternateMode)
+            onCreated(payload.parentSceneId);
+        else
+            onCreated(payload.id);
+    }
     closeDialog();
 }
 
@@ -1760,16 +1864,20 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
 
     DrawTextEx(
         bold,
-        editingExisting ? "Edit Scene" : "New Scene",
+        editingExisting
+            ? (payload.alternateMode ? "Edit Alternate View" : "Edit Scene")
+            : (payload.alternateMode ? "New Alternate View" : "New Scene"),
         {dialog.x + 20.0f, dialog.y + 16.0f},
         kFontHeading,
         1.0f,
         kTextPrimary);
     DrawTextEx(
         font,
-        editingExisting
-            ? "Update fields, then Confirm. Use Rename to change the scene id."
-            : "Create requires a unique id, description, and existing image path.",
+        payload.alternateMode
+            ? "Same room + inventory as parent. Show on map places a separate card."
+            : (editingExisting
+                   ? "Update fields, then Confirm. Use Rename to change the scene id."
+                   : "Create requires a unique id, description, and existing image path."),
         {dialog.x + 20.0f, dialog.y + 46.0f},
         kFontTiny,
         1.0f,
@@ -1826,36 +1934,112 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
         };
 
     // ID (+ Rename when editing). Confirm does not apply idDraft — only Rename does.
-    drawLabel(
-        font,
-        editingExisting ? "Scene id * (Rename to change)" : "Scene id *",
-        labelX,
-        y);
-    y += 16.0f;
-    const float renameW = editingExisting ? 100.0f : 0.0f;
-    Rectangle idField = {
-        fieldX,
-        y,
-        editingExisting ? (fieldW - renameW - 10.0f) : (fieldW * 0.55f),
-        32.0f};
-    drawSingleLineField(
-        font,
-        idField,
-        idDraft,
-        "e.g. abandoned_mine_shaft",
-        idEdit,
-        focusField == 0,
-        kFontSmall);
-    hitField(idField, 0);
-    if (editingExisting)
+    // Alternate mode: parent + sub-scene identity instead of a free-standing id.
+    if (!payload.alternateMode)
     {
-        Rectangle renameBtn = {idField.x + idField.width + 10.0f, y, renameW, 32.0f};
-        const bool renameOk = canEnableRename();
-        drawEditorButton(font, renameBtn, "Rename", true, renameOk && !busy);
-        if (canClick && renameOk && hitInContent(renameBtn))
-            applyRename();
+        drawLabel(
+            font,
+            editingExisting ? "Scene id * (Rename to change)" : "Scene id *",
+            labelX,
+            y);
+        y += 16.0f;
+        const float renameW = editingExisting ? 100.0f : 0.0f;
+        Rectangle idField = {
+            fieldX,
+            y,
+            editingExisting ? (fieldW - renameW - 10.0f) : (fieldW * 0.55f),
+            32.0f};
+        drawSingleLineField(
+            font,
+            idField,
+            idDraft,
+            "e.g. abandoned_mine_shaft",
+            idEdit,
+            focusField == 0,
+            kFontSmall);
+        hitField(idField, 0);
+        if (editingExisting)
+        {
+            Rectangle renameBtn = {idField.x + idField.width + 10.0f, y, renameW, 32.0f};
+            const bool renameOk = canEnableRename();
+            drawEditorButton(font, renameBtn, "Rename", true, renameOk && !busy);
+            if (canClick && renameOk && hitInContent(renameBtn))
+                applyRename();
+        }
+        y += 44.0f;
     }
-    y += 44.0f;
+    else
+    {
+        drawLabel(font, "Parent scene *", labelX, y);
+        y += 16.0f;
+        Rectangle parentField = {fieldX, y, fieldW * 0.7f, 32.0f};
+        const bool parentLocked = editingExisting;
+        drawSingleLineField(
+            font,
+            parentField,
+            payload.parentSceneId,
+            "e.g. cabin_interior",
+            parentEdit,
+            !parentLocked && focusField == 9,
+            kFontSmall);
+        if (!parentLocked)
+            hitField(parentField, 9);
+        y += 44.0f;
+
+        drawLabel(font, "Sub-scene id *", labelX, y);
+        y += 16.0f;
+        Rectangle subField = {fieldX, y, fieldW * 0.55f, 32.0f};
+        const bool subLocked = editingExisting;
+        drawSingleLineField(
+            font,
+            subField,
+            payload.subSceneId,
+            "e.g. desk_letter",
+            subIdEdit,
+            !subLocked && focusField == 10,
+            kFontSmall);
+        if (!subLocked)
+            hitField(subField, 10);
+        y += 44.0f;
+
+        drawLabel(font, "Focus view", labelX, y);
+        y += 16.0f;
+        focusViewSwitchTrack = {fieldX, y, 64.0f, 26.0f};
+        bool focusToggled = false;
+        drawOnOffSwitch(
+            font, focusViewSwitchTrack, payload.focusView, nullptr, false, focusToggled);
+        if (canClick && hitInContent(focusViewSwitchTrack))
+            focusToggled = true;
+        if (focusToggled)
+            payload.focusView = !payload.focusView;
+        y += 38.0f;
+
+        drawLabel(font, "Show on map", labelX, y);
+        y += 16.0f;
+        showOnMapSwitchTrack = {fieldX, y, 64.0f, 26.0f};
+        bool mapToggled = false;
+        drawOnOffSwitch(
+            font, showOnMapSwitchTrack, payload.showOnMap, nullptr, false, mapToggled);
+        if (canClick && hitInContent(showOnMapSwitchTrack))
+            mapToggled = true;
+        if (mapToggled)
+            payload.showOnMap = !payload.showOnMap;
+        y += 38.0f;
+
+        drawLabel(font, "Default useExit (scene or scene#sub)", labelX, y);
+        y += 16.0f;
+        Rectangle useField = {fieldX, y, fieldW, 32.0f};
+        drawSingleLineField(
+            font,
+            useField,
+            payload.useExit,
+            "(optional) e.g. cabin_cellar_open",
+            useExitEdit,
+            focusField == 11,
+            kFontSmall);
+        hitField(useField, 11);
+        y += 44.0f;
+    }
 
     // Description
     drawLabel(font, "Description * (AI context)", labelX, y);
@@ -1931,7 +2115,7 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
     hitField(keyField, 3);
     y += 44.0f;
 
-    // Paths + generate buttons
+    // Paths + generate buttons. Alternates only own an image plate.
     struct PathRow
     {
         const char* label;
@@ -1946,9 +2130,11 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
         {"Ambient path", &payload.ambientPath, &ambientEdit, 5, 2, "Generate ambient"},
         {"Music path", &payload.musicPath, &musicEdit, 6, 3, "Generate music"},
     };
+    const int pathRowCount = payload.alternateMode ? 1 : 3;
 
-    for (const PathRow& row : rows)
+    for (int ri = 0; ri < pathRowCount; ++ri)
     {
+        const PathRow& row = rows[ri];
         drawLabel(font, row.label, labelX, y);
         y += 16.0f;
         const float genW = 150.0f;
@@ -1979,7 +2165,65 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
         y += 44.0f;
     }
 
-    // TTS section (replaces Speak button)
+    // Alternate / focus view switch (bottom of core fields).
+    // Locked on while editing an existing parent#sub map node.
+    drawLabel(font, "Alternate / focus view", labelX, y);
+    y += 16.0f;
+    alternateSwitchTrack = {fieldX, y, 64.0f, 26.0f};
+    bool altToggled = false;
+    drawOnOffSwitch(
+        font,
+        alternateSwitchTrack,
+        payload.alternateMode,
+        nullptr,
+        false,
+        altToggled);
+    // Mode is fixed once editing an existing parent or parent#sub.
+    const bool altLocked = editingExisting;
+    if (!altLocked && canClick && hitInContent(alternateSwitchTrack))
+        altToggled = true;
+    if (altToggled && !altLocked)
+    {
+        payload.alternateMode = !payload.alternateMode;
+        if (payload.alternateMode)
+        {
+            if (payload.parentSceneId.empty() && !idDraft.empty())
+                payload.parentSceneId = sanitizeSceneId(idDraft);
+            if (!payload.showOnMap)
+                payload.showOnMap = true;
+            payload.ttsEnabled = false;
+            syncSpeakWithTts();
+            voiceMenuOpen = false;
+            focusField = 9;
+            parentEdit.cursor = static_cast<int>(payload.parentSceneId.size());
+        }
+        else
+        {
+            if (idDraft.empty() && !payload.parentSceneId.empty())
+                idDraft = payload.parentSceneId;
+            focusField = 0;
+            idEdit.cursor = static_cast<int>(idDraft.size());
+        }
+        const float need = estimateFormContentHeight();
+        lastContentHeight = std::max(lastContentHeight, need);
+        scrollY = 0.0f;
+    }
+    DrawTextEx(
+        font,
+        payload.alternateMode
+            ? "Writes parent.subScenes[sub] (shared inventory)."
+            : "Off = full room scene with compass exits.",
+        {alternateSwitchTrack.x + alternateSwitchTrack.width + 12.0f,
+         alternateSwitchTrack.y + 5.0f},
+        kFontTiny,
+        1.0f,
+        kTextMuted);
+    y += 38.0f;
+
+    // TTS section (replaces Speak button). Hidden for alternate views —
+    // TTS lives on the parent room.
+    if (!payload.alternateMode)
+    {
     drawLabel(font, "TTS on/off", labelX, y);
     y += 16.0f;
     // Enlarge hit target so the switch stays easy to click near the clip edge.
@@ -2087,6 +2331,13 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
     }
     else
     {
+        voiceBtnRect = {0, 0, 0, 0};
+        voiceMenuOpen = false;
+    }
+    } // !alternateMode TTS block
+    else
+    {
+        ttsSwitchTrack = {0, 0, 0, 0};
         voiceBtnRect = {0, 0, 0, 0};
         voiceMenuOpen = false;
     }

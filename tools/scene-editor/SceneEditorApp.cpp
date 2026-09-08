@@ -150,6 +150,10 @@ void SceneEditorApp::wireModules()
     };
     mapCanvas.sceneTransition.docs = &document;
     mapCanvas.sceneTransition.graph = &sceneGraph;
+    mapCanvas.sceneUseTransition.docs = &document;
+    mapCanvas.sceneUseTransition.graph = &sceneGraph;
+    mapCanvas.sceneFloorConnect.docs = &document;
+    mapCanvas.sceneFloorConnect.graph = &sceneGraph;
 
     mapCanvas.preferences = &preferences;
     mapCanvas.openPreferences = [this]()
@@ -180,6 +184,10 @@ void SceneEditorApp::syncModuleFonts()
     mapCanvas.sceneEffects.uiFontBold = uiFontBold;
     mapCanvas.sceneTransition.uiFont = uiFont;
     mapCanvas.sceneTransition.uiFontBold = uiFontBold;
+    mapCanvas.sceneUseTransition.uiFont = uiFont;
+    mapCanvas.sceneUseTransition.uiFontBold = uiFontBold;
+    mapCanvas.sceneFloorConnect.uiFont = uiFont;
+    mapCanvas.sceneFloorConnect.uiFontBold = uiFontBold;
     preferences.uiFont = uiFont;
     preferences.uiFontBold = uiFontBold;
 }
@@ -412,6 +420,8 @@ void SceneEditorApp::handleShortcuts()
         || mapCanvas.sceneInventory.blocksInput()
         || mapCanvas.sceneEffects.blocksInput()
         || mapCanvas.sceneTransition.blocksInput()
+        || mapCanvas.sceneUseTransition.blocksInput()
+        || mapCanvas.sceneFloorConnect.blocksInput()
         || mapCanvas.confirmMode != SceneMapCanvas::ConfirmMode::None
         || mapCanvas.contextMenuSource != SceneMapCanvas::ContextMenuSource::None)
         return;
@@ -449,6 +459,8 @@ void SceneEditorApp::update()
             && !mapCanvas.sceneInventory.blocksInput()
             && !mapCanvas.sceneEffects.blocksInput()
             && !mapCanvas.sceneTransition.blocksInput()
+            && !mapCanvas.sceneUseTransition.blocksInput()
+            && !mapCanvas.sceneFloorConnect.blocksInput()
             && mapCanvas.confirmMode == SceneMapCanvas::ConfirmMode::None)
         {
             preferences.openDialog(document.resourceDir, document.assetRoot);
@@ -468,6 +480,8 @@ void SceneEditorApp::update()
         && !mapCanvas.sceneInventory.blocksInput()
         && !mapCanvas.sceneEffects.blocksInput()
         && !mapCanvas.sceneTransition.blocksInput()
+        && !mapCanvas.sceneUseTransition.blocksInput()
+        && !mapCanvas.sceneFloorConnect.blocksInput()
         && mapCanvas.confirmMode == SceneMapCanvas::ConfirmMode::None
         && mapCanvas.contextMenuSource == SceneMapCanvas::ContextMenuSource::None)
     {
@@ -509,7 +523,19 @@ void SceneEditorApp::update()
     }
 
     // Topmost modal wins input (draw order: authoring → assist → inventory →
-    // effects → transition → prefs).
+    // effects → transition → use transition → prefs).
+    if (mapCanvas.sceneFloorConnect.blocksInput())
+    {
+        mapCanvas.sceneFloorConnect.handleInput(screenWidth, screenHeight);
+        return;
+    }
+
+    if (mapCanvas.sceneUseTransition.blocksInput())
+    {
+        mapCanvas.sceneUseTransition.handleInput(screenWidth, screenHeight);
+        return;
+    }
+
     if (mapCanvas.sceneTransition.blocksInput())
     {
         mapCanvas.sceneTransition.handleInput(screenWidth, screenHeight);

@@ -125,15 +125,109 @@ std::vector<std::string> SceneDocument::sceneIds() const
     return ids;
 }
 
+void SceneDocument::parseMapNodeId(
+    const std::string& mapNodeId,
+    std::string& outParentId,
+    std::string& outSubSceneId)
+{
+    outParentId.clear();
+    outSubSceneId.clear();
+    if (mapNodeId.empty())
+        return;
+    const size_t hashPos = mapNodeId.find('#');
+    if (hashPos == std::string::npos)
+    {
+        outParentId = mapNodeId;
+        return;
+    }
+    outParentId = mapNodeId.substr(0, hashPos);
+    outSubSceneId = mapNodeId.substr(hashPos + 1);
+}
+
+std::string SceneDocument::makeMapNodeId(
+    const std::string& parentId,
+    const std::string& subSceneId)
+{
+    if (parentId.empty())
+        return {};
+    if (subSceneId.empty())
+        return parentId;
+    return parentId + "#" + subSceneId;
+}
+
 bool SceneDocument::hasScene(const std::string& sceneId) const
 {
     return isLoaded() && root["scenes"].contains(sceneId);
 }
 
-bool SceneDocument::hasMapPlacement(const std::string& sceneId) const
+bool SceneDocument::hasMapNode(const std::string& mapNodeId) const
 {
-    const nlohmann::json* scene = sceneJson(sceneId);
-    return scene != nullptr && scene->contains("layout") && (*scene)["layout"].is_object();
+    std::string parentId;
+    std::string subId;
+    parseMapNodeId(mapNodeId, parentId, subId);
+    if (!hasScene(parentId))
+        return false;
+    if (subId.empty())
+        return true;
+    const nlohmann::json* parent = sceneJson(parentId);
+    if (parent == nullptr || !parent->contains("subScenes") || !(*parent)["subScenes"].is_object())
+        return false;
+    return (*parent)["subScenes"].contains(subId)
+        && (*parent)["subScenes"][subId].is_object();
+}
+
+std::vector<std::string> SceneDocument::subSceneIds(const std::string& parentId) const
+{
+    std::vector<std::string> ids;
+    const nlohmann::json* parent = sceneJson(parentId);
+    if (parent == nullptr || !parent->contains("subScenes") || !(*parent)["subScenes"].is_object())
+        return ids;
+    for (auto it = (*parent)["subScenes"].begin(); it != (*parent)["subScenes"].end(); ++it)
+    {
+        if (it.value().is_object())
+            ids.push_back(it.key());
+    }
+    std::sort(ids.begin(), ids.end());
+    return ids;
+}
+
+std::vector<std::string> SceneDocument::mapNodeIds() const
+{
+    std::vector<std::string> ids;
+    if (!isLoaded())
+        return ids;
+
+    for (const std::string& parentId : sceneIds())
+    {
+        if (hasMapPlacement(parentId))
+            ids.push_back(parentId);
+        for (const std::string& subId : subSceneIds(parentId))
+        {
+            const std::string nodeId = makeMapNodeId(parentId, subId);
+            if (hasMapPlacement(nodeId))
+                ids.push_back(nodeId);
+        }
+    }
+    std::sort(ids.begin(), ids.end());
+    return ids;
+}
+
+bool SceneDocument::hasMapPlacement(const std::string& mapNodeId) const
+{
+    std::string parentId;
+    std::string subId;
+    parseMapNodeId(mapNodeId, parentId, subId);
+    const nlohmann::json* parent = sceneJson(parentId);
+    if (parent == nullptr)
+        return false;
+    if (subId.empty())
+        return parent->contains("layout") && (*parent)["layout"].is_object();
+    if (!parent->contains("subScenes") || !(*parent)["subScenes"].is_object())
+        return false;
+    if (!(*parent)["subScenes"].contains(subId) || !(*parent)["subScenes"][subId].is_object())
+        return false;
+    const nlohmann::json& sub = (*parent)["subScenes"][subId];
+    return sub.contains("layout") && sub["layout"].is_object();
 }
 
 bool SceneDocument::createScene(const std::string& sceneId, const nlohmann::json& sceneObject)
@@ -266,39 +360,82 @@ bool SceneDocument::renameScene(const std::string& oldId, const std::string& new
     return true;
 }
 
-SceneLayout SceneDocument::getLayout(const std::string& sceneId) const
+SceneLayout SceneDocument::getLayout(const std::string& mapNodeId) const
 {
     SceneLayout layout;
-    const nlohmann::json* scene = sceneJson(sceneId);
-    if (scene == nullptr || !scene->contains("layout") || !(*scene)["layout"].is_object())
+    std::string parentId;
+    std::string subId;
+    parseMapNodeId(mapNodeId, parentId, subId);
+    const nlohmann::json* parent = sceneJson(parentId);
+    if (parent == nullptr)
         return layout;
 
-    const nlohmann::json& layoutJson = (*scene)["layout"];
+    const nlohmann::json* layoutOwner = parent;
+    if (!subId.empty())
+    {
+        if (!parent->contains("subScenes") || !(*parent)["subScenes"].is_object())
+            return layout;
+        if (!(*parent)["subScenes"].contains(subId) || !(*parent)["subScenes"][subId].is_object())
+            return layout;
+        layoutOwner = &(*parent)["subScenes"][subId];
+    }
+    if (layoutOwner == nullptr || !layoutOwner->contains("layout")
+        || !(*layoutOwner)["layout"].is_object())
+        return layout;
+
+    const nlohmann::json& layoutJson = (*layoutOwner)["layout"];
     layout.x = layoutJson.value("x", 0.0f);
     layout.y = layoutJson.value("y", 0.0f);
     layout.level = layoutJson.value("level", 0);
     return layout;
 }
 
-void SceneDocument::setLayout(const std::string& sceneId, const SceneLayout& layout)
+void SceneDocument::setLayout(const std::string& mapNodeId, const SceneLayout& layout)
 {
-    nlohmann::json* scene = sceneJson(sceneId);
-    if (scene == nullptr)
+    std::string parentId;
+    std::string subId;
+    parseMapNodeId(mapNodeId, parentId, subId);
+    nlohmann::json* parent = sceneJson(parentId);
+    if (parent == nullptr)
         return;
 
-    (*scene)["layout"] = {
+    nlohmann::json layoutJson = {
         {"x", layout.x},
         {"y", layout.y},
         {"level", layout.level}
     };
+
+    if (subId.empty())
+    {
+        (*parent)["layout"] = layoutJson;
+        return;
+    }
+
+    if (!parent->contains("subScenes") || !(*parent)["subScenes"].is_object())
+        (*parent)["subScenes"] = nlohmann::json::object();
+    if (!(*parent)["subScenes"].contains(subId) || !(*parent)["subScenes"][subId].is_object())
+        (*parent)["subScenes"][subId] = nlohmann::json::object();
+    (*parent)["subScenes"][subId]["layout"] = layoutJson;
 }
 
-void SceneDocument::clearLayout(const std::string& sceneId)
+void SceneDocument::clearLayout(const std::string& mapNodeId)
 {
-    nlohmann::json* scene = sceneJson(sceneId);
-    if (scene == nullptr)
+    std::string parentId;
+    std::string subId;
+    parseMapNodeId(mapNodeId, parentId, subId);
+    nlohmann::json* parent = sceneJson(parentId);
+    if (parent == nullptr)
         return;
-    scene->erase("layout");
+    if (subId.empty())
+    {
+        parent->erase("layout");
+        return;
+    }
+    if (!parent->contains("subScenes") || !(*parent)["subScenes"].is_object())
+        return;
+    if (!(*parent)["subScenes"].contains(subId) || !(*parent)["subScenes"][subId].is_object())
+        return;
+    (*parent)["subScenes"][subId].erase("layout");
 }
 
 std::vector<SceneActor> SceneDocument::getActors(const std::string& sceneId) const
@@ -326,15 +463,31 @@ std::vector<SceneActor> SceneDocument::getActors(const std::string& sceneId) con
     return actors;
 }
 
-std::string SceneDocument::getSceneImagePath(const std::string& sceneId) const
+std::string SceneDocument::getSceneImagePath(const std::string& mapNodeId) const
 {
-    const nlohmann::json* scene = sceneJson(sceneId);
-    if (scene == nullptr)
+    std::string parentId;
+    std::string subId;
+    parseMapNodeId(mapNodeId, parentId, subId);
+    const nlohmann::json* parent = sceneJson(parentId);
+    if (parent == nullptr)
         return "";
-    // Prefer authored 16x9 master when present (editor thumbs / map cards).
-    if (scene->contains("imageVariants") && (*scene)["imageVariants"].is_object())
+
+    if (!subId.empty()
+        && parent->contains("subScenes")
+        && (*parent)["subScenes"].is_object()
+        && (*parent)["subScenes"].contains(subId)
+        && (*parent)["subScenes"][subId].is_object())
     {
-        const auto& variants = (*scene)["imageVariants"];
+        const std::string subImage =
+            (*parent)["subScenes"][subId].value("image", "");
+        if (!subImage.empty())
+            return subImage;
+    }
+
+    // Prefer authored 16x9 master when present (editor thumbs / map cards).
+    if (parent->contains("imageVariants") && (*parent)["imageVariants"].is_object())
+    {
+        const auto& variants = (*parent)["imageVariants"];
         if (variants.contains("16x9") && variants["16x9"].is_string())
         {
             const std::string v = variants["16x9"].get<std::string>();
@@ -342,7 +495,7 @@ std::string SceneDocument::getSceneImagePath(const std::string& sceneId) const
                 return v;
         }
     }
-    return scene->value("image", "");
+    return parent->value("image", "");
 }
 
 std::string SceneDocument::getSceneMusicPath(const std::string& sceneId) const

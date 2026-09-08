@@ -36,6 +36,8 @@ const Color kTextMuted = {132, 122, 104, 255};
 const Color kCanvasBg = {18, 17, 22, 255};
 const Color kSelection = {120, 96, 48, 180};
 const Color kExitArrow = {168, 138, 72, 220};
+/** Use-action wires (corner ports) — cool silver, distinct from compass gold. */
+const Color kUseArrow = {186, 192, 204, 235};
 const Color kButtonDisabled = {48, 46, 54, 255};
 const Color kTextDisabled = {90, 86, 96, 255};
 const Color kModalOverlay = {0, 0, 0, 160};

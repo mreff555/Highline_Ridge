@@ -654,12 +654,22 @@ bool writeSaveFile(const std::string& path, const SavedGameState& state, const S
         return false;
 
     nlohmann::json root;
-    root["version"] = 10;
+    root["version"] = 11;
     root["saveMeta"] = saveMetadataToJson(metadata);
     root["sceneId"] = state.sceneId;
     root["activeSubSceneId"] = state.activeSubSceneId;
     root["previousSceneId"] = state.previousSceneId;
     root["previousSubSceneId"] = state.previousSubSceneId;
+    {
+        nlohmann::json stack = nlohmann::json::array();
+        for (const UseReturnFrame& frame : state.useReturnStack)
+        {
+            stack.push_back({
+                {"sceneId", frame.sceneId},
+                {"subSceneId", frame.subSceneId}});
+        }
+        root["useReturnStack"] = stack;
+    }
     root["narrativeText"] = state.narrativeText;
     root["health"] = state.health;
     root["energy"] = state.energy;
@@ -754,6 +764,23 @@ bool readSaveFile(const std::string& path, SavedGameState& state, SaveSlotMetada
     state.activeSubSceneId = root.value("activeSubSceneId", "");
     state.previousSceneId = root.value("previousSceneId", "");
     state.previousSubSceneId = root.value("previousSubSceneId", "");
+    state.useReturnStack.clear();
+    {
+        const nlohmann::json stack = root.value("useReturnStack", nlohmann::json::array());
+        if (stack.is_array())
+        {
+            for (const nlohmann::json& entry : stack)
+            {
+                if (!entry.is_object())
+                    continue;
+                UseReturnFrame frame;
+                frame.sceneId = entry.value("sceneId", "");
+                frame.subSceneId = entry.value("subSceneId", "");
+                if (!frame.sceneId.empty())
+                    state.useReturnStack.push_back(frame);
+            }
+        }
+    }
     state.narrativeText = root.value("narrativeText", "");
     state.health = root.value("health", state.health);
     state.energy = root.value("energy", state.energy);

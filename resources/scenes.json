@@ -160,6 +160,7 @@
           "useHealthDelta": 10
         },
         {
+          "exitMapCorner": "ne",
           "exitSceneId": "cabin_under_rug",
           "id": "lift_rug",
           "label": "Lift the rug and examine.",
@@ -204,7 +205,6 @@
         }
       },
       "exits": {
-        "backward": "cabin_under_rug",
         "down": "cellar_passage_shaft"
       },
       "image": "resources/images/cabin_cellar_open.png",
@@ -214,7 +214,7 @@
         "y": 48.0
       },
       "movement": {
-        "backward": true,
+        "backward": false,
         "down": true,
         "forward": false,
         "left": false,
@@ -320,9 +320,6 @@
       },
       "description": "You kneel on the Persian Heriz rug and work your fingers beneath the dense wool near its center. The pile gives way with a dry whisper. You fold a section of the crimson field back over itself, exposing wide oak floorboards and a small square hatch set flush into the wood. Iron straps cross dark oak planks level with the floor, as though the room was built to hide what lies below. A brass pull ring rests in a shallow oval depression carved into the door so it sits nearly flat, polished where careful hands have lifted it before.",
       "examineDetails": "Up close the hatch is older than the cabin. The oak planks are iron-bound and sunk so flush with the surrounding boards that sawdust and wax were worked into the seams to disguise the join. The pull ring is brass, oval, and set inside a recessed well with chamfered edges so it lies nearly flat against the wood and will not catch a heel. Someone filed away the tarnish in the finger groove. No keyhole. No hasp. Just the ring, waiting in its depression. The folded rug still shows its navy medallions and ivory vine-scroll border at the edge of your vision, city luxury laid over mountain timber and a door that was never meant for guests.",
-      "exits": {
-        "backward": "cabin"
-      },
       "image": "resources/images/cabin_under_rug.png",
       "layout": {
         "level": 0,
@@ -330,7 +327,7 @@
         "y": 264.0
       },
       "movement": {
-        "backward": true,
+        "backward": false,
         "forward": false,
         "left": false,
         "right": false
@@ -339,7 +336,8 @@
       "useDetails": "You slip your fingers under the flush ring and lift. The small hatch rises on oiled hinges with a low complaint, as though the mountain itself resents being opened. Cool air breathes up from below, carrying earth and old timber. Through the square opening you catch the top rungs of a wooden ladder dropping into darkness that does not reflect the hearth light. Whatever was hidden under the rug is ready to be entered.",
       "useExit": "cabin_cellar_open",
       "useRepeatStatus": true,
-      "useRequiresExamine": true
+      "useRequiresExamine": true,
+      "useExitMapCorner": "nw"
     },
     "cellar_passage_beyond_door": {
       "actions": {
