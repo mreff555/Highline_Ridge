@@ -43,6 +43,7 @@
 #include <raymath.h>
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cmath>
 #include <fstream>
@@ -251,7 +252,12 @@ SceneMapCanvas::SceneCardMetrics SceneMapCanvas::measureSceneCard(const std::str
     SceneMapCanvas::SceneCardMetrics metrics;
     metrics.width = kSceneCardWidth;
     const float titleWidth = metrics.width - 12.0f;
-    metrics.titleLines = wrapTextToWidth(sceneId, titleWidth, kSceneCardTitleFont);
+    // Sub-view cards: show "subId" then parent for clarity.
+    std::string parentId;
+    std::string subId;
+    timberline_engine::SceneDocument::parseMapNodeId(sceneId, parentId, subId);
+    const std::string title = subId.empty() ? sceneId : (subId + "  (" + parentId + ")");
+    metrics.titleLines = wrapTextToWidth(title, titleWidth, kSceneCardTitleFont);
     if (static_cast<int>(metrics.titleLines.size()) > kSceneCardMaxTitleLines)
         metrics.titleLines.resize(static_cast<size_t>(kSceneCardMaxTitleLines));
 
@@ -842,12 +848,18 @@ void SceneMapCanvas::rebuildLinkRoutes(Rectangle canvasBounds)
     for (size_t i = 0; i < levelIds.size(); ++i)
     {
         const std::string& fromId = levelIds[i];
+        // Compass exits are authored on parent scenes. Sub-view cards (parent#sub)
+        // are map destinations / future Use ports — skip as compass sources.
+        if (fromId.find('#') != std::string::npos)
+            continue;
         const char* dirs[] = {"forward", "backward", "left", "right"};
         for (size_t d = 0; d < 4; ++d)
         {
             const std::string direction = dirs[d];
             const std::string toId = graph->getExitTarget(fromId, direction);
-            if (toId.empty() || !graph->isSameLevelLink(fromId, toId))
+            if (toId.empty() || !docs->scenes.hasMapPlacement(toId))
+                continue;
+            if (!graph->isSameLevelLink(fromId, toId))
                 continue;
 
             const bool reciprocalOpposite = isOppositeReciprocal(fromId, direction, toId);
@@ -893,6 +905,139 @@ void SceneMapCanvas::rebuildLinkRoutes(Rectangle canvasBounds)
                 route.fromSide = facingSide(fromCard, toCard);
             }
 
+            cachedLinkRoutes.push_back(route);
+        }
+    }
+
+    // Use-action wires (silver): derived from useExit / interaction exitSceneId.
+    // Each card corner is an exclusive Use slot — never shared by two wires.
+    auto resolveUseMapTarget = [&](const std::string& target) -> std::string {
+        if (target.empty())
+            return {};
+        if (docs->scenes.hasMapPlacement(target))
+            return target;
+        std::string parent;
+        std::string sub;
+        timberline_engine::SceneDocument::parseMapNodeId(target, parent, sub);
+        if (!parent.empty() && docs->scenes.hasMapPlacement(parent))
+            return parent;
+        return {};
+    };
+
+    auto cornerIndex = [](const std::string& c) -> int {
+        if (c == "nw")
+            return 0;
+        if (c == "ne")
+            return 1;
+        if (c == "sw")
+            return 2;
+        if (c == "se")
+            return 3;
+        return -1;
+    };
+    static const char* kCorners[] = {"nw", "ne", "sw", "se"};
+
+    struct PendingUse
+    {
+        SceneGraphModel::UseBinding binding;
+        std::string fromId;
+        std::string toId;
+        std::string fromCorner;
+        std::string toCorner;
+    };
+    std::vector<PendingUse> pending;
+    std::map<std::string, std::array<bool, 4>> used;
+
+    auto tryClaim = [&](const std::string& nodeId, const std::string& corner) -> bool {
+        const int idx = cornerIndex(corner);
+        if (idx < 0 || nodeId.empty())
+            return false;
+        auto& slots = used[nodeId];
+        if (slots[static_cast<size_t>(idx)])
+            return false;
+        slots[static_cast<size_t>(idx)] = true;
+        return true;
+    };
+    auto claimFirstFree = [&](const std::string& nodeId, const std::string& prefer)
+        -> std::string {
+        if (tryClaim(nodeId, prefer))
+            return prefer;
+        for (int c = 0; c < 4; ++c)
+        {
+            if (tryClaim(nodeId, kCorners[c]))
+                return kCorners[c];
+        }
+        return {};
+    };
+
+    if (graph)
+    {
+        for (const std::string& fromId : levelIds)
+        {
+            const auto bindings = graph->enumerateUseBindings(fromId);
+            for (const SceneGraphModel::UseBinding& binding : bindings)
+            {
+                const std::string toId = resolveUseMapTarget(binding.target);
+                if (toId.empty() || toId == fromId)
+                    continue;
+                if (!graph->isSameLevelLink(fromId, toId))
+                    continue;
+                PendingUse p;
+                p.binding = binding;
+                p.fromId = fromId;
+                p.toId = toId;
+                pending.push_back(p);
+            }
+        }
+
+        // Pass 1: claim non-conflicting persisted corners.
+        for (PendingUse& p : pending)
+        {
+            if (!p.binding.mapCorner.empty() && tryClaim(p.fromId, p.binding.mapCorner))
+                p.fromCorner = p.binding.mapCorner;
+            if (!p.binding.mapToCorner.empty() && tryClaim(p.toId, p.binding.mapToCorner))
+                p.toCorner = p.binding.mapToCorner;
+        }
+        // Pass 2: fill remaining — prefer facing, else first free. Skip if no slot.
+        for (PendingUse& p : pending)
+        {
+            if (p.fromCorner.empty())
+            {
+                const Rectangle fromCard = sceneCardBounds(p.fromId, canvasBounds);
+                const Rectangle toCard = sceneCardBounds(p.toId, canvasBounds);
+                // Prefer the outward corner toward the destination.
+                const std::string prefer = facingUseCorner(fromCard, toCard);
+                p.fromCorner = claimFirstFree(p.fromId, prefer);
+            }
+            if (p.toCorner.empty())
+            {
+                const Rectangle fromCard = sceneCardBounds(p.fromId, canvasBounds);
+                const Rectangle toCard = sceneCardBounds(p.toId, canvasBounds);
+                const std::string prefer = facingUseCorner(toCard, fromCard);
+                p.toCorner = claimFirstFree(p.toId, prefer);
+            }
+        }
+
+        for (const PendingUse& p : pending)
+        {
+            if (p.fromCorner.empty() || p.toCorner.empty())
+                continue; // no exclusive slot left on one end
+            const Rectangle fromCard = sceneCardBounds(p.fromId, canvasBounds);
+            const Rectangle toCard = sceneCardBounds(p.toId, canvasBounds);
+            SceneLinkRoute route;
+            route.points =
+                buildUseCornerRoute(fromCard, toCard, p.fromCorner, p.toCorner);
+            route.arrowAtStart = false;
+            route.arrowAtEnd = true;
+            route.semicircleAtStart = true;
+            route.fromSide = p.fromCorner;
+            route.fromId = p.fromId;
+            route.toId = p.toId;
+            route.direction = p.fromCorner;
+            route.reciprocal = false;
+            route.isUseLink = true;
+            route.useBinding = p.binding.binding;
+            route.toCorner = p.toCorner;
             cachedLinkRoutes.push_back(route);
         }
     }
@@ -958,11 +1103,9 @@ std::string SceneMapCanvas::sceneCardAtPoint(Vector2 mouse, Rectangle canvasBoun
     // on sceneIds() order made overlapping / stacked cards feel one-directional.
     std::string bestId;
     float bestDistSq = 1.0e12f;
-    const std::vector<std::string> ids = docs->scenes.sceneIds();
+    const std::vector<std::string> ids = docs->scenes.mapNodeIds();
     for (const std::string& id : ids)
     {
-        if (!docs->scenes.hasMapPlacement(id))
-            continue;
         const SceneLayout sceneLayout = docs->scenes.getLayout(id);
         if (sceneLayout.level != level)
             continue;
@@ -997,6 +1140,176 @@ Rectangle SceneMapCanvas::directionPortBounds(Rectangle card, const std::string&
     return {0, 0, 0, 0};
 }
 
+Rectangle SceneMapCanvas::useCornerPortBounds(Rectangle card, const std::string& corner) const
+{
+    const float s = kUsePortHitSize;
+    if (corner == "nw")
+        return {card.x - s * 0.5f, card.y - s * 0.5f, s, s};
+    if (corner == "ne")
+        return {card.x + card.width - s * 0.5f, card.y - s * 0.5f, s, s};
+    if (corner == "sw")
+        return {card.x - s * 0.5f, card.y + card.height - s * 0.5f, s, s};
+    if (corner == "se")
+        return {card.x + card.width - s * 0.5f, card.y + card.height - s * 0.5f, s, s};
+    return {0, 0, 0, 0};
+}
+
+Vector2 SceneMapCanvas::useCornerPortCenter(Rectangle card, const std::string& corner) const
+{
+    const Rectangle r = useCornerPortBounds(card, corner);
+    return {r.x + r.width * 0.5f, r.y + r.height * 0.5f};
+}
+
+const char* SceneMapCanvas::useCornerForIndex(int index)
+{
+    static const char* corners[] = {"nw", "ne", "sw", "se"};
+    if (index < 0)
+        index = 0;
+    return corners[index % 4];
+}
+
+std::vector<std::string> SceneMapCanvas::resolveUseCornersForBindings(
+    const std::vector<SceneGraphModel::UseBinding>& bindings) const
+{
+    static const char* kCorners[] = {"nw", "ne", "sw", "se"};
+    std::vector<std::string> out(bindings.size());
+    bool used[4] = {false, false, false, false};
+
+    auto cornerIndex = [](const std::string& c) -> int {
+        if (c == "nw")
+            return 0;
+        if (c == "ne")
+            return 1;
+        if (c == "sw")
+            return 2;
+        if (c == "se")
+            return 3;
+        return -1;
+    };
+
+    for (size_t i = 0; i < bindings.size(); ++i)
+    {
+        const int idx = cornerIndex(bindings[i].mapCorner);
+        if (idx >= 0 && !used[idx])
+        {
+            out[i] = kCorners[idx];
+            used[idx] = true;
+        }
+    }
+    for (size_t i = 0; i < bindings.size(); ++i)
+    {
+        if (!out[i].empty())
+            continue;
+        for (int c = 0; c < 4; ++c)
+        {
+            if (used[c])
+                continue;
+            out[i] = kCorners[c];
+            used[c] = true;
+            break;
+        }
+        // No fallback modulo — empty means no exclusive slot (max 4 Use wires).
+    }
+    return out;
+}
+
+std::string SceneMapCanvas::useEndpointAtCorner(
+    const std::string& mapNodeId,
+    const std::string& corner,
+    bool* outAsDestination) const
+{
+    if (outAsDestination)
+        *outAsDestination = false;
+    if (mapNodeId.empty() || corner.empty())
+        return {};
+
+    // Cached Use routes already enforce exclusive corners on both ends.
+    for (const SceneLinkRoute& route : cachedLinkRoutes)
+    {
+        if (!route.isUseLink || route.useBinding.empty())
+            continue;
+        if (route.fromId == mapNodeId && route.direction == corner)
+        {
+            if (outAsDestination)
+                *outAsDestination = false;
+            return route.useBinding;
+        }
+        if (route.toId == mapNodeId && route.toCorner == corner)
+        {
+            if (outAsDestination)
+                *outAsDestination = true;
+            return route.useBinding;
+        }
+    }
+    return {};
+}
+
+std::string SceneMapCanvas::useBindingAtCorner(
+    const std::string& mapNodeId,
+    const std::string& corner) const
+{
+    return useEndpointAtCorner(mapNodeId, corner, nullptr);
+}
+
+std::string SceneMapCanvas::facingUseCorner(Rectangle from, Rectangle to)
+{
+    const float dx = (to.x + to.width * 0.5f) - (from.x + from.width * 0.5f);
+    const float dy = (to.y + to.height * 0.5f) - (from.y + from.height * 0.5f);
+    const bool east = dx >= 0.0f;
+    const bool south = dy >= 0.0f;
+    if (!south && !east)
+        return "nw";
+    if (!south && east)
+        return "ne";
+    if (south && !east)
+        return "sw";
+    return "se";
+}
+
+std::vector<Vector2> SceneMapCanvas::buildUseCornerRoute(
+    Rectangle fromCard,
+    Rectangle toCard,
+    const std::string& fromCorner,
+    const std::string& toCorner) const
+{
+    const Vector2 start = useCornerPortCenter(fromCard, fromCorner);
+    const Vector2 end = useCornerPortCenter(toCard, toCorner);
+    // Mild outward stubs so Use wires don't sit on the plate corners.
+    Vector2 startN = {0, 0};
+    Vector2 endN = {0, 0};
+    if (fromCorner == "nw")
+        startN = {-1.0f, -1.0f};
+    else if (fromCorner == "ne")
+        startN = {1.0f, -1.0f};
+    else if (fromCorner == "sw")
+        startN = {-1.0f, 1.0f};
+    else
+        startN = {1.0f, 1.0f};
+    if (toCorner == "nw")
+        endN = {-1.0f, -1.0f};
+    else if (toCorner == "ne")
+        endN = {1.0f, -1.0f};
+    else if (toCorner == "sw")
+        endN = {-1.0f, 1.0f};
+    else
+        endN = {1.0f, 1.0f};
+    const float inv = 1.0f / std::sqrt(2.0f);
+    startN.x *= inv;
+    startN.y *= inv;
+    endN.x *= inv;
+    endN.y *= inv;
+    const float stub = 18.0f;
+    const Vector2 a = {start.x + startN.x * stub, start.y + startN.y * stub};
+    const Vector2 b = {end.x + endN.x * stub, end.y + endN.y * stub};
+    std::vector<Vector2> path;
+    path.push_back(start);
+    path.push_back(a);
+    path.push_back({b.x, a.y});
+    path.push_back(b);
+    path.push_back(end);
+    return path;
+}
+
 bool SceneMapCanvas::hitTestDirectionPort(
     Vector2 mouse,
     Rectangle canvasBounds,
@@ -1013,11 +1326,11 @@ bool SceneMapCanvas::hitTestDirectionPort(
     const char* dirs[] = {"forward", "backward", "left", "right"};
     float bestDistSq = 1.0e12f;
     bool found = false;
-    const std::vector<std::string> ids = docs->scenes.sceneIds();
+    const std::vector<std::string> ids = docs->scenes.mapNodeIds();
     for (const std::string& id : ids)
     {
-        if (!docs->scenes.hasMapPlacement(id))
-            continue;
+        if (id.find('#') != std::string::npos)
+            continue; // compass ports only on parent cards
         if (docs->scenes.getLayout(id).level != level)
             continue;
         const Rectangle card = sceneCardBounds(id, canvasBounds);
@@ -1045,10 +1358,12 @@ bool SceneMapCanvas::hitTestDirectionPort(
 
 void SceneMapCanvas::cancelPortDrag()
 {
-    if (dragSource == DragSource::ExitPort)
+    if (dragSource == DragSource::ExitPort || dragSource == DragSource::UsePort)
         dragSource = DragSource::None;
     portDragFromId.clear();
     portDragDirection.clear();
+    portDragUseBinding.clear();
+    portDragMovingExisting = false;
     linkDragHoverTarget.clear();
 }
 
@@ -1065,11 +1380,11 @@ void SceneMapCanvas::drawDirectionPorts(Rectangle canvasBounds) const
         && hitTestDirectionPort(mouse, canvasBounds, hoverScene, hoverDir);
 
     const char* dirs[] = {"forward", "backward", "left", "right"};
-    const std::vector<std::string> ids = docs->scenes.sceneIds();
+    const std::vector<std::string> ids = docs->scenes.mapNodeIds();
     for (const std::string& id : ids)
     {
-        if (!docs->scenes.hasMapPlacement(id))
-            continue;
+        if (id.find('#') != std::string::npos)
+            continue; // compass ports only on parent cards
         if (docs->scenes.getLayout(id).level != level)
             continue;
         const Rectangle card = sceneCardBounds(id, canvasBounds);
@@ -1104,42 +1419,188 @@ void SceneMapCanvas::drawDirectionPorts(Rectangle canvasBounds) const
     }
 }
 
+void SceneMapCanvas::drawUseCornerPorts(Rectangle canvasBounds) const
+{
+    if (!docs || !docs->scenes.isLoaded())
+        return;
+
+    const Vector2 mouse = GetMousePosition();
+    std::string hoverScene;
+    std::string hoverCorner;
+    const bool hovering =
+        dragSource == DragSource::None
+        && hitTestUseCornerPort(mouse, canvasBounds, hoverScene, hoverCorner);
+
+    const char* corners[] = {"nw", "ne", "sw", "se"};
+    const std::vector<std::string> ids = docs->scenes.mapNodeIds();
+    for (const std::string& id : ids)
+    {
+        if (docs->scenes.getLayout(id).level != level)
+            continue;
+        const Rectangle card = sceneCardBounds(id, canvasBounds);
+        for (const char* corner : corners)
+        {
+            const Rectangle port = useCornerPortBounds(card, corner);
+            const bool active =
+                dragSource == DragSource::UsePort
+                && portDragFromId == id
+                && portDragDirection == corner;
+            const bool hovered =
+                hovering && hoverScene == id && hoverCorner == corner;
+            const bool linked = !useEndpointAtCorner(id, corner).empty();
+            Color fill = linked ? Color{170, 178, 192, 235} : Color{110, 118, 132, 220};
+            if (hovered)
+                fill = Color{210, 216, 228, 255};
+            if (active)
+                fill = Color{230, 234, 242, 255};
+            const float radius = port.width * 0.38f;
+            DrawCircleV(
+                {port.x + port.width * 0.5f, port.y + port.height * 0.5f},
+                radius,
+                fill);
+            DrawCircleLines(
+                static_cast<int>(port.x + port.width * 0.5f),
+                static_cast<int>(port.y + port.height * 0.5f),
+                radius,
+                hovered || active ? Color{240, 244, 250, 255} : Color{90, 96, 108, 255});
+        }
+    }
+}
+
+bool SceneMapCanvas::hitTestUseCornerPort(
+    Vector2 mouse,
+    Rectangle canvasBounds,
+    std::string& outSceneId,
+    std::string& outCorner) const
+{
+    outSceneId.clear();
+    outCorner.clear();
+    if (!docs || !docs->scenes.isLoaded())
+        return false;
+
+    const char* corners[] = {"nw", "ne", "sw", "se"};
+    float bestDistSq = 1.0e12f;
+    bool found = false;
+    const std::vector<std::string> ids = docs->scenes.mapNodeIds();
+    for (const std::string& id : ids)
+    {
+        if (docs->scenes.getLayout(id).level != level)
+            continue;
+        const Rectangle card = sceneCardBounds(id, canvasBounds);
+        for (const char* corner : corners)
+        {
+            const Rectangle port = useCornerPortBounds(card, corner);
+            if (!CheckCollisionPointRec(mouse, port))
+                continue;
+            const float cx = port.x + port.width * 0.5f;
+            const float cy = port.y + port.height * 0.5f;
+            const float dx = mouse.x - cx;
+            const float dy = mouse.y - cy;
+            const float distSq = dx * dx + dy * dy;
+            if (distSq < bestDistSq)
+            {
+                bestDistSq = distSq;
+                outSceneId = id;
+                outCorner = corner;
+                found = true;
+            }
+        }
+    }
+    return found;
+}
+
 void SceneMapCanvas::drawPortDragPreview(Rectangle canvasBounds) const
 {
-    if (dragSource != DragSource::ExitPort || portDragFromId.empty() || portDragDirection.empty())
+    const bool isUse = dragSource == DragSource::UsePort;
+    if ((dragSource != DragSource::ExitPort && !isUse)
+        || portDragFromId.empty() || portDragDirection.empty())
         return;
     if (!docs->scenes.hasMapPlacement(portDragFromId))
         return;
 
     const Rectangle fromCard = sceneCardBounds(portDragFromId, canvasBounds);
-    const Rectangle port = directionPortBounds(fromCard, portDragDirection);
+    const Rectangle port = isUse
+        ? useCornerPortBounds(fromCard, portDragDirection)
+        : directionPortBounds(fromCard, portDragDirection);
     const Vector2 start = {port.x + port.width * 0.5f, port.y + port.height * 0.5f};
     const Vector2 mouse = GetMousePosition();
 
+    // Hover feedback: prefer ports (reconnect) over whole cards.
+    std::string hoverPortScene;
+    std::string hoverPortDir;
+    const bool hoverCompassPort =
+        !isUse && hitTestDirectionPort(mouse, canvasBounds, hoverPortScene, hoverPortDir);
+    const bool hoverUsePort =
+        isUse && hitTestUseCornerPort(mouse, canvasBounds, hoverPortScene, hoverPortDir);
+
     const char* invalidReason = nullptr;
     bool valid = false;
-    if (linkDragHoverTarget.empty() || linkDragHoverTarget == portDragFromId)
-        invalidReason = "Drop on another scene";
+    const char* hint = nullptr;
+
+    if (portDragMovingExisting && hoverCompassPort
+        && hoverPortScene == portDragFromId && hoverPortDir != portDragDirection)
+    {
+        valid = true;
+        hint = "Drop to move exit to this compass port";
+    }
+    else if (portDragMovingExisting && hoverUsePort
+             && hoverPortScene == portDragFromId && hoverPortDir != portDragDirection)
+    {
+        valid = true;
+        hint = "Drop to move Use wire to this corner";
+    }
+    else if (linkDragHoverTarget.empty() || linkDragHoverTarget == portDragFromId)
+    {
+        invalidReason = portDragMovingExisting
+            ? "Drop on another port or scene"
+            : "Drop on another scene";
+    }
     else if (!graph || !graph->isSameLevelLink(portDragFromId, linkDragHoverTarget))
         invalidReason = "Different map level";
-    else if (graph->exitDirectionAlreadyLeadsTo(
+    else if (!isUse
+             && !portDragMovingExisting
+             && graph->exitDirectionAlreadyLeadsTo(
                  portDragDirection, linkDragHoverTarget, portDragFromId))
         invalidReason = "That direction already enters target";
     else
-        valid = true;
-
-    DrawLineEx(start, mouse, 2.0f, valid ? Color{220, 190, 100, 255} : Color{160, 80, 80, 200});
-    DrawCircleV(mouse, 5.0f, valid ? Color{220, 190, 100, 255} : Color{160, 80, 80, 200});
-    if (!linkDragHoverTarget.empty())
     {
-        const Rectangle target = sceneCardBounds(linkDragHoverTarget, canvasBounds);
-        DrawRectangleLinesEx(
-            target,
-            2.0f,
-            valid ? Color{220, 190, 100, 255} : Color{160, 80, 80, 200});
+        valid = true;
+        if (portDragMovingExisting)
+            hint = isUse ? "Drop to retarget Use transition"
+                         : "Drop to retarget exit destination";
+        else
+            hint = isUse ? "Drop to create Use transition"
+                         : "Drop to create exit (sets reciprocal if free)";
+    }
+
+    const Color ok = isUse ? kUseArrow : Color{220, 190, 100, 255};
+    const Color bad = Color{160, 80, 80, 200};
+    DrawLineEx(start, mouse, 2.0f, valid ? ok : bad);
+    DrawCircleV(mouse, 5.0f, valid ? ok : bad);
+    if (hoverCompassPort || hoverUsePort)
+    {
+        const Rectangle port = isUse
+            ? useCornerPortBounds(
+                  sceneCardBounds(hoverPortScene, canvasBounds), hoverPortDir)
+            : directionPortBounds(
+                  sceneCardBounds(hoverPortScene, canvasBounds), hoverPortDir);
+        DrawRectangleLinesEx(port, 2.0f, valid ? ok : bad);
         DrawTextEx(
             (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
-            valid ? "Drop to create exit (sets reciprocal if free)"
+            valid ? (hint ? hint : "Drop")
+                  : (invalidReason ? invalidReason : "Invalid target"),
+            {port.x, port.y - 18.0f},
+            kFontTiny,
+            1.0f,
+            valid ? kPanelBorder : Color{200, 100, 100, 255});
+    }
+    else if (!linkDragHoverTarget.empty())
+    {
+        const Rectangle target = sceneCardBounds(linkDragHoverTarget, canvasBounds);
+        DrawRectangleLinesEx(target, 2.0f, valid ? ok : bad);
+        DrawTextEx(
+            (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
+            valid ? (hint ? hint : "Drop")
                   : (invalidReason ? invalidReason : "Invalid target"),
             {target.x, target.y - 18.0f},
             kFontTiny,
@@ -1220,7 +1681,7 @@ void SceneMapCanvas::cancelLinkDrag()
 {
     linkDragIndex = -1;
     linkDragHoverTarget.clear();
-    if (dragSource == DragSource::ExitLink)
+    if (dragSource == DragSource::ExitLink || dragSource == DragSource::UseLink)
     {
         dragSource = DragSource::None;
         dragSceneId.clear();
@@ -1327,13 +1788,16 @@ void SceneMapCanvas::drawExitArrows(Rectangle canvasBounds)
         // Skip normal draw for the route currently being dragged (preview draws it).
         if (static_cast<int>(r) == linkDragIndex)
             continue;
+        const Color wireColor =
+            cachedLinkRoutes[r].isUseLink ? kUseArrow : Color{0, 0, 0, 0};
         drawPolyline(
             cachedLinkRoutes[r].points,
             cachedLinkRoutes[r].arrowAtStart,
             cachedLinkRoutes[r].arrowAtEnd,
             cachedLinkRoutes[r].semicircleAtStart,
             cachedLinkRoutes[r].fromSide,
-            hopsPerRoute[r]);
+            hopsPerRoute[r],
+            wireColor);
     }
 
     if (linkDragIndex >= 0)
@@ -1346,11 +1810,9 @@ void SceneMapCanvas::drawStairIcons(Rectangle canvasBounds)
     if (!docs->scenes.isLoaded())
         return;
 
-    const std::vector<std::string> ids = docs->scenes.sceneIds();
+    const std::vector<std::string> ids = docs->scenes.mapNodeIds();
     for (const std::string& id : ids)
     {
-        if (!docs->scenes.hasMapPlacement(id))
-            continue;
         const SceneLayout sceneLayout = docs->scenes.getLayout(id);
         if (sceneLayout.level != level)
             continue;
@@ -1544,7 +2006,8 @@ void SceneMapCanvas::applyEdgeAutoPanWhileDragging(
         (dragSource == DragSource::Canvas || dragSource == DragSource::SceneList)
         && !dragSceneId.empty();
     const bool linkDrag =
-        dragSource == DragSource::ExitLink || dragSource == DragSource::ExitPort;
+        dragSource == DragSource::ExitLink || dragSource == DragSource::ExitPort
+        || dragSource == DragSource::UseLink || dragSource == DragSource::UsePort;
     if (!sceneDrag && !linkDrag)
         return;
 
@@ -1866,19 +2329,24 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
 
     // Draw cards first, then links on top so arrows are never half-hidden
     // under (*thumbnails).
-    const std::vector<std::string> ids = docs->scenes.sceneIds();
+    const std::vector<std::string> ids = docs->scenes.mapNodeIds();
     for (const std::string& id : ids)
     {
-        if (!docs->scenes.hasMapPlacement(id))
-            continue;
         const SceneLayout sceneLayout = docs->scenes.getLayout(id);
         if (sceneLayout.level != level)
             continue;
 
         const SceneMapCanvas::SceneCardMetrics metrics = measureSceneCard(id);
         const Rectangle card = sceneCardBounds(id, canvasBounds);
-        const bool selected = selectionSceneId && id == (*selectionSceneId);
-        DrawRectangleRec(card, selected ? Color{52, 46, 62, 255} : Color{36, 32, 44, 255});
+        const bool selected = selectionSceneId
+            && (id == (*selectionSceneId)
+                || id.rfind(*selectionSceneId + "#", 0) == 0);
+        // Alternate/focus views: slightly different fill so they read as related plates.
+        const bool isSubView = id.find('#') != std::string::npos;
+        const Color fill = selected
+            ? Color{52, 46, 62, 255}
+            : (isSubView ? Color{42, 38, 56, 255} : Color{36, 32, 44, 255});
+        DrawRectangleRec(card, fill);
         DrawRectangleLinesEx(card, selected ? 2.0f : 1.0f, selected ? kPanelBorder : kPanelAccent);
 
         const ThumbnailEntry& thumb = thumbnails->getOrLoad(id, docs->scenes, docs->assetRoot, docs->resourceDir);
@@ -1928,6 +2396,8 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         || sceneInventory.blocksInput()
         || sceneEffects.blocksInput()
         || sceneTransition.blocksInput()
+        || sceneUseTransition.blocksInput()
+        || sceneFloorConnect.blocksInput()
         || (preferences && preferences->blocksInput())
         || (variableEditor && variableEditor->open)
         || (itemEditor && itemEditor->blocksInput())
@@ -1962,10 +2432,31 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         {
             portDragFromId = portScene;
             portDragDirection = portDir;
+            portDragUseBinding.clear();
+            portDragMovingExisting =
+                graph && !graph->getExitTarget(portScene, portDir).empty();
             dragSource = DragSource::ExitPort;
             linkDragHoverTarget.clear();
             if (selectSceneForEditor)
                 selectSceneForEditor(portScene);
+        }
+        else if (hitTestUseCornerPort(
+                     GetMousePosition(), canvasBounds, portScene, portDir))
+        {
+            portDragFromId = portScene;
+            portDragDirection = portDir;
+            portDragUseBinding = useBindingAtCorner(portScene, portDir);
+            portDragMovingExisting = !portDragUseBinding.empty();
+            dragSource = DragSource::UsePort;
+            linkDragHoverTarget.clear();
+            if (selectSceneForEditor)
+            {
+                std::string parent;
+                std::string sub;
+                timberline_engine::SceneDocument::parseMapNodeId(
+                    portScene, parent, sub);
+                selectSceneForEditor(parent.empty() ? portScene : parent);
+            }
         }
         else
         {
@@ -1973,7 +2464,9 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
             if (hit >= 0)
             {
                 linkDragIndex = hit;
-                dragSource = DragSource::ExitLink;
+                const bool useLink =
+                    cachedLinkRoutes[static_cast<size_t>(hit)].isUseLink;
+                dragSource = useLink ? DragSource::UseLink : DragSource::ExitLink;
                 linkDragHoverTarget.clear();
             }
         }
@@ -2042,7 +2535,12 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
             if (!CheckCollisionPointRec(GetMousePosition(), card))
                 continue;
             if (selectSceneForEditor)
-                selectSceneForEditor(id);
+            {
+                std::string parentId;
+                std::string subId;
+                timberline_engine::SceneDocument::parseMapNodeId(id, parentId, subId);
+                selectSceneForEditor(parentId.empty() ? id : parentId);
+            }
             if (canEditMapGeometry)
             {
                 dragSource = DragSource::Canvas;
@@ -2053,8 +2551,9 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         }
     }
 
-    // Update existing-wire retarget drag.
-    if (dragSource == DragSource::ExitLink && linkDragIndex >= 0)
+    // Update existing-wire retarget drag (compass or Use).
+    if ((dragSource == DragSource::ExitLink || dragSource == DragSource::UseLink)
+        && linkDragIndex >= 0)
     {
         if (editorMouseDown(MOUSE_BUTTON_LEFT))
         {
@@ -2066,20 +2565,139 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         if (editorMouseReleased(MOUSE_BUTTON_LEFT))
         {
             const SceneLinkRoute route = cachedLinkRoutes[static_cast<size_t>(linkDragIndex)];
-            const std::string dropId = sceneCardAtPoint(GetMousePosition(), canvasBounds);
-            if (!dropId.empty() && isValidLinkDropTarget(route, dropId))
+            const Vector2 mouse = GetMousePosition();
+            std::string dropPortScene;
+            std::string dropPortDir;
+
+            if (route.isUseLink && !route.useBinding.empty() && graph)
             {
-                graph->retargetExitLink(
-                    route.fromId,
-                    route.direction,
-                    dropId,
-                    route.reciprocal);
+                if (hitTestUseCornerPort(mouse, canvasBounds, dropPortScene, dropPortDir))
+                {
+                    if (dropPortScene == route.fromId && dropPortDir != route.direction)
+                    {
+                        // Move source end — corners are exclusive.
+                        bool otherAsDest = false;
+                        const std::string other = useEndpointAtCorner(
+                            dropPortScene, dropPortDir, &otherAsDest);
+                        if (!other.empty() && other != route.useBinding)
+                        {
+                            if (otherAsDest)
+                            {
+                                for (const SceneLinkRoute& r : cachedLinkRoutes)
+                                {
+                                    if (r.isUseLink && r.useBinding == other
+                                        && r.toId == route.fromId)
+                                    {
+                                        graph->setUseBindingMapToCorner(
+                                            r.fromId, other, route.direction);
+                                        break;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                graph->setUseBindingMapCorner(
+                                    route.fromId, other, route.direction);
+                            }
+                        }
+                        if (graph->setUseBindingMapCorner(
+                                route.fromId, route.useBinding, dropPortDir))
+                            cachedLinkRoutes.clear();
+                    }
+                    else if (dropPortScene == route.toId && dropPortDir != route.toCorner)
+                    {
+                        // Move destination end onto another free/swappable corner.
+                        bool otherAsDest = false;
+                        const std::string other = useEndpointAtCorner(
+                            dropPortScene, dropPortDir, &otherAsDest);
+                        if (!other.empty() && other != route.useBinding)
+                        {
+                            if (otherAsDest)
+                            {
+                                for (const SceneLinkRoute& r : cachedLinkRoutes)
+                                {
+                                    if (r.isUseLink && r.useBinding == other
+                                        && r.toId == route.toId)
+                                    {
+                                        graph->setUseBindingMapToCorner(
+                                            r.fromId, other, route.toCorner);
+                                        break;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                graph->setUseBindingMapCorner(
+                                    route.toId, other, route.toCorner);
+                            }
+                        }
+                        if (graph->setUseBindingMapToCorner(
+                                route.fromId, route.useBinding, dropPortDir))
+                            cachedLinkRoutes.clear();
+                    }
+                    else if (dropPortScene != route.fromId && dropPortScene != route.toId
+                             && graph->isSameLevelLink(route.fromId, dropPortScene))
+                    {
+                        // Retarget to a new card, attaching at the dropped corner.
+                        bool occupiedDest = false;
+                        const std::string occupant = useEndpointAtCorner(
+                            dropPortScene, dropPortDir, &occupiedDest);
+                        if (!occupant.empty())
+                        {
+                            exitLinkFeedback = "Use corner already occupied";
+                            exitLinkFeedbackUntil = GetTime() + 2.5;
+                        }
+                        else if (graph->setUseBindingTarget(
+                                     route.fromId, route.useBinding, dropPortScene))
+                        {
+                            graph->setUseBindingMapToCorner(
+                                route.fromId, route.useBinding, dropPortDir);
+                            cachedLinkRoutes.clear();
+                        }
+                    }
+                }
+                else
+                {
+                    const std::string dropId = sceneCardAtPoint(mouse, canvasBounds);
+                    if (!dropId.empty() && dropId != route.fromId
+                        && graph->isSameLevelLink(route.fromId, dropId))
+                    {
+                        if (graph->setUseBindingTarget(
+                                route.fromId, route.useBinding, dropId))
+                            cachedLinkRoutes.clear();
+                    }
+                }
+            }
+            else if (!route.isUseLink && graph)
+            {
+                if (hitTestDirectionPort(mouse, canvasBounds, dropPortScene, dropPortDir)
+                    && dropPortScene == route.fromId && dropPortDir != route.direction)
+                {
+                    if (graph->reassignExitDirection(
+                            route.fromId, route.direction, dropPortDir, route.reciprocal))
+                        cachedLinkRoutes.clear();
+                }
+                else
+                {
+                    const std::string dropId =
+                        hitTestDirectionPort(mouse, canvasBounds, dropPortScene, dropPortDir)
+                            ? dropPortScene
+                            : sceneCardAtPoint(mouse, canvasBounds);
+                    if (!dropId.empty() && isValidLinkDropTarget(route, dropId))
+                    {
+                        graph->retargetExitLink(
+                            route.fromId,
+                            route.direction,
+                            dropId,
+                            route.reciprocal);
+                    }
+                }
             }
             cancelLinkDrag();
         }
     }
 
-    // Update new-connector port drag.
+    // Update compass port drag (create or move existing exit).
     if (dragSource == DragSource::ExitPort && !portDragFromId.empty())
     {
         if (editorMouseDown(MOUSE_BUTTON_LEFT))
@@ -2091,33 +2709,235 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
 
         if (editorMouseReleased(MOUSE_BUTTON_LEFT))
         {
-            const std::string dropId = sceneCardAtPoint(GetMousePosition(), canvasBounds);
-            if (!dropId.empty() && dropId != portDragFromId && graph)
+            const Vector2 mouse = GetMousePosition();
+            std::string dropPortScene;
+            std::string dropPortDir;
+            const bool dropOnPort =
+                hitTestDirectionPort(mouse, canvasBounds, dropPortScene, dropPortDir);
+
+            if (portDragMovingExisting && graph)
             {
-                if (graph->createExitLink(
-                        portDragFromId, portDragDirection, dropId, true))
+                if (dropOnPort && dropPortScene == portDragFromId
+                    && dropPortDir != portDragDirection)
                 {
-                    exitLinkFeedback.clear();
-                    exitLinkFeedbackUntil = 0.0;
+                    if (graph->reassignExitDirection(
+                            portDragFromId, portDragDirection, dropPortDir, true))
+                    {
+                        cachedLinkRoutes.clear();
+                        exitLinkFeedback = "Moved exit to " + dropPortDir;
+                        exitLinkFeedbackUntil = GetTime() + 2.0;
+                    }
+                    else
+                    {
+                        exitLinkFeedback = "Could not move exit to that port";
+                        exitLinkFeedbackUntil = GetTime() + 3.0;
+                    }
                 }
                 else
                 {
-                    if (!graph->isSameLevelLink(portDragFromId, dropId))
-                        exitLinkFeedback = "Exit not created: scenes are on different levels";
-                    else if (graph->exitDirectionAlreadyLeadsTo(
-                                 portDragDirection, dropId, portDragFromId))
-                        exitLinkFeedback =
-                            "Exit not created: another scene already uses "
-                            + portDragDirection + " into that target";
+                    const std::string dropId = dropOnPort
+                        ? dropPortScene
+                        : sceneCardAtPoint(mouse, canvasBounds);
+                    if (!dropId.empty() && dropId != portDragFromId
+                        && graph->isSameLevelLink(portDragFromId, dropId))
+                    {
+                        if (graph->retargetExitLink(
+                                portDragFromId,
+                                portDragDirection,
+                                dropId,
+                                true))
+                        {
+                            cachedLinkRoutes.clear();
+                            exitLinkFeedback.clear();
+                        }
+                        else
+                        {
+                            exitLinkFeedback = "Could not retarget exit";
+                            exitLinkFeedbackUntil = GetTime() + 3.0;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                const std::string dropId = dropOnPort
+                    ? dropPortScene
+                    : sceneCardAtPoint(mouse, canvasBounds);
+                if (!dropId.empty() && dropId != portDragFromId && graph)
+                {
+                    if (graph->createExitLink(
+                            portDragFromId, portDragDirection, dropId, true))
+                    {
+                        exitLinkFeedback.clear();
+                        exitLinkFeedbackUntil = 0.0;
+                    }
                     else
-                        exitLinkFeedback = "Exit not created (invalid link)";
-                    exitLinkFeedbackUntil = GetTime() + 4.0;
-                    TraceLog(
-                        LOG_WARNING,
-                        "TIMBERLINE: createExitLink %s --%s--> %s failed",
-                        portDragFromId.c_str(),
-                        portDragDirection.c_str(),
-                        dropId.c_str());
+                    {
+                        if (!graph->isSameLevelLink(portDragFromId, dropId))
+                            exitLinkFeedback =
+                                "Exit not created: scenes are on different levels";
+                        else if (graph->exitDirectionAlreadyLeadsTo(
+                                     portDragDirection, dropId, portDragFromId))
+                            exitLinkFeedback =
+                                "Exit not created: another scene already uses "
+                                + portDragDirection + " into that target";
+                        else
+                            exitLinkFeedback = "Exit not created (invalid link)";
+                        exitLinkFeedbackUntil = GetTime() + 4.0;
+                        TraceLog(
+                            LOG_WARNING,
+                            "TIMBERLINE: createExitLink %s --%s--> %s failed",
+                            portDragFromId.c_str(),
+                            portDragDirection.c_str(),
+                            dropId.c_str());
+                    }
+                }
+            }
+            cancelPortDrag();
+        }
+    }
+
+    // Update Use corner-port drag → move slot, retarget, or create.
+    if (dragSource == DragSource::UsePort && !portDragFromId.empty())
+    {
+        if (editorMouseDown(MOUSE_BUTTON_LEFT))
+        {
+            linkDragHoverTarget = sceneCardAtPoint(GetMousePosition(), canvasBounds);
+            if (linkDragHoverTarget == portDragFromId)
+                linkDragHoverTarget.clear();
+        }
+
+        if (editorMouseReleased(MOUSE_BUTTON_LEFT))
+        {
+            const Vector2 mouse = GetMousePosition();
+            std::string dropPortScene;
+            std::string dropPortDir;
+            const bool dropOnCorner =
+                hitTestUseCornerPort(mouse, canvasBounds, dropPortScene, dropPortDir);
+
+            if (portDragMovingExisting && graph && !portDragUseBinding.empty())
+            {
+                if (dropOnCorner && dropPortScene == portDragFromId
+                    && dropPortDir != portDragDirection)
+                {
+                    bool otherAsDest = false;
+                    const std::string other = useEndpointAtCorner(
+                        portDragFromId, dropPortDir, &otherAsDest);
+                    if (!other.empty() && other != portDragUseBinding)
+                    {
+                        if (otherAsDest)
+                        {
+                            for (const SceneLinkRoute& r : cachedLinkRoutes)
+                            {
+                                if (r.isUseLink && r.useBinding == other
+                                    && r.toId == portDragFromId)
+                                {
+                                    graph->setUseBindingMapToCorner(
+                                        r.fromId, other, portDragDirection);
+                                    break;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            graph->setUseBindingMapCorner(
+                                portDragFromId, other, portDragDirection);
+                        }
+                    }
+                    if (graph->setUseBindingMapCorner(
+                            portDragFromId, portDragUseBinding, dropPortDir))
+                    {
+                        cachedLinkRoutes.clear();
+                        exitLinkFeedback = "Moved Use wire to " + dropPortDir;
+                        exitLinkFeedbackUntil = GetTime() + 2.0;
+                    }
+                }
+                else if (dropOnCorner && dropPortScene != portDragFromId
+                         && graph->isSameLevelLink(portDragFromId, dropPortScene))
+                {
+                    bool occupied = false;
+                    const std::string occupant =
+                        useEndpointAtCorner(dropPortScene, dropPortDir, &occupied);
+                    if (!occupant.empty())
+                    {
+                        exitLinkFeedback = "Use corner already occupied";
+                        exitLinkFeedbackUntil = GetTime() + 2.5;
+                    }
+                    else if (graph->setUseBindingTarget(
+                                 portDragFromId, portDragUseBinding, dropPortScene))
+                    {
+                        graph->setUseBindingMapToCorner(
+                            portDragFromId, portDragUseBinding, dropPortDir);
+                        cachedLinkRoutes.clear();
+                        exitLinkFeedback.clear();
+                    }
+                }
+                else
+                {
+                    const std::string dropId = sceneCardAtPoint(mouse, canvasBounds);
+                    if (!dropId.empty() && dropId != portDragFromId
+                        && graph->isSameLevelLink(portDragFromId, dropId))
+                    {
+                        if (graph->setUseBindingTarget(
+                                portDragFromId, portDragUseBinding, dropId))
+                        {
+                            cachedLinkRoutes.clear();
+                            exitLinkFeedback.clear();
+                        }
+                    }
+                }
+            }
+            else if (!dropOnCorner || dropPortScene != portDragFromId)
+            {
+                const std::string dropId = dropOnCorner
+                    ? dropPortScene
+                    : sceneCardAtPoint(mouse, canvasBounds);
+                if (!dropId.empty() && dropId != portDragFromId && graph
+                    && graph->isSameLevelLink(portDragFromId, dropId))
+                {
+                    if (dropOnCorner
+                        && !useEndpointAtCorner(dropPortScene, dropPortDir).empty())
+                    {
+                        exitLinkFeedback = "Use corner already occupied";
+                        exitLinkFeedbackUntil = GetTime() + 2.5;
+                    }
+                    else
+                    {
+                        sceneUseTransition.docs = docs;
+                        sceneUseTransition.graph = graph;
+                        sceneUseTransition.uiFont = uiFont;
+                        sceneUseTransition.uiFontBold = uiFontBold;
+                        sceneUseTransition.onSaved = [this]() {
+                            cachedLinkRoutes.clear();
+                        };
+                        sceneUseTransition.openForLink(portDragFromId, dropId);
+                        const std::string created = [&]() {
+                            sceneUseTransition.createNewBinding();
+                            return sceneUseTransition.selectedBinding;
+                        }();
+                        // Exclusive source + dest corners.
+                        if (!created.empty()
+                            && useEndpointAtCorner(portDragFromId, portDragDirection)
+                                   .empty())
+                        {
+                            graph->setUseBindingMapCorner(
+                                portDragFromId, created, portDragDirection);
+                        }
+                        if (!created.empty() && dropOnCorner
+                            && useEndpointAtCorner(dropPortScene, dropPortDir).empty())
+                        {
+                            graph->setUseBindingMapToCorner(
+                                portDragFromId, created, dropPortDir);
+                        }
+                        cachedLinkRoutes.clear();
+                        exitLinkFeedback = "Use link created — Manage to rebind";
+                        exitLinkFeedbackUntil = GetTime() + 2.5;
+                    }
+                }
+                else if (!dropId.empty() && dropId != portDragFromId)
+                {
+                    exitLinkFeedback = "Use link not created: different map level";
+                    exitLinkFeedbackUntil = GetTime() + 3.0;
                 }
             }
             cancelPortDrag();
@@ -2127,8 +2947,11 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
     drawExitArrows(canvasBounds);
     drawStairIcons(canvasBounds);
     if (canEditMapGeometry)
+    {
         drawDirectionPorts(canvasBounds);
-    if (dragSource == DragSource::ExitPort)
+        drawUseCornerPorts(canvasBounds);
+    }
+    if (dragSource == DragSource::ExitPort || dragSource == DragSource::UsePort)
         drawPortDragPreview(canvasBounds);
 
     if (!exitLinkFeedback.empty() && GetTime() <= exitLinkFeedbackUntil)
@@ -2201,13 +3024,15 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         dragSceneId.clear();
     }
 
-    if (dragSource == DragSource::ExitLink && !editorMouseDown(MOUSE_BUTTON_LEFT)
+    if ((dragSource == DragSource::ExitLink || dragSource == DragSource::UseLink)
+        && !editorMouseDown(MOUSE_BUTTON_LEFT)
         && !editorMouseReleased(MOUSE_BUTTON_LEFT))
     {
         // Safety: mouse lost while dragging.
         cancelLinkDrag();
     }
-    if (dragSource == DragSource::ExitPort && !editorMouseDown(MOUSE_BUTTON_LEFT)
+    if ((dragSource == DragSource::ExitPort || dragSource == DragSource::UsePort)
+        && !editorMouseDown(MOUSE_BUTTON_LEFT)
         && !editorMouseReleased(MOUSE_BUTTON_LEFT))
     {
         cancelPortDrag();
@@ -2278,6 +3103,8 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         || sceneInventory.blocksInput()
         || sceneEffects.blocksInput()
         || sceneTransition.blocksInput()
+        || sceneUseTransition.blocksInput()
+        || sceneFloorConnect.blocksInput()
         || (preferences && preferences->blocksInput())
         || (variableEditor && variableEditor->open)
         || (itemEditor && itemEditor->blocksInput())
@@ -2323,6 +3150,8 @@ bool SceneMapCanvas::anyAuthoringModalOpen() const
         || sceneInventory.blocksInput()
         || sceneEffects.blocksInput()
         || sceneTransition.blocksInput()
+        || sceneUseTransition.blocksInput()
+        || sceneFloorConnect.blocksInput()
         || (preferences && preferences->blocksInput())
         || (variableEditor && variableEditor->open)
         || (itemEditor && itemEditor->blocksInput())
@@ -2342,6 +3171,8 @@ void SceneMapCanvas::closeContextMenu()
     contextMenuLinkToId.clear();
     contextMenuLinkDirection.clear();
     contextMenuLinkReciprocal = false;
+    contextMenuLinkIsUse = false;
+    contextMenuUseBinding.clear();
     contextMenuBounds = {0.0f, 0.0f, 0.0f, 0.0f};
     contextMenuAnchor = {0.0f, 0.0f};
 }
@@ -2354,10 +3185,17 @@ void SceneMapCanvas::openContextMenu(
     if (source == ContextMenuSource::None || source == ContextMenuSource::ExitLink
         || sceneId.empty() || docs == nullptr)
         return;
-    if (!docs->scenes.hasScene(sceneId))
+    // sceneId may be parent or parent#sub (map view).
+    if (!docs->scenes.hasMapNode(sceneId) && !docs->scenes.hasScene(sceneId))
         return;
     if (blocksInput())
         return;
+
+    std::string parentId;
+    std::string subId;
+    timberline_engine::SceneDocument::parseMapNodeId(sceneId, parentId, subId);
+    if (parentId.empty())
+        parentId = sceneId;
 
     // Select without starting a drag.
     dragSource = DragSource::None;
@@ -2365,10 +3203,10 @@ void SceneMapCanvas::openContextMenu(
     cancelLinkDrag();
     cancelPortDrag();
     if (selectSceneForEditor)
-        selectSceneForEditor(sceneId);
+        selectSceneForEditor(parentId);
 
     contextMenuSource = source;
-    contextMenuSceneId = sceneId;
+    contextMenuSceneId = sceneId; // keep full map node id for Remove-from-map
     contextMenuLinkFromId.clear();
     contextMenuLinkToId.clear();
     contextMenuLinkDirection.clear();
@@ -2395,14 +3233,32 @@ void SceneMapCanvas::openLinkContextMenu(int routeIndex, Vector2 mouse)
     cancelLinkDrag();
     cancelPortDrag();
 
-    contextMenuSource = ContextMenuSource::ExitLink;
+    contextMenuSource =
+        route.isUseLink ? ContextMenuSource::UseLink : ContextMenuSource::ExitLink;
     contextMenuSceneId.clear();
     contextMenuLinkFromId = route.fromId;
     contextMenuLinkToId = route.toId;
     contextMenuLinkDirection = route.direction;
     contextMenuLinkReciprocal = route.reciprocal;
+    contextMenuLinkIsUse = route.isUseLink;
+    contextMenuUseBinding = route.useBinding;
     contextMenuAnchor = mouse;
     contextMenuBounds = {0.0f, 0.0f, 0.0f, 0.0f};
+}
+
+void SceneMapCanvas::manageContextMenuUseLink()
+{
+    if (contextMenuLinkFromId.empty() || contextMenuLinkToId.empty())
+        return;
+    sceneUseTransition.docs = docs;
+    sceneUseTransition.graph = graph;
+    sceneUseTransition.uiFont = uiFont;
+    sceneUseTransition.uiFontBold = uiFontBold;
+    sceneUseTransition.onSaved = [this]() { cachedLinkRoutes.clear(); };
+    sceneUseTransition.openForLink(
+        contextMenuLinkFromId,
+        contextMenuLinkToId,
+        contextMenuUseBinding);
 }
 
 void SceneMapCanvas::deleteContextMenuLink()
@@ -2456,7 +3312,7 @@ void SceneMapCanvas::cancelDragsForScene(const std::string& sceneId)
 void SceneMapCanvas::beginRemoveFromMapConfirm(const std::string& sceneId)
 {
     closeContextMenu();
-    if (docs == nullptr || sceneId.empty() || !docs->scenes.hasScene(sceneId))
+    if (docs == nullptr || sceneId.empty() || !docs->scenes.hasMapNode(sceneId))
         return;
     if (!docs->scenes.hasMapPlacement(sceneId))
         return;
@@ -2592,15 +3448,20 @@ bool SceneMapCanvas::handleContextMenuClick(Vector2 mouse)
     const std::string linkFrom = contextMenuLinkFromId;
     const std::string linkTo = contextMenuLinkToId;
     const std::string linkDir = contextMenuLinkDirection;
+    const std::string linkBinding = contextMenuUseBinding;
+    const bool linkIsUse = contextMenuLinkIsUse;
 
-    if (source == ContextMenuSource::ExitLink)
+    if (source == ContextMenuSource::ExitLink || source == ContextMenuSource::UseLink)
     {
         closeContextMenu();
         if (i == 0)
         {
-            if (graph && !linkFrom.empty() && !linkDir.empty())
+            if (graph && !linkFrom.empty())
             {
-                graph->deleteExitLink(linkFrom, linkDir, /*clearReciprocal=*/true);
+                if (linkIsUse && !linkBinding.empty())
+                    graph->clearUseBinding(linkFrom, linkBinding);
+                else if (!linkIsUse && !linkDir.empty())
+                    graph->deleteExitLink(linkFrom, linkDir, /*clearReciprocal=*/true);
                 cancelLinkDrag();
                 cachedLinkRoutes.clear();
             }
@@ -2608,7 +3469,19 @@ bool SceneMapCanvas::handleContextMenuClick(Vector2 mouse)
         }
         if (i == 1)
         {
-            if (!linkFrom.empty() && !linkTo.empty())
+            if (linkIsUse)
+            {
+                if (!linkFrom.empty() && !linkTo.empty())
+                {
+                    sceneUseTransition.docs = docs;
+                    sceneUseTransition.graph = graph;
+                    sceneUseTransition.uiFont = uiFont;
+                    sceneUseTransition.uiFontBold = uiFontBold;
+                    sceneUseTransition.onSaved = [this]() { cachedLinkRoutes.clear(); };
+                    sceneUseTransition.openForLink(linkFrom, linkTo, linkBinding);
+                }
+            }
+            else if (!linkFrom.empty() && !linkTo.empty())
             {
                 sceneTransition.docs = docs;
                 sceneTransition.graph = graph;
@@ -2622,10 +3495,29 @@ bool SceneMapCanvas::handleContextMenuClick(Vector2 mouse)
         return true;
     }
 
+    std::string parentId;
+    std::string subId;
+    timberline_engine::SceneDocument::parseMapNodeId(sceneId, parentId, subId);
+    if (parentId.empty())
+        parentId = sceneId;
+
+    int unplacedSubs = 0;
+    if (source == ContextMenuSource::Map && subId.empty())
+    {
+        for (const std::string& sid : docs->scenes.subSceneIds(parentId))
+        {
+            const std::string node =
+                timberline_engine::SceneDocument::makeMapNodeId(parentId, sid);
+            if (!docs->scenes.hasMapPlacement(node))
+                ++unplacedSubs;
+        }
+    }
+
     if (i == 0)
     {
         closeContextMenu();
-        sceneAuthoring.openEditDialog(sceneId);
+        // Edit the map node (parent#sub for alternate views).
+        sceneAuthoring.openEditDialog(sceneId.empty() ? parentId : sceneId);
         return true;
     }
     if (i == 1)
@@ -2633,7 +3525,37 @@ bool SceneMapCanvas::handleContextMenuClick(Vector2 mouse)
         if (source == ContextMenuSource::Map)
             beginRemoveFromMapConfirm(sceneId);
         else
-            beginDeleteSceneConfirm(sceneId);
+            beginDeleteSceneConfirm(parentId);
+        return true;
+    }
+
+    // Map parent card menu: Edit, Remove, Connect to floor, [Place alternates].
+    // Map alternate card: Edit, Remove, [Place alternates] (rare).
+    if (i == 2 && source == ContextMenuSource::Map && subId.empty())
+    {
+        closeContextMenu();
+        sceneFloorConnect.docs = docs;
+        sceneFloorConnect.graph = graph;
+        sceneFloorConnect.uiFont = uiFont;
+        sceneFloorConnect.uiFontBold = uiFontBold;
+        sceneFloorConnect.onSaved = [this]() {
+            cachedLinkRoutes.clear();
+            if (thumbnails)
+                thumbnails->clear();
+        };
+        sceneFloorConnect.openForScene(sceneId.empty() ? parentId : sceneId);
+        return true;
+    }
+    if (i == 3 && source == ContextMenuSource::Map && subId.empty() && unplacedSubs > 0)
+    {
+        closeContextMenu();
+        placeUnplacedSubViewsOnMap(parentId);
+        return true;
+    }
+    if (i == 2 && source == ContextMenuSource::Map && !subId.empty() && unplacedSubs > 0)
+    {
+        closeContextMenu();
+        placeUnplacedSubViewsOnMap(parentId);
         return true;
     }
 
@@ -2641,9 +3563,42 @@ bool SceneMapCanvas::handleContextMenuClick(Vector2 mouse)
     return true;
 }
 
+void SceneMapCanvas::placeUnplacedSubViewsOnMap(const std::string& parentId)
+{
+    if (!docs || parentId.empty() || !docs->scenes.hasScene(parentId))
+        return;
+    if (!docs->scenes.hasMapPlacement(parentId))
+        return;
+
+    const SceneLayout parentLayout = docs->scenes.getLayout(parentId);
+    int placed = 0;
+    for (const std::string& sid : docs->scenes.subSceneIds(parentId))
+    {
+        const std::string node =
+            timberline_engine::SceneDocument::makeMapNodeId(parentId, sid);
+        if (docs->scenes.hasMapPlacement(node))
+            continue;
+        SceneLayout layout = parentLayout;
+        layout.x = parentLayout.x
+            + static_cast<float>(placed + 1) * (kSceneCardWidth + 48.0f);
+        layout.y = parentLayout.y + 24.0f;
+        docs->scenes.setLayout(node, layout);
+        ++placed;
+    }
+    if (placed > 0)
+    {
+        docs->markDirty();
+        cachedLinkRoutes.clear();
+        exitLinkFeedback = "Placed " + std::to_string(placed) + " alternate view(s)";
+        exitLinkFeedbackUntil = GetTime() + 2.5;
+    }
+}
+
 void SceneMapCanvas::drawContextMenu()
 {
-    const bool isLinkMenu = contextMenuSource == ContextMenuSource::ExitLink;
+    const bool isExitLinkMenu = contextMenuSource == ContextMenuSource::ExitLink;
+    const bool isUseLinkMenu = contextMenuSource == ContextMenuSource::UseLink;
+    const bool isLinkMenu = isExitLinkMenu || isUseLinkMenu;
     if (contextMenuSource == ContextMenuSource::None
         || (!isLinkMenu && contextMenuSceneId.empty())
         || (isLinkMenu && contextMenuLinkFromId.empty()))
@@ -2653,19 +3608,66 @@ void SceneMapCanvas::drawContextMenu()
     }
 
     const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
+    std::string parentId;
+    std::string subId;
+    timberline_engine::SceneDocument::parseMapNodeId(
+        contextMenuSceneId, parentId, subId);
+    if (parentId.empty())
+        parentId = contextMenuSceneId;
+
+    int unplacedSubs = 0;
+    if (!isLinkMenu && contextMenuSource == ContextMenuSource::Map && subId.empty())
+    {
+        for (const std::string& sid : docs->scenes.subSceneIds(parentId))
+        {
+            const std::string node =
+                timberline_engine::SceneDocument::makeMapNodeId(parentId, sid);
+            if (!docs->scenes.hasMapPlacement(node))
+                ++unplacedSubs;
+        }
+    }
+
     // ASCII "..." — UI fonts often lack U+2026 and draw it as '?'.
+    const bool sceneMenu = !isLinkMenu;
+    const bool mapParentMenu =
+        sceneMenu && contextMenuSource == ContextMenuSource::Map && subId.empty();
     const char* item0 = isLinkMenu ? "Delete" : "Edit...";
-    const char* item1 = isLinkMenu
-        ? "Edit Transition..."
-        : ((contextMenuSource == ContextMenuSource::Map)
-               ? "Remove from map"
-               : "Delete scene...");
+    const char* item1 = isUseLinkMenu
+        ? "Manage..."
+        : (isExitLinkMenu
+               ? "Edit Transition..."
+               : ((contextMenuSource == ContextMenuSource::Map)
+                      ? "Remove from map"
+                      : "Delete scene..."));
+    // Map parent card: Connect to floor, then optional Place alternate views.
+    const char* item2 = nullptr;
+    const char* item3 = nullptr;
+    if (mapParentMenu)
+    {
+        item2 = "Connect to floor...";
+        if (unplacedSubs > 0)
+            item3 = "Place alternate views";
+    }
+    else if (
+        !isLinkMenu && contextMenuSource == ContextMenuSource::Map && unplacedSubs > 0)
+    {
+        item2 = "Place alternate views";
+    }
+    const int itemCount = item3 != nullptr ? 4 : (item2 != nullptr ? 3 : 2);
+
     const float rowH = 22.0f;
     const float pad = 10.0f;
-    const float w0 = MeasureTextEx(font, item0, kFontSmall, 1.0f).x;
-    const float w1 = MeasureTextEx(font, item1, kFontSmall, 1.0f).x;
-    const float menuW = std::max(180.0f, std::max(w0, w1) + pad * 2.0f);
-    const float menuH = rowH * 2.0f + 4.0f;
+    float menuW = 180.0f;
+    const char* itemsPreview[4] = {item0, item1, item2, item3};
+    for (int i = 0; i < itemCount; ++i)
+    {
+        const char* label = itemsPreview[i];
+        if (label == nullptr)
+            continue;
+        menuW = std::max(
+            menuW, MeasureTextEx(font, label, kFontSmall, 1.0f).x + pad * 2.0f);
+    }
+    const float menuH = rowH * static_cast<float>(itemCount) + 4.0f;
 
     float x = contextMenuAnchor.x;
     float y = contextMenuAnchor.y;
@@ -2685,10 +3687,12 @@ void SceneMapCanvas::drawContextMenu()
     DrawRectangleLinesEx(contextMenuBounds, 1.0f, kPanelBorder);
 
     const Vector2 mouse = GetMousePosition();
-    const char* items[2] = {item0, item1};
     float my = contextMenuBounds.y + 2.0f;
-    for (int i = 0; i < 2; ++i)
+    for (int i = 0; i < itemCount; ++i)
     {
+        const char* label = itemsPreview[i];
+        if (label == nullptr)
+            continue;
         const Rectangle row = {
             contextMenuBounds.x + 2.0f,
             my,
@@ -2698,7 +3702,7 @@ void SceneMapCanvas::drawContextMenu()
             DrawRectangleRec(row, Color{60, 54, 72, 220});
         DrawTextEx(
             font,
-            items[i],
+            label,
             {row.x + 8.0f, row.y + 3.0f},
             kFontSmall,
             1.0f,
@@ -3052,6 +4056,8 @@ void SceneMapCanvas::drawSceneList(Rectangle listBounds)
         && !sceneInventory.blocksInput()
         && !sceneEffects.blocksInput()
         && !sceneTransition.blocksInput()
+        && !sceneUseTransition.blocksInput()
+        && !sceneFloorConnect.blocksInput()
         && !(preferences && preferences->blocksInput())
         && confirmMode == ConfirmMode::None
         && contextMenuSource == ContextMenuSource::None;
@@ -3165,6 +4171,8 @@ void SceneMapCanvas::drawSceneList(Rectangle listBounds)
         && !sceneInventory.blocksInput()
         && !sceneEffects.blocksInput()
         && !sceneTransition.blocksInput()
+        && !sceneUseTransition.blocksInput()
+        && !sceneFloorConnect.blocksInput()
         && !(preferences && preferences->blocksInput())
         && confirmMode == ConfirmMode::None;
     if (canOpenContext && CheckCollisionPointRec(mouse, treeBounds)
@@ -3645,6 +4653,8 @@ void SceneMapCanvas::drawScenePreviewPane(Rectangle paneBounds)
         && !sceneInventory.blocksInput()
         && !sceneEffects.blocksInput()
         && !sceneTransition.blocksInput()
+        && !sceneUseTransition.blocksInput()
+        && !sceneFloorConnect.blocksInput()
         && !(preferences && preferences->blocksInput())
         && confirmMode == ConfirmMode::None;
 
@@ -3899,6 +4909,8 @@ void SceneMapCanvas::drawBottomPane(Rectangle bottomBounds)
         && !sceneInventory.blocksInput()
         && !sceneEffects.blocksInput()
         && !sceneTransition.blocksInput()
+        && !sceneUseTransition.blocksInput()
+        && !sceneFloorConnect.blocksInput()
         && !(preferences && preferences->blocksInput())
         && !(itemEditor && itemEditor->blocksInput())
         && !(variableEditor && variableEditor->open)
@@ -3943,6 +4955,8 @@ void SceneMapCanvas::drawStatusBar(int screenWidth, int screenHeight)
         && !sceneInventory.blocksInput()
         && !sceneEffects.blocksInput()
         && !sceneTransition.blocksInput()
+        && !sceneUseTransition.blocksInput()
+        && !sceneFloorConnect.blocksInput()
         && confirmMode == ConfirmMode::None;
 
     DrawTextEx(
@@ -4095,6 +5109,8 @@ void SceneMapCanvas::draw()
     sceneInventory.draw(screenWidth, screenHeight);
     sceneEffects.draw(screenWidth, screenHeight);
     sceneTransition.draw(screenWidth, screenHeight);
+    sceneUseTransition.draw(screenWidth, screenHeight);
+    sceneFloorConnect.draw(screenWidth, screenHeight);
     if (preferences)
         preferences->draw(screenWidth, screenHeight);
 

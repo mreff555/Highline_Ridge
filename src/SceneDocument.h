@@ -59,8 +59,33 @@ public:
     std::vector<std::string> sceneIds() const;
     bool hasScene(const std::string& sceneId) const;
 
-    /** True when the scene JSON has a layout object (shown on the map). */
-    bool hasMapPlacement(const std::string& sceneId) const;
+    /**
+     * Map node ids: parent scenes with layout, plus parent#subScene ids when
+     * that sub-scene has its own layout (alternate/focus views on the map).
+     */
+    std::vector<std::string> mapNodeIds() const;
+
+    /** Split "parent" or "parent#sub". sub empty if no hash. */
+    static void parseMapNodeId(
+        const std::string& mapNodeId,
+        std::string& outParentId,
+        std::string& outSubSceneId);
+
+    static std::string makeMapNodeId(
+        const std::string& parentId,
+        const std::string& subSceneId);
+
+    /** Parent scene exists; if mapNodeId has #sub, that subScenes entry exists. */
+    bool hasMapNode(const std::string& mapNodeId) const;
+
+    /** Sub-scene ids under parent (keys of subScenes), sorted. */
+    std::vector<std::string> subSceneIds(const std::string& parentId) const;
+
+    /**
+     * True when the node has a layout object (parent.layout or
+     * parent.subScenes[sub].layout).
+     */
+    bool hasMapPlacement(const std::string& mapNodeId) const;
 
     // Remove a scene and clear inbound exits/movement/exitRequirements on others.
     bool removeScene(const std::string& sceneId);
@@ -87,13 +112,14 @@ public:
     /** Next free id: base, base_2, base_3, … */
     std::string allocateUniqueSceneId(const std::string& baseId) const;
 
-    SceneLayout getLayout(const std::string& sceneId) const;
-    void setLayout(const std::string& sceneId, const SceneLayout& layout);
-    void clearLayout(const std::string& sceneId);
+    SceneLayout getLayout(const std::string& mapNodeId) const;
+    void setLayout(const std::string& mapNodeId, const SceneLayout& layout);
+    void clearLayout(const std::string& mapNodeId);
 
     std::vector<SceneActor> getActors(const std::string& sceneId) const;
 
-    std::string getSceneImagePath(const std::string& sceneId) const;
+    /** Image for map/thumbs: sub-scene image if set, else parent image / variants. */
+    std::string getSceneImagePath(const std::string& mapNodeId) const;
 
     /** First music bed path under audio.music, or empty. */
     std::string getSceneMusicPath(const std::string& sceneId) const;

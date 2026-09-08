@@ -49,6 +49,14 @@ class SceneController
     ActiveScene& getActiveScene() { return activeScene; }
     const std::string& getCurrentSceneId() const { return activeScene.getId(); }
 
+    enum class TransitionKind
+    {
+        Movement,  // compass walk — clears Use return stack
+        Use,       // useExit / interaction exitSceneId — pushes return frame
+        UseReturn, // Back unwinding Use stack — pops, does not push
+        Other      // load / scripted; leave stack alone unless cleared by caller
+    };
+
     bool loadInitialScene(const std::string& sceneId, WorldState& worldState);
     bool transitionToScene(
         const std::string& nextSceneId,
@@ -59,7 +67,8 @@ class SceneController
         InventoryMgr& inventoryMgr,
         const ItemDatabase& itemDatabase,
         const MilestoneManager& milestoneMgr,
-        const std::function<bool(const std::string& phaseId)>& isPhaseComplete = nullptr);
+        const std::function<bool(const std::string& phaseId)>& isPhaseComplete = nullptr,
+        TransitionKind kind = TransitionKind::Other);
     bool tryMove(
         const std::string& direction,
         WorldState& worldState,

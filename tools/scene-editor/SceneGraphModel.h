@@ -148,11 +148,81 @@ void ensureDefaultLayouts();
 
 void applyStackLink(bool placeAbove);
 
+/**
+ * Mutually exclusive vertical link: source ↔ target via up/down.
+ * targetIsAbove: target sits above source (source.up=target, target.down=source).
+ * Replaces any prior partner on the claimed up/down slots.
+ */
+bool connectFloorLink(
+    const std::string& sourceId,
+    const std::string& targetId,
+    bool targetIsAbove);
+
 void closeStackDialog();
 
 std::string findStackTarget(const Rectangle& ghost, Rectangle canvasBounds, const std::string& excludeId) const;
 
 std::string oppositeDirection(const std::string& direction) const;
+
+/** One Use-driven leave binding on a map node (parent or parent#sub). */
+struct UseBinding
+{
+    std::string binding; // "useExit" or "interaction:<id>"
+    std::string label;   // UI label
+    std::string target;  // scene or scene#sub
+    std::string sourceMapNode;
+    std::string mapCorner;   // nw/ne/sw/se on source (empty = auto)
+    std::string mapToCorner; // nw/ne/sw/se on destination (empty = auto)
+};
+
+/** Enumerate useExit + interactions with exitSceneId for a map node. */
+std::vector<UseBinding> enumerateUseBindings(const std::string& mapNodeId) const;
+
+/**
+ * Set binding target on the JSON for sourceMapNode.
+ * binding "useExit" writes useExit; "interaction:id" writes that interaction's
+ * exitSceneId (creates a stub interaction if missing).
+ */
+bool setUseBindingTarget(
+    const std::string& sourceMapNode,
+    const std::string& binding,
+    const std::string& targetMapNode);
+
+/** Persist which Use corner slot a binding uses on the source card. */
+bool setUseBindingMapCorner(
+    const std::string& sourceMapNode,
+    const std::string& binding,
+    const std::string& corner);
+
+/** Persist destination-card Use corner for a binding. */
+bool setUseBindingMapToCorner(
+    const std::string& sourceMapNode,
+    const std::string& binding,
+    const std::string& corner);
+
+/** Clear useExit or interaction exitSceneId for binding. */
+bool clearUseBinding(
+    const std::string& sourceMapNode,
+    const std::string& binding);
+
+/**
+ * Create a new stub interaction on source with exitSceneId=target.
+ * Returns binding key "interaction:<id>", or empty on failure.
+ */
+std::string createUseInteractionBinding(
+    const std::string& sourceMapNode,
+    const std::string& targetMapNode,
+    const std::string& labelHint = {});
+
+/**
+ * Move an existing compass exit from oldDirection to newDirection on fromId.
+ * Updates exits + movement; maintains reciprocal when present.
+ */
+bool reassignExitDirection(
+    const std::string& fromId,
+    const std::string& oldDirection,
+    const std::string& newDirection,
+    bool maintainReciprocal = true);
 };
 
 } // namespace timberline_editor

@@ -443,8 +443,144 @@ SceneUpsertResult upsertScene(
 {
     SceneUpsertResult result;
     payload.id = sanitizeSceneId(payload.id);
+    payload.parentSceneId = sanitizeSceneId(payload.parentSceneId);
+    payload.subSceneId = sanitizeSceneId(payload.subSceneId);
     payload.description = trimCopy(payload.description);
     payload.examineDetails = trimCopy(payload.examineDetails);
+    payload.useExit = trimCopy(payload.useExit);
+
+    if (payload.alternateMode)
+    {
+        if (!isValidSceneId(payload.parentSceneId))
+        {
+            result.message = "Alternate views need a valid parent scene id.";
+            return result;
+        }
+        if (!docs.scenes.hasScene(payload.parentSceneId))
+        {
+            result.message =
+                "Parent scene \"" + payload.parentSceneId + "\" does not exist.";
+            return result;
+        }
+        if (!isValidSceneId(payload.subSceneId))
+        {
+            result.message =
+                "Invalid sub-scene id (start with a letter; use a-z, 0-9, underscore).";
+            return result;
+        }
+        if (payload.description.empty())
+        {
+            result.message = "Description is required (AI uses it as context).";
+            return result;
+        }
+
+        // Authoring id for AI paths: parent_sub.
+        payload.id = payload.parentSceneId + "_" + payload.subSceneId;
+        if (payload.imagePath.empty())
+            payload.imagePath =
+                "resources/images/" + payload.parentSceneId + "_" + payload.subSceneId
+                + ".png";
+
+        nlohmann::json* parent = docs.scenes.sceneJson(payload.parentSceneId);
+        if (parent == nullptr || !parent->is_object())
+        {
+            result.message = "Failed to open parent scene.";
+            return result;
+        }
+        if (!parent->contains("subScenes") || !(*parent)["subScenes"].is_object())
+            (*parent)["subScenes"] = nlohmann::json::object();
+
+        nlohmann::json& sub = (*parent)["subScenes"][payload.subSceneId];
+        if (!sub.is_object())
+            sub = nlohmann::json::object();
+
+        sub["image"] = payload.imagePath;
+        sub["description"] = payload.description;
+        sub["examineDetails"] = payload.examineDetails;
+        if (payload.focusView)
+            sub["focus"] = true;
+        else
+            sub.erase("focus");
+        if (!payload.useExit.empty())
+            sub["useExit"] = payload.useExit;
+        else
+            sub.erase("useExit");
+
+        const std::string mapNode = timberline_engine::SceneDocument::makeMapNodeId(
+            payload.parentSceneId, payload.subSceneId);
+        if (payload.showOnMap)
+        {
+            timberline_engine::SceneLayout layout = docs.scenes.getLayout(mapNode);
+            if (!docs.scenes.hasMapPlacement(mapNode))
+            {
+                // Seed near parent if parent is on the map.
+                if (docs.scenes.hasMapPlacement(payload.parentSceneId))
+                {
+                    layout = docs.scenes.getLayout(payload.parentSceneId);
+                    layout.x += 208.0f;
+                    layout.y += 24.0f;
+                }
+                else
+                {
+                    layout.x = payload.layoutX;
+                    layout.y = payload.layoutY;
+                    layout.level = payload.layoutLevel;
+                }
+            }
+            docs.scenes.setLayout(mapNode, layout);
+        }
+        else if (docs.scenes.hasMapPlacement(mapNode))
+        {
+            docs.scenes.clearLayout(mapNode);
+        }
+
+        docs.markDirty();
+        if (!docs.saveAll())
+        {
+            result.message = "Updated sub-scene but failed to save scenes.json.";
+            return result;
+        }
+
+        result.ok = true;
+        result.message = "Saved alternate view " + mapNode;
+
+        if (writeAiJobs)
+        {
+            const std::string styleBlock =
+                formatGenerationStyleBlock(loadGenerationStyleFilter(docs.resourceDir));
+            result.jobs = buildSceneAiJobs(payload, aiTargetFilter, styleBlock);
+            if (!result.jobs.empty())
+            {
+                nlohmann::json jobsRoot;
+                jobsRoot["sceneId"] = payload.id;
+                jobsRoot["itemId"] = payload.id;
+                jobsRoot["kind"] = "scene";
+                if (backupRotate)
+                    jobsRoot["backupRotate"] = true;
+                nlohmann::json arr = nlohmann::json::array();
+                for (const SceneAiJob& job : result.jobs)
+                    arr.push_back(sceneAiJobToJson(job));
+                jobsRoot["jobs"] = arr;
+                const std::string gameRoot =
+                    findGameRoot(docs.assetRoot, docs.resourceDir);
+                const std::string authoringDir =
+                    pathJoin(pathJoin(gameRoot, "resources"), ".authoring");
+#if !defined(_WIN32)
+                std::string mkdirCmd = "mkdir -p " + shellQuote(authoringDir);
+                std::system(mkdirCmd.c_str());
+#endif
+                const std::string jobsPath =
+                    pathJoin(authoringDir, payload.id + "_ai_jobs.json");
+                std::ofstream out(jobsPath.c_str());
+                if (out)
+                {
+                    out << jobsRoot.dump(2);
+                    result.jobsFilePath = jobsPath;
+                }
+            }
+        }
+        return result;
+    }
 
     if (!isValidSceneId(payload.id))
     {
@@ -829,17 +965,70 @@ bool fillPayloadFromScene(
     const std::string& sceneId,
     SceneAuthoringPayload& out)
 {
-    const nlohmann::json* scene = docs.scenes.sceneJson(sceneId);
+    std::string parentId;
+    std::string subId;
+    timberline_engine::SceneDocument::parseMapNodeId(sceneId, parentId, subId);
+    if (parentId.empty())
+        parentId = sceneId;
+
+    // Alternate / focus map node: parent#sub → load from subScenes[sub].
+    if (!subId.empty())
+    {
+        if (!docs.scenes.hasMapNode(sceneId))
+            return false;
+        const nlohmann::json* parent = docs.scenes.sceneJson(parentId);
+        if (parent == nullptr || !parent->is_object())
+            return false;
+        const nlohmann::json& sub = (*parent)["subScenes"][subId];
+        if (!sub.is_object())
+            return false;
+
+        out = SceneAuthoringPayload{};
+        out.alternateMode = true;
+        out.parentSceneId = parentId;
+        out.subSceneId = subId;
+        out.id = parentId + "_" + subId;
+        out.focusView = sub.value("focus", false);
+        out.useExit = sub.value("useExit", "");
+        out.showOnMap = docs.scenes.hasMapPlacement(sceneId);
+        out.description = sub.value("description", "");
+        out.examineDetails = sub.value("examineDetails", "");
+        out.imagePath = sub.value("image", "");
+        // Audio / TTS live on the parent room for now.
+        out.ambientPath = docs.scenes.getSceneAmbientPath(parentId);
+        out.musicPath = docs.scenes.getSceneMusicPath(parentId);
+        out.enterSfxPath.clear();
+        out.exitSfxPath.clear();
+        out.speakEnabled = false;
+        out.ttsEnabled = false;
+        out.ttsDefaultVoice = parent->value("ttsDefaultVoice", "leo");
+        out.ttsDescription.clear();
+        out.ttsExamineDetails.clear();
+        const auto layout = docs.scenes.getLayout(sceneId);
+        out.layoutX = layout.x;
+        out.layoutY = layout.y;
+        out.layoutLevel = layout.level;
+        if (out.imagePath.empty())
+            out.imagePath = "resources/images/" + out.id + ".png";
+        if (out.ambientPath.empty())
+            out.ambientPath = "resources/audio/ambient/" + parentId + ".mp3";
+        if (out.musicPath.empty())
+            out.musicPath = "resources/audio/music/" + parentId + "_theme.mp3";
+        return true;
+    }
+
+    const nlohmann::json* scene = docs.scenes.sceneJson(parentId);
     if (scene == nullptr || !scene->is_object())
         return false;
 
     out = SceneAuthoringPayload{};
-    out.id = sceneId;
+    out.id = parentId;
+    out.alternateMode = false;
     out.description = scene->value("description", "");
     out.examineDetails = scene->value("examineDetails", "");
     out.imagePath = scene->value("image", "");
-    out.ambientPath = docs.scenes.getSceneAmbientPath(sceneId);
-    out.musicPath = docs.scenes.getSceneMusicPath(sceneId);
+    out.ambientPath = docs.scenes.getSceneAmbientPath(parentId);
+    out.musicPath = docs.scenes.getSceneMusicPath(parentId);
     out.enterSfxPath.clear();
     out.exitSfxPath.clear();
     {
@@ -867,17 +1056,17 @@ bool fillPayloadFromScene(
     out.ttsDefaultVoice = scene->value("ttsDefaultVoice", "leo");
     out.ttsDescription = ttsBagText(*scene, "descriptionTts");
     out.ttsExamineDetails = ttsBagText(*scene, "examineTts");
-    const auto layout = docs.scenes.getLayout(sceneId);
+    const auto layout = docs.scenes.getLayout(parentId);
     out.layoutX = layout.x;
     out.layoutY = layout.y;
     out.layoutLevel = layout.level;
 
     if (out.imagePath.empty())
-        out.imagePath = "resources/images/" + sceneId + ".png";
+        out.imagePath = "resources/images/" + parentId + ".png";
     if (out.ambientPath.empty())
-        out.ambientPath = "resources/audio/ambient/" + sceneId + ".mp3";
+        out.ambientPath = "resources/audio/ambient/" + parentId + ".mp3";
     if (out.musicPath.empty())
-        out.musicPath = "resources/audio/music/" + sceneId + "_theme.mp3";
+        out.musicPath = "resources/audio/music/" + parentId + "_theme.mp3";
     return true;
 }
 

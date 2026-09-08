@@ -48,7 +48,8 @@ struct SceneAuthoringDialog
     std::string status;
     std::string error;
     // 0=id, 1=description, 2=examine, 3=api key, 4=image, 5=ambient, 6=music,
-    // 7=tts description, 8=tts examine
+    // 7=tts description, 8=tts examine,
+    // 9=parent scene, 10=sub-scene id, 11=useExit (alternate mode)
     int focusField = 0;
 
     /** Caret + selection + per-field scroll for multiline fields. */
@@ -85,11 +86,17 @@ struct SceneAuthoringDialog
     SingleLineState imageEdit{};
     SingleLineState ambientEdit{};
     SingleLineState musicEdit{};
+    SingleLineState parentEdit{};
+    SingleLineState subIdEdit{};
+    SingleLineState useExitEdit{};
 
     bool voiceMenuOpen = false;
     Rectangle voiceBtnRect{0, 0, 0, 0};
     Rectangle voiceMenuRect{0, 0, 0, 0};
     Rectangle ttsSwitchTrack{0, 0, 0, 0};
+    Rectangle alternateSwitchTrack{0, 0, 0, 0};
+    Rectangle focusViewSwitchTrack{0, 0, 0, 0};
+    Rectangle showOnMapSwitchTrack{0, 0, 0, 0};
 
     enum class ApiKeyValidity
     {

@@ -34,6 +34,7 @@ SavedGameState WorldState::snapshot(
     state.activeSubSceneId = activeSubSceneId;
     state.previousSceneId = previousSceneId;
     state.previousSubSceneId = previousSubSceneId;
+    state.useReturnStack = useReturnStack;
     state.narrativeText = narrativeText;
     state.health = playerStats.health;
     state.energy = playerStats.energy;
@@ -78,6 +79,7 @@ bool WorldState::restore(
     activeSubSceneId = state.activeSubSceneId;
     previousSceneId = state.previousSceneId;
     previousSubSceneId = state.previousSubSceneId;
+    useReturnStack = state.useReturnStack;
     narrativeText = state.narrativeText;
     playerStats.health = state.health;
     playerStats.energy = state.energy;

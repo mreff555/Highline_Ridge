@@ -106,7 +106,8 @@ bool SceneController::transitionToScene(
     InventoryMgr& inventoryMgr,
     const ItemDatabase& itemDatabase,
     const MilestoneManager& milestoneMgr,
-    const std::function<bool(const std::string& phaseId)>& isPhaseComplete)
+    const std::function<bool(const std::string& phaseId)>& isPhaseComplete,
+    TransitionKind kind)
 {
     if (nextSceneId.empty())
         return false;
@@ -134,6 +135,18 @@ bool SceneController::transitionToScene(
         sceneDatabase.getSceneAudio(fromSceneId, fromSubSceneId),
         nextSceneId);
 
+    if (kind == TransitionKind::Use && !fromSceneId.empty())
+    {
+        UseReturnFrame frame;
+        frame.sceneId = fromSceneId;
+        frame.subSceneId = fromSubSceneId;
+        worldState.useReturnStack.push_back(frame);
+    }
+    else if (kind == TransitionKind::Movement)
+    {
+        worldState.useReturnStack.clear();
+    }
+
     worldState.previousSceneId = fromSceneId;
     worldState.previousSubSceneId = fromSubSceneId;
     worldState.currentSceneId = nextSceneId;
@@ -153,6 +166,8 @@ bool SceneController::transitionToScene(
 
     applySceneStruct(nextLocation, fromSceneId, worldState);
 
+    // Under-construction stubs keep previous* for Back. Use arrivals use
+    // useReturnStack instead (so they are not gold compass exits on the map).
     if (!nextLocation.isUnderConstruction)
     {
         worldState.previousSceneId.clear();
@@ -242,7 +257,26 @@ bool SceneController::tryMove(
             inventoryMgr,
             itemDatabase,
             milestoneMgr,
-            isPhaseComplete);
+            isPhaseComplete,
+            TransitionKind::Other);
+    }
+
+    // Use-arrival Back: unwind stack before authored compass exits.
+    if (direction == "backward" && !worldState.useReturnStack.empty())
+    {
+        const UseReturnFrame frame = worldState.useReturnStack.back();
+        worldState.useReturnStack.pop_back();
+        return transitionToScene(
+            frame.sceneId,
+            frame.subSceneId,
+            worldState,
+            takeMgr,
+            interactionMgr,
+            inventoryMgr,
+            itemDatabase,
+            milestoneMgr,
+            isPhaseComplete,
+            TransitionKind::UseReturn);
     }
 
     const SceneData* scene = sceneDatabase.getScene(worldState.currentSceneId);
@@ -274,7 +308,8 @@ bool SceneController::tryMove(
         inventoryMgr,
         itemDatabase,
         milestoneMgr,
-        isPhaseComplete);
+        isPhaseComplete,
+        TransitionKind::Movement);
 }
 
 }

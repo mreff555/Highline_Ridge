@@ -32,7 +32,9 @@ enum class DragSource
     SceneList,
     Canvas,
     ExitLink,
-    ExitPort // new connector from a card direction port
+    ExitPort, // new connector from a card direction port (compass)
+    UsePort,  // new connector from a card corner Use port
+    UseLink   // retarget existing Use wire
 };
 enum class ConversationNodeKind
 {

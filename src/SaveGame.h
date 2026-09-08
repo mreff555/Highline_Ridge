@@ -41,12 +41,20 @@ struct ConversationPersistState
     std::map<std::string, int> workTheRoomAttempts;
 };
 
+/** One frame on the Use-arrival return stack (Back unwinds these). */
+struct UseReturnFrame
+{
+    std::string sceneId;
+    std::string subSceneId;
+};
+
 struct SavedGameState
 {
     std::string sceneId;
     std::string activeSubSceneId;
     std::string previousSceneId;
     std::string previousSubSceneId;
+    std::vector<UseReturnFrame> useReturnStack;
     std::string narrativeText;
     float health = 90.0f;
     float energy = 20.0f;
