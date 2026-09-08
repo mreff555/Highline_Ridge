@@ -125,6 +125,8 @@ nlohmann::json sceneAiJobToJson(const SceneAiJob& job)
         {"prompt", job.prompt},
         {"outPath", job.outPath},
         {"action", job.action.empty() ? "examine" : job.action}};
+    if (!job.imagePath.empty())
+        j["imagePath"] = job.imagePath;
     if (!job.sourceText.empty())
         j["sourceText"] = job.sourceText;
     if (!job.defaultVoice.empty())
@@ -145,6 +147,37 @@ std::string ttsBagText(const nlohmann::json& scene, const char* key)
 }
 
 } // namespace
+
+bool isSharedSceneImagePlaceholder(const std::string& relPath)
+{
+    if (relPath.empty())
+        return true;
+    std::string leaf = relPath;
+    const size_t slash = leaf.find_last_of("/\\");
+    if (slash != std::string::npos)
+        leaf = leaf.substr(slash + 1);
+    // Strip compression suffix for matching.
+    if (leaf.size() > 3 && leaf.substr(leaf.size() - 3) == ".xz")
+        leaf = leaf.substr(0, leaf.size() - 3);
+    // scene_under_construction.png / scene_under_construction_1.png …
+    if (leaf.rfind("scene_under_construction", 0) == 0)
+        return true;
+    return false;
+}
+
+void normalizeSceneAuthoringPaths(SceneAuthoringPayload& payload)
+{
+    const std::string id = sanitizeSceneId(payload.id);
+    if (id.empty())
+        return;
+
+    if (payload.imagePath.empty() || isSharedSceneImagePlaceholder(payload.imagePath))
+        payload.imagePath = "resources/images/" + id + ".png";
+    if (payload.ambientPath.empty())
+        payload.ambientPath = "resources/audio/ambient/" + id + ".mp3";
+    if (payload.musicPath.empty())
+        payload.musicPath = "resources/audio/music/" + id + "_theme.mp3";
+}
 
 std::string sanitizeSceneId(const std::string& raw)
 {
@@ -309,13 +342,15 @@ std::vector<SceneAiJob> buildSceneAiJobs(
 
     const std::string basePrompt = periodRules + styleBlock;
 
+    // Never emit jobs that would overwrite shared placeholder plates.
+    SceneAuthoringPayload paths = payload;
+    normalizeSceneAuthoringPaths(paths);
+
     if (want(1))
     {
         SceneAiJob job;
         job.type = SceneAiJobType::GenerateImage;
-        job.outPath = payload.imagePath.empty()
-            ? ("resources/images/" + payload.id + ".png")
-            : payload.imagePath;
+        job.outPath = paths.imagePath;
         job.prompt = basePrompt
             + "Wide establishing scene image of: " + ctx
             + " Full-screen adventure game background, dimmable for UI.";
@@ -326,15 +361,18 @@ std::vector<SceneAiJob> buildSceneAiJobs(
         SceneAiJob job;
         job.type = SceneAiJobType::GenerateAmbient;
         job.action = "ambient";
-        job.outPath = payload.ambientPath.empty()
-            ? ("resources/audio/ambient/" + payload.id + ".mp3")
-            : payload.ambientPath;
+        job.outPath = paths.ambientPath;
         // Prompt carries scene + style for chat layer-planning in the runner.
+        // Note: current runner synthesizes beds locally from named layers —
+        // ask for kitchen/crowd layers when the scene is an interior workplace.
         job.prompt =
-            std::string("Plan a seamless loopable ambient SOUND BED (not music, not speech).\n")
-            + styleBlock + "Scene context:\n" + ctx
-            + "\nPrefer layers matching the setting (e.g. distant birds, faint streams, "
-              "soft wind for mountain trails).";
+            std::string(
+                "Diegetic ambient soundscape for a Timberline adventure-game room bed. "
+                "No dialogue, no narrator, no music score — only environmental audio "
+                "that could loop under gameplay. Capture activity, room tone, and any "
+                "distant bleed that fits the place.\n")
+            + styleBlock + "Scene context:\n" + ctx;
+        job.imagePath = paths.imagePath; // Imagine Video image-to-video when present
         jobs.push_back(job);
     }
     if (want(3))
@@ -342,9 +380,7 @@ std::vector<SceneAiJob> buildSceneAiJobs(
         SceneAiJob job;
         job.type = SceneAiJobType::GenerateMusic;
         job.action = "music";
-        job.outPath = payload.musicPath.empty()
-            ? ("resources/audio/music/" + payload.id + "_theme.mp3")
-            : payload.musicPath;
+        job.outPath = paths.musicPath;
         job.prompt = std::string("Loopable period instrumental underscore.\n")
             + styleBlock + "Scene context:\n" + ctx;
         jobs.push_back(job);
@@ -594,13 +630,7 @@ SceneUpsertResult upsertScene(
         return result;
     }
 
-    // Default paths if empty.
-    if (payload.imagePath.empty())
-        payload.imagePath = "resources/images/" + payload.id + ".png";
-    if (payload.ambientPath.empty())
-        payload.ambientPath = "resources/audio/ambient/" + payload.id + ".mp3";
-    if (payload.musicPath.empty())
-        payload.musicPath = "resources/audio/music/" + payload.id + "_theme.mp3";
+    normalizeSceneAuthoringPaths(payload);
 
     const bool alreadyExists = docs.scenes.hasScene(payload.id);
     if (alreadyExists)
@@ -1067,6 +1097,9 @@ bool fillPayloadFromScene(
         out.ambientPath = "resources/audio/ambient/" + parentId + ".mp3";
     if (out.musicPath.empty())
         out.musicPath = "resources/audio/music/" + parentId + "_theme.mp3";
+    // Remap shared under-construction plates so Edit → Generate cannot overwrite
+    // the global placeholder.
+    normalizeSceneAuthoringPaths(out);
     return true;
 }
 
@@ -1803,12 +1836,33 @@ void applySceneAiOutputsToPayload(
         return p;
     };
 
-    if (payload.imagePath.empty() || !isPlausibleResourcePath(payload.imagePath))
-        payload.imagePath = "resources/images/" + sceneId + ".png";
-    if (payload.ambientPath.empty())
-        payload.ambientPath = "resources/audio/ambient/" + sceneId + ".mp3";
-    if (payload.musicPath.empty())
-        payload.musicPath = "resources/audio/music/" + sceneId + "_theme.mp3";
+    payload.id = sceneId;
+    normalizeSceneAuthoringPaths(payload);
+
+    // If a prior bug wrote this scene's art onto the shared under-construction
+    // plate, migrate it to the scene-owned path once.
+    {
+        const std::string root = docs.assetRoot.empty() ? "." : docs.assetRoot;
+        const std::string destRel = payload.imagePath;
+        const std::string destAbs = pathJoin(root, destRel);
+        const std::string sharedRel = "resources/images/scene_under_construction.png";
+        const std::string sharedAbs = pathJoin(root, sharedRel);
+        if (!FileExists(destAbs.c_str()) && FileExists(sharedAbs.c_str()))
+        {
+            // Only migrate when shared looks like authored art (large), not the
+            // tiny placeholder (~40KB). Generated kitchen plates are multi-MB.
+            std::ifstream probe(sharedAbs.c_str(), std::ios::binary | std::ios::ate);
+            const auto sz = probe ? static_cast<long long>(probe.tellg()) : 0LL;
+            if (sz > 200000)
+            {
+                ensureParentDirectoryExists(destAbs);
+                std::ifstream in(sharedAbs.c_str(), std::ios::binary);
+                std::ofstream out(destAbs.c_str(), std::ios::binary);
+                if (in && out)
+                    out << in.rdbuf();
+            }
+        }
+    }
 
     (*scene)["image"] = tryPath(payload.imagePath);
     nlohmann::json audio = scene->value("audio", nlohmann::json::object());
@@ -1897,13 +1951,21 @@ void applySceneAiOutputsToPayload(
     {
     }
 
+    // TTS markup jobs imply the scene should speak — enable even if the author
+    // forgot to flip the TTS switch before Generate all.
+    if (!payload.ttsDescription.empty() || !payload.ttsExamineDetails.empty())
+        payload.ttsEnabled = true;
+
     if (payload.ttsEnabled)
     {
         (*scene)["ttsEnabled"] = true;
         (*scene)["ttsDefaultVoice"] = payload.ttsDefaultVoice.empty()
             ? "leo"
             : payload.ttsDefaultVoice;
+        if (!scene->contains("actions") || !(*scene)["actions"].is_object())
+            (*scene)["actions"] = nlohmann::json::object();
         (*scene)["actions"]["speak"] = true;
+        (*scene)["actions"]["examine"] = true;
     }
 
     docs.markDirty();

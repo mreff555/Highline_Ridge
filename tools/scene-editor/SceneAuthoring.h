@@ -69,6 +69,8 @@ struct SceneAiJob
     SceneAiJobType type = SceneAiJobType::GenerateImage;
     std::string prompt;
     std::string outPath;
+    /** Optional scene plate for ambient Imagine Video (image-to-video). */
+    std::string imagePath;
     std::string action; // ambient | music | enter | exit | description_tts | examine_tts
     std::string sourceText;
     std::string defaultVoice;
@@ -77,6 +79,13 @@ struct SceneAiJob
 
 std::string sanitizeSceneId(const std::string& raw);
 bool isValidSceneId(const std::string& id);
+
+/**
+ * Ensure image/ambient/music paths are scene-owned before generate/upsert.
+ * Remaps empty paths and shared placeholders (e.g. scene_under_construction)
+ * to resources/images/<id>.png (and matching audio defaults).
+ */
+void normalizeSceneAuthoringPaths(SceneAuthoringPayload& payload);
 
 /** Build a minimal but playable scene object for scenes.json. */
 nlohmann::json buildSceneJson(const SceneAuthoringPayload& payload);

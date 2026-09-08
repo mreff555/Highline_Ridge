@@ -300,11 +300,16 @@ set(_gen_dir "${CMAKE_BINARY_DIR}/generated")
 file(MAKE_DIRECTORY "${_gen_dir}")
 
 if(NOT HIGHLINE_EMBED_RESOURCES)
+    # Symlink — do NOT copy_directory. The scene editor resolves resources next to
+    # the binary (build/resources). A copy meant editor saves landed in the build
+    # tree and were wiped on the next make/sync, so map links and layout edits
+    # looked like they "reverted." One tree: source resources/ <-> build/resources.
     add_custom_target(sync_resources ALL
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        COMMAND ${CMAKE_COMMAND} -E rm -rf "${CMAKE_BINARY_DIR}/resources"
+        COMMAND ${CMAKE_COMMAND} -E create_symlink
             "${CMAKE_SOURCE_DIR}/resources"
             "${CMAKE_BINARY_DIR}/resources"
-        COMMENT "Syncing resources to build directory"
+        COMMENT "Linking resources/ beside the game binary"
     )
     add_dependencies(${PROJECT_NAME} sync_resources)
 else()
