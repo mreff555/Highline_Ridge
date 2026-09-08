@@ -61,7 +61,7 @@ std::string truncateOneLine(const std::string& text, size_t maxLen)
     {
         if (compact.size() > maxLen - 1)
             compact.resize(maxLen - 1);
-        compact += "…";
+        compact += "...";
     }
     return compact;
 }
@@ -178,7 +178,7 @@ void DialogWalkthrough::appendChoiceSteps(
         choice.contains("id") && choice["id"].is_string() ? choice["id"].get<std::string>()
                                                           : "";
     const std::string crumb =
-        breadcrumb.empty() ? label : (breadcrumb + " › " + label);
+        breadcrumb.empty() ? label : (breadcrumb + " > " + label);
 
     if (choice.contains("response") && choice["response"].is_string())
     {
@@ -275,7 +275,7 @@ void DialogWalkthrough::rebuildSteps()
             phase.contains("id") && phase["id"].is_string() ? phase["id"].get<std::string>()
                                                             : ("phase " + std::to_string(phaseIndex));
         const std::string actor = phaseActorName(phase, phaseActorId(phase));
-        const std::string phaseCrumb = actor + " › " + phaseId;
+        const std::string phaseCrumb = actor + " > " + phaseId;
 
         if (phase.contains("intro") && phase["intro"].is_string())
         {
@@ -284,8 +284,8 @@ void DialogWalkthrough::rebuildSteps()
             step.objectPointer = phasePointer;
             step.field = DialogWalkStep::Field::Intro;
             step.treeKey = "narrative-conv:" + phasePointer + "/intro";
-            step.breadcrumb = phaseCrumb + " › Intro";
-            step.stepLabel = phaseId + " · intro";
+            step.breadcrumb = phaseCrumb + " > Intro";
+            step.stepLabel = phaseId + "  |  intro";
             step.objectId = phaseId;
             steps.push_back(std::move(step));
         }
@@ -296,8 +296,8 @@ void DialogWalkthrough::rebuildSteps()
             step.objectPointer = phasePointer;
             step.field = DialogWalkStep::Field::ResumeIntro;
             step.treeKey = "narrative-conv:" + phasePointer + "/resumeIntro";
-            step.breadcrumb = phaseCrumb + " › Resume intro";
-            step.stepLabel = phaseId + " · resume";
+            step.breadcrumb = phaseCrumb + " > Resume intro";
+            step.stepLabel = phaseId + "  |  resume";
             step.objectId = phaseId;
             steps.push_back(std::move(step));
         }
@@ -308,8 +308,8 @@ void DialogWalkthrough::rebuildSteps()
             step.objectPointer = phasePointer;
             step.field = DialogWalkStep::Field::LineText;
             step.treeKey = "narrative-conv:" + phasePointer + "/text";
-            step.breadcrumb = phaseCrumb + " › Text";
-            step.stepLabel = phaseId + " · text";
+            step.breadcrumb = phaseCrumb + " > Text";
+            step.stepLabel = phaseId + "  |  text";
             step.objectId = phaseId;
             steps.push_back(std::move(step));
         }
@@ -342,7 +342,7 @@ void DialogWalkthrough::rebuildSteps()
                     lines[i],
                     conversationPointerIndex(
                         conversationPointerJoin(phasePointer, "lines"), i),
-                    phaseCrumb + " › lines",
+                    phaseCrumb + " > lines",
                     *selectionSceneId,
                     0);
             }
@@ -477,7 +477,7 @@ bool DialogWalkthrough::applyCurrentStep()
     nlohmann::json* obj = currentObject();
     if (obj == nullptr || !obj->is_object())
     {
-        error = "Cannot save — object missing";
+        error = "Cannot save  -  object missing";
         return false;
     }
 
@@ -1044,8 +1044,8 @@ void DialogWalkthrough::draw(Rectangle pane)
     DrawRectangleLinesEx(sceneBar, 1.0f, kPanelInnerEdge);
     const std::string sceneTitle =
         (selectionSceneId == nullptr || selectionSceneId->empty())
-        ? "Dialog editor  ·  expand a scene in the left tree"
-        : ("Dialog editor  ·  " + *selectionSceneId);
+        ? "Dialog editor   |   expand a scene in the left tree"
+        : ("Dialog editor   |   " + *selectionSceneId);
     DrawTextEx(
         bold,
         sceneTitle.c_str(),
@@ -1299,8 +1299,8 @@ void DialogWalkthrough::draw(Rectangle pane)
     DrawRectangleRec(modeBanner, modeFill);
     DrawRectangleLinesEx(modeBanner, 1.0f, modeEdge);
     const char* modeTitle = editTtsText
-        ? "TTS  —  spoken script sent to the voice API"
-        : "text  —  on-screen dialog the player reads";
+        ? "TTS   -   spoken script sent to the voice API"
+        : "text   -   on-screen dialog the player reads";
     DrawTextEx(
         font,
         modeTitle,
@@ -1336,7 +1336,7 @@ void DialogWalkthrough::draw(Rectangle pane)
     {
         DrawTextEx(
             font,
-            "(empty — click and type here)",
+            "(empty  -  click and type here)",
             {textField.x + pad, textField.y + pad},
             fontSize,
             1.0f,
@@ -1398,7 +1398,7 @@ void DialogWalkthrough::draw(Rectangle pane)
     float my = textField.y + textField.height + 8.0f;
     DrawTextEx(
         font,
-        (std::string("Speech ") + (ttsEnabled ? "ON" : "off") + "  ·  Voice: " + ttsVoice).c_str(),
+        (std::string("Speech ") + (ttsEnabled ? "ON" : "off") + "   |   Voice: " + ttsVoice).c_str(),
         {editor.x + 10.0f, my},
         kFontTiny,
         1.0f,
@@ -1407,7 +1407,7 @@ void DialogWalkthrough::draw(Rectangle pane)
     DrawTextEx(
         font,
         truncateOneLine(
-            ttsAudio.empty() ? "Audio: (none — turn Speech ON to assign a path)"
+            ttsAudio.empty() ? "Audio: (none  -  turn Speech ON to assign a path)"
                              : ("Audio: " + ttsAudio),
             78)
             .c_str(),
@@ -1425,7 +1425,7 @@ void DialogWalkthrough::draw(Rectangle pane)
 
     DrawTextEx(
         font,
-        "text/TTS slider  ·  Speech ON stores tts/voice/audio  ·  Alt+←/→  ·  Ctrl+S  ·  Enter = newline",
+        "text/TTS slider   |   Speech ON stores tts/voice/audio   |   Alt+←/->   |   Ctrl+S   |   Enter = newline",
         {editor.x + 10.0f, editor.y + editor.height - 18.0f},
         kFontTiny,
         1.0f,

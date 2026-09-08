@@ -1187,7 +1187,7 @@ void SceneAuthoringDialog::applyRename()
     }
     idDraft = payload.id;
     idEdit.cursor = static_cast<int>(idDraft.size());
-    status = "Renamed scene \"" + oldId + "\" → \"" + payload.id + "\"";
+    status = "Renamed scene \"" + oldId + "\" -> \"" + payload.id + "\"";
     if (onCreated)
         onCreated(payload.id);
 }
@@ -2476,7 +2476,7 @@ void SceneAuthoringDialog::drawWorkingOverlay(int screenW, int screenH, Font fon
     // Detail line from current status (job progress message).
     std::string detail = status;
     if (detail.empty())
-        detail = "Running authoring job…";
+        detail = "Running authoring job...";
     if (detail.size() > 64)
         detail = detail.substr(0, 61) + "...";
     const Vector2 detailSize = MeasureTextEx(font, detail.c_str(), kFontTiny, 1.0f);

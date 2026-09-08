@@ -368,7 +368,7 @@ std::vector<SceneAiJob> buildSceneAiJobs(
         job.prompt =
             std::string(
                 "Diegetic ambient soundscape for a Timberline adventure-game room bed. "
-                "No dialogue, no narrator, no music score — only environmental audio "
+                "No dialogue, no narrator, no music score  -  only environmental audio "
                 "that could loop under gameplay. Capture activity, room tone, and any "
                 "distant bleed that fits the place.\n")
             + styleBlock + "Scene context:\n" + ctx;

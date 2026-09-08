@@ -10,9 +10,81 @@
 #include "EditorUiDraw.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace timberline_editor
 {
+
+namespace
+{
+
+std::vector<std::string> wrapUiText(
+    Font font,
+    const std::string& text,
+    float fontSize,
+    float maxWidth)
+{
+    std::vector<std::string> lines;
+    if (text.empty() || maxWidth < 8.0f)
+    {
+        lines.push_back(text);
+        return lines;
+    }
+
+    std::string word;
+    std::string line;
+    auto flushWord = [&]() {
+        if (word.empty())
+            return;
+        const std::string candidate = line.empty() ? word : (line + " " + word);
+        if (MeasureTextEx(font, candidate.c_str(), fontSize, 1.0f).x <= maxWidth
+            || line.empty())
+        {
+            line = candidate;
+        }
+        else
+        {
+            lines.push_back(line);
+            line = word;
+        }
+        word.clear();
+    };
+
+    for (char ch : text)
+    {
+        if (ch == '\n')
+        {
+            flushWord();
+            lines.push_back(line);
+            line.clear();
+            continue;
+        }
+        if (ch == ' ' || ch == '\t')
+        {
+            flushWord();
+            continue;
+        }
+        word.push_back(ch);
+    }
+    flushWord();
+    if (!line.empty() || lines.empty())
+        lines.push_back(line);
+    return lines;
+}
+
+std::string clipUiLine(Font font, const std::string& text, float fontSize, float maxWidth)
+{
+    if (text.empty() || MeasureTextEx(font, text.c_str(), fontSize, 1.0f).x <= maxWidth)
+        return text;
+    std::string out = text;
+    const std::string ellipsis = "...";
+    while (!out.empty()
+           && MeasureTextEx(font, (out + ellipsis).c_str(), fontSize, 1.0f).x > maxWidth)
+        out.pop_back();
+    return out + ellipsis;
+}
+
+} // namespace
 
 void SceneUseTransitionDialog::refreshRows()
 {
@@ -80,7 +152,7 @@ bool SceneUseTransitionDialog::applySelected()
         error = "Failed to update binding.";
         return false;
     }
-    status = "Bound " + selectedBinding + " → " + toId;
+    status = "Bound " + selectedBinding + " -> " + toId;
     error.clear();
     refreshRows();
     if (onSaved)
@@ -149,7 +221,7 @@ bool SceneUseTransitionDialog::createNewBinding()
     }
     selectedBinding = binding;
     preferredBinding = binding;
-    status = "Created " + binding + " → " + toId;
+    status = "Created " + binding + " -> " + toId;
     error.clear();
     refreshRows();
     if (onSaved)
@@ -190,7 +262,7 @@ void SceneUseTransitionDialog::draw(int screenW, int screenH)
     DrawRectangle(0, 0, screenW, screenH, kModalOverlay);
 
     const float dialogW = std::min(560.0f, screenW - 40.0f);
-    const float dialogH = std::min(480.0f, screenH - 40.0f);
+    const float dialogH = std::min(520.0f, screenH - 40.0f);
     const Rectangle dialog = {
         (screenW - dialogW) * 0.5f,
         (screenH - dialogH) * 0.5f,
@@ -199,28 +271,37 @@ void SceneUseTransitionDialog::draw(int screenW, int screenH)
     DrawRectangleRec(dialog, kModalFill);
     DrawRectangleLinesEx(dialog, 2.0f, kPanelBorder);
 
-    DrawTextEx(
-        bold,
-        "Manage Use Transition",
-        {dialog.x + 18.0f, dialog.y + 14.0f},
-        kFontHeading,
-        1.0f,
-        kTextPrimary);
-    DrawTextEx(
-        font,
-        ("From " + fromId + "  →  " + toId).c_str(),
-        {dialog.x + 18.0f, dialog.y + 42.0f},
-        kFontTiny,
-        1.0f,
-        kTextMuted);
+    const float pad = 18.0f;
+    const float textMaxW = dialog.width - pad * 2.0f;
+    float y = dialog.y + 14.0f;
 
-    const float listTop = dialog.y + 72.0f;
-    const float footerH = 56.0f;
+    DrawTextEx(bold, "Manage Use Transition", {dialog.x + pad, y}, kFontHeading, 1.0f, kTextPrimary);
+    y += 28.0f;
+
+    const std::string endpoint = "From " + fromId + "  ->  " + toId;
+    for (const std::string& line : wrapUiText(font, endpoint, kFontTiny, textMaxW))
+    {
+        DrawTextEx(font, line.c_str(), {dialog.x + pad, y}, kFontTiny, 1.0f, kTextMuted);
+        y += 16.0f;
+    }
+    y += 8.0f;
+
+    // Footer reserves: help (wrapped) + status + button row.
+    const std::string help =
+        "Select a binding, then Accept to point it at the wire destination. "
+        "Create new adds useExit (if free) or a stub interaction.";
+    const auto helpLines = wrapUiText(font, help, kFontTiny, textMaxW);
+    const float helpH = static_cast<float>(helpLines.size()) * 16.0f;
+    const float statusH = 20.0f;
+    const float btnH = 32.0f;
+    const float footerGap = 10.0f;
+    const float footerH = helpH + footerGap + statusH + footerGap + btnH + 14.0f;
+
     const Rectangle list = {
         dialog.x + 16.0f,
-        listTop,
+        y,
         dialog.width - 32.0f,
-        dialogH - (listTop - dialog.y) - footerH - 36.0f};
+        std::max(80.0f, dialogH - (y - dialog.y) - footerH)};
     DrawRectangleRec(list, Color{18, 16, 24, 255});
     DrawRectangleLinesEx(list, 1.0f, kPanelInnerEdge);
 
@@ -240,74 +321,56 @@ void SceneUseTransitionDialog::draw(int screenW, int screenH)
         static_cast<int>(list.y),
         static_cast<int>(list.width),
         static_cast<int>(list.height));
-    float y = list.y + 4.0f - listScroll;
+    float rowY = list.y + 4.0f - listScroll;
     if (rows.empty())
     {
-        DrawTextEx(
-            font,
-            "No Use bindings yet. Create one to write useExit or a stub interaction.",
-            {list.x + 10.0f, y + 8.0f},
-            kFontTiny,
-            1.0f,
-            kTextMuted);
+        const std::string emptyHelp =
+            "No Use bindings yet. Create one to write useExit or a stub interaction.";
+        for (const std::string& line :
+             wrapUiText(font, emptyHelp, kFontTiny, list.width - 20.0f))
+        {
+            DrawTextEx(
+                font,
+                line.c_str(),
+                {list.x + 10.0f, rowY + 8.0f},
+                kFontTiny,
+                1.0f,
+                kTextMuted);
+            rowY += 16.0f;
+        }
     }
     for (size_t i = 0; i < rows.size(); ++i)
     {
         const auto& row = rows[i];
-        Rectangle rowRect = {list.x + 4.0f, y, list.width - 8.0f, rowH - 2.0f};
+        Rectangle rowRect = {list.x + 4.0f, rowY, list.width - 8.0f, rowH - 2.0f};
         const bool selected = row.binding == selectedBinding;
         if (selected)
             DrawRectangleRec(rowRect, Color{70, 52, 28, 220});
         else if (CheckCollisionPointRec(mouse, rowRect))
             DrawRectangleRec(rowRect, Color{40, 36, 48, 200});
-        const std::string line = row.label + "  [" + row.binding + "]  →  " + row.target;
+        const std::string line =
+            row.label + "  [" + row.binding + "]  ->  " + row.target;
+        const std::string clipped = clipUiLine(font, line, kFontTiny, rowRect.width - 16.0f);
         DrawTextEx(
             font,
-            line.c_str(),
+            clipped.c_str(),
             {rowRect.x + 8.0f, rowRect.y + 6.0f},
             kFontTiny,
             1.0f,
             selected ? kTextPrimary : kTextMuted);
         if (canClick && CheckCollisionPointRec(mouse, rowRect))
             selectedBinding = row.binding;
-        y += rowH;
+        rowY += rowH;
     }
     EndScissorMode();
 
-    DrawTextEx(
-        font,
-        "Selecting Apply sets the chosen binding's target to the wire destination.",
-        {dialog.x + 18.0f, list.y + list.height + 8.0f},
-        kFontTiny,
-        1.0f,
-        kTextMuted);
-
-    const float btnW = 110.0f;
-    const float btnH = 32.0f;
-    const float btnY = dialog.y + dialogH - btnH - 14.0f;
-    Rectangle createBtn = {dialog.x + 18.0f, btnY, btnW + 20.0f, btnH};
-    Rectangle applyBtn = {dialog.x + dialogW - btnW * 3.0f - 48.0f, btnY, btnW, btnH};
-    Rectangle clearBtn = {dialog.x + dialogW - btnW * 2.0f - 32.0f, btnY, btnW, btnH};
-    Rectangle closeBtn = {dialog.x + dialogW - btnW - 16.0f, btnY, btnW, btnH};
-
-    drawEditorButton(font, createBtn, "Create new", true, true);
-    drawEditorButton(font, applyBtn, "Apply", true, !selectedBinding.empty());
-    drawEditorButton(font, clearBtn, "Clear", true, !selectedBinding.empty());
-    drawEditorButton(font, closeBtn, "Close", false, true);
-
-    if (canClick)
+    float footY = list.y + list.height + 8.0f;
+    for (const std::string& line : helpLines)
     {
-        if (CheckCollisionPointRec(mouse, createBtn))
-            createNewBinding();
-        else if (CheckCollisionPointRec(mouse, applyBtn) && !selectedBinding.empty())
-            applySelected();
-        else if (CheckCollisionPointRec(mouse, clearBtn) && !selectedBinding.empty())
-            clearSelected();
-        else if (CheckCollisionPointRec(mouse, closeBtn))
-            closeDialog();
-        else if (!CheckCollisionPointRec(mouse, dialog))
-            closeDialog();
+        DrawTextEx(font, line.c_str(), {dialog.x + pad, footY}, kFontTiny, 1.0f, kTextMuted);
+        footY += 16.0f;
     }
+    footY += footerGap;
 
     if (!status.empty() || !error.empty())
     {
@@ -315,13 +378,39 @@ void SceneUseTransitionDialog::draw(int screenW, int screenH)
         const Color col = !error.empty()
             ? Color{220, 100, 90, 255}
             : Color{120, 180, 120, 255};
-        DrawTextEx(
-            font,
-            msg.c_str(),
-            {createBtn.x + createBtn.width + 12.0f, btnY + 8.0f},
-            kFontTiny,
-            1.0f,
-            col);
+        const std::string clipped = clipUiLine(font, msg, kFontTiny, textMaxW);
+        DrawTextEx(font, clipped.c_str(), {dialog.x + pad, footY}, kFontTiny, 1.0f, col);
+    }
+    footY += statusH + footerGap;
+
+    const float btnW = 110.0f;
+    const float btnY = dialog.y + dialogH - btnH - 14.0f;
+    // Keep Accept/Cancel on the right; Create/Clear on the left.
+    Rectangle createBtn = {dialog.x + pad, btnY, btnW + 16.0f, btnH};
+    Rectangle clearBtn = {createBtn.x + createBtn.width + 10.0f, btnY, btnW, btnH};
+    Rectangle cancelBtn = {dialog.x + dialogW - btnW - pad, btnY, btnW, btnH};
+    Rectangle acceptBtn = {cancelBtn.x - btnW - 10.0f, btnY, btnW, btnH};
+
+    drawEditorButton(font, createBtn, "Create new", true, true);
+    drawEditorButton(font, clearBtn, "Clear", true, !selectedBinding.empty());
+    drawEditorButton(font, acceptBtn, "Accept", true, !selectedBinding.empty());
+    drawEditorButton(font, cancelBtn, "Cancel", false, true);
+
+    if (canClick)
+    {
+        if (CheckCollisionPointRec(mouse, createBtn))
+            createNewBinding();
+        else if (CheckCollisionPointRec(mouse, clearBtn) && !selectedBinding.empty())
+            clearSelected();
+        else if (CheckCollisionPointRec(mouse, acceptBtn) && !selectedBinding.empty())
+        {
+            if (applySelected())
+                closeDialog();
+        }
+        else if (CheckCollisionPointRec(mouse, cancelBtn))
+            closeDialog();
+        else if (!CheckCollisionPointRec(mouse, dialog))
+            closeDialog();
     }
 }
 

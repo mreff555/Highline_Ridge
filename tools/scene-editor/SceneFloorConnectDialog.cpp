@@ -162,8 +162,8 @@ bool SceneFloorConnectDialog::applySelected()
         return false;
     }
     status = connectAbove
-        ? ("Connected above → " + selectedId)
-        : ("Connected below → " + selectedId);
+        ? ("Connected above -> " + selectedId)
+        : ("Connected below -> " + selectedId);
     error.clear();
     if (onSaved)
         onSaved();

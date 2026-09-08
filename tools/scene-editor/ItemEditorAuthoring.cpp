@@ -139,7 +139,7 @@ std::string truncateLineToWidth(
 {
     if (text.empty() || MeasureTextEx(font, text.c_str(), fontSize, 1.0f).x <= maxWidth)
         return text;
-    const std::string ellipsis = "…";
+    const std::string ellipsis = "...";
     std::string out = text;
     while (!out.empty()
            && MeasureTextEx(font, (out + ellipsis).c_str(), fontSize, 1.0f).x > maxWidth)
@@ -279,7 +279,7 @@ std::string ItemEditor::truncateToWidth(
     if (MeasureTextEx(font, text.c_str(), fontSize, 1.0f).x <= maxWidth)
         return text;
     std::string out = text;
-    const std::string ellipsis = "…";
+    const std::string ellipsis = "...";
     while (!out.empty()
            && MeasureTextEx(font, (out + ellipsis).c_str(), fontSize, 1.0f).x > maxWidth)
         out.pop_back();
@@ -666,7 +666,7 @@ void ItemEditor::drawAuthoringPreviewPane(Font font, Rectangle pane, bool canCli
         const Rectangle stopBtn = {pane.x + pad + btnW + 8.0f, by, btnW, btnH};
         const bool playing = authoringPlayingSound == channel;
         drawEditorButton(
-            font, playBtn, playing ? "Playing…" : "Play", playing, loaded);
+            font, playBtn, playing ? "Playing..." : "Play", playing, loaded);
         drawEditorButton(font, stopBtn, "Stop", false, loaded && playing);
         if (canClick && loaded)
         {
@@ -771,7 +771,7 @@ void ItemEditor::closeAuthoringDialog()
     // Wait for any in-flight generation so we don't free paths under the worker.
     if (authoringGenerateBusy.load() || authoringGenerateThread.joinable())
     {
-        TraceLog(LOG_INFO, "TIMBERLINE authoring: closing dialog — joining worker");
+        TraceLog(LOG_INFO, "TIMBERLINE authoring: closing dialog  -  joining worker");
         joinAuthoringGenerateThread();
         authoringGenerateBusy = false;
         authoringGenerateTarget = 0;
@@ -841,7 +841,7 @@ bool ItemEditor::generateAuthoringAssetsNow(int target)
 {
     if (authoringGenerateBusy.load())
     {
-        lastAuthoringStatus = "Generation already in progress…";
+        lastAuthoringStatus = "Generation already in progress...";
         return false;
     }
     if (docs == nullptr)
@@ -965,7 +965,7 @@ bool ItemEditor::generateAuthoringAssetsNow(int target)
     authoringGenerateBusy = true;
     authoringGenerateTarget = targetSnap;
     authoringGenerateResultPending = false;
-    lastAuthoringStatus = "Working… generating assets (see console / .authoring log)";
+    lastAuthoringStatus = "Working... generating assets (see console / .authoring log)";
 
     authoringGenerateThread = std::thread(
         [this, assetRoot, itemId, apiKey]() {
@@ -978,7 +978,7 @@ bool ItemEditor::generateAuthoringAssetsNow(int target)
                 + " status=" + runStatus);
             std::lock_guard<std::mutex> lock(authoringGenerateMutex);
             authoringGenerateResultStatus = ok
-                ? ("Generated assets for " + itemId + " — " + runStatus)
+                ? ("Generated assets for " + itemId + "  -  " + runStatus)
                 : ("[AI assets FAILED] " + runStatus);
             authoringGenerateResultPending = true;
             // busy flag cleared on main thread in pollAuthoringGenerateResult
@@ -1020,7 +1020,7 @@ bool ItemEditor::commitAuthoringDialog()
 
     lastAuthoringStatus = (authoringIsModify ? "Updated " : "Created ") + result.itemId;
     if (!result.aiStatus.empty())
-        lastAuthoringStatus += " — " + result.aiStatus;
+        lastAuthoringStatus += "  -  " + result.aiStatus;
 
     // Run image/SFX generation for any AI assist jobs (paths alone are not enough).
     // Also re-run if a jobs file already lists image/sound types (Modify re-create).
@@ -1045,7 +1045,7 @@ bool ItemEditor::commitAuthoringDialog()
             authoringError =
                 "Item saved, but image generation failed. "
                 "Paste your xAI API key in AI Assist (session only), then "
-                "Edit Item → Save again. "
+                "Edit Item -> Save again. "
                 + runStatus;
             // Surface via lastAuthoringStatus on the main pane.
         }
@@ -1813,8 +1813,8 @@ void ItemEditor::drawSubEditDialog(int screenWidth, int screenHeight)
     DrawTextEx(
         font,
         subEditSyntaxHighlight
-            ? "TTS syntax highlighting  ·  Ctrl/Cmd+Enter apply  ·  Esc cancel"
-            : "Arrows / select / copy-paste  ·  Ctrl/Cmd+Enter apply  ·  Esc cancel",
+            ? "TTS syntax highlighting   |   Ctrl/Cmd+Enter apply   |   Esc cancel"
+            : "Arrows / select / copy-paste   |   Ctrl/Cmd+Enter apply   |   Esc cancel",
         {dialog.x + 18.0f, dialog.y + 40.0f},
         kFontTiny,
         1.0f,
@@ -2097,8 +2097,8 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
     DrawTextEx(
         font,
         authoringIsModify
-            ? "Id is fixed  ·  Ctrl+Enter to save"
-            : "Id is derived from name  ·  Ctrl+Enter to create",
+            ? "Id is fixed   |   Ctrl+Enter to save"
+            : "Id is derived from name   |   Ctrl+Enter to create",
         {dialog.x + 20.0f, dialog.y + 42.0f},
         kFontTiny,
         1.0f,
@@ -2314,7 +2314,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
             field,
             content,
             authoringPayload.ttsDescription,
-            "(click to edit — TTS syntax highlighting)",
+            "(click to edit  -  TTS syntax highlighting)",
             kFontSmall,
             2.0f);
         drawEditorButton(font, aiBtn, "AI Assist", false, true);
@@ -2355,7 +2355,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
     {
         DrawTextEx(
             font,
-            "xAI API key (session only — not saved)",
+            "xAI API key (session only  -  not saved)",
             {fieldX, virt(layoutY)},
             kFontTiny,
             1.0f,
@@ -2416,25 +2416,25 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
              &authoringPayload.imagePath,
              Hit::Kind::OpenImagePath,
              Hit::Kind::AiAssistImage,
-             "(path — click to edit)",
+             "(path  -  click to edit)",
              1},
             {"Icon path",
              &authoringPayload.iconPath,
              Hit::Kind::OpenIconPath,
              Hit::Kind::AiAssistIcon,
-             "(path — click to edit)",
+             "(path  -  click to edit)",
              2},
             {"Examine sound",
              &authoringPayload.examineSoundPath,
              Hit::Kind::OpenExamineSound,
              Hit::Kind::AiAssistExamineSound,
-             "(SFX path — click to edit)",
+             "(SFX path  -  click to edit)",
              3},
             {"Use sound",
              &authoringPayload.useSoundPath,
              Hit::Kind::OpenUseSound,
              Hit::Kind::AiAssistUseSound,
-             "(SFX path — click to edit)",
+             "(SFX path  -  click to edit)",
              4},
         };
         // Leave room to the right of Generate for the pulsing "Working" label.
@@ -2565,7 +2565,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
                 1.0f,
                 authoringPayload.recipe.component1.empty() ? kTextMuted : kTextPrimary);
             DrawTextEx(
-                font, "▾", {field.x + field.width - 18.0f, field.y + 4.0f}, kFontSmall, 1.0f, kTextMuted);
+                font, "v", {field.x + field.width - 18.0f, field.y + 4.0f}, kFontSmall, 1.0f, kTextMuted);
             hits.push_back({Hit::Kind::Dropdown1, field, 0});
             authoringDropdown1Rect = field;
             layoutY += fieldH + 8.0f;
@@ -2589,7 +2589,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
                 1.0f,
                 authoringPayload.recipe.component2.empty() ? kTextMuted : kTextPrimary);
             DrawTextEx(
-                font, "▾", {field.x + field.width - 18.0f, field.y + 4.0f}, kFontSmall, 1.0f, kTextMuted);
+                font, "v", {field.x + field.width - 18.0f, field.y + 4.0f}, kFontSmall, 1.0f, kTextMuted);
             hits.push_back({Hit::Kind::Dropdown2, field, 0});
             authoringDropdown2Rect = field;
             layoutY += fieldH + 8.0f;
@@ -2656,7 +2656,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
                 field,
                 content,
                 authoringPayload.recipe.ttsConstructionDescription,
-                "(click to edit — TTS syntax highlighting)",
+                "(click to edit  -  TTS syntax highlighting)",
                 kFontSmall,
                 2.0f);
             drawEditorButton(font, aiBtn, "AI Assist", false, true);
@@ -2671,7 +2671,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
             drawEditorButton(
                 font,
                 advBtn,
-                authoringRecipeAdvanced ? "Advanced ▾" : "Advanced",
+                authoringRecipeAdvanced ? "Advanced v" : "Advanced",
                 authoringRecipeAdvanced,
                 true);
             hits.push_back({Hit::Kind::RecipeAdvanced, advBtn, 0});
@@ -2680,7 +2680,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
             {
                 DrawTextEx(
                     font,
-                    "Components JSON (advanced — click to edit)",
+                    "Components JSON (advanced  -  click to edit)",
                     {fieldX, virt(layoutY)},
                     kFontTiny,
                     1.0f,

@@ -198,7 +198,7 @@ std::string summarizeSceneEffects(const nlohmann::json& scene)
     if (use.anyNonZero())
     {
         if (any)
-            out << " · ";
+            out << "  |  ";
         out << "Use";
         if (use.health != 0.0f)
             out << " H" << formatDelta(use.health);
@@ -231,10 +231,10 @@ std::string summarizeSceneEffects(const nlohmann::json& scene)
     if (interCount > 0)
     {
         if (any)
-            out << " · ";
+            out << "  |  ";
         out << interCount << " interaction" << (interCount == 1 ? "" : "s");
         if (interWithDelta > 0)
-            out << " (" << interWithDelta << " with Δ)";
+            out << " (" << interWithDelta << " with d)";
         any = true;
     }
     return any ? out.str() : "";

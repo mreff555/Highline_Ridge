@@ -1020,7 +1020,7 @@ void VariableEditor::handleVariableEditorTextInput()
             if (!saveVariableEditor())
             {
                 if (error.empty())
-                    error = "Could not parse value — check type and try again";
+                    error = "Could not parse value  -  check type and try again";
             }
             return;
         }
@@ -1396,13 +1396,13 @@ void VariableEditor::drawVariableEditor(int screenWidth, int screenHeight)
     // Title only — mode is already shown by the lower-left text/TTS switch.
     std::string title = "Edit \"" + editorKey + "\"";
     if (docTarget == ConversationEditDoc::Conversations)
-        title = "Edit conversation  —  " + editorKey;
+        title = "Edit conversation   -   " + editorKey;
     else if (docTarget == ConversationEditDoc::Scenes)
-        title = "Edit narrative  —  " + editorKey + "  (" + editorSceneId + ")";
+        title = "Edit narrative   -   " + editorKey + "  (" + editorSceneId + ")";
     else if (docTarget == ConversationEditDoc::Items)
-        title = "Edit item  —  " + editorKey + "  (" + editorItemId + ")";
+        title = "Edit item   -   " + editorKey + "  (" + editorItemId + ")";
     else if (!editorSceneId.empty())
-        title = "Edit \"" + editorKey + "\"  —  scene: " + editorSceneId;
+        title = "Edit \"" + editorKey + "\"   -   scene: " + editorSceneId;
 
     const float titleMaxW = std::max(40.0f, voiceClusterLeft - (dialog.x + 18.0f) - 8.0f);
     while (title.size() > 4
@@ -1647,7 +1647,7 @@ void VariableEditor::drawVariableEditor(int screenWidth, int screenHeight)
         (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)))
     {
         if (!saveVariableEditor() && error.empty())
-            error = "Could not parse value — check type and try again";
+            error = "Could not parse value  -  check type and try again";
     }
 }
 
@@ -2592,8 +2592,8 @@ std::string VariableEditor::truncateForTree(const std::string& text, size_t maxL
     if (maxLen == 0)
         return "";
     if (maxLen == 1)
-        return "…";
-    return compact.substr(0, maxLen - 1) + "…";
+        return "...";
+    return compact.substr(0, maxLen - 1) + "...";
 }
 
 } // namespace timberline_editor
