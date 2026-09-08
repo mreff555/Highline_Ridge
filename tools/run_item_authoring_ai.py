@@ -150,7 +150,11 @@ def plan_ambient_layers_via_chat(api_key: str, prompt: str) -> dict:
     catalog = ", ".join(AMBIENT_LAYER_CATALOG)
     system = (
         "You design seamless loopable ambient SOUND BEDS for a period adventure game. "
-        "Return ONLY valid JSON (no markdown) with keys durationSec (6-12) and layers "
+        "Allowed layer ids: wind_soft, wind_gust, birds_distant, stream_faint, forest_bed, "
+        "town_murmur, fire_soft, rain_light, insects_night, kitchen_clatter, steam_hiss, "
+        "crowd_muffled. For kitchens / back-of-house prefer kitchen_clatter, steam_hiss, "
+        "fire_soft, crowd_muffled (rowdy bar through a doorway), town_murmur. "
+        "Return ONLY valid JSON (no markdown) with keys durationSec (8-14) and layers "
         "(array of {id, gain 0-1, optional density 0-1}). "
         f"id MUST be one of: {catalog}. Pick 2-4 layers that match the scene. "
         "No speech, no melodic music — environmental beds only."
@@ -272,6 +276,29 @@ def _layer_sample(layer_id: str, t: float, i: int, density: float) -> float:
     if layer_id == "insects_night":
         buzz = math.sin(2 * math.pi * 4200 * t) * (0.5 + 0.5 * math.sin(2 * math.pi * 3.1 * t))
         return buzz * 0.08 * density
+    if layer_id == "kitchen_clatter":
+        # Sparse metallic taps / plate knocks.
+        phase = i // 1800
+        seed = (phase * 2654435761) & 0xFFFFFFFF
+        if (seed % 1000) / 1000.0 > density * 0.45:
+            return 0.0
+        local = (i % 1800) / 22050.0
+        env = math.exp(-local * 40.0) if local < 0.08 else 0.0
+        f = 2400.0 + (seed % 1600)
+        return (0.35 * math.sin(2 * math.pi * f * t) + 0.12 * noise) * env
+    if layer_id == "steam_hiss":
+        hiss = abs(noise) * 0.55 + 0.2 * abs(n2)
+        swell = 0.55 + 0.45 * math.sin(2 * math.pi * 0.09 * t + 1.2)
+        return hiss * swell * 0.22
+    if layer_id == "crowd_muffled":
+        # Distant rowdy bar bleed — low murmur, no intelligible speech.
+        murmur = (
+            0.18 * math.sin(2 * math.pi * 95 * t + noise * 2)
+            + 0.12 * math.sin(2 * math.pi * 140 * t + n2)
+            + 0.2 * noise
+        )
+        throb = 0.6 + 0.4 * math.sin(2 * math.pi * 0.35 * t)
+        return murmur * throb * 0.28 * density
     return 0.15 * noise
 
 
@@ -302,12 +329,219 @@ def synthesize_layered_ambient(plan: dict, out_wav: Path) -> None:
         wf.writeframes(bytes(frames))
 
 
-def render_ambient_backend(api_key: str, prompt: str, out_path: Path) -> str:
+def _image_to_data_uri(image_path: Path) -> str:
+    import base64
+
+    raw = image_path.read_bytes()
+    suffix = image_path.suffix.lower()
+    mime = "image/png"
+    if suffix in {".jpg", ".jpeg"}:
+        mime = "image/jpeg"
+    elif suffix == ".webp":
+        mime = "image/webp"
+    return f"data:{mime};base64," + base64.b64encode(raw).decode("ascii")
+
+
+def generate_imagine_video(
+    api_key: str,
+    prompt: str,
+    *,
+    image_path: Path | None = None,
+    duration: int = 10,
+    aspect_ratio: str = "16:9",
+    resolution: str = "720p",
+    model: str = "grok-imagine-video-1.5",
+    poll_interval_sec: float = 5.0,
+    poll_timeout_sec: float = 600.0,
+) -> tuple[str, Path]:
     """
-    AmbientAudioBackend entry point.
-    v1: chat layer plan + LocalLayerSynth.
-    Future: swap body for ElevenLabs (or other) without changing callers.
+    Start an Imagine Video job, poll until done, download mp4.
+    Returns (video_url, local_mp4_path) — caller owns cleanup of the temp file
+    if they pass no destination (we always write a NamedTemporaryFile).
     """
+    payload: dict = {
+        "model": model,
+        "prompt": prompt,
+        "duration": int(max(1, min(15, duration))),
+        "aspect_ratio": aspect_ratio,
+        "resolution": resolution,
+        "generate_audio": True,
+    }
+    if image_path is not None and image_path.is_file():
+        payload["image"] = {"url": _image_to_data_uri(image_path)}
+
+    req = urllib.request.Request(
+        "https://api.x.ai/v1/videos/generations",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            start_body = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"video generations HTTP {exc.code}: {detail}") from exc
+
+    request_id = start_body.get("request_id") or start_body.get("id")
+    if not request_id:
+        raise RuntimeError(f"video generations missing request_id: {start_body}")
+    print(f"  [video] request_id={request_id} (polling…)")
+
+    import time
+
+    deadline = time.time() + poll_timeout_sec
+    video_url = ""
+    while time.time() < deadline:
+        poll_req = urllib.request.Request(
+            f"https://api.x.ai/v1/videos/{request_id}",
+            headers={"Authorization": f"Bearer {api_key}"},
+            method="GET",
+        )
+        try:
+            with urllib.request.urlopen(poll_req, timeout=60) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            raise RuntimeError(f"video poll HTTP {exc.code}: {detail}") from exc
+
+        status = str(data.get("status") or "").lower()
+        if status == "done":
+            video = data.get("video") or {}
+            video_url = str(video.get("url") or "")
+            if not video_url:
+                raise RuntimeError(f"video done but missing url: {data}")
+            break
+        if status in {"failed", "expired"}:
+            raise RuntimeError(f"video generation {status}: {data}")
+        time.sleep(poll_interval_sec)
+    else:
+        raise RuntimeError(f"video generation timed out after {poll_timeout_sec:.0f}s")
+
+    with urllib.request.urlopen(video_url, timeout=180) as vid_resp:
+        mp4_bytes = vid_resp.read()
+    tmp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
+    tmp_path = Path(tmp.name)
+    try:
+        tmp.write(mp4_bytes)
+        tmp.close()
+    except Exception:
+        tmp.close()
+        tmp_path.unlink(missing_ok=True)
+        raise
+    return video_url, tmp_path
+
+
+def resolve_ffmpeg_exe() -> str:
+    """Prefer a working ffmpeg. Homebrew builds are often broken via dyld — try bundled."""
+    candidates: list[str] = []
+    try:
+        import imageio_ffmpeg  # type: ignore
+
+        candidates.append(imageio_ffmpeg.get_ffmpeg_exe())
+    except Exception:
+        pass
+    for name in ("ffmpeg", "/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"):
+        found = shutil_which(name) if "/" not in name else (name if Path(name).is_file() else None)
+        if found:
+            candidates.append(found)
+    # Probe each briefly; skip dyld-broken installs.
+    for exe in candidates:
+        try:
+            probe = subprocess.run(
+                [exe, "-version"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if probe.returncode == 0 and "ffmpeg" in (probe.stdout + probe.stderr).lower():
+                return exe
+        except Exception:
+            continue
+    raise RuntimeError(
+        "No working ffmpeg found (needed for xai_video ambient extract). "
+        "Install ffmpeg or `pip install imageio-ffmpeg`."
+    )
+
+
+def extract_audio_mp3_from_video(video_path: Path, out_mp3: Path) -> None:
+    """Pull the audio stream from an mp4 into a loop-friendly mono/stereo MP3."""
+    ffmpeg = resolve_ffmpeg_exe()
+    out_mp3.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        ffmpeg,
+        "-y",
+        "-i",
+        str(video_path),
+        "-vn",
+        "-acodec",
+        "libmp3lame",
+        "-q:a",
+        "2",
+        "-ar",
+        "44100",
+        str(out_mp3),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"ffmpeg extract failed (rc={result.returncode}): "
+            f"{(result.stderr or result.stdout)[-800:]}"
+        )
+    if not out_mp3.is_file() or out_mp3.stat().st_size < 1000:
+        raise RuntimeError(f"ffmpeg produced empty/missing audio: {out_mp3}")
+
+
+def render_ambient_via_xai_video(
+    api_key: str,
+    prompt: str,
+    out_path: Path,
+    *,
+    image_path: Path | None = None,
+    duration: int = 10,
+) -> str:
+    """
+    Grok Imagine Video (with native audio) → ffmpeg extract → ambient MP3.
+    Prefer image-to-video when a scene plate exists so ambience matches the room.
+    """
+    ambient_prompt = (
+        "Generate continuous diegetic environmental AUDIO for this game scene. "
+        "No spoken dialogue, no narrator, no UI sounds. "
+        "Focus on a seamless ambient soundscape that could loop as a room bed: "
+        "natural room tone, activity, and distant bleed. "
+        "Keep the camera nearly still or with a very subtle drift so sound is primary.\n\n"
+        f"{prompt}"
+    )
+    _url, mp4_path = generate_imagine_video(
+        api_key,
+        ambient_prompt,
+        image_path=image_path,
+        duration=duration,
+        aspect_ratio="16:9",
+        resolution="720p",
+    )
+    try:
+        # Keep a debug copy under .authoring when writing into resources/audio/.
+        # out_path like resources/audio/ambient/foo.mp3 → resources/.authoring/
+        parts = list(out_path.parts)
+        if "resources" in parts:
+            idx = parts.index("resources")
+            authoring = Path(*parts[: idx + 1]) / ".authoring"
+            authoring.mkdir(parents=True, exist_ok=True)
+            debug_mp4 = authoring / f"{out_path.stem}_ambient_source.mp4"
+            debug_mp4.write_bytes(mp4_path.read_bytes())
+            print(f"  [video] kept source clip {debug_mp4}")
+        extract_audio_mp3_from_video(mp4_path, out_path)
+    finally:
+        mp4_path.unlink(missing_ok=True)
+    return "xai_video_extract_v1"
+
+
+def render_ambient_local_layers(api_key: str, prompt: str, out_path: Path) -> str:
+    """Chat layer plan + LocalLayerSynth (offline-capable fallback)."""
     backend = "local_layers_v1"
     if api_key:
         try:
@@ -341,6 +575,63 @@ def render_ambient_backend(api_key: str, prompt: str, out_path: Path) -> str:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_bytes(generate_target.read_bytes())
     return backend
+
+
+def resolve_ambient_image_path(asset_root: Path, out_path: Path, job: dict | None = None) -> Path | None:
+    """Prefer job imagePath; else resources/images/<stem>.png next to ambient out."""
+    if job:
+        rel = str(job.get("imagePath") or job.get("image") or "").strip()
+        if rel:
+            candidate = asset_root / rel
+            if candidate.is_file():
+                return candidate
+    stem = out_path.stem  # saloon_kitchen
+    for name in (f"{stem}.png", f"{stem}.jpg", f"{stem}.jpeg"):
+        candidate = asset_root / "resources" / "images" / name
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def render_ambient_backend(
+    api_key: str,
+    prompt: str,
+    out_path: Path,
+    *,
+    image_path: Path | None = None,
+) -> str:
+    """
+    AmbientAudioBackend entry point.
+
+    TIMBERLINE_AUDIO_BACKEND:
+      auto      — try xAI Imagine Video extract, else local layers (default)
+      xai_video — require Imagine Video extract
+      local     — procedural layered synth only
+    """
+    mode = os.environ.get("TIMBERLINE_AUDIO_BACKEND", "auto").strip().lower() or "auto"
+    if mode not in {"auto", "xai_video", "local"}:
+        print(f"  [ambient] unknown TIMBERLINE_AUDIO_BACKEND={mode!r}; using auto")
+        mode = "auto"
+
+    if mode in {"auto", "xai_video"} and api_key:
+        try:
+            print(
+                f"  [ambient] trying xai_video"
+                + (f" with image {image_path.name}" if image_path else " (text-to-video)")
+            )
+            return render_ambient_via_xai_video(
+                api_key,
+                prompt,
+                out_path,
+                image_path=image_path,
+                duration=10,
+            )
+        except Exception as exc:  # noqa: BLE001
+            if mode == "xai_video":
+                raise
+            print(f"  [ambient] xai_video failed ({exc}); falling back to local layers")
+
+    return render_ambient_local_layers(api_key, prompt, out_path)
 
 
 
@@ -716,7 +1007,10 @@ def process_job(
             rotate_live_asset_backup(out_path)
         print(f"  [sound] {out_path.relative_to(asset_root)} ({action}) …")
         if jtype == "generate_ambient_sound":
-            backend = render_ambient_backend(api_key, prompt, out_path)
+            image_path = resolve_ambient_image_path(asset_root, out_path, job)
+            backend = render_ambient_backend(
+                api_key, prompt, out_path, image_path=image_path
+            )
             print(f"  [ambient-backend] {backend}")
         else:
             generate_sound(out_path, action)

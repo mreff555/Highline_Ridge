@@ -1213,6 +1213,7 @@ void SceneAuthoringDialog::commitSave(bool runAi, int aiTarget)
         payload.id = sanitizeSceneId(idDraft);
     else
         payload.id = sanitizeSceneId(payload.id);
+    normalizeSceneAuthoringPaths(payload);
     syncSpeakWithTts();
     if (!editingExisting)
     {
@@ -1269,6 +1270,17 @@ void SceneAuthoringDialog::startGenerate(int aiTarget)
         return;
     }
 
+    // Never generate into shared under-construction plates.
+    normalizeSceneAuthoringPaths(payload);
+
+    // Generate all with prose present → enable TTS so markup + voice chain run.
+    if (aiTarget == 0
+        && (!payload.description.empty() || !payload.examineDetails.empty()))
+    {
+        payload.ttsEnabled = true;
+        syncSpeakWithTts();
+    }
+
     // Ensure scene exists first (so the map can show it while AI runs).
     // When editing / regenerating an existing scene, rotate live assets to
     // name_1 / name_2 before the runner overwrites the live path.
@@ -1288,13 +1300,6 @@ void SceneAuthoringDialog::startGenerate(int aiTarget)
     }
     else
     {
-        // Refresh authoring fields + rewrite jobs for this target.
-        if (payload.imagePath.empty())
-            payload.imagePath = "resources/images/" + payload.id + ".png";
-        if (payload.ambientPath.empty())
-            payload.ambientPath = "resources/audio/ambient/" + payload.id + ".mp3";
-        if (payload.musicPath.empty())
-            payload.musicPath = "resources/audio/music/" + payload.id + "_theme.mp3";
         SceneUpsertResult refresh =
             upsertScene(*docs, payload, aiTarget, true, rotateBackups);
         if (!refresh.ok)

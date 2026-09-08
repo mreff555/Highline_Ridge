@@ -2773,6 +2773,10 @@ namespace
         evaluateMilestones();
         refreshSceneImage();
         updateActionAvailability();
+        // Compass / Use-return / under-construction Back all enter rooms through
+        // tryMove. Use-kind transitions already play description TTS in
+        // transitionToScene; movement must do the same or enter VO never fires.
+        playSceneNarrativeTts(descriptionTts);
         recordPlayerAction();
     }
 

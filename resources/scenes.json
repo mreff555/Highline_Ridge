@@ -49,7 +49,7 @@
       "layout": {
         "level": 0,
         "x": 1320.0,
-        "y": 2424.0
+        "y": 2213.0
       },
       "movement": {
         "backward": false,
@@ -106,7 +106,7 @@
       "layout": {
         "level": 1,
         "x": 40.0,
-        "y": 264.0
+        "y": 269.0
       },
       "movement": {
         "backward": true,
@@ -170,7 +170,7 @@
       "layout": {
         "level": 0,
         "x": 552.0,
-        "y": 480.0
+        "y": 269.0
       },
       "movement": {
         "backward": true,
@@ -210,8 +210,8 @@
       "image": "resources/images/cabin_cellar_open.png",
       "layout": {
         "level": 0,
-        "x": 808.0,
-        "y": 48.0
+        "x": 2600.0,
+        "y": 269.0
       },
       "movement": {
         "backward": false,
@@ -271,7 +271,7 @@
       "layout": {
         "level": 0,
         "x": 552.0,
-        "y": 696.0
+        "y": 485.0
       },
       "movement": {
         "backward": true,
@@ -323,8 +323,8 @@
       "image": "resources/images/cabin_under_rug.png",
       "layout": {
         "level": 0,
-        "x": 808.0,
-        "y": 264.0
+        "x": 3368.0,
+        "y": 269.0
       },
       "movement": {
         "backward": false,
@@ -335,9 +335,9 @@
       "start": false,
       "useDetails": "You slip your fingers under the flush ring and lift. The small hatch rises on oiled hinges with a low complaint, as though the mountain itself resents being opened. Cool air breathes up from below, carrying earth and old timber. Through the square opening you catch the top rungs of a wooden ladder dropping into darkness that does not reflect the hearth light. Whatever was hidden under the rug is ready to be entered.",
       "useExit": "cabin_cellar_open",
+      "useExitMapCorner": "nw",
       "useRepeatStatus": true,
-      "useRequiresExamine": true,
-      "useExitMapCorner": "nw"
+      "useRequiresExamine": true
     },
     "cellar_passage_beyond_door": {
       "actions": {
@@ -733,7 +733,7 @@
       "layout": {
         "level": 0,
         "x": 1320.0,
-        "y": 912.0
+        "y": 701.0
       },
       "movement": {
         "backward": false,
@@ -796,7 +796,7 @@
       "layout": {
         "level": 0,
         "x": 1064.0,
-        "y": 264.0
+        "y": 53.0
       },
       "movement": {
         "backward": true,
@@ -837,7 +837,7 @@
       "layout": {
         "level": 0,
         "x": 1064.0,
-        "y": 1128.0
+        "y": 917.0
       },
       "movement": {
         "backward": true,
@@ -901,7 +901,7 @@
       "layout": {
         "level": 0,
         "x": 808.0,
-        "y": 1128.0
+        "y": 912.0
       },
       "movement": {
         "backward": false,
@@ -969,8 +969,8 @@
       "image": "resources/images/mining_camp.png",
       "layout": {
         "level": 0,
-        "x": 1054.9892578125,
-        "y": 1550.8140869140625
+        "x": 1064.0,
+        "y": 1349.0
       },
       "movement": {
         "backward": true,
@@ -1020,7 +1020,7 @@
       "layout": {
         "level": 0,
         "x": 1064.0,
-        "y": 1992.0
+        "y": 1781.0
       },
       "movement": {
         "backward": true,
@@ -1062,8 +1062,8 @@
       "image": "resources/images/mountain_road.png",
       "layout": {
         "level": 0,
-        "x": 2600.0,
-        "y": 480.0
+        "x": 4136.0,
+        "y": 264.0
       },
       "movement": {
         "backward": false,
@@ -1104,19 +1104,242 @@
       "examineDetails": "You take the measure of the row the way you would a witness: what people buy when they live above the clouds.\n\nThe Ridge Haberdashery on your left is dry goods and notions dressed up as civilization. Hats on pegs, coats on the rail, folded cloth in the window glass still warm from the day's sun. A mannequin wears a suit jacket cut for a man who attends church in Graysmill on Sundays and keeps his timber deeds in an inside pocket. The stock is not frivolous. wool, canvas, boot hooks, sewing notions, the soft goods that keep a ridge settlement from looking like a camp.\n\nAlpine Hardware and Mining Supplies on your right speaks a different dialect. Axes with fresh edge grind, shovels, prospector's picks, rope in neat coils, lanterns filled and trimmed, crates of nails, barrels of lime. The sign claims est. 1893, which puts it in the same ambitious decade as the trading company down the road. Someone expected the High Line to dig, build, and stay.\n\nBetween the shops the road is worn pale by traffic. Haberdashery left, hardware right, valley below, crest ahead. The settlement is assembling itself in types: food, iron, cloth, tools.",
       "exits": {
         "forward": "mountain_road_trade_row",
-        "right": "alpine_hardware",
-        "left": "ridge_haberdashery"
+        "left": "ridge_haberdashery",
+        "right": "alpine_hardware"
       },
       "image": "resources/images/mountain_road_supply_row.png",
       "layout": {
         "level": 0,
         "x": 1064.0,
-        "y": 2424.0
+        "y": 2208.0
       },
       "movement": {
         "backward": true,
         "forward": true,
         "left": true,
+        "right": true
+      },
+      "start": false,
+      "useDetails": ""
+    },
+    "mountain_road_trade_row": {
+      "actions": {
+        "examine": true,
+        "hit": false,
+        "speak": false,
+        "use": false
+      },
+      "audio": {
+        "ambient": [
+          {
+            "fade_in": 2.0,
+            "fade_out": 2.0,
+            "loop": true,
+            "path": "resources/audio/ambient/town_ambient.mp3",
+            "volume": 0.35
+          },
+          {
+            "fade_in": 1.5,
+            "fade_out": 1.5,
+            "loop": true,
+            "path": "resources/audio/ambient/town_footsteps.mp3",
+            "volume": 0.25
+          }
+        ]
+      },
+      "description": "The road widens into the busiest stretch of the High Line. On your left, a general store spreads its porch with the unapologetic abundance of a place that expects winter to last: flour sacks, mason jars, rope coils, lantern oil, and tinned goods arranged on trestle tables as though the mountain might run out of patience before it runs out of stock. On your right, a blacksmith's forge breathes orange against the failing light, smoke rising from the chimney and mingling with the cold alpine air. A saddled horse waits at the hitching rail, ears forward, breath steaming. Beyond the shops the road still runs forward, and below it the valley city keeps lighting its windows one by one.",
+      "examineDetails": "You read the row the way you would a ledger: who trades, who makes, what the ridge cannot do without.\n\nThe general store on your left is honest frontier carpentry dressed up with mercantile habit. Glass jars in the window catch the last sun. Sacks stamped for flour and sugar sit on the porch boards beside lantern crates and coils of hemp rope. A painted sign advertises the Mountain Trading Company, est. 1891, which is recent enough to mean someone expected this settlement to last. The goods are not tourist trinkets. lamp chimneys, nails, salt, coffee, the dry architecture of a community that feeds itself at altitude.\n\nAcross the road the blacksmith shop tells a harder story. The forge is open to the street, fire alive in the coals, an anvil set on a stout stump, horseshoes and iron stock hung along the wall. A wagon wheel leans in the dirt beside leather bellows hose still warm from use. The smith is not at his work, or not visible, but the shop is not idle: a saddled horse waits at the rail, ears forward, breath steaming in the cold. Tools are laid out in the order of a job interrupted, not abandoned.\n\nThe road between them is beaten flat by boots, hooves, and iron-rimmed wheels. Whoever keeps the High Line running buys here and shoes here. This is not the overlook yet, but it is the reason the overlook has a name worth carving in stone.",
+      "exits": {
+        "backward": "mountain_road_supply_row",
+        "forward": "mountain_road"
+      },
+      "image": "resources/images/mountain_road_trade_row.png",
+      "layout": {
+        "level": 0,
+        "x": 1064.0,
+        "y": 1992.0
+      },
+      "movement": {
+        "backward": true,
+        "forward": true,
+        "left": false,
+        "right": false
+      },
+      "start": false,
+      "useDetails": ""
+    },
+    "narrow_path": {
+      "actions": {
+        "examine": true,
+        "hit": false,
+        "speak": false,
+        "use": false
+      },
+      "audio": {
+        "ambient": [
+          {
+            "fade_in": 3.0,
+            "fade_out": 2.5,
+            "loop": true,
+            "path": "resources/audio/ambient/narrow_path_aspen_grove.mp3",
+            "volume": 0.85
+          }
+        ]
+      },
+      "description": "A narrow footpath branches off the mountain road between two weathered cabins, barely wide enough for one person. The ground is soft with pine needles and recent boot prints. The path bends quickly out of sight behind a stand of young firs, as though the mountain prefers to keep its secrets until you commit to following them.",
+      "examineDetails": "The path is not on any map you can remember. Someone has cleared fallen branches recently, but the work is rough - practical, not decorative. You kneel by the nearest fir and scrape pine resin from a rusted tin marker nailed to the bark. Faded letters emerge under your thumb:\n\nHANGING TREE - 1889 - 3 - COMPANY MEN - GOD MEASURES BY THE CHAIN\n\nThe third name has been scratched out so violently the tree bark shows through the metal. Boot prints lead deeper along the path, fresher than the ones on the main road. Whatever lies ahead, it is meant to be found on foot and not from the High Line.",
+      "examineFlag": "path_c:hanging_tree",
+      "exits": {
+        "backward": "mountain_road",
+        "forward": "mining_camp"
+      },
+      "image": "resources/images/narrow_path.png",
+      "layout": {
+        "level": 0,
+        "x": 1064.0,
+        "y": 1565.0
+      },
+      "movement": {
+        "backward": true,
+        "forward": true,
+        "left": false,
+        "right": false
+      },
+      "start": false,
+      "useDetails": ""
+    },
+    "private_overlook": {
+      "actions": {
+        "examine": true,
+        "hit": false,
+        "speak": false,
+        "use": false
+      },
+      "audio": {
+        "ambient": [
+          {
+            "fade_in": 2.5,
+            "fade_out": 2.5,
+            "loop": true,
+            "path": "resources/audio/ambient/cliff_wind_gusts.mp3",
+            "volume": 0.36
+          },
+          {
+            "fade_in": 3.0,
+            "fade_out": 2.0,
+            "loop": true,
+            "path": "resources/audio/ambient/narrow_path_aspen_grove.mp3",
+            "volume": 0.2
+          }
+        ],
+        "music": {
+          "fade_in": 4.0,
+          "fade_out": 2.5,
+          "loop": true,
+          "path": "resources/audio/music/mountain_wind.mp3",
+          "volume": 0.4
+        }
+      },
+      "description": "The path breaks from the trees onto a ledge that does not appear on any tourist map. No stone wall, no keystone, no HIGH LINE ROAD carved for strangers. Only a wooden bench bolted to the exposed rock, facing a private drop where clouds move below you like slow water and the valley city glints through the gaps - Graysmill, distant and real. Whoever came here did not want to be seen looking. The bench waits as though someone might return before the fog closes the view.",
+      "examineDetails": "The bench is rough pine, weather-gray, iron bolts sunk deep into the granite. Carved into the seat back, letters worn by rain and hands:\n\nFOR M- WAIT FOR THE FOG\n\nThe name stops mid-letter, as though the carver lost patience or nerve. Boot scuffs mark the rock before the bench. Not many - this is not a popular place. A place for appointments kept in weather, not daylight.\n\nYou stand at the edge and let the view assemble itself. The same city the cowboy named. The same cloud deck the mountain road shows tourists from behind a safety wall. But here there is no rail, no warning, only height and the cold honesty of open air. When the fog thickens, the city vanishes - and the carved instruction on the bench reads less like poetry and more like a rule someone once made you swear to keep.\n\nIf you mean to tell anyone what you found up here, the saloon still holds the men who already know your face.",
+      "examineFlag": "path_c:overlook",
+      "exits": {
+        "left": "steep_mountain_trail"
+      },
+      "image": "resources/images/private_overlook.png",
+      "layout": {
+        "level": 0,
+        "x": 1320.0,
+        "y": 485.0
+      },
+      "movement": {
+        "backward": false,
+        "forward": false,
+        "left": true,
+        "right": false
+      },
+      "start": false,
+      "useDetails": ""
+    },
+    "ridge_cabin_bedroom": {
+      "actions": {
+        "examine": true,
+        "hit": false,
+        "speak": false,
+        "use": false
+      },
+      "audio": {
+        "ambient": [
+          {
+            "fade_in": 2.0,
+            "fade_out": 2.0,
+            "loop": true,
+            "path": "resources/audio/ambient/wind.mp3",
+            "volume": 0.18
+          }
+        ]
+      },
+      "description": "A modest bedroom tucked under the cabin's roofline, the ceiling following the pitch close enough that a tall man would mind his head. The carved teak bed frame occupies nearly half the room, dressed in a patchwork quilt and plain linens. A nightstand with a lit lamp stands on one side; a dresser on the other. Multiple windows look out over the mountains below, the valley lost in distance and failing light.",
+      "examineDetails": "The bedroom is spare and deliberate, the second room of a house built for one life rather than company.\n\nThe bed dominates the space without apology: carved teak headboard and footboard, scrollwork worn smooth where hands have steadied themselves, quilt folded square, pillow kept by habit rather than display. On the nightstand the lamp burns low beside a closed book. Across from it, the dresser holds a mirror, hairbrush, straight razor in a dish, and a pocket watch that has been wound recently.\n\nThe windows are the room's real luxury - three of them, clean-latched, framing ridge after ridge dropping away into forest and river far below. No woman's comb or perfume. Whoever sleeps here lives alone and keeps the fact without apology.\n\nThe doorway to your left leads back to the living room, and beyond that the kitchen, porch, and mountain trail.",
+      "exits": {
+        "left": "cabin"
+      },
+      "image": "resources/images/ridge_cabin_bedroom.png",
+      "layout": {
+        "level": 0,
+        "x": 552.0,
+        "y": 48.0
+      },
+      "movement": {
+        "backward": false,
+        "forward": false,
+        "left": true,
+        "right": false
+      },
+      "start": false,
+      "useDetails": ""
+    },
+    "ridge_cabin_exterior": {
+      "actions": {
+        "examine": true,
+        "hit": false,
+        "speak": false,
+        "use": false
+      },
+      "audio": {
+        "ambient": [
+          {
+            "fade_in": 2.0,
+            "fade_out": 2.0,
+            "loop": true,
+            "path": "resources/audio/ambient/wind.mp3",
+            "volume": 0.3
+          },
+          {
+            "fade_in": 2.5,
+            "fade_out": 2.0,
+            "loop": true,
+            "path": "resources/audio/ambient/narrow_path_aspen_grove.mp3",
+            "volume": 0.1
+          }
+        ]
+      },
+      "description": "The left-hand path opens onto a small snowy plateau where a cabin looks no older than ten years and far better made than most ridge construction. Squared timber walls rise from a stone foundation, corners tight, roof metal and true. A covered porch faces the valley with two rockers and a braided rug. Windows are clean. The chimney is swept. The place is quaint without being precious - the work of someone who knew how to build and did not need to boast about it.",
+      "examineDetails": "You walk the perimeter slowly, reading the details the way you read a room.\n\nThe logs are dressed and fitted, not the slap-and-chink work of a mining camp. Chinking is neat. The foundation is river stone set in mortar, level on the plateau despite the mountain's tilt all around it. A brass house number - 7 - is nailed beside the door with a carpenter's straightness. The porch boards are recent, still pale where sun has not yet darkened them. Two rockers sit under the eave, cushions faded but dry. A braided rug lies square on the boards as though someone straightened it before leaving.\n\nNo name on the mailbox. No horse in a lean-to. No wash on the line. And yet the cabin is not abandoned: window glass unbroken, door hardware oiled, a faint scent of woodsmoke in the stone chimney though no fire burns now. Whoever lives here keeps a small, orderly life above the fog line.\n\nThe branch path drops away behind you toward the steep mountain trail below. Through the front door you catch the warm smell of coffee and the deeper hearth-light of the living room beyond the kitchen. This feels like a different kind of appointment - private, domestic, recently chosen.",
+      "exits": {
+        "forward": "cabin_kitchen",
+        "right": "steep_mountain_trail"
+      },
+      "image": "resources/images/ridge_cabin_exterior.png",
+      "layout": {
+        "level": 0,
+        "x": 808.0,
+        "y": 480.0
+      },
+      "movement": {
+        "backward": false,
+        "forward": true,
+        "left": false,
         "right": true
       },
       "start": false,
@@ -1174,8 +1397,8 @@
       "image": "resources/images/ridge_haberdashery.png",
       "layout": {
         "level": 0,
-        "x": 552.0,
-        "y": 2424.0
+        "x": 808.0,
+        "y": 2208.0
       },
       "movement": {
         "backward": false,
@@ -1187,229 +1410,6 @@
       "start": false,
       "ttsDefaultVoice": "leo",
       "ttsEnabled": true,
-      "useDetails": ""
-    },
-    "mountain_road_trade_row": {
-      "actions": {
-        "examine": true,
-        "hit": false,
-        "speak": false,
-        "use": false
-      },
-      "audio": {
-        "ambient": [
-          {
-            "fade_in": 2.0,
-            "fade_out": 2.0,
-            "loop": true,
-            "path": "resources/audio/ambient/town_ambient.mp3",
-            "volume": 0.35
-          },
-          {
-            "fade_in": 1.5,
-            "fade_out": 1.5,
-            "loop": true,
-            "path": "resources/audio/ambient/town_footsteps.mp3",
-            "volume": 0.25
-          }
-        ]
-      },
-      "description": "The road widens into the busiest stretch of the High Line. On your left, a general store spreads its porch with the unapologetic abundance of a place that expects winter to last: flour sacks, mason jars, rope coils, lantern oil, and tinned goods arranged on trestle tables as though the mountain might run out of patience before it runs out of stock. On your right, a blacksmith's forge breathes orange against the failing light, smoke rising from the chimney and mingling with the cold alpine air. A saddled horse waits at the hitching rail, ears forward, breath steaming. Beyond the shops the road still runs forward, and below it the valley city keeps lighting its windows one by one.",
-      "examineDetails": "You read the row the way you would a ledger: who trades, who makes, what the ridge cannot do without.\n\nThe general store on your left is honest frontier carpentry dressed up with mercantile habit. Glass jars in the window catch the last sun. Sacks stamped for flour and sugar sit on the porch boards beside lantern crates and coils of hemp rope. A painted sign advertises the Mountain Trading Company, est. 1891, which is recent enough to mean someone expected this settlement to last. The goods are not tourist trinkets. lamp chimneys, nails, salt, coffee, the dry architecture of a community that feeds itself at altitude.\n\nAcross the road the blacksmith shop tells a harder story. The forge is open to the street, fire alive in the coals, an anvil set on a stout stump, horseshoes and iron stock hung along the wall. A wagon wheel leans in the dirt beside leather bellows hose still warm from use. The smith is not at his work, or not visible, but the shop is not idle: a saddled horse waits at the rail, ears forward, breath steaming in the cold. Tools are laid out in the order of a job interrupted, not abandoned.\n\nThe road between them is beaten flat by boots, hooves, and iron-rimmed wheels. Whoever keeps the High Line running buys here and shoes here. This is not the overlook yet, but it is the reason the overlook has a name worth carving in stone.",
-      "exits": {
-        "backward": "mountain_road_supply_row",
-        "forward": "mountain_road"
-      },
-      "image": "resources/images/mountain_road_trade_row.png",
-      "layout": {
-        "level": 0,
-        "x": 1064.0,
-        "y": 2208.0
-      },
-      "movement": {
-        "backward": true,
-        "forward": true,
-        "left": false,
-        "right": false
-      },
-      "start": false,
-      "useDetails": ""
-    },
-    "narrow_path": {
-      "actions": {
-        "examine": true,
-        "hit": false,
-        "speak": false,
-        "use": false
-      },
-      "audio": {
-        "ambient": [
-          {
-            "fade_in": 3.0,
-            "fade_out": 2.5,
-            "loop": true,
-            "path": "resources/audio/ambient/narrow_path_aspen_grove.mp3",
-            "volume": 0.85
-          }
-        ]
-      },
-      "description": "A narrow footpath branches off the mountain road between two weathered cabins, barely wide enough for one person. The ground is soft with pine needles and recent boot prints. The path bends quickly out of sight behind a stand of young firs, as though the mountain prefers to keep its secrets until you commit to following them.",
-      "examineDetails": "The path is not on any map you can remember. Someone has cleared fallen branches recently, but the work is rough - practical, not decorative. You kneel by the nearest fir and scrape pine resin from a rusted tin marker nailed to the bark. Faded letters emerge under your thumb:\n\nHANGING TREE - 1889 - 3 - COMPANY MEN - GOD MEASURES BY THE CHAIN\n\nThe third name has been scratched out so violently the tree bark shows through the metal. Boot prints lead deeper along the path, fresher than the ones on the main road. Whatever lies ahead, it is meant to be found on foot and not from the High Line.",
-      "examineFlag": "path_c:hanging_tree",
-      "exits": {
-        "backward": "mountain_road",
-        "forward": "mining_camp"
-      },
-      "image": "resources/images/narrow_path.png",
-      "layout": {
-        "level": 0,
-        "x": 1064.0,
-        "y": 1776.0
-      },
-      "movement": {
-        "backward": true,
-        "forward": true,
-        "left": false,
-        "right": false
-      },
-      "start": false,
-      "useDetails": ""
-    },
-    "private_overlook": {
-      "actions": {
-        "examine": true,
-        "hit": false,
-        "speak": false,
-        "use": false
-      },
-      "audio": {
-        "ambient": [
-          {
-            "fade_in": 2.5,
-            "fade_out": 2.5,
-            "loop": true,
-            "path": "resources/audio/ambient/cliff_wind_gusts.mp3",
-            "volume": 0.36
-          },
-          {
-            "fade_in": 3.0,
-            "fade_out": 2.0,
-            "loop": true,
-            "path": "resources/audio/ambient/narrow_path_aspen_grove.mp3",
-            "volume": 0.2
-          }
-        ],
-        "music": {
-          "fade_in": 4.0,
-          "fade_out": 2.5,
-          "loop": true,
-          "path": "resources/audio/music/mountain_wind.mp3",
-          "volume": 0.4
-        }
-      },
-      "description": "The path breaks from the trees onto a ledge that does not appear on any tourist map. No stone wall, no keystone, no HIGH LINE ROAD carved for strangers. Only a wooden bench bolted to the exposed rock, facing a private drop where clouds move below you like slow water and the valley city glints through the gaps - Graysmill, distant and real. Whoever came here did not want to be seen looking. The bench waits as though someone might return before the fog closes the view.",
-      "examineDetails": "The bench is rough pine, weather-gray, iron bolts sunk deep into the granite. Carved into the seat back, letters worn by rain and hands:\n\nFOR M- WAIT FOR THE FOG\n\nThe name stops mid-letter, as though the carver lost patience or nerve. Boot scuffs mark the rock before the bench. Not many - this is not a popular place. A place for appointments kept in weather, not daylight.\n\nYou stand at the edge and let the view assemble itself. The same city the cowboy named. The same cloud deck the mountain road shows tourists from behind a safety wall. But here there is no rail, no warning, only height and the cold honesty of open air. When the fog thickens, the city vanishes - and the carved instruction on the bench reads less like poetry and more like a rule someone once made you swear to keep.\n\nIf you mean to tell anyone what you found up here, the saloon still holds the men who already know your face.",
-      "examineFlag": "path_c:overlook",
-      "exits": {
-        "left": "steep_mountain_trail"
-      },
-      "image": "resources/images/private_overlook.png",
-      "layout": {
-        "level": 0,
-        "x": 1320.0,
-        "y": 696.0
-      },
-      "movement": {
-        "backward": false,
-        "forward": false,
-        "left": true,
-        "right": false
-      },
-      "start": false,
-      "useDetails": ""
-    },
-    "ridge_cabin_bedroom": {
-      "actions": {
-        "examine": true,
-        "hit": false,
-        "speak": false,
-        "use": false
-      },
-      "audio": {
-        "ambient": [
-          {
-            "fade_in": 2.0,
-            "fade_out": 2.0,
-            "loop": true,
-            "path": "resources/audio/ambient/wind.mp3",
-            "volume": 0.18
-          }
-        ]
-      },
-      "description": "A modest bedroom tucked under the cabin's roofline, the ceiling following the pitch close enough that a tall man would mind his head. The carved teak bed frame occupies nearly half the room, dressed in a patchwork quilt and plain linens. A nightstand with a lit lamp stands on one side; a dresser on the other. Multiple windows look out over the mountains below, the valley lost in distance and failing light.",
-      "examineDetails": "The bedroom is spare and deliberate, the second room of a house built for one life rather than company.\n\nThe bed dominates the space without apology: carved teak headboard and footboard, scrollwork worn smooth where hands have steadied themselves, quilt folded square, pillow kept by habit rather than display. On the nightstand the lamp burns low beside a closed book. Across from it, the dresser holds a mirror, hairbrush, straight razor in a dish, and a pocket watch that has been wound recently.\n\nThe windows are the room's real luxury - three of them, clean-latched, framing ridge after ridge dropping away into forest and river far below. No woman's comb or perfume. Whoever sleeps here lives alone and keeps the fact without apology.\n\nThe doorway to your left leads back to the living room, and beyond that the kitchen, porch, and mountain trail.",
-      "exits": {
-        "left": "cabin"
-      },
-      "image": "resources/images/ridge_cabin_bedroom.png",
-      "layout": {
-        "level": 0,
-        "x": 552.0,
-        "y": 264.0
-      },
-      "movement": {
-        "backward": false,
-        "forward": false,
-        "left": true,
-        "right": false
-      },
-      "start": false,
-      "useDetails": ""
-    },
-    "ridge_cabin_exterior": {
-      "actions": {
-        "examine": true,
-        "hit": false,
-        "speak": false,
-        "use": false
-      },
-      "audio": {
-        "ambient": [
-          {
-            "fade_in": 2.0,
-            "fade_out": 2.0,
-            "loop": true,
-            "path": "resources/audio/ambient/wind.mp3",
-            "volume": 0.3
-          },
-          {
-            "fade_in": 2.5,
-            "fade_out": 2.0,
-            "loop": true,
-            "path": "resources/audio/ambient/narrow_path_aspen_grove.mp3",
-            "volume": 0.1
-          }
-        ]
-      },
-      "description": "The left-hand path opens onto a small snowy plateau where a cabin looks no older than ten years and far better made than most ridge construction. Squared timber walls rise from a stone foundation, corners tight, roof metal and true. A covered porch faces the valley with two rockers and a braided rug. Windows are clean. The chimney is swept. The place is quaint without being precious - the work of someone who knew how to build and did not need to boast about it.",
-      "examineDetails": "You walk the perimeter slowly, reading the details the way you read a room.\n\nThe logs are dressed and fitted, not the slap-and-chink work of a mining camp. Chinking is neat. The foundation is river stone set in mortar, level on the plateau despite the mountain's tilt all around it. A brass house number - 7 - is nailed beside the door with a carpenter's straightness. The porch boards are recent, still pale where sun has not yet darkened them. Two rockers sit under the eave, cushions faded but dry. A braided rug lies square on the boards as though someone straightened it before leaving.\n\nNo name on the mailbox. No horse in a lean-to. No wash on the line. And yet the cabin is not abandoned: window glass unbroken, door hardware oiled, a faint scent of woodsmoke in the stone chimney though no fire burns now. Whoever lives here keeps a small, orderly life above the fog line.\n\nThe branch path drops away behind you toward the steep mountain trail below. Through the front door you catch the warm smell of coffee and the deeper hearth-light of the living room beyond the kitchen. This feels like a different kind of appointment - private, domestic, recently chosen.",
-      "exits": {
-        "forward": "cabin_kitchen",
-        "right": "steep_mountain_trail"
-      },
-      "image": "resources/images/ridge_cabin_exterior.png",
-      "layout": {
-        "level": 0,
-        "x": 808.0,
-        "y": 696.0
-      },
-      "movement": {
-        "backward": false,
-        "forward": true,
-        "left": false,
-        "right": true
-      },
-      "start": false,
       "useDetails": ""
     },
     "saloon_back_exit": {
@@ -1428,7 +1428,7 @@
       "layout": {
         "level": 0,
         "x": 1576.0,
-        "y": 1344.0
+        "y": 1133.0
       },
       "movement": {
         "backward": true,
@@ -1487,7 +1487,7 @@
       "layout": {
         "level": 1,
         "x": 808.0,
-        "y": 264.0
+        "y": 269.0
       },
       "movement": {
         "backward": false,
@@ -1616,7 +1616,7 @@
       "layout": {
         "level": 1,
         "x": 1064.0,
-        "y": 264.0
+        "y": 269.0
       },
       "movement": {
         "backward": false,
@@ -1672,7 +1672,7 @@
       "layout": {
         "level": 0,
         "x": 1320.0,
-        "y": 1992.0
+        "y": 1781.0
       },
       "movement": {
         "backward": false,
@@ -1742,7 +1742,7 @@
       "layout": {
         "level": 0,
         "x": 1320.0,
-        "y": 1776.0
+        "y": 1565.0
       },
       "movement": {
         "backward": true,
@@ -1826,29 +1826,64 @@
     },
     "saloon_kitchen": {
       "actions": {
-        "examine": false,
+        "examine": true,
         "hit": false,
-        "speak": false,
+        "speak": true,
         "use": false
       },
-      "description": "The kitchen lies beyond the first left-hand door. Heat, steam, and the honest chaos of a working line. This room has not been fully mapped yet.",
-      "examineDetails": "",
-      "exits": {
-        "backward": "saloon_service_hall"
+      "audio": {
+        "ambient": [
+          {
+            "fade_in": 1.5,
+            "fade_out": 1.5,
+            "loop": true,
+            "path": "resources/audio/ambient/saloon_kitchen.mp3",
+            "volume": 0.85
+          }
+        ],
+        "music": {
+          "fade_in": 3.0,
+          "fade_out": 2.5,
+          "loop": true,
+          "path": "resources/audio/music/saloon_kitchen_theme.mp3",
+          "volume": 0.08
+        }
       },
-      "image": "resources/images/scene_under_construction.png",
+      "description": "You peer beyond the curtain and step into the saloon kitchen. It is large, with multiple sous chefs working independently at their stations. The air is thick with the scent of simmering venison stew and fresh baked biscuits, while shafts of late afternoon light slant through the high windows, painting the rough plank floors in warm gold.",
+      "descriptionTts": {
+        "tts": true,
+        "ttsAudio": "resources/audio/tts/saloon_kitchen/descriptionTts.mp3",
+        "ttsText": "You peer beyond the curtain and step into the saloon kitchen. [pause] It is large, [pause] with multiple sous chefs working independently at their stations. [pause] The air is thick with the scent of simmering venison stew and fresh baked biscuits, [long-pause] while shafts of late afternoon light slant through the high windows, painting the rough plank floors in warm gold.",
+        "ttsTextSha256": "80d9f9748d2be594b0bdf4b91834a1cfff52cb7b65fc54dea33932a1069bf6ba",
+        "ttsVoice": ""
+      },
+      "examineDetails": "Copper pots line the sturdy shelves above with copper pans hanging below. Many ovens, wash basins and prep spaces line the room. A sous chef at one of the prep stations prepares a plate of fresh Atlantic oysters. This is far more expansive than you would expect from a mountain town saloon. This owner has deep pockets. Apparently, the customers do as well.",
+      "examineTts": {
+        "tts": true,
+        "ttsAudio": "resources/audio/tts/saloon_kitchen/examineTts.mp3",
+        "ttsText": "Copper pots gleam along the sturdy shelves above, [pause] copper pans hanging heavy below them. [long-pause] Many ovens, wash basins, and wide prep tables line the room in the warm glow of oil lamps. [pause] At one of the stations a sous chef works in shirtsleeves and a long white apron, [soft] carefully arranging a plate of fresh Atlantic oysters on a bed of crushed ice. [long-pause] \n\nThis is far more expansive than you would ever expect from a mountain town saloon. [pause] The owner clearly has deep pockets. [whisper] And apparently, [emphasis] so do the customers.",
+        "ttsTextSha256": "551b578e6224a1cd4e4d80419bf1ef06f69ad382cf7125dbab1cbd4f8fd454d1",
+        "ttsVoice": ""
+      },
+      "exits": {
+        "left": "saloon_side_passage"
+      },
+      "image": "resources/images/saloon_kitchen.png",
       "layout": {
-        "level": -1,
-        "x": 808.0,
-        "y": 264.0
+        "level": 0,
+        "x": 1863.5196533203125,
+        "y": 1572.4241943359375
       },
       "movement": {
-        "backward": true,
+        "backward": false,
         "forward": false,
-        "left": false,
+        "left": true,
         "right": false
       },
+      "speakDetails": "",
       "start": false,
+      "ttsDefaultVoice": "leo",
+      "ttsEnabled": true,
       "useDetails": ""
     },
     "saloon_owner_office": {
@@ -1877,7 +1912,7 @@
       "layout": {
         "level": 0,
         "x": 1320.0,
-        "y": 1560.0
+        "y": 1344.0
       },
       "movement": {
         "backward": false,
@@ -1916,7 +1951,7 @@
       "layout": {
         "level": 0,
         "x": 1320.0,
-        "y": 1344.0
+        "y": 1128.0
       },
       "movement": {
         "backward": true,
@@ -1968,7 +2003,7 @@
       "layout": {
         "level": 0,
         "x": 1576.0,
-        "y": 1560.0
+        "y": 1344.0
       },
       "movement": {
         "backward": true,
@@ -2004,20 +2039,21 @@
       "examineDetails": "The curtain is sun-bleached burgundy velvet, hem weighted with lead shot so it hangs straight and closes without a sound. You note the same weighting on silk upstairs and in the ice house on the ridge, as though one hand dressed every private threshold in this building. The antechamber is crude frontier carpentry: rough pine, iron pegs, a low oil lamp, faro chips spilled in one corner where a hurried hand lost patience. Through the open doorway ahead, the corridor is another species of room entirely. Walnut wainscoting. Cream plaster. A runner rug worn thin at the center. The lantern on the left wall is polished brass with a frosted chimney, throwing a controlled pool of light down the length of the hall rather than the smoky glare of the saloon. Muffled kitchen noise leaks from the first door on the left, pots and crockery softened by distance and heavy wood.",
       "exits": {
         "forward": "saloon_service_hall",
-        "left": "saloon_interior"
+        "left": "saloon_interior",
+        "right": "saloon_kitchen"
       },
       "image": "resources/images/saloon_side_passage.png",
       "layout": {
         "level": 0,
         "x": 1576.0,
-        "y": 1776.0
+        "y": 1560.0
       },
       "movement": {
         "backward": false,
         "down": false,
         "forward": true,
         "left": true,
-        "right": false,
+        "right": true,
         "up": false
       },
       "speakDetails": "",
@@ -2064,7 +2100,7 @@
       "layout": {
         "level": 0,
         "x": 1832.0,
-        "y": 1560.0
+        "y": 1344.0
       },
       "movement": {
         "backward": false,
@@ -2227,7 +2263,7 @@
       "layout": {
         "level": 0,
         "x": 1064.0,
-        "y": 480.0
+        "y": 264.0
       },
       "movement": {
         "backward": true,
@@ -2284,7 +2320,7 @@
       "layout": {
         "level": 0,
         "x": 808.0,
-        "y": 480.0
+        "y": 264.0
       },
       "movement": {
         "backward": false,
@@ -2419,7 +2455,7 @@
       "layout": {
         "level": 0,
         "x": 1064.0,
-        "y": 696.0
+        "y": 480.0
       },
       "movement": {
         "backward": true,
@@ -2458,7 +2494,7 @@
       "layout": {
         "level": 0,
         "x": 1064.0,
-        "y": 1344.0
+        "y": 1133.0
       },
       "movement": {
         "backward": true,
@@ -2505,7 +2541,7 @@
       "layout": {
         "level": 0,
         "x": 808.0,
-        "y": 912.0
+        "y": 696.0
       },
       "movement": {
         "backward": false,
@@ -2551,7 +2587,7 @@
       "layout": {
         "level": 0,
         "x": 296.0,
-        "y": 912.0
+        "y": 696.0
       },
       "movement": {
         "backward": false,
@@ -2604,7 +2640,7 @@
       "layout": {
         "level": 0,
         "x": 552.0,
-        "y": 912.0
+        "y": 696.0
       },
       "movement": {
         "backward": true,
@@ -2656,7 +2692,7 @@
       "layout": {
         "level": 0,
         "x": 552.0,
-        "y": 1128.0
+        "y": 912.0
       },
       "movement": {
         "backward": false,
@@ -2704,7 +2740,7 @@
       "layout": {
         "level": 0,
         "x": 1064.0,
-        "y": 912.0
+        "y": 696.0
       },
       "movement": {
         "backward": true,
@@ -2761,7 +2797,7 @@
       "layout": {
         "level": 0,
         "x": 40.0,
-        "y": 912.0
+        "y": 701.0
       },
       "movement": {
         "backward": false,
