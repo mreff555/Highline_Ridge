@@ -129,6 +129,8 @@ main.cpp
          └─ SceneMapCanvas      (list/map/chrome draw + interaction)
 ```
 
+**Map exits:** gold mid-edge wires are compass movement; silver corner wires are **Use transitions to another scene**. Same-room Use actions (narrative only, no `exitSceneId`) still show in the in-game Use list but do **not** draw a map wire — that is expected, not a missing image. Details: [docs/scene-map-exits.md](docs/scene-map-exits.md).
+
 ### TTS (text to speech)
 
 Audio is enabled for some dialogs. Voices must be generated if you want TTS playback; see `--help` on the game binary. As a general overview you will need to go to the [xAI console](https://console.x.ai). You will need to purchase credits to generate TTS. The cost should be minimal to regenerate voices.  Note that release builds do not store a resources folder and rather create binary blobs (pak files) to hold resources.  Once build you can not regenerate voices.  Once voices have been generated via a DEV build a clean build-release will package those voices in the release.
