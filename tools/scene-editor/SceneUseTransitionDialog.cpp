@@ -84,6 +84,52 @@ std::string clipUiLine(Font font, const std::string& text, float fontSize, float
     return out + ellipsis;
 }
 
+void insertUtf8(std::string& buffer, int& cursor, int codepoint)
+{
+    if (codepoint <= 0)
+        return;
+    cursor = std::clamp(cursor, 0, static_cast<int>(buffer.size()));
+    char bytes[5] = {};
+    int size = 0;
+    if (codepoint < 0x80)
+    {
+        bytes[0] = static_cast<char>(codepoint);
+        size = 1;
+    }
+    else if (codepoint <= 0x7FF)
+    {
+        bytes[0] = static_cast<char>(0xC0 | ((codepoint >> 6) & 0x1F));
+        bytes[1] = static_cast<char>(0x80 | (codepoint & 0x3F));
+        size = 2;
+    }
+    else if (codepoint <= 0xFFFF)
+    {
+        bytes[0] = static_cast<char>(0xE0 | ((codepoint >> 12) & 0x0F));
+        bytes[1] = static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
+        bytes[2] = static_cast<char>(0x80 | (codepoint & 0x3F));
+        size = 3;
+    }
+    else
+    {
+        bytes[0] = static_cast<char>(0xF0 | ((codepoint >> 18) & 0x07));
+        bytes[1] = static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F));
+        bytes[2] = static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
+        bytes[3] = static_cast<char>(0x80 | (codepoint & 0x3F));
+        size = 4;
+    }
+    buffer.insert(static_cast<size_t>(cursor), bytes, static_cast<size_t>(size));
+    cursor += size;
+}
+
+void backspaceUtf8(std::string& buffer, int& cursor)
+{
+    if (cursor <= 0 || buffer.empty())
+        return;
+    const int prev = utf8PrevIndex(buffer, cursor);
+    buffer.erase(static_cast<size_t>(prev), static_cast<size_t>(cursor - prev));
+    cursor = prev;
+}
+
 } // namespace
 
 void SceneUseTransitionDialog::refreshRows()
@@ -96,7 +142,6 @@ void SceneUseTransitionDialog::refreshRows()
         selectedBinding = preferredBinding;
     if (selectedBinding.empty() && !rows.empty())
         selectedBinding = rows.front().binding;
-    // Keep selection if still present.
     bool found = false;
     for (const auto& row : rows)
     {
@@ -108,6 +153,17 @@ void SceneUseTransitionDialog::refreshRows()
     }
     if (!found)
         selectedBinding = rows.empty() ? std::string{} : rows.front().binding;
+    loadDetailsDraftFromSelection();
+}
+
+void SceneUseTransitionDialog::loadDetailsDraftFromSelection()
+{
+    detailsDraft.clear();
+    detailsCursor = 0;
+    if (!graph || fromId.empty() || selectedBinding.empty())
+        return;
+    detailsDraft = graph->getUseBindingDetails(fromId, selectedBinding);
+    detailsCursor = static_cast<int>(detailsDraft.size());
 }
 
 void SceneUseTransitionDialog::openForLink(
@@ -121,11 +177,14 @@ void SceneUseTransitionDialog::openForLink(
     status.clear();
     error.clear();
     listScroll = 0.0f;
+    detailsFocused = false;
     fromId = fromMapNode;
     toId = toMapNode;
     preferredBinding = bindingHint;
     selectedBinding = bindingHint;
     refreshRows();
+    if (graph)
+        graph->ensureUseExitTransitionDefaults(fromId);
 }
 
 void SceneUseTransitionDialog::closeDialog()
@@ -138,6 +197,9 @@ void SceneUseTransitionDialog::closeDialog()
     rows.clear();
     selectedBinding.clear();
     preferredBinding.clear();
+    detailsDraft.clear();
+    detailsCursor = 0;
+    detailsFocused = false;
 }
 
 bool SceneUseTransitionDialog::applySelected()
@@ -147,12 +209,17 @@ bool SceneUseTransitionDialog::applySelected()
         error = "Select a Use binding first.";
         return false;
     }
+    if (!graph->setUseBindingDetails(fromId, selectedBinding, detailsDraft))
+    {
+        // Details write can fail for stale rows; still try target update.
+    }
     if (!graph->setUseBindingTarget(fromId, selectedBinding, toId))
     {
         error = "Failed to update binding.";
         return false;
     }
-    status = "Bound " + selectedBinding + " -> " + toId;
+    graph->ensureUseExitTransitionDefaults(fromId);
+    status = "Accepted " + selectedBinding + " -> " + toId;
     error.clear();
     refreshRows();
     if (onSaved)
@@ -189,7 +256,6 @@ bool SceneUseTransitionDialog::createNewBinding()
         error = "Missing endpoints.";
         return false;
     }
-    // Prefer filling empty useExit first.
     const auto existing = graph->enumerateUseBindings(fromId);
     bool hasUseExit = false;
     for (const auto& row : existing)
@@ -245,7 +311,34 @@ void SceneUseTransitionDialog::handleInput(int /*screenW*/, int /*screenH*/)
         waitMouseRelease = false;
     }
     if (IsKeyPressed(KEY_ESCAPE))
-        closeDialog();
+    {
+        if (detailsFocused)
+            detailsFocused = false;
+        else
+            closeDialog();
+        return;
+    }
+
+    if (!detailsFocused)
+        return;
+
+    detailsCursor = std::clamp(detailsCursor, 0, static_cast<int>(detailsDraft.size()));
+    if (IsKeyPressed(KEY_LEFT) || IsKeyPressedRepeat(KEY_LEFT))
+        detailsCursor = utf8PrevIndex(detailsDraft, detailsCursor);
+    if (IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_RIGHT))
+        detailsCursor = utf8NextIndex(detailsDraft, detailsCursor);
+    if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE))
+        backspaceUtf8(detailsDraft, detailsCursor);
+    if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER))
+        insertUtf8(detailsDraft, detailsCursor, '\n');
+
+    int codepoint = GetCharPressed();
+    while (codepoint > 0)
+    {
+        if (codepoint >= 32)
+            insertUtf8(detailsDraft, detailsCursor, codepoint);
+        codepoint = GetCharPressed();
+    }
 }
 
 void SceneUseTransitionDialog::draw(int screenW, int screenH)
@@ -261,8 +354,8 @@ void SceneUseTransitionDialog::draw(int screenW, int screenH)
 
     DrawRectangle(0, 0, screenW, screenH, kModalOverlay);
 
-    const float dialogW = std::min(560.0f, screenW - 40.0f);
-    const float dialogH = std::min(520.0f, screenH - 40.0f);
+    const float dialogW = std::min(620.0f, screenW - 40.0f);
+    const float dialogH = std::min(600.0f, screenH - 40.0f);
     const Rectangle dialog = {
         (screenW - dialogW) * 0.5f,
         (screenH - dialogH) * 0.5f,
@@ -284,24 +377,29 @@ void SceneUseTransitionDialog::draw(int screenW, int screenH)
         DrawTextEx(font, line.c_str(), {dialog.x + pad, y}, kFontTiny, 1.0f, kTextMuted);
         y += 16.0f;
     }
-    y += 8.0f;
+    y += 6.0f;
 
-    // Footer reserves: help (wrapped) + status + button row.
     const std::string help =
-        "Select a binding, then Accept to point it at the wire destination. "
-        "Create new adds useExit (if free) or a stub interaction.";
+        "Create new: add Direct Use (useExit) if free, else a repeatable interaction. "
+        "Clear: remove the selected binding. "
+        "Accept: save description, point the binding at the wire destination, close. "
+        "Cancel: close without changing the destination (keeps an already-created binding).";
     const auto helpLines = wrapUiText(font, help, kFontTiny, textMaxW);
-    const float helpH = static_cast<float>(helpLines.size()) * 16.0f;
-    const float statusH = 20.0f;
+    const float helpH = static_cast<float>(helpLines.size()) * 15.0f;
+
+    const float detailsLabelH = 18.0f;
+    const float detailsBoxH = 72.0f;
+    const float statusH = 18.0f;
     const float btnH = 32.0f;
-    const float footerGap = 10.0f;
-    const float footerH = helpH + footerGap + statusH + footerGap + btnH + 14.0f;
+    const float footerGap = 8.0f;
+    const float footerH = helpH + footerGap + detailsLabelH + detailsBoxH + footerGap
+        + statusH + footerGap + btnH + 14.0f;
 
     const Rectangle list = {
         dialog.x + 16.0f,
         y,
         dialog.width - 32.0f,
-        std::max(80.0f, dialogH - (y - dialog.y) - footerH)};
+        std::max(72.0f, dialogH - (y - dialog.y) - footerH)};
     DrawRectangleRec(list, Color{18, 16, 24, 255});
     DrawRectangleLinesEx(list, 1.0f, kPanelInnerEdge);
 
@@ -330,12 +428,7 @@ void SceneUseTransitionDialog::draw(int screenW, int screenH)
              wrapUiText(font, emptyHelp, kFontTiny, list.width - 20.0f))
         {
             DrawTextEx(
-                font,
-                line.c_str(),
-                {list.x + 10.0f, rowY + 8.0f},
-                kFontTiny,
-                1.0f,
-                kTextMuted);
+                font, line.c_str(), {list.x + 10.0f, rowY + 8.0f}, kFontTiny, 1.0f, kTextMuted);
             rowY += 16.0f;
         }
     }
@@ -349,7 +442,8 @@ void SceneUseTransitionDialog::draw(int screenW, int screenH)
         else if (CheckCollisionPointRec(mouse, rowRect))
             DrawRectangleRec(rowRect, Color{40, 36, 48, 200});
         const std::string line =
-            row.label + "  [" + row.binding + "]  ->  " + row.target;
+            row.label + "  [" + row.binding + "]  ->  " + row.target
+            + (row.repeat ? "" : "  (one-shot)");
         const std::string clipped = clipUiLine(font, line, kFontTiny, rowRect.width - 16.0f);
         DrawTextEx(
             font,
@@ -359,7 +453,11 @@ void SceneUseTransitionDialog::draw(int screenW, int screenH)
             1.0f,
             selected ? kTextPrimary : kTextMuted);
         if (canClick && CheckCollisionPointRec(mouse, rowRect))
+        {
             selectedBinding = row.binding;
+            loadDetailsDraftFromSelection();
+            detailsFocused = false;
+        }
         rowY += rowH;
     }
     EndScissorMode();
@@ -368,24 +466,99 @@ void SceneUseTransitionDialog::draw(int screenW, int screenH)
     for (const std::string& line : helpLines)
     {
         DrawTextEx(font, line.c_str(), {dialog.x + pad, footY}, kFontTiny, 1.0f, kTextMuted);
-        footY += 16.0f;
+        footY += 15.0f;
     }
     footY += footerGap;
 
+    DrawTextEx(
+        font,
+        "Use description (shown when the player clicks Use):",
+        {dialog.x + pad, footY},
+        kFontTiny,
+        1.0f,
+        kTextPrimary);
+    footY += detailsLabelH;
+
+    const Rectangle detailsBox = {
+        dialog.x + pad, footY, textMaxW, detailsBoxH};
+    DrawRectangleRec(detailsBox, Color{18, 16, 24, 255});
+    DrawRectangleLinesEx(
+        detailsBox, 1.0f, detailsFocused ? kPanelBorder : kPanelInnerEdge);
+
+    BeginScissorMode(
+        static_cast<int>(detailsBox.x),
+        static_cast<int>(detailsBox.y),
+        static_cast<int>(detailsBox.width),
+        static_cast<int>(detailsBox.height));
+    const float detailsFont = kFontTiny;
+    const float lineH = detailsFont + 3.0f;
+    const auto detailLines = layoutWrappedTextLines(
+        font, detailsDraft, detailsBox.width - 12.0f, detailsFont);
+    float dy = detailsBox.y + 6.0f;
+    if (detailLines.empty())
+    {
+        DrawTextEx(
+            font,
+            detailsFocused ? "" : "(click to edit)",
+            {detailsBox.x + 6.0f, dy},
+            detailsFont,
+            1.0f,
+            kTextMuted);
+    }
+    else
+    {
+        for (const auto& visual : detailLines)
+        {
+            DrawTextEx(
+                font,
+                visual.text.c_str(),
+                {detailsBox.x + 6.0f, dy},
+                detailsFont,
+                1.0f,
+                kTextPrimary);
+            dy += lineH;
+        }
+    }
+    if (detailsFocused && caretBlinkVisible(2.0f))
+    {
+        const int lineIndex = visualLineIndexForCursor(
+            detailLines, detailsCursor, static_cast<int>(detailsDraft.size()));
+        const EditorVisualLine& line =
+            detailLines.empty() ? EditorVisualLine{} : detailLines[static_cast<size_t>(lineIndex)];
+        const float cx = detailsBox.x + 6.0f
+            + caretXOnVisualLine(font, line, detailsCursor, detailsFont);
+        const float cy = detailsBox.y + 6.0f + static_cast<float>(lineIndex) * lineH;
+        DrawRectangleRec({cx, cy, 2.0f, detailsFont}, kPanelBorder);
+    }
+    EndScissorMode();
+
+    if (canClick)
+    {
+        if (CheckCollisionPointRec(mouse, detailsBox))
+            detailsFocused = true;
+        else if (!CheckCollisionPointRec(mouse, detailsBox))
+            detailsFocused = false;
+    }
+
+    footY += detailsBoxH + footerGap;
     if (!status.empty() || !error.empty())
     {
         const std::string& msg = !error.empty() ? error : status;
         const Color col = !error.empty()
             ? Color{220, 100, 90, 255}
             : Color{120, 180, 120, 255};
-        const std::string clipped = clipUiLine(font, msg, kFontTiny, textMaxW);
-        DrawTextEx(font, clipped.c_str(), {dialog.x + pad, footY}, kFontTiny, 1.0f, col);
+        DrawTextEx(
+            font,
+            clipUiLine(font, msg, kFontTiny, textMaxW).c_str(),
+            {dialog.x + pad, footY},
+            kFontTiny,
+            1.0f,
+            col);
     }
     footY += statusH + footerGap;
 
     const float btnW = 110.0f;
     const float btnY = dialog.y + dialogH - btnH - 14.0f;
-    // Keep Accept/Cancel on the right; Create/Clear on the left.
     Rectangle createBtn = {dialog.x + pad, btnY, btnW + 16.0f, btnH};
     Rectangle clearBtn = {createBtn.x + createBtn.width + 10.0f, btnY, btnW, btnH};
     Rectangle cancelBtn = {dialog.x + dialogW - btnW - pad, btnY, btnW, btnH};
@@ -399,17 +572,24 @@ void SceneUseTransitionDialog::draw(int screenW, int screenH)
     if (canClick)
     {
         if (CheckCollisionPointRec(mouse, createBtn))
+        {
+            detailsFocused = false;
             createNewBinding();
+        }
         else if (CheckCollisionPointRec(mouse, clearBtn) && !selectedBinding.empty())
+        {
+            detailsFocused = false;
             clearSelected();
+        }
         else if (CheckCollisionPointRec(mouse, acceptBtn) && !selectedBinding.empty())
         {
+            detailsFocused = false;
             if (applySelected())
                 closeDialog();
         }
         else if (CheckCollisionPointRec(mouse, cancelBtn))
             closeDialog();
-        else if (!CheckCollisionPointRec(mouse, dialog))
+        else if (!CheckCollisionPointRec(mouse, dialog) && !detailsFocused)
             closeDialog();
     }
 }

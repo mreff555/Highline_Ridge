@@ -39,6 +39,11 @@ struct SceneUseTransitionDialog
     std::vector<SceneGraphModel::UseBinding> rows;
     float listScroll = 0.0f;
 
+    /** Editable Use narrative for the selected binding. */
+    std::string detailsDraft;
+    int detailsCursor = 0;
+    bool detailsFocused = false;
+
     std::string status;
     std::string error;
 
@@ -54,11 +59,12 @@ struct SceneUseTransitionDialog
     void handleInput(int screenW, int screenH);
     void draw(int screenW, int screenH);
 
-    /** Create useExit (if free) or a stub interaction → toId. */
+    /** Create useExit (if free) or a stub interaction -> toId. */
     bool createNewBinding();
 
 private:
     void refreshRows();
+    void loadDetailsDraftFromSelection();
     bool applySelected();
     bool clearSelected();
 };
