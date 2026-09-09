@@ -927,7 +927,7 @@
                     "closePhase": false,
                     "grantItem": {
                       "examineImage": "resources/images/mens_cologne_examine.png",
-                      "examineText": "A heavy glass bottle of men's cologne with a ground stopper and a label printed in restrained copperplate. The scent is cedar, bergamot, and something drier beneath—tobacco leaf, perhaps, or the memory of it. The Ridge Haberdashery wraps its goods as though altitude might bruise them.",
+                      "examineText": "A heavy glass bottle of men's cologne with a ground stopper and a label printed in restrained copperplate. The scent is cedar, bergamot, and something drier beneath\u2014tobacco leaf, perhaps, or the memory of it. The Ridge Haberdashery wraps its goods as though altitude might bruise them.",
                       "icon": "resources/icons/mens_cologne_icon.png",
                       "id": "mens_cologne",
                       "name": "Men's Cologne"
@@ -1554,7 +1554,7 @@
                     ],
                     "id": "fabric_custom_shirt",
                     "label": "I don't have the funds today, just browsing. I do really like that fabric though.",
-                    "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric—one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\"",
+                    "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric\u2014one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\"",
                     "tts": true,
                     "ttsAudio": "resources/audio/tts/ridge_haberdashery/fabric_custom_shirt.mp3",
                     "ttsTextSha256": "e936b5aedb1d55fc71bb49d8b0fbc5e34c341557b3ff1b92d51c0eb540aa6259",
@@ -1730,7 +1730,7 @@
                     ],
                     "id": "fabric_custom_trousers",
                     "label": "I don't have the funds today, just browsing. I do really like that fabric though.",
-                    "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric—one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\"",
+                    "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric\u2014one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\"",
                     "tts": true,
                     "ttsAudio": "resources/audio/tts/ridge_haberdashery/fabric_custom_trousers.mp3",
                     "ttsTextSha256": "e936b5aedb1d55fc71bb49d8b0fbc5e34c341557b3ff1b92d51c0eb540aa6259",
@@ -1906,7 +1906,7 @@
                     ],
                     "id": "fabric_custom_jacket",
                     "label": "I don't have the funds today, just browsing. I do really like that fabric though.",
-                    "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric—one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\"",
+                    "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric\u2014one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\"",
                     "tts": true,
                     "ttsAudio": "resources/audio/tts/ridge_haberdashery/fabric_custom_jacket.mp3",
                     "ttsTextSha256": "e936b5aedb1d55fc71bb49d8b0fbc5e34c341557b3ff1b92d51c0eb540aa6259",
@@ -2154,7 +2154,7 @@
             "id": "compliment_store",
             "label": "This is an impressive store.",
             "persistConsumed": true,
-            "response": "You let your gaze travel the shelves, the bolt rolls, the glass cases, the iron rack of ready-made coats, taking it in the way you would a room that has been assembled with intention.\n\n\"This is an impressive store,\" you say.\n\nA modest smile crosses his face, pleased but not surprised—he has heard the compliment before and still believes it.\n\n\"You are kind to say so, sir.\" He rests his fingertips on the counter. \"I trained on Savile Row before the mountains called. My uncle kept a dry goods post on this ridge when the High Line was only timber camps and prayer. I came up to visit, saw what men lacked at altitude, and stayed. That was eighteen ninety-one. Everything here is chosen so a man need not descend to Graysmill merely to look as though he belongs in a room with money.\"",
+            "response": "You let your gaze travel the shelves, the bolt rolls, the glass cases, the iron rack of ready-made coats, taking it in the way you would a room that has been assembled with intention.\n\n\"This is an impressive store,\" you say.\n\nA modest smile crosses his face, pleased but not surprised\u2014he has heard the compliment before and still believes it.\n\n\"You are kind to say so, sir.\" He rests his fingertips on the counter. \"I trained on Savile Row before the mountains called. My uncle kept a dry goods post on this ridge when the High Line was only timber camps and prayer. I came up to visit, saw what men lacked at altitude, and stayed. That was eighteen ninety-one. Everything here is chosen so a man need not descend to Graysmill merely to look as though he belongs in a room with money.\"",
             "resumeTopLevel": true,
             "tts": true,
             "ttsAudio": "resources/audio/tts/ridge_haberdashery/compliment_store.mp3",
@@ -2356,7 +2356,9 @@
         ],
         "ttsText": "The woman in blue does not startle when you approach. [pause]She finishes her thought with the two at the rail,[pause] lets them laugh without her,[pause] and turns as though you were expected.[long-pause] She takes a slow drag from her cigarette,[pause] exhales through the side of her mouth,[pause] and studies you with that same focused calm. {{voice:eve}}[pause]You disappeared this morning,{{/voice}} [pause] she says. {{voice:eve}}[pause]Not accusation. [pause] Inventory.[pause]{{/voice}}",
         "ttsVoice": "leo",
-        "type": "scripted"
+        "type": "scripted",
+        "actorId": "blue_woman",
+        "actorName": "Woman in Blue"
       },
       {
         "grantItem": {
@@ -2379,7 +2381,9 @@
         "ttsText": "The woman in blue catches your sleeve as you start to turn away. Oh, by the way, she says, mild as an afterthought. You left this in my room this morning. She draws a weathered felt fedora from behind her back and holds it out to you. It looks better on you than me, she says. You might as well keep it.",
         "ttsTextSha256": "6237e8178c0f7043ee54d3a041294bf29f213203f80885248672da483f738fd5",
         "ttsVoice": "leo",
-        "type": "once"
+        "type": "once",
+        "actorId": "blue_woman",
+        "actorName": "Woman in Blue"
       },
       {
         "id": "burgundy_path",
@@ -2397,7 +2401,9 @@
         "ttsText": "The woman in blue listens while you tell her about the hanging tree marker, the charcoal ring, the stakes, the silk in the ice house. When you finish, she nods once. You went up the path, she says. It is not a question. You always do, and you always come back with that look, like the mountain showed you a face you refused to wear. They hung the wrong man. He was still breathing when they cut him down. He still is.",
         "ttsTextSha256": "02f8a9365ad3df0b753c6ed4848b609d9b747121ceea1ddfe3d3458ce197b742",
         "ttsVoice": "leo",
-        "type": "once"
+        "type": "once",
+        "actorId": "blue_woman",
+        "actorName": "Woman in Blue"
       }
     ]
   },
@@ -3209,7 +3215,7 @@
             "grantStoryFlag": "saloon_interior:blackjack_discovered",
             "id": "blackjack_spotted",
             "once": true,
-            "text": "Your circuit of the room brings you past the stove table where four men play blackjack under a hanging lamp. Whiskey glasses and cigar stubs crowd the felt. An empty chair sits at the near corner — sawdust on the seat, a fresh ring on the wood where a glass stood and left.\n\nOne of the players glances up as you slow, then returns to his cards as though daring you to remember the opening.",
+            "text": "Your circuit of the room brings you past the stove table where four men play blackjack under a hanging lamp. Whiskey glasses and cigar stubs crowd the felt. An empty chair sits at the near corner \u2014 sawdust on the seat, a fresh ring on the wood where a glass stood and left.\n\nOne of the players glances up as you slow, then returns to his cards as though daring you to remember the opening.",
             "tts": true,
             "ttsAudio": "resources/audio/tts/saloon_interior/blackjack_spotted.mp3",
             "ttsText": "Your circuit of the room brings you past the stove table where four men play blackjack under a hanging lamp. Whiskey glasses and cigar stubs crowd the felt. An empty chair sits at the near corner, sawdust on the seat, a fresh ring on the wood where a glass stood and left. One of the players glances up as you slow, then returns to his cards as though daring you to remember the opening.",
@@ -3249,7 +3255,7 @@
             "id": "blackjack_join",
             "label": "> I'm in.",
             "requiresMoney": 2.0,
-            "response": "You pull out the empty chair and slide two dollars into the center of the felt. The men around you return to their cards without introducing themselves — sleeves rolled, collars loose, faces kept at the edge of the lamplight.\n\nA fresh hand is dealt before you've finished counting the chips in front of you.",
+            "response": "You pull out the empty chair and slide two dollars into the center of the felt. The men around you return to their cards without introducing themselves \u2014 sleeves rolled, collars loose, faces kept at the edge of the lamplight.\n\nA fresh hand is dealt before you've finished counting the chips in front of you.",
             "status": {
               "key": "saloon_interior:blackjack_join",
               "money": -2.0
@@ -3278,7 +3284,7 @@
           }
         ],
         "id": "blackjack_invite_wary",
-        "intro": "You pause at the blackjack table long enough to draw their attention. Cards stop. The miner with the cigar clamped in his teeth looks you over without warmth.\n\n\"We haven't forgotten the last time you sat here,\" he says. \"Chair's open if you still want it. Buy-in's two dollars — and don't waste our evening.\"\n\n\"Well?\" he adds. \"Are you playing?\"",
+        "intro": "You pause at the blackjack table long enough to draw their attention. Cards stop. The miner with the cigar clamped in his teeth looks you over without warmth.\n\n\"We haven't forgotten the last time you sat here,\" he says. \"Chair's open if you still want it. Buy-in's two dollars \u2014 and don't waste our evening.\"\n\n\"Well?\" he adds. \"Are you playing?\"",
         "opinionActor": "blackjack_players",
         "repeatable": true,
         "requiresActorOpinionAtLeast": -4,
@@ -3302,7 +3308,7 @@
             "id": "blackjack_join",
             "label": "> I'm in.",
             "requiresMoney": 2.0,
-            "response": "You pull out the empty chair and slide two dollars into the center of the felt. The men around you return to their cards without introducing themselves — sleeves rolled, collars loose, faces kept at the edge of the lamplight.\n\nA fresh hand is dealt before you've finished counting the chips in front of you.",
+            "response": "You pull out the empty chair and slide two dollars into the center of the felt. The men around you return to their cards without introducing themselves \u2014 sleeves rolled, collars loose, faces kept at the edge of the lamplight.\n\nA fresh hand is dealt before you've finished counting the chips in front of you.",
             "status": {
               "key": "saloon_interior:blackjack_join",
               "money": -2.0
@@ -3317,7 +3323,7 @@
             "closePhase": true,
             "id": "blackjack_decline",
             "label": "> Maybe next time.",
-            "response": "You shake your head. \"Maybe next time.\"\n\nThe miner snorts and mutters something about greenhorns and wasted chairs — not quite aimed at you, not quite aimed anywhere else. His companions laugh once, without warmth, and the deal resumes as though you were never standing there.",
+            "response": "You shake your head. \"Maybe next time.\"\n\nThe miner snorts and mutters something about greenhorns and wasted chairs \u2014 not quite aimed at you, not quite aimed anywhere else. His companions laugh once, without warmth, and the deal resumes as though you were never standing there.",
             "status": {
               "actor": "blackjack_players",
               "actorOpinion": -1,
@@ -3331,7 +3337,7 @@
           }
         ],
         "id": "blackjack_invite",
-        "intro": "Near the stove table, four men in trail-worn garb play blackjack with the quiet intensity of men who have nowhere else to be. An empty chair sits at the near corner — sawdust on the seat, a fresh glass mark on the wood, as though someone stood up mid-hand and never came back.\n\nYou pause long enough to draw their attention. Cards stop. A miner with a cigar clamped in his teeth looks up without smiling.\n\n\"Well?\" he says. \"Are you playing? Buy-in's two dollars.\"",
+        "intro": "Near the stove table, four men in trail-worn garb play blackjack with the quiet intensity of men who have nowhere else to be. An empty chair sits at the near corner \u2014 sawdust on the seat, a fresh glass mark on the wood, as though someone stood up mid-hand and never came back.\n\nYou pause long enough to draw their attention. Cards stop. A miner with a cigar clamped in his teeth looks up without smiling.\n\n\"Well?\" he says. \"Are you playing? Buy-in's two dollars.\"",
         "opinionActor": "blackjack_players",
         "repeatable": true,
         "requiresActorOpinionAtLeast": 0,
