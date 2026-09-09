@@ -170,9 +170,11 @@ struct UseBinding
     std::string binding; // "useExit" or "interaction:<id>"
     std::string label;   // UI label
     std::string target;  // scene or scene#sub
+    std::string details; // useDetails narrative shown on Use
     std::string sourceMapNode;
     std::string mapCorner;   // nw/ne/sw/se on source (empty = auto)
     std::string mapToCorner; // nw/ne/sw/se on destination (empty = auto)
+    bool repeat = true;
 };
 
 /** Enumerate useExit + interactions with exitSceneId for a map node. */
@@ -182,11 +184,27 @@ std::vector<UseBinding> enumerateUseBindings(const std::string& mapNodeId) const
  * Set binding target on the JSON for sourceMapNode.
  * binding "useExit" writes useExit; "interaction:id" writes that interaction's
  * exitSceneId (creates a stub interaction if missing).
+ * Also ensures repeatable defaults for map-drawn transitions.
  */
 bool setUseBindingTarget(
     const std::string& sourceMapNode,
     const std::string& binding,
     const std::string& targetMapNode);
+
+/** Read/write the Use narrative (scene useDetails or interaction useDetails). */
+std::string getUseBindingDetails(
+    const std::string& sourceMapNode,
+    const std::string& binding) const;
+bool setUseBindingDetails(
+    const std::string& sourceMapNode,
+    const std::string& binding,
+    const std::string& details);
+
+/**
+ * Ensure map Use exits stay repeatable and have a non-empty description.
+ * Safe to call on every edit of an existing useExit binding.
+ */
+bool ensureUseExitTransitionDefaults(const std::string& sourceMapNode);
 
 /** Persist which Use corner slot a binding uses on the source card. */
 bool setUseBindingMapCorner(
@@ -200,7 +218,10 @@ bool setUseBindingMapToCorner(
     const std::string& binding,
     const std::string& corner);
 
-/** Clear useExit or interaction exitSceneId for binding. */
+/**
+ * Clear useExit, or remove a map-created use_map_* interaction entirely.
+ * Non-map interactions only clear exitSceneId / corner fields.
+ */
 bool clearUseBinding(
     const std::string& sourceMapNode,
     const std::string& binding);

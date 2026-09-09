@@ -1664,6 +1664,8 @@ std::vector<SceneGraphModel::UseBinding> SceneGraphModel::enumerateUseBindings(
         row.binding = "useExit";
         row.label = "Direct Use";
         row.target = useExit;
+        row.details = node->value("useDetails", "");
+        row.repeat = node->value("useRepeatStatus", false);
         row.sourceMapNode = mapNodeId;
         row.mapCorner = node->value("useExitMapCorner", "");
         row.mapToCorner = node->value("useExitMapToCorner", "");
@@ -1687,6 +1689,8 @@ std::vector<SceneGraphModel::UseBinding> SceneGraphModel::enumerateUseBindings(
             const std::string label = interaction.value("label", id);
             row.label = label.empty() ? id : label;
             row.target = exitId;
+            row.details = interaction.value("useDetails", "");
+            row.repeat = interaction.value("repeat", false);
             row.sourceMapNode = mapNodeId;
             row.mapCorner = interaction.value("exitMapCorner", "");
             row.mapToCorner = interaction.value("exitMapToCorner", "");
@@ -1694,6 +1698,106 @@ std::vector<SceneGraphModel::UseBinding> SceneGraphModel::enumerateUseBindings(
         }
     }
     return out;
+}
+
+bool SceneGraphModel::ensureUseExitTransitionDefaults(const std::string& sourceMapNode)
+{
+    if (!docs || sourceMapNode.empty())
+        return false;
+    std::string parentId;
+    std::string subId;
+    nlohmann::json* node = useBindingJsonNode(docs, sourceMapNode, parentId, subId);
+    if (node == nullptr || node->value("useExit", "").empty())
+        return false;
+
+    bool changed = false;
+    if (!node->value("useRepeatStatus", false))
+    {
+        (*node)["useRepeatStatus"] = true;
+        changed = true;
+    }
+    if (node->value("useDetails", "").empty())
+    {
+        (*node)["useDetails"] = "You make your way through.";
+        changed = true;
+    }
+    if (changed)
+        docs->markDirty();
+    return true;
+}
+
+std::string SceneGraphModel::getUseBindingDetails(
+    const std::string& sourceMapNode,
+    const std::string& binding) const
+{
+    if (!docs || sourceMapNode.empty() || binding.empty())
+        return {};
+    const nlohmann::json* node = useBindingJsonNodeConst(docs, sourceMapNode);
+    if (node == nullptr)
+        return {};
+
+    if (binding == "useExit")
+        return node->value("useDetails", "");
+
+    const std::string prefix = "interaction:";
+    if (binding.rfind(prefix, 0) != 0)
+        return {};
+    const std::string interactionId = binding.substr(prefix.size());
+    if (!node->contains("interactions") || !(*node)["interactions"].is_array())
+        return {};
+    for (const nlohmann::json& interaction : (*node)["interactions"])
+    {
+        if (!interaction.is_object())
+            continue;
+        if (interaction.value("id", "") != interactionId)
+            continue;
+        return interaction.value("useDetails", "");
+    }
+    return {};
+}
+
+bool SceneGraphModel::setUseBindingDetails(
+    const std::string& sourceMapNode,
+    const std::string& binding,
+    const std::string& details)
+{
+    if (!docs || sourceMapNode.empty() || binding.empty())
+        return false;
+    std::string parentId;
+    std::string subId;
+    nlohmann::json* node = useBindingJsonNode(docs, sourceMapNode, parentId, subId);
+    if (node == nullptr)
+        return false;
+
+    if (binding == "useExit")
+    {
+        if (node->value("useExit", "").empty())
+            return false;
+        (*node)["useDetails"] = details;
+        ensureUseExitTransitionDefaults(sourceMapNode);
+        docs->markDirty();
+        return true;
+    }
+
+    const std::string prefix = "interaction:";
+    if (binding.rfind(prefix, 0) != 0)
+        return false;
+    const std::string interactionId = binding.substr(prefix.size());
+    if (!node->contains("interactions") || !(*node)["interactions"].is_array())
+        return false;
+    for (nlohmann::json& interaction : (*node)["interactions"])
+    {
+        if (!interaction.is_object())
+            continue;
+        if (interaction.value("id", "") != interactionId)
+            continue;
+        interaction["useDetails"] = details;
+        if (!interaction.value("repeat", false))
+            interaction["repeat"] = true;
+        docs->markDirty();
+        return true;
+    }
+    return false;
 }
 
 bool SceneGraphModel::setUseBindingTarget(
@@ -1737,15 +1841,20 @@ bool SceneGraphModel::setUseBindingTarget(
         if (interaction.value("id", "") != interactionId)
             continue;
         interaction["exitSceneId"] = targetMapNode;
+        interaction["repeat"] = true;
+        if (interaction.value("useDetails", "").empty())
+            interaction["useDetails"] = "You make your way through.";
         docs->markDirty();
         return true;
     }
 
-    // Missing interaction — create stub.
+    // Missing interaction - create stub.
     nlohmann::json stub = nlohmann::json::object();
     stub["id"] = interactionId;
-    stub["label"] = interactionId;
+    stub["label"] = "Use -> " + targetMapNode;
     stub["exitSceneId"] = targetMapNode;
+    stub["repeat"] = true;
+    stub["useDetails"] = "You make your way through.";
     interactions.push_back(stub);
     docs->markDirty();
     return true;
@@ -1785,9 +1894,16 @@ bool SceneGraphModel::clearUseBinding(
             continue;
         if (it->value("id", "") != interactionId)
             continue;
-        it->erase("exitSceneId");
-        it->erase("exitMapCorner");
-        it->erase("exitMapToCorner");
+        // Map-created stubs: remove entirely so they cannot intercept Use with
+        // an empty exitSceneId (that forced a second Use click in-game).
+        if (interactionId.rfind("use_map_", 0) == 0)
+            interactions.erase(it);
+        else
+        {
+            it->erase("exitSceneId");
+            it->erase("exitMapCorner");
+            it->erase("exitMapToCorner");
+        }
         docs->markDirty();
         return true;
     }
@@ -1879,6 +1995,7 @@ bool SceneGraphModel::setUseBindingMapCorner(
         if (node->value("useExit", "").empty())
             return false;
         (*node)["useExitMapCorner"] = corner;
+        ensureUseExitTransitionDefaults(sourceMapNode);
         docs->markDirty();
         return true;
     }
@@ -1898,6 +2015,8 @@ bool SceneGraphModel::setUseBindingMapCorner(
         if (interaction.value("exitSceneId", "").empty())
             return false;
         interaction["exitMapCorner"] = corner;
+        if (!interaction.value("repeat", false))
+            interaction["repeat"] = true;
         docs->markDirty();
         return true;
     }
@@ -1922,6 +2041,7 @@ bool SceneGraphModel::setUseBindingMapToCorner(
         if (node->value("useExit", "").empty())
             return false;
         (*node)["useExitMapToCorner"] = corner;
+        ensureUseExitTransitionDefaults(sourceMapNode);
         docs->markDirty();
         return true;
     }
@@ -1941,6 +2061,8 @@ bool SceneGraphModel::setUseBindingMapToCorner(
         if (interaction.value("exitSceneId", "").empty())
             return false;
         interaction["exitMapToCorner"] = corner;
+        if (!interaction.value("repeat", false))
+            interaction["repeat"] = true;
         docs->markDirty();
         return true;
     }

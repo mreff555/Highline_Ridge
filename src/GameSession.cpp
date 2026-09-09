@@ -1055,6 +1055,16 @@ namespace
 
         for (const SceneInteractionDef& interaction : interactions)
         {
+            // Orphan map stubs (cleared exit, no narrative) must not steal the Use
+            // button — that forced a second click before direct useExit ran (#27).
+            if (interaction.exitSceneId.empty() && interaction.useDetails.empty()
+                && interaction.sketchPath.empty() && interaction.useFlag.empty()
+                && !interaction.grantItem.isValid()
+                && interaction.overlaySequence.empty())
+            {
+                continue;
+            }
+
             if (interaction.requiresExamine && !hasExaminedScene(worldState.currentSceneId))
                 continue;
 
