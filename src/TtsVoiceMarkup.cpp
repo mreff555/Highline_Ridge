@@ -97,6 +97,23 @@ bool isAllowlistedTtsCommandTag(const std::string& body)
         if (normalized == tag)
             return true;
     }
+
+    // Timed pause form documented in README: [pause:500ms] / [pause:500].
+    // Keep these green Command highlights inside {{voice:...}} spans too.
+    if (normalized.rfind("pause:", 0) == 0)
+    {
+        const std::string param = normalized.substr(6);
+        if (param.empty())
+            return false;
+        size_t i = 0;
+        while (i < param.size() && std::isdigit(static_cast<unsigned char>(param[i])) != 0)
+            ++i;
+        if (i == 0)
+            return false;
+        if (i == param.size())
+            return true; // [pause:500]
+        return param.substr(i) == "ms"; // [pause:500ms]
+    }
     return false;
 }
 

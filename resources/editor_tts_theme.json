@@ -6,16 +6,16 @@
     "styleMarkup": [230, 140, 50, 255],
     "styleContent": [50, 80, 170, 255],
     "voiceMarkup": [235, 210, 70, 255],
-    "voiceDialog": [140, 195, 235, 255],
+    "voiceDialog": [70, 190, 100, 255],
     "markupError": [220, 55, 55, 255]
   },
   "notes": {
     "default": "Narration and other text outside markup",
-    "command": "Bracket inline speech tags: [pause], [laugh], [sigh], … (green)",
-    "styleMarkup": "Angle-bracket wrapping keywords: <whisper>, </slow>, … (orange)",
-    "styleContent": "Text between a matched <tag>…</tag> pair (dark blue)",
+    "command": "Bracket inline speech tags: [pause], [pause:500ms], [laugh], [sigh], ... (green)",
+    "styleMarkup": "Angle-bracket wrapping keywords: <whisper>, </slow>, ... (orange)",
+    "styleContent": "Text between a matched <tag>...</tag> pair (dark blue)",
     "voiceMarkup": "Double-brace voice keywords: {{voice:eve}}, {{/voice}}, {{eve}} (yellow)",
-    "voiceDialog": "Text between a matched {{open}}…{{/close}} voice pair (light blue)",
-    "markupError": "Unclosed <… or {{voice:…}} stretch through end of text (red)"
+    "voiceDialog": "Spoken text inside a matched {{voice}}...{{/voice}} pair, including [pause] tags (green, same as command)",
+    "markupError": "Unclosed <... or {{voice:...}} stretch through end of text (red)"
   }
 }
