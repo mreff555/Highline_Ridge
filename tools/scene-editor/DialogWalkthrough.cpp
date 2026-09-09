@@ -395,6 +395,10 @@ void DialogWalkthrough::loadCurrentStep()
     editTtsText = false;
     voiceMenuOpen = false;
     cursor = 0;
+    selectAnchor = -1;
+    mouseSelecting = false;
+    lastClickTime = -1.0;
+    lastClickPos = -1;
     textScroll = 0.0f;
 
     textBuffer.clear();
@@ -753,6 +757,99 @@ int DialogWalkthrough::utf8Next(const std::string& buffer, int at)
     return i;
 }
 
+bool DialogWalkthrough::hasSelection() const
+{
+    return selectAnchor >= 0 && selectAnchor != cursor;
+}
+
+void DialogWalkthrough::selectionRange(int& outStart, int& outEnd) const
+{
+    outStart = std::min(selectAnchor, cursor);
+    outEnd = std::max(selectAnchor, cursor);
+}
+
+void DialogWalkthrough::clearSelection()
+{
+    selectAnchor = -1;
+}
+
+bool DialogWalkthrough::deleteSelection(std::string& buffer)
+{
+    if (!hasSelection())
+        return false;
+    int start = 0;
+    int end = 0;
+    selectionRange(start, end);
+    start = std::clamp(start, 0, static_cast<int>(buffer.size()));
+    end = std::clamp(end, 0, static_cast<int>(buffer.size()));
+    if (end <= start)
+    {
+        clearSelection();
+        return false;
+    }
+    buffer.erase(static_cast<size_t>(start), static_cast<size_t>(end - start));
+    cursor = start;
+    clearSelection();
+    return true;
+}
+
+void DialogWalkthrough::setCursor(int pos, bool extendSelection, int bufferSize)
+{
+    pos = std::clamp(pos, 0, bufferSize);
+    if (extendSelection)
+    {
+        if (selectAnchor < 0)
+            selectAnchor = cursor;
+    }
+    else
+        clearSelection();
+    cursor = pos;
+}
+
+void DialogWalkthrough::selectWordAt(const std::string& buffer, int pos)
+{
+    const int n = static_cast<int>(buffer.size());
+    if (n <= 0)
+    {
+        selectAnchor = 0;
+        cursor = 0;
+        return;
+    }
+    pos = std::clamp(pos, 0, n);
+    auto isWord = [](unsigned char ch) {
+        if (ch >= 0x80)
+            return true;
+        return std::isalnum(ch) != 0 || ch == '_' || ch == '\'';
+    };
+    int at = pos;
+    if (at >= n || !isWord(static_cast<unsigned char>(buffer[static_cast<size_t>(at)])))
+    {
+        if (at > 0 && isWord(static_cast<unsigned char>(buffer[static_cast<size_t>(at - 1)])))
+            --at;
+        else
+        {
+            if (at >= n)
+            {
+                selectAnchor = n;
+                cursor = n;
+                return;
+            }
+            selectAnchor = at;
+            cursor = at + 1;
+            return;
+        }
+    }
+    int start = at;
+    while (start > 0
+           && isWord(static_cast<unsigned char>(buffer[static_cast<size_t>(start - 1)])))
+        --start;
+    int end = at + 1;
+    while (end < n && isWord(static_cast<unsigned char>(buffer[static_cast<size_t>(end)])))
+        ++end;
+    selectAnchor = start;
+    cursor = end;
+}
+
 void DialogWalkthrough::ensureCaretVisible(
     const std::vector<EditorVisualLine>& lines,
     float lineHeight)
@@ -781,77 +878,159 @@ void DialogWalkthrough::handleTextTyping()
 
     std::string& buf = editTtsText ? ttsTextBuffer : textBuffer;
     cursor = std::clamp(cursor, 0, static_cast<int>(buf.size()));
+    const int bufSize = static_cast<int>(buf.size());
+    const bool shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
+    const bool alt = IsKeyDown(KEY_LEFT_ALT) || IsKeyDown(KEY_RIGHT_ALT);
+    const bool ctrl = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)
+        || IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER);
+
+    // Copy / cut / paste / select-all (match VariableEditor).
+    if (ctrl && IsKeyPressed(KEY_A))
+    {
+        selectAnchor = 0;
+        cursor = bufSize;
+        preferredCaretX = -1.0f;
+        while (GetCharPressed() > 0)
+        {
+        }
+        return;
+    }
+    if (ctrl && IsKeyPressed(KEY_C) && hasSelection())
+    {
+        int start = 0;
+        int end = 0;
+        selectionRange(start, end);
+        SetClipboardText(
+            buf.substr(static_cast<size_t>(start), static_cast<size_t>(end - start)).c_str());
+        while (GetCharPressed() > 0)
+        {
+        }
+        return;
+    }
+    if (ctrl && IsKeyPressed(KEY_X) && hasSelection())
+    {
+        int start = 0;
+        int end = 0;
+        selectionRange(start, end);
+        SetClipboardText(
+            buf.substr(static_cast<size_t>(start), static_cast<size_t>(end - start)).c_str());
+        deleteSelection(buf);
+        dirtyStep = true;
+        preferredCaretX = -1.0f;
+        while (GetCharPressed() > 0)
+        {
+        }
+        return;
+    }
+    if (ctrl && IsKeyPressed(KEY_V))
+    {
+        const char* clip = GetClipboardText();
+        if (clip != nullptr && clip[0] != '\0')
+        {
+            deleteSelection(buf);
+            cursor = std::clamp(cursor, 0, static_cast<int>(buf.size()));
+            const std::string paste(clip);
+            buf.insert(static_cast<size_t>(cursor), paste);
+            cursor += static_cast<int>(paste.size());
+            clearSelection();
+            dirtyStep = true;
+            preferredCaretX = -1.0f;
+        }
+        while (GetCharPressed() > 0)
+        {
+        }
+        return;
+    }
 
     int codepoint = GetCharPressed();
     while (codepoint > 0)
     {
-        insertUtf8(buf, cursor, codepoint);
-        dirtyStep = true;
-        preferredCaretX = -1.0f;
+        if (codepoint >= 32 && codepoint != 127)
+        {
+            deleteSelection(buf);
+            insertUtf8(buf, cursor, codepoint);
+            clearSelection();
+            dirtyStep = true;
+            preferredCaretX = -1.0f;
+        }
         codepoint = GetCharPressed();
     }
     if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE))
     {
-        backspaceUtf8(buf, cursor);
+        if (hasSelection())
+            deleteSelection(buf);
+        else
+            backspaceUtf8(buf, cursor);
         dirtyStep = true;
         preferredCaretX = -1.0f;
     }
     if (IsKeyPressed(KEY_DELETE) || IsKeyPressedRepeat(KEY_DELETE))
     {
-        if (cursor < static_cast<int>(buf.size()))
+        if (hasSelection())
+            deleteSelection(buf);
+        else if (cursor < static_cast<int>(buf.size()))
         {
             const int next = utf8Next(buf, cursor);
             buf.erase(static_cast<size_t>(cursor), static_cast<size_t>(next - cursor));
-            dirtyStep = true;
-            preferredCaretX = -1.0f;
         }
-    }
-    // Enter inserts newline.
-    if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER))
-    {
-        insertUtf8(buf, cursor, '\n');
         dirtyStep = true;
         preferredCaretX = -1.0f;
     }
-    const bool alt = IsKeyDown(KEY_LEFT_ALT) || IsKeyDown(KEY_RIGHT_ALT);
+    // Enter inserts newline (replaces selection).
+    if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER))
+    {
+        deleteSelection(buf);
+        insertUtf8(buf, cursor, '\n');
+        clearSelection();
+        dirtyStep = true;
+        preferredCaretX = -1.0f;
+    }
     if ((IsKeyPressed(KEY_LEFT) || IsKeyPressedRepeat(KEY_LEFT)) && !alt)
     {
-        cursor = utf8Prev(buf, cursor);
+        setCursor(utf8Prev(buf, cursor), shift, static_cast<int>(buf.size()));
         preferredCaretX = -1.0f;
     }
     if ((IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_RIGHT)) && !alt)
     {
-        cursor = utf8Next(buf, cursor);
+        setCursor(utf8Next(buf, cursor), shift, static_cast<int>(buf.size()));
         preferredCaretX = -1.0f;
     }
     if ((IsKeyPressed(KEY_UP) || IsKeyPressedRepeat(KEY_UP)) && !alt
         && textField.width > 8.0f)
     {
+        if (shift && selectAnchor < 0)
+            selectAnchor = cursor;
         const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
         const float fontSize = kFontEdit;
         const auto lines = layoutWrappedTextLines(
             font, buf, textField.width - 16.0f, fontSize);
         cursor = moveCursorVertical(
             font, lines, buf, cursor, -1, fontSize, preferredCaretX);
+        if (!shift)
+            clearSelection();
     }
     if ((IsKeyPressed(KEY_DOWN) || IsKeyPressedRepeat(KEY_DOWN)) && !alt
         && textField.width > 8.0f)
     {
+        if (shift && selectAnchor < 0)
+            selectAnchor = cursor;
         const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
         const float fontSize = kFontEdit;
         const auto lines = layoutWrappedTextLines(
             font, buf, textField.width - 16.0f, fontSize);
         cursor = moveCursorVertical(
             font, lines, buf, cursor, +1, fontSize, preferredCaretX);
+        if (!shift)
+            clearSelection();
     }
     if (IsKeyPressed(KEY_HOME))
     {
-        cursor = 0;
+        setCursor(0, shift, static_cast<int>(buf.size()));
         preferredCaretX = -1.0f;
     }
     if (IsKeyPressed(KEY_END))
     {
-        cursor = static_cast<int>(buf.size());
+        setCursor(static_cast<int>(buf.size()), shift, static_cast<int>(buf.size()));
         preferredCaretX = -1.0f;
     }
 }
@@ -990,12 +1169,12 @@ void DialogWalkthrough::handleInput(Rectangle pane)
             textScroll = 0.0f;
     }
 
+    const bool shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
     if (canClick)
     {
         if (CheckCollisionPointRec(mouse, textField))
         {
             textFieldFocused = true;
-            // Place caret at click — layout matches draw.
             const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
             const std::string& buf = editTtsText ? ttsTextBuffer : textBuffer;
             const float pad = 8.0f;
@@ -1003,7 +1182,7 @@ void DialogWalkthrough::handleInput(Rectangle pane)
             const float lineHeight = fontSize + 4.0f;
             const auto lines = layoutWrappedTextLines(
                 font, buf, textField.width - pad * 2.0f, fontSize);
-            cursor = cursorIndexFromClick(
+            const int pos = cursorIndexFromClick(
                 font,
                 lines,
                 buf,
@@ -1013,12 +1192,61 @@ void DialogWalkthrough::handleInput(Rectangle pane)
                 lineHeight,
                 textScroll,
                 mouse);
-            cursor = std::clamp(cursor, 0, static_cast<int>(buf.size()));
+            const double now = GetTime();
+            const bool isDoubleClick = !shift && lastClickTime >= 0.0
+                && (now - lastClickTime) <= 0.4
+                && std::abs(pos - lastClickPos) <= 2;
+            if (isDoubleClick)
+            {
+                selectWordAt(buf, pos);
+                mouseSelecting = false;
+                lastClickTime = -1.0;
+                lastClickPos = -1;
+            }
+            else
+            {
+                setCursor(pos, shift, static_cast<int>(buf.size()));
+                mouseSelecting = !shift;
+                if (!shift)
+                    selectAnchor = cursor;
+                lastClickTime = now;
+                lastClickPos = pos;
+            }
             preferredCaretX = -1.0f;
         }
         else if (!CheckCollisionPointRec(mouse, voiceBtnRect) && !voiceMenuOpen)
+        {
             textFieldFocused = false;
+            mouseSelecting = false;
+        }
     }
+    else if (mouseSelecting && editorMouseDown(MOUSE_BUTTON_LEFT)
+             && CheckCollisionPointRec(mouse, textField))
+    {
+        const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
+        const std::string& buf = editTtsText ? ttsTextBuffer : textBuffer;
+        const float pad = 8.0f;
+        const float fontSize = kFontEdit;
+        const float lineHeight = fontSize + 4.0f;
+        const auto lines = layoutWrappedTextLines(
+            font, buf, textField.width - pad * 2.0f, fontSize);
+        if (selectAnchor < 0)
+            selectAnchor = cursor;
+        cursor = cursorIndexFromClick(
+            font,
+            lines,
+            buf,
+            textField,
+            pad,
+            fontSize,
+            lineHeight,
+            textScroll,
+            mouse);
+        cursor = std::clamp(cursor, 0, static_cast<int>(buf.size()));
+        preferredCaretX = -1.0f;
+    }
+    if (editorMouseReleased(MOUSE_BUTTON_LEFT))
+        mouseSelecting = false;
 
     handleTextTyping();
 }
@@ -1189,6 +1417,8 @@ void DialogWalkthrough::draw(Rectangle pane)
         {
             editTtsText = !editTtsText;
             textFieldFocused = true;
+            clearSelection();
+            mouseSelecting = false;
             if (editTtsText)
             {
                 if (ttsTextBuffer.empty())
@@ -1325,12 +1555,46 @@ void DialogWalkthrough::draw(Rectangle pane)
 
     const std::string& showBuf = editTtsText ? ttsTextBuffer : textBuffer;
     cursor = std::clamp(cursor, 0, static_cast<int>(showBuf.size()));
+    if (selectAnchor > static_cast<int>(showBuf.size()))
+        selectAnchor = static_cast<int>(showBuf.size());
     const float pad = 8.0f;
     const float fontSize = kFontEdit;
     const float lineHeight = fontSize + 4.0f;
     const std::vector<EditorVisualLine> lines = layoutWrappedTextLines(
         font, showBuf, textField.width - pad * 2.0f, fontSize);
     ensureCaretVisible(lines, lineHeight);
+
+    // Selection highlight behind text (same layout as caret / click mapping).
+    if (textFieldFocused && hasSelection() && !lines.empty())
+    {
+        int selStart = 0;
+        int selEnd = 0;
+        selectionRange(selStart, selEnd);
+        BeginScissorMode(
+            static_cast<int>(textField.x),
+            static_cast<int>(textField.y),
+            static_cast<int>(textField.width),
+            static_cast<int>(textField.height));
+        for (size_t i = 0; i < lines.size(); ++i)
+        {
+            const float y =
+                textField.y + pad + static_cast<float>(i) * lineHeight - textScroll;
+            if (y + lineHeight < textField.y || y > textField.y + textField.height)
+                continue;
+            const int lineSelStart = std::max(selStart, lines[i].start);
+            const int lineSelEnd = std::min(selEnd, lines[i].end);
+            if (lineSelStart >= lineSelEnd)
+                continue;
+            const float x0 =
+                textField.x + pad + caretXOnVisualLine(font, lines[i], lineSelStart, fontSize);
+            const float x1 =
+                textField.x + pad + caretXOnVisualLine(font, lines[i], lineSelEnd, fontSize);
+            DrawRectangleRec(
+                {x0, y, std::max(2.0f, x1 - x0), fontSize + 2.0f},
+                Color{70, 90, 140, 180});
+        }
+        EndScissorMode();
+    }
 
     if (showBuf.empty() && !textFieldFocused)
     {
@@ -1372,8 +1636,8 @@ void DialogWalkthrough::draw(Rectangle pane)
             kTextPrimary);
     }
 
-    // Caret uses the same visual lines as the drawn text.
-    if (textFieldFocused)
+    // Caret uses the same visual lines as the drawn text (hidden while selecting).
+    if (textFieldFocused && !hasSelection())
     {
         const int lineIndex = visualLineIndexForCursor(
             lines, cursor, static_cast<int>(showBuf.size()));
@@ -1382,7 +1646,6 @@ void DialogWalkthrough::draw(Rectangle pane)
             textField.x + pad + caretXOnVisualLine(font, line, cursor, fontSize);
         const float caretY =
             textField.y + pad + static_cast<float>(lineIndex) * lineHeight - textScroll;
-        // Solid caret while focused — position matches insertion point.
         if (caretY + lineHeight >= textField.y
             && caretY <= textField.y + textField.height)
         {
@@ -1425,7 +1688,7 @@ void DialogWalkthrough::draw(Rectangle pane)
 
     DrawTextEx(
         font,
-        "text/TTS slider   |   Speech ON stores tts/voice/audio   |   Alt+←/->   |   Ctrl+S   |   Enter = newline",
+        "text/TTS slider  |  Shift+arrows / drag select  |  Ctrl/Cmd+C V X A  |  Alt+Left/Right  |  Ctrl+S  |  Enter=newline",
         {editor.x + 10.0f, editor.y + editor.height - 18.0f},
         kFontTiny,
         1.0f,
