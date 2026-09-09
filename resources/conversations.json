@@ -839,7 +839,7 @@
           }
         ],
         "id": "merchant",
-        "intro": "The merchant straightens from a ledger behind the counter and meets your eyes without hurry. He is tall, broad through the chest and shoulders, built like a man who has lifted iron all his life and meant to keep doing it. His shirt is clean, his suspenders straight, his beard trimmed with the same discipline he brings to stock and shelf.\n\n\"Afternoon. What can I help you find?s ",
+        "intro": "The merchant straightens from a ledger behind the counter and meets your eyes without hurry. He is tall, broad through the chest and shoulders, built like a man who has lifted iron all his life and meant to keep doing it. His shirt is clean, his suspenders straight, his beard trimmed with the same discipline he brings to stock and shelf.\n\n\"Afternoon. What can I help you find?",
         "resetOnSceneEnter": true,
         "resumeIntro": "He rests both hands on the counter, patient and square-shouldered. \"What else do you need?\"",
         "resumeTts": true,
@@ -2200,7 +2200,7 @@
                     "closePhase": true,
                     "id": "remember_that",
                     "label": "I'll remember that",
-                    "response": "She says nothing. She smiles, takes a drag of her cigarette, and turns to the balcony.",
+                    "response": "She says nothing. She smiles, takes a drag of her cigarette, and turns to the balcony.\n",
                     "status": {
                       "actor": "blue_woman",
                       "actorOpinion": 1,
@@ -2208,8 +2208,7 @@
                     },
                     "tts": true,
                     "ttsAudio": "resources/audio/tts/saloon_balcony/remember_that.mp3",
-                    "ttsText": "She says nothing. She smiles, takes a drag of her cigarette, and turns to the balcony.",
-                    "ttsTextSha256": "9d2f6244a25e479a67bc4e094bd20e71fbbadf34ce54764ad563f88dbddf877e",
+                    "ttsText": "She says nothing.[long-pause] She smiles,[pause] takes a drag of her cigarette,[pause] and turns to the balcony.",
                     "ttsVoice": "leo"
                   },
                   {
@@ -2253,8 +2252,7 @@
                   "resources/audio/tts/saloon_balcony/rough_night.seg1.mp3",
                   "resources/audio/tts/saloon_balcony/rough_night.seg2.mp3"
                 ],
-                "ttsText": "She takes a drag of her cigarette, and turning her head to the side, slowly exhales and says under her breath, {{voice:eve}}[pause]I know.[pause]{{/voice}} Turning back to you she looks at you with a more serious but vulnerable expression. She pauses for a moment to re-evaluate if she wants to say what she is about to say.",
-                "ttsTextSha256": "a1cc58f5ba3b714f49c19119c336e99a4b19422e0f68cd58073e9eebf2e8a2f2",
+                "ttsText": "She takes a drag of her cigarette,[pause] She turns her head to the side,[pause] slowly exhales and says under her breath, {{voice:eve}}[pause]I know.[long-pause]{{/voice}} Turning back to you she looks at you with a more serious but vulnerable expression. She pauses for a moment to re-evaluate if she wants to say what she is about to say.  \n[exhale]{{voice:eve}}Last night, before we fell asleep, you asked me...[pause] How did I end up here?[pause] I didn't give you an answer.{{/voice}}[long-pause]\n\nShe takes another drag from her cigarette and looks down, exhaling slowly.\n{{voice:eve}}[sigh]I was running from something.[long-pause] It's not something I want to discuss or,[pause] for that matter, all that easy to explain. The point is I had good days and bad days. I could have faced it, but I chose to run...[long-pause] Now I'm here.[long-pause] Just like before, I have good days and bad days,[pause] but I don't run anymore.[long-pause] Facing your fears is terrifying, but sometimes...[pause] It brings you peace.{{/voice}}\nShe takes a small step back.[long-pause] Clasping one hand with another she momentarily gives a weak smile, and lowers her eyes to the floor.[long-pause] She is embarrassed by what she said.",
                 "ttsVoice": "leo"
               },
               {
@@ -2356,8 +2354,7 @@
           "resources/audio/tts/saloon_balcony/blue_woman_intro.seg2.mp3",
           "resources/audio/tts/saloon_balcony/blue_woman_intro.seg3.mp3"
         ],
-        "ttsText": "The woman in blue does not startle when you approach. She finishes her thought with the two at the rail, lets them laugh without her, and turns as though you were expected. She takes a slow drag from her cigarette, exhales through the side of her mouth, and studies you with that same focused calm. {{voice:eve}}[pause]You disappeared this morning,{{/voice}} [pause] she says. {{voice:eve}}[pause]Not accusation. [pause] Inventory.[pause]{{/voice}}",
-        "ttsTextSha256": "910a9b754fe5f9ac097b83d9ae39c4cab7917a091f2c8ba58251669d0c444f89",
+        "ttsText": "The woman in blue does not startle when you approach. [pause]She finishes her thought with the two at the rail,[pause] lets them laugh without her,[pause] and turns as though you were expected.[long-pause] She takes a slow drag from her cigarette,[pause] exhales through the side of her mouth,[pause] and studies you with that same focused calm. {{voice:eve}}[pause]You disappeared this morning,{{/voice}} [pause] she says. {{voice:eve}}[pause]Not accusation. [pause] Inventory.[pause]{{/voice}}",
         "ttsVoice": "leo",
         "type": "scripted"
       },
