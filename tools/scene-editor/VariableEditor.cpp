@@ -692,7 +692,9 @@ const std::vector<EditorVisualLine>& VariableEditor::buildEditorVisualLines(floa
     {
         if (buffer[static_cast<size_t>(i)] == '\n')
         {
-            // Empty visual line for a hard newline; caret sits on this row.
+            // Blank row only for consecutive newlines. A single \n after content
+            // is consumed with that content line (see below) so EOL caret does
+            // not sit on a phantom line under the text (#18).
             pushLine(i, i);
             ++i;
             continue;
@@ -743,6 +745,8 @@ const std::vector<EditorVisualLine>& VariableEditor::buildEditorVisualLines(floa
             if (i >= n || buffer[static_cast<size_t>(i)] == '\n')
             {
                 pushLine(lineStart, i);
+                if (i < n && buffer[static_cast<size_t>(i)] == '\n')
+                    ++i;
                 break;
             }
         }
@@ -763,6 +767,15 @@ int VariableEditor::editorLineIndexForCursor(const std::vector<EditorVisualLine>
 {
     if (lines.empty())
         return 0;
+
+    // Prefer end of earlier line over start of next at a shared boundary (#18).
+    for (size_t i = 0; i + 1 < lines.size(); ++i)
+    {
+        if (cursor == lines[i].end && cursor == lines[i + 1].start
+            && lines[i].end > lines[i].start)
+            return static_cast<int>(i);
+    }
+
     for (size_t i = 0; i < lines.size(); ++i)
     {
         const int nextStart = (i + 1 < lines.size())
