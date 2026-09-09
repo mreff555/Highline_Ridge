@@ -2222,8 +2222,7 @@
                     },
                     "tts": true,
                     "ttsAudio": "resources/audio/tts/saloon_balcony/what_does_it_mean.mp3",
-                    "ttsText": "Frustrated, she turns to the balcony. I can't tell you everything, she says. You are going to have to figure some of this out on your own. She takes another drag of her cigarette. She is obviously done talking.",
-                    "ttsTextSha256": "664e3d9efb6627fc1dc1c3bbd4213aa5797dbe1eda0384ecb40cdc467c5941a4",
+                    "ttsText": "Frustrated, she turns to the balcony.[long-pause] [sigh]{{voice:eve}}I can't tell you everything,{{/voice}}, she says.[long-pause]{{voice:eve}}You are going to have to figure some of this out on your own.{{/voice}}[long-pause]She takes another drag of her cigarette.[pause] She is obviously done talking.",
                     "ttsVoice": "leo"
                   }
                 ],
