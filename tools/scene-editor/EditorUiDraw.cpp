@@ -207,7 +207,9 @@ std::vector<EditorVisualLine> layoutWrappedTextLines(
     {
         if (buffer[static_cast<size_t>(i)] == '\n')
         {
-            // Empty visual line for a hard newline; caret sits on this row.
+            // True blank row for consecutive newlines only (e.g. "a\n\nb").
+            // A single \n after content is consumed with the content line below —
+            // do not insert a spacer row or the caret at EOL lands one line down.
             pushLine(i, i);
             ++i;
             continue;
@@ -251,12 +253,17 @@ std::vector<EditorVisualLine> layoutWrappedTextLines(
 
             if (i >= n || buffer[static_cast<size_t>(i)] == '\n')
             {
+                // Content line ends at the newline index (exclusive). Consume the
+                // \n here so we do not also emit an empty spacer row for it.
                 pushLine(lineStart, i);
+                if (i < n && buffer[static_cast<size_t>(i)] == '\n')
+                    ++i;
                 break;
             }
         }
     }
 
+    // Trailing newline: empty row so Enter leaves a place to type.
     if (!buffer.empty() && buffer.back() == '\n')
         pushLine(n, n);
 
@@ -273,6 +280,17 @@ int visualLineIndexForCursor(
 {
     if (lines.empty())
         return 0;
+
+    // When the caret sits exactly on a shared boundary (soft-wrap point, or
+    // exclusive end of a line), keep it on the earlier line so it does not
+    // visually jump to the line below (#18).
+    for (size_t i = 0; i + 1 < lines.size(); ++i)
+    {
+        if (cursor == lines[i].end && cursor == lines[i + 1].start
+            && lines[i].end > lines[i].start)
+            return static_cast<int>(i);
+    }
+
     for (size_t i = 0; i < lines.size(); ++i)
     {
         const int nextStart = (i + 1 < lines.size())
