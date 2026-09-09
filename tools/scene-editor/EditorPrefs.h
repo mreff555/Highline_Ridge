@@ -39,6 +39,17 @@ float loadMapDragPanSpeed(const std::string& resourceDir);
 
 bool saveMapDragPanSpeed(const std::string& resourceDir, float speedPxPerSec);
 
+/**
+ * When true, Esc closes the editor window (raylib default).
+ * Default false — Esc should dismiss dialogs, not quit the app.
+ */
+bool loadQuitOnEscape(const std::string& resourceDir);
+
+bool saveQuitOnEscape(const std::string& resourceDir, bool enabled);
+
+/** Apply Esc-as-quit from prefs via raylib SetExitKey. Safe before/after InitWindow. */
+void applyQuitOnEscapeKey(const std::string& resourceDir);
+
 /** Split filter on ';' → trimmed non-empty clauses (order preserved). */
 std::vector<std::string> parseGenerationStyleClauses(const std::string& filter);
 

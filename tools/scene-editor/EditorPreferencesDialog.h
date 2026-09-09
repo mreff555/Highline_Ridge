@@ -41,6 +41,8 @@ struct EditorPreferencesDialog
     EditorButtonConfig buttons{};
     /** Map edge auto-pan while dragging scenes (px/s). 0 = off. */
     float mapDragPanSpeed = 320.0f;
+    /** Esc closes the editor window. Default off. */
+    bool quitOnEscape = false;
 
     std::string status;
     std::string error;
