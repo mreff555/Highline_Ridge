@@ -1831,9 +1831,15 @@ void VariableEditor::drawVariablesPane(Rectangle paneBounds, bool allowInteracti
         }
     }
 
-    if (canInteract &&
-        !selectedVariableKey.empty() &&
-        (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER) || IsKeyPressed(KEY_F2)))
+    // Enter opens the selected variable editor — but on the Conversations tab the
+    // walkthrough uses Enter for newlines. IsKeyPressed stays true for the whole
+    // frame, so handling Enter here stole keystrokes from dialog typing and often
+    // opened the scene "actions" (or other) field editor by surprise.
+    const bool conversationsTab = docs != nullptr && docs->isConversationsTab();
+    const bool openOnEnter = !conversationsTab
+        && (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER));
+    if (canInteract && !selectedVariableKey.empty()
+        && (openOnEnter || IsKeyPressed(KEY_F2)))
     {
         openVariableEditor(sceneId, selectedVariableKey);
     }
