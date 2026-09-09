@@ -86,6 +86,11 @@ struct DialogWalkthrough
     bool editTtsText = false;
     bool textFieldFocused = true;
     int cursor = 0;
+    /** Selection anchor (-1 = no selection). Range is [min(anchor,cursor), max(...)). */
+    int selectAnchor = -1;
+    bool mouseSelecting = false;
+    double lastClickTime = -1.0;
+    int lastClickPos = -1;
     /** Horizontal goal for up/down caret motion (-1 = recompute from current). */
     float preferredCaretX = -1.0f;
     float textScroll = 0.0f;
@@ -138,6 +143,13 @@ private:
     static int utf8Prev(const std::string& buffer, int cursor);
     static int utf8Next(const std::string& buffer, int cursor);
     void ensureCaretVisible(const std::vector<EditorVisualLine>& lines, float lineHeight);
+
+    bool hasSelection() const;
+    void selectionRange(int& outStart, int& outEnd) const;
+    void clearSelection();
+    bool deleteSelection(std::string& buffer);
+    void setCursor(int pos, bool extendSelection, int bufferSize);
+    void selectWordAt(const std::string& buffer, int pos);
 };
 
 } // namespace timberline_editor
