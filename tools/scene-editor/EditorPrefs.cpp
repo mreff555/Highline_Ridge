@@ -8,6 +8,7 @@
 #include "TtsVoiceMarkup.h"
 
 #include <nlohmann/json.hpp>
+#include <raylib.h>
 
 #include <cctype>
 #include <fstream>
@@ -160,6 +161,30 @@ bool saveMapDragPanSpeed(const std::string& resourceDir, float speedPxPerSec)
     nlohmann::json prefs = loadPrefsObject(resourceDir);
     prefs["mapDragPanSpeed"] = speed;
     return writePrefsObject(resourceDir, prefs);
+}
+
+bool loadQuitOnEscape(const std::string& resourceDir)
+{
+    const nlohmann::json prefs = loadPrefsObject(resourceDir);
+    if (prefs.contains("quitOnEscape") && prefs["quitOnEscape"].is_boolean())
+        return prefs["quitOnEscape"].get<bool>();
+    return false;
+}
+
+bool saveQuitOnEscape(const std::string& resourceDir, bool enabled)
+{
+    nlohmann::json prefs = loadPrefsObject(resourceDir);
+    prefs["quitOnEscape"] = enabled;
+    return writePrefsObject(resourceDir, prefs);
+}
+
+void applyQuitOnEscapeKey(const std::string& resourceDir)
+{
+    // KEY_NULL disables raylib's Esc → WindowShouldClose behavior.
+    if (loadQuitOnEscape(resourceDir))
+        SetExitKey(KEY_ESCAPE);
+    else
+        SetExitKey(KEY_NULL);
 }
 
 std::vector<std::string> parseGenerationStyleClauses(const std::string& filter)

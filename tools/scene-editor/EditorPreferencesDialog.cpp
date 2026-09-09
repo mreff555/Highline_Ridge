@@ -393,6 +393,7 @@ void EditorPreferencesDialog::openDialog(
     assetRoot = assetRootIn;
     styleFilter = loadGenerationStyleFilter(resourceDir);
     mapDragPanSpeed = loadMapDragPanSpeed(resourceDir);
+    quitOnEscape = loadQuitOnEscape(resourceDir);
     styleCaret = static_cast<int>(styleFilter.size());
     snapshotFromLive();
     status.clear();
@@ -438,6 +439,13 @@ bool EditorPreferencesDialog::applyAndSave()
         return false;
     }
     mapDragPanSpeed = loadMapDragPanSpeed(resourceDir);
+    if (!saveQuitOnEscape(resourceDir, quitOnEscape))
+    {
+        error = "Failed to save quit-on-Esc preference";
+        return false;
+    }
+    quitOnEscape = loadQuitOnEscape(resourceDir);
+    applyQuitOnEscapeKey(resourceDir);
 
     EditorButtonResources& res = editorButtons();
     res.working = working;
@@ -781,6 +789,20 @@ void EditorPreferencesDialog::draw(int screenW, int screenH)
         focusField,
         canClick,
         mouse));
+    y += rowGap;
+    {
+        const Rectangle escBtn = {x + labelW, y, 200.0f, fieldH};
+        DrawTextEx(font, "Quit on Esc", {x, y + 6.0f}, kFontTiny, 1.0f, kTextMuted);
+        drawEditorButton(
+            font,
+            escBtn,
+            quitOnEscape ? "Quit on Esc: ON" : "Quit on Esc: off",
+            quitOnEscape,
+            true);
+        if (canClick && CheckCollisionPointRec(mouse, escBtn)
+            && CheckCollisionPointRec(mouse, content))
+            quitOnEscape = !quitOnEscape;
+    }
     y += rowGap + 8.0f;
 
     // --- Working overlay ---

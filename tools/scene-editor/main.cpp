@@ -21,6 +21,7 @@
 #include "EditorButton.h"
 #include "EditorInput.h"
 #include "EditorPaths.h"
+#include "EditorPrefs.h"
 
 #include "JobSystem.h"
 
@@ -33,6 +34,7 @@
 #include <string>
 
 using timberline_editor::SceneEditorApp;
+using timberline_editor::applyQuitOnEscapeKey;
 using timberline_editor::editorButtons;
 using timberline_editor::ensureValidResourcePaths;
 using timberline_engine::JobSystem;
@@ -79,6 +81,8 @@ int main(int argc, char** argv)
     app.layout.init(GetScreenWidth(), GetScreenHeight());
     app.document.refreshTabs();
     app.loadActiveDocument();
+    // Esc dismisses dialogs by default; quitting via Esc is opt-in in Preferences.
+    applyQuitOnEscapeKey(app.document.resourceDir);
 
     (void)JobSystem::global();
 
