@@ -152,7 +152,8 @@ private:
         const std::string& buffer,
         const char* placeholder,
         MultilineState& state,
-        bool focused) const;
+        bool focused,
+        Rectangle parentClip = {}) const;
     void drawSingleLineField(
         Font font,
         Rectangle field,
