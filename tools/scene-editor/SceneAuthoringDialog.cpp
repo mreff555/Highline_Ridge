@@ -736,7 +736,8 @@ void SceneAuthoringDialog::drawMultilineField(
     const std::string& buffer,
     const char* placeholder,
     MultilineState& state,
-    bool focused) const
+    bool focused,
+    Rectangle parentClip) const
 {
     const auto& cfg = editorButtons();
     const float padX = cfg.textFieldPadX;
@@ -751,6 +752,7 @@ void SceneAuthoringDialog::drawMultilineField(
     state.lastField = field;
     state.cursor = std::clamp(state.cursor, 0, static_cast<int>(buffer.size()));
 
+    // Field chrome stays under the caller's form scissor (if any).
     drawFieldBox(field, focused);
 
     const bool showPlaceholder = buffer.empty();
@@ -769,100 +771,133 @@ void SceneAuthoringDialog::drawMultilineField(
     state.lastViewH = viewH;
     state.lastMaxScroll = maxScroll;
 
-    BeginScissorMode(
-        static_cast<int>(field.x),
-        static_cast<int>(field.y),
-        static_cast<int>(field.width - gutter),
-        static_cast<int>(field.height));
+    // Raylib scissor is not nested: Begin replaces, End clears. Always intersect
+    // with the form content clip so scrolled-off fields cannot paint outside the
+    // dialog (TTS section made this obvious).
+    auto intersectClip = [](Rectangle a, Rectangle b) -> Rectangle {
+        if (b.width < 0.5f || b.height < 0.5f)
+            return a;
+        return GetCollisionRec(a, b);
+    };
+    auto beginClip = [](Rectangle r) {
+        if (r.width < 1.0f || r.height < 1.0f)
+            return false;
+        BeginScissorMode(
+            static_cast<int>(r.x),
+            static_cast<int>(r.y),
+            static_cast<int>(r.width),
+            static_cast<int>(r.height));
+        return true;
+    };
 
-    if (showPlaceholder)
+    Rectangle textArea = {
+        field.x, field.y, std::max(0.0f, field.width - gutter), field.height};
+    const Rectangle textClip = intersectClip(textArea, parentClip);
+    if (beginClip(textClip))
     {
-        DrawTextEx(
-            font,
-            placeholder != nullptr ? placeholder : "",
-            {field.x + padX, field.y + padY},
-            fontSize,
-            1.0f,
-            fadedPlaceholderColor());
-    }
-    else
-    {
-        int selStart = 0;
-        int selEnd = 0;
-        const bool hasSel = focused && multilineHasSelection(state);
-        if (hasSel)
-            multilineSelectionRange(state, static_cast<int>(buffer.size()), selStart, selEnd);
-
-        for (size_t i = 0; i < lines.size(); ++i)
+        if (showPlaceholder)
         {
-            const float y = field.y + padY + static_cast<float>(i) * lineHeight - state.scrollY;
-            if (y + lineHeight < field.y || y > field.y + field.height)
-                continue;
-
+            DrawTextEx(
+                font,
+                placeholder != nullptr ? placeholder : "",
+                {field.x + padX, field.y + padY},
+                fontSize,
+                1.0f,
+                fadedPlaceholderColor());
+        }
+        else
+        {
+            int selStart = 0;
+            int selEnd = 0;
+            const bool hasSel = focused && multilineHasSelection(state);
             if (hasSel)
+                multilineSelectionRange(state, static_cast<int>(buffer.size()), selStart, selEnd);
+
+            for (size_t i = 0; i < lines.size(); ++i)
             {
-                const int lineSelStart = std::max(selStart, lines[i].start);
-                const int lineSelEnd = std::min(selEnd, lines[i].end);
-                if (lineSelStart < lineSelEnd)
+                const float y =
+                    field.y + padY + static_cast<float>(i) * lineHeight - state.scrollY;
+                if (y + lineHeight < field.y || y > field.y + field.height)
+                    continue;
+
+                if (hasSel)
                 {
-                    const float x0 =
-                        field.x + padX + caretXOnVisualLine(font, lines[i], lineSelStart, fontSize);
-                    const float x1 =
-                        field.x + padX + caretXOnVisualLine(font, lines[i], lineSelEnd, fontSize);
-                    DrawRectangleRec(
-                        {x0, y, std::max(2.0f, x1 - x0), fontSize + 2.0f},
-                        Color{70, 90, 140, 180});
+                    const int lineSelStart = std::max(selStart, lines[i].start);
+                    const int lineSelEnd = std::min(selEnd, lines[i].end);
+                    if (lineSelStart < lineSelEnd)
+                    {
+                        const float x0 = field.x + padX
+                            + caretXOnVisualLine(font, lines[i], lineSelStart, fontSize);
+                        const float x1 = field.x + padX
+                            + caretXOnVisualLine(font, lines[i], lineSelEnd, fontSize);
+                        DrawRectangleRec(
+                            {x0, y, std::max(2.0f, x1 - x0), fontSize + 2.0f},
+                            Color{70, 90, 140, 180});
+                    }
+                }
+
+                if (!lines[i].text.empty())
+                {
+                    DrawTextEx(
+                        font,
+                        lines[i].text.c_str(),
+                        {field.x + padX, y},
+                        fontSize,
+                        1.0f,
+                        kTextPrimary);
                 }
             }
-
-            if (!lines[i].text.empty())
-            {
-                DrawTextEx(
-                    font,
-                    lines[i].text.c_str(),
-                    {field.x + padX, y},
-                    fontSize,
-                    1.0f,
-                    kTextPrimary);
-            }
         }
-    }
 
-    const bool showCaret =
-        focused && !multilineHasSelection(state) && caretBlinkVisible(cfg.caretBlinkHz);
-    if (showCaret)
-    {
-        const int lineIndex = visualLineIndexForCursor(
-            lines, state.cursor, static_cast<int>(buffer.size()));
-        const EditorVisualLine& line =
-            lines.empty() ? EditorVisualLine{} : lines[static_cast<size_t>(lineIndex)];
-        const float cx = field.x + padX
-            + (showPlaceholder ? 0.0f : caretXOnVisualLine(font, line, state.cursor, fontSize));
-        const float cy = field.y + padY + static_cast<float>(lineIndex) * lineHeight - state.scrollY;
-        if (cy + fontSize >= field.y && cy <= field.y + field.height)
-            DrawRectangleRec({cx, cy, 2.0f, fontSize}, kPanelBorder);
+        const bool showCaret =
+            focused && !multilineHasSelection(state) && caretBlinkVisible(cfg.caretBlinkHz);
+        if (showCaret)
+        {
+            const int lineIndex = visualLineIndexForCursor(
+                lines, state.cursor, static_cast<int>(buffer.size()));
+            const EditorVisualLine& line =
+                lines.empty() ? EditorVisualLine{} : lines[static_cast<size_t>(lineIndex)];
+            const float cx = field.x + padX
+                + (showPlaceholder
+                       ? 0.0f
+                       : caretXOnVisualLine(font, line, state.cursor, fontSize));
+            const float cy =
+                field.y + padY + static_cast<float>(lineIndex) * lineHeight - state.scrollY;
+            if (cy + fontSize >= field.y && cy <= field.y + field.height)
+                DrawRectangleRec({cx, cy, 2.0f, fontSize}, kPanelBorder);
+        }
+        EndScissorMode();
     }
-    EndScissorMode();
 
     state.lastScrollTrack = {};
     state.lastScrollThumb = {};
     if (maxScroll > 0.5f)
     {
-        const float trackX = field.x + field.width - gutter + 2.0f;
-        const float trackY = field.y + padY;
-        const float trackH = std::max(8.0f, field.height - padY * 2.0f);
-        const float trackW = std::max(4.0f, gutter - 4.0f);
-        state.lastScrollTrack = {trackX, trackY, trackW, trackH};
-        DrawRectangleRec(state.lastScrollTrack, Color{30, 28, 38, 255});
+        const Rectangle barClip = intersectClip(field, parentClip);
+        if (beginClip(barClip))
+        {
+            const float trackX = field.x + field.width - gutter + 2.0f;
+            const float trackY = field.y + padY;
+            const float trackH = std::max(8.0f, field.height - padY * 2.0f);
+            const float trackW = std::max(4.0f, gutter - 4.0f);
+            state.lastScrollTrack = {trackX, trackY, trackW, trackH};
+            DrawRectangleRec(state.lastScrollTrack, Color{30, 28, 38, 255});
 
-        const float thumbH = std::max(16.0f, trackH * (viewH / std::max(viewH, contentH)));
-        const float t = (maxScroll > 0.0f) ? (state.scrollY / maxScroll) : 0.0f;
-        const float thumbY = trackY + t * (trackH - thumbH);
-        state.lastScrollThumb = {trackX, thumbY, trackW, thumbH};
-        DrawRectangleRec(
-            state.lastScrollThumb,
-            (focused || state.draggingScroll) ? kPanelBorder : kPanelAccent);
+            const float thumbH =
+                std::max(16.0f, trackH * (viewH / std::max(viewH, contentH)));
+            const float t = (maxScroll > 0.0f) ? (state.scrollY / maxScroll) : 0.0f;
+            const float thumbY = trackY + t * (trackH - thumbH);
+            state.lastScrollThumb = {trackX, thumbY, trackW, thumbH};
+            DrawRectangleRec(
+                state.lastScrollThumb,
+                (focused || state.draggingScroll) ? kPanelBorder : kPanelAccent);
+            EndScissorMode();
+        }
     }
+
+    // Restore form content clip — EndScissorMode above cleared it.
+    if (parentClip.width >= 1.0f && parentClip.height >= 1.0f)
+        beginClip(parentClip);
 }
 
 void SceneAuthoringDialog::typeIntoFocusedField()
@@ -1927,15 +1962,16 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
             focusField = index;
     };
 
-    // drawMultilineField ends its own scissor; restore the form clip afterward.
+    // Multiline fields temporarily replace the form scissor; pass content so
+    // they intersect-clip and restore the parent clip when done.
     auto drawMultilineClipped =
         [&](Rectangle field,
             const std::string& buffer,
             const char* placeholder,
             MultilineState& state,
             bool focused) {
-            drawMultilineField(font, field, buffer, placeholder, state, focused);
-            beginContentScissor();
+            drawMultilineField(
+                font, field, buffer, placeholder, state, focused, content);
         };
 
     // ID (+ Rename when editing). Confirm does not apply idDraft — only Rename does.
