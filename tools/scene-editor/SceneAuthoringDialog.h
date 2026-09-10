@@ -153,7 +153,8 @@ private:
         const char* placeholder,
         MultilineState& state,
         bool focused,
-        Rectangle parentClip = {}) const;
+        Rectangle parentClip = {},
+        bool highlightTts = false) const;
     void drawSingleLineField(
         Font font,
         Rectangle field,
