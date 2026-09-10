@@ -737,7 +737,8 @@ void SceneAuthoringDialog::drawMultilineField(
     const char* placeholder,
     MultilineState& state,
     bool focused,
-    Rectangle parentClip) const
+    Rectangle parentClip,
+    bool highlightTts) const
 {
     const auto& cfg = editorButtons();
     const float padX = cfg.textFieldPadX;
@@ -770,6 +771,14 @@ void SceneAuthoringDialog::drawMultilineField(
     state.lastContentH = contentH;
     state.lastViewH = viewH;
     state.lastMaxScroll = maxScroll;
+
+    std::vector<Color> ttsColors;
+    if (highlightTts && !showPlaceholder)
+    {
+        if (docs != nullptr)
+            ensureTtsSyntaxThemeLoaded(docs->resourceDir);
+        buildTtsHighlightColors(buffer, ttsColors);
+    }
 
     // Raylib scissor is not nested: Begin replaces, End clears. Always intersect
     // with the form content clip so scrolled-off fields cannot paint outside the
@@ -836,7 +845,10 @@ void SceneAuthoringDialog::drawMultilineField(
                     }
                 }
 
-                if (!lines[i].text.empty())
+                if (lines[i].text.empty())
+                    continue;
+
+                if (!highlightTts || ttsColors.empty())
                 {
                     DrawTextEx(
                         font,
@@ -845,6 +857,36 @@ void SceneAuthoringDialog::drawMultilineField(
                         fontSize,
                         1.0f,
                         kTextPrimary);
+                    continue;
+                }
+
+                // Same color-run drawing as Conversations / VariableEditor.
+                float drawX = field.x + padX;
+                size_t ci = 0;
+                while (ci < lines[i].text.size())
+                {
+                    const int bufIdx = lines[i].start + static_cast<int>(ci);
+                    const Color runColor =
+                        (bufIdx >= 0 && bufIdx < static_cast<int>(ttsColors.size()))
+                            ? ttsColors[static_cast<size_t>(bufIdx)]
+                            : kTextPrimary;
+                    size_t cj = ci + 1;
+                    while (cj < lines[i].text.size())
+                    {
+                        const int jIdx = lines[i].start + static_cast<int>(cj);
+                        const Color c =
+                            (jIdx >= 0 && jIdx < static_cast<int>(ttsColors.size()))
+                                ? ttsColors[static_cast<size_t>(jIdx)]
+                                : kTextPrimary;
+                        if (c.r != runColor.r || c.g != runColor.g || c.b != runColor.b
+                            || c.a != runColor.a)
+                            break;
+                        ++cj;
+                    }
+                    const std::string run = lines[i].text.substr(ci, cj - ci);
+                    DrawTextEx(font, run.c_str(), {drawX, y}, fontSize, 1.0f, runColor);
+                    drawX += measureUiTextWidth(font, run, fontSize);
+                    ci = cj;
                 }
             }
         }
@@ -1969,9 +2011,17 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
             const std::string& buffer,
             const char* placeholder,
             MultilineState& state,
-            bool focused) {
+            bool focused,
+            bool highlightTts = false) {
             drawMultilineField(
-                font, field, buffer, placeholder, state, focused, content);
+                font,
+                field,
+                buffer,
+                placeholder,
+                state,
+                focused,
+                content,
+                highlightTts);
         };
 
     // ID (+ Rename when editing). Confirm does not apply idDraft — only Rename does.
@@ -2317,7 +2367,8 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
             payload.ttsDescription,
             "Spoken enter / description markup (TTS tags allowed)...",
             ttsDescriptionEdit,
-            focusField == 7);
+            focusField == 7,
+            true);
         hitField(ttsDescField, 7);
         y += 110.0f;
 
@@ -2353,7 +2404,8 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
             payload.ttsExamineDetails,
             "Spoken examine markup (TTS tags allowed)...",
             ttsExamineEdit,
-            focusField == 8);
+            focusField == 8,
+            true);
         hitField(ttsExamField, 8);
         y += 98.0f;
 
