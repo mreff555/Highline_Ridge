@@ -409,6 +409,9 @@ bool SceneEditorApp::loadActiveDocument()
 bool SceneEditorApp::deleteSelectedScene()
 {
     // Opens the shared confirm (+ optional purge) flow on the map canvas.
+    // Do not delete scenes while editing Conversations/Items text (Delete key).
+    if (document.isConversationsTab() || document.isItemsTab())
+        return false;
     if (preferences.blocksInput() || variableEditor.open || sceneGraph.stackDialogOpen
         || itemEditor.blocksInput()
         || mapCanvas.blocksInput()
@@ -447,9 +450,15 @@ void SceneEditorApp::handleShortcuts()
             preferences.openDialog(document.resourceDir, document.assetRoot);
     }
 
-    // Delete key uses the same confirm + optional purge flow as the list menu.
+    // Delete must not steal from text editing (Conversations walkthrough, etc.).
+    // Scene delete remains available from the list/map context menus.
     if (IsKeyPressed(KEY_DELETE))
+    {
+        if (document.isConversationsTab() || document.isItemsTab()
+            || dialogWalkthrough.textFieldFocused || variableEditor.open)
+            return;
         deleteSelectedScene();
+    }
 }
 
 void SceneEditorApp::update()

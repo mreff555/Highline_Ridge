@@ -2314,19 +2314,15 @@
                 "closePhase": false,
                 "id": "looking_for_apology",
                 "label": "Are you looking for an apology?",
-                "response": "\"No.\"\n\nShe takes a quick drag of her cigarette, her eyes not leaving yours.\n\n\"I just wanted to tell you something....\"\n\nAfter a pause, she tells you what she has been holding back.\n\nShe pauses for a moment to re-evaluate if she wants to say what she is about to say.\n\n\"Last night, before we fell asleep, you asked me... How did I end up here? I didn't give you an answer.\"\n\nShe takes another drag from her cigarette and looks down, exhaling slowly.\n\n\"I was running from something. It's not something I want to discuss or, for that matter, all that easy to explain. The point is I had good days and bad days. I could have faced it, but I chose to run... Now I'm here. Just like before, I have good days and bad days, but I don't run anymore. Facing your fears is terrifying, but sometimes... It brings you peace.\"\n\nShe takes a small step back. Clasping one hand with another she momentarily gives a weak smile, and lowers her eyes to the floor. She is embarrassed by what she said.",
+                "response": "\"No.\"\n\nShe takes a quick drag of her cigarette, her eyes not leaving yours.\n\n\"I just wanted to tell you something....\"\n\nShe looks away for a moment, then back. When she speaks, it is quieter — not the whole confession she almost gave when you apologized, just the part she needs you to hear.\n\n\"Last night you asked how I ended up here. I still will not discuss all of it. But I chose to run once. I do not run anymore.\"\n\nShe clasps one hand with the other and lowers her eyes, embarrassed by even that much.",
                 "status": {
                   "key": "saloon_balcony:looking_for_apology"
                 },
                 "tts": true,
                 "ttsAfter": true,
-                "ttsAfterAudio": "resources/audio/tts/saloon_balcony/looking_for_apology_after.mp3",
-                "ttsAfterText": "She pauses for a moment to re-evaluate if she wants to say what she is about to say. Last night, before we fell asleep, you asked me how did I end up here, she says. I didn't give you an answer. She takes another drag from her cigarette and looks down, exhaling slowly. I was running from something. It's not something I want to discuss or, for that matter, all that easy to explain. The point is I had good days and bad days. I could have faced it, but I chose to run. Now I'm here. Just like before, I have good days and bad days, but I don't run anymore. Facing your fears is terrifying, but sometimes it brings you peace. She takes a small step back. Clasping one hand with another she momentarily gives a weak smile, and lowers her eyes to the floor. She is embarrassed by what she said.",
-                "ttsAfterTextSha256": "b090cfca06081215d9aaad277667d5f287cb20ddf3c88197c45ced6121a92378",
                 "ttsAfterVoice": "leo",
                 "ttsAudio": "resources/audio/tts/saloon_balcony/looking_for_apology.mp3",
-                "ttsText": "No, she says. She takes a quick drag of her cigarette, her eyes not leaving yours. I just wanted to tell you something. After a pause, she begins.",
-                "ttsTextSha256": "3a19f4b892a9e3a18bf375e4cfa639ce9db7857fb1d95c7e7a3f39ebd2b8d3d2",
+                "ttsText": "{{voice:eve}}No.{{/voice}}[pause] She takes a quick drag of her cigarette, her eyes not leaving yours. {{voice:eve}}I just wanted to tell you something....{{/voice}}[long-pause] She looks away, then back. {{voice:eve}}Last night you asked how I ended up here. [pause]I still will not discuss all of it. [pause]But I chose to run once. [pause]I do not run anymore.{{/voice}}[long-pause] She clasps one hand with the other and lowers her eyes.",
                 "ttsVoice": "leo"
               }
             ],
@@ -2341,8 +2337,7 @@
               "resources/audio/tts/saloon_balcony/stay_last_night.seg1.mp3",
               "resources/audio/tts/saloon_balcony/stay_last_night.seg2.mp3"
             ],
-            "ttsText": "Her smile returns for half a heartbeat, then goes still. {{voice:eve}}[pause]You stayed, [pause]for a few hours at least. [long-pause][sigh] You know, [pause] cuddling is included in the fee, [pause]and I have woke up to worse smells before.{{/voice}} She gently grabs your wrist for a moment and smiles.",
-            "ttsTextSha256": "21b41086df7a134567730520565dbfb2ab9c8864186ccba9c37a7d0a85204b71",
+            "ttsText": "Her smile returns for half a heartbeat, then goes still. {{voice:eve}}[pause]You stayed, [pause]for a few hours at least. [pause:1500ms][sigh] You know, [pause] cuddling is included in the fee, [pause]and I have woke up to worse smells before.{{/voice}} She gently grabs your wrist for a moment and smiles.",
             "ttsVoice": "leo"
           },
           {
