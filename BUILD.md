@@ -84,12 +84,26 @@ With embed ON, game content is linked into the executable (`.incbin` of `highlin
 ## macOS
 
 ```bash
-brew install cmake xz jpeg opusfile
+brew install cmake xz jpeg opusfile pkg-config
 mkdir -p build && cd build
 cmake ..
 make -j$(sysctl -n hw.ncpu)
 ./Highline\ Ridge
 ```
+
+### Apple Silicon / Homebrew under `/opt/homebrew`
+
+On Apple Silicon, Homebrew installs to **`/opt/homebrew`** (Intel Macs use `/usr/local`). Some shells, IDE CMake kits, and GUI-launched tools never put `/opt/homebrew/bin` on `PATH` or `PKG_CONFIG_PATH`, so `libjpeg` / `liblzma` / `opusfile` look “missing” even after `brew install`.
+
+CMake auto-detects the Homebrew prefix (`brew --prefix`, then `/opt/homebrew`, then `/usr/local`) via `cmake/HomebrewPrefix.cmake` and prepends it for `pkg-config` and `find_library` (#35). You usually do **not** need to export PATH just to configure.
+
+If detection fails:
+
+```bash
+cmake .. -DHIGHLINE_HOMEBREW_PREFIX=/opt/homebrew
+```
+
+Confirm the configure log shows: `Homebrew prefix for deps: /opt/homebrew`.
 
 ## Linux
 

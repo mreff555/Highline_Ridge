@@ -178,16 +178,42 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(json)
 
+# Apple Silicon Homebrew lives under /opt/homebrew; make pkg-config / find_* see it
+# even when PATH was never updated (see GitHub #35).
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/HomebrewPrefix.cmake")
+
 find_package(PkgConfig QUIET)
 if(PkgConfig_FOUND)
     pkg_check_modules(LIBLZMA IMPORTED_TARGET liblzma)
     pkg_check_modules(LIBJPEG IMPORTED_TARGET libjpeg)
+    if(NOT LIBJPEG_FOUND)
+        # Homebrew jpeg-turbo often registers as libturbojpeg / libjpeg-turbo.
+        pkg_check_modules(LIBJPEG IMPORTED_TARGET libturbojpeg)
+    endif()
+    if(NOT LIBJPEG_FOUND)
+        pkg_check_modules(LIBJPEG IMPORTED_TARGET libjpeg-turbo)
+    endif()
     pkg_check_modules(OPUSFILE IMPORTED_TARGET opusfile)
 endif()
 
+set(_HIGHLINE_HB_HINTS)
+if(HIGHLINE_HOMEBREW_PREFIX)
+    list(APPEND _HIGHLINE_HB_HINTS
+        "${HIGHLINE_HOMEBREW_PREFIX}"
+        "${HIGHLINE_HOMEBREW_PREFIX}/opt/jpeg"
+        "${HIGHLINE_HOMEBREW_PREFIX}/opt/jpeg-turbo"
+        "${HIGHLINE_HOMEBREW_PREFIX}/opt/xz"
+        "${HIGHLINE_HOMEBREW_PREFIX}/opt/opusfile"
+        "${HIGHLINE_HOMEBREW_PREFIX}/opt/opus")
+endif()
+
 if(NOT LIBLZMA_FOUND)
-    find_library(LZMA_LIBRARY NAMES lzma liblzma lzma.lib)
-    find_path(LZMA_INCLUDE_DIR lzma.h)
+    find_library(LZMA_LIBRARY NAMES lzma liblzma lzma.lib
+        HINTS ${_HIGHLINE_HB_HINTS}
+        PATH_SUFFIXES lib)
+    find_path(LZMA_INCLUDE_DIR lzma.h
+        HINTS ${_HIGHLINE_HB_HINTS}
+        PATH_SUFFIXES include)
     if(LZMA_LIBRARY AND LZMA_INCLUDE_DIR)
         add_library(LZMA::LZMA UNKNOWN IMPORTED)
         set_target_properties(LZMA::LZMA PROPERTIES
@@ -203,8 +229,12 @@ if(NOT LIBLZMA_FOUND AND NOT TARGET LZMA::LZMA)
 endif()
 
 if(NOT LIBJPEG_FOUND)
-    find_library(JPEG_LIBRARY NAMES jpeg jpeg.lib turbojpeg turbojpeg.lib)
-    find_path(JPEG_INCLUDE_DIR jpeglib.h)
+    find_library(JPEG_LIBRARY NAMES jpeg jpeg.lib turbojpeg turbojpeg.lib
+        HINTS ${_HIGHLINE_HB_HINTS}
+        PATH_SUFFIXES lib)
+    find_path(JPEG_INCLUDE_DIR jpeglib.h
+        HINTS ${_HIGHLINE_HB_HINTS}
+        PATH_SUFFIXES include)
     if(JPEG_LIBRARY AND JPEG_INCLUDE_DIR)
         add_library(JPEG::JPEG UNKNOWN IMPORTED)
         set_target_properties(JPEG::JPEG PROPERTIES
@@ -213,14 +243,24 @@ if(NOT LIBJPEG_FOUND)
         )
         set(LIBJPEG JPEG::JPEG)
     else()
-        message(FATAL_ERROR "libjpeg is required for JPEG image assets")
+        message(FATAL_ERROR
+            "libjpeg is required for JPEG image assets. On Apple Silicon Homebrew, "
+            "install with `brew install jpeg` (or jpeg-turbo) under /opt/homebrew. "
+            "CMake searches that prefix automatically (#35); override with "
+            "-DHIGHLINE_HOMEBREW_PREFIX=/opt/homebrew if needed.")
     endif()
 endif()
 
 if(NOT OPUSFILE_FOUND)
-    find_library(OPUSFILE_LIBRARY NAMES opusfile opusfile.lib)
-    find_library(OPUS_LIBRARY NAMES opus opus.lib)
-    find_path(OPUSFILE_INCLUDE_DIR opusfile.h)
+    find_library(OPUSFILE_LIBRARY NAMES opusfile opusfile.lib
+        HINTS ${_HIGHLINE_HB_HINTS}
+        PATH_SUFFIXES lib)
+    find_library(OPUS_LIBRARY NAMES opus opus.lib
+        HINTS ${_HIGHLINE_HB_HINTS}
+        PATH_SUFFIXES lib)
+    find_path(OPUSFILE_INCLUDE_DIR opusfile.h
+        HINTS ${_HIGHLINE_HB_HINTS}
+        PATH_SUFFIXES include include/opus)
     if(OPUSFILE_LIBRARY AND OPUS_LIBRARY AND OPUSFILE_INCLUDE_DIR)
         add_library(OPUSFILE::OPUSFILE UNKNOWN IMPORTED)
         set_target_properties(OPUSFILE::OPUSFILE PROPERTIES

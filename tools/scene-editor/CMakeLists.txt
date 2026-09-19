@@ -45,15 +45,37 @@ if(_EDITOR_STANDALONE)
     )
     FetchContent_MakeAvailable(json)
 
+    # Standalone editor build: same Homebrew /opt/homebrew discovery as the game (#35).
+    include("${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/HomebrewPrefix.cmake")
+
     find_package(PkgConfig QUIET)
     if(PkgConfig_FOUND)
         pkg_check_modules(LIBLZMA IMPORTED_TARGET liblzma)
         pkg_check_modules(LIBJPEG IMPORTED_TARGET libjpeg)
+        if(NOT LIBJPEG_FOUND)
+            pkg_check_modules(LIBJPEG IMPORTED_TARGET libturbojpeg)
+        endif()
+        if(NOT LIBJPEG_FOUND)
+            pkg_check_modules(LIBJPEG IMPORTED_TARGET libjpeg-turbo)
+        endif()
+    endif()
+
+    set(_EDITOR_HB_HINTS)
+    if(HIGHLINE_HOMEBREW_PREFIX)
+        list(APPEND _EDITOR_HB_HINTS
+            "${HIGHLINE_HOMEBREW_PREFIX}"
+            "${HIGHLINE_HOMEBREW_PREFIX}/opt/jpeg"
+            "${HIGHLINE_HOMEBREW_PREFIX}/opt/jpeg-turbo"
+            "${HIGHLINE_HOMEBREW_PREFIX}/opt/xz")
     endif()
 
     if(NOT LIBLZMA_FOUND)
-        find_library(LZMA_LIBRARY NAMES lzma)
-        find_path(LZMA_INCLUDE_DIR lzma.h)
+        find_library(LZMA_LIBRARY NAMES lzma
+            HINTS ${_EDITOR_HB_HINTS}
+            PATH_SUFFIXES lib)
+        find_path(LZMA_INCLUDE_DIR lzma.h
+            HINTS ${_EDITOR_HB_HINTS}
+            PATH_SUFFIXES include)
         if(LZMA_LIBRARY AND LZMA_INCLUDE_DIR)
             add_library(LZMA::LZMA UNKNOWN IMPORTED)
             set_target_properties(LZMA::LZMA PROPERTIES
@@ -65,8 +87,12 @@ if(_EDITOR_STANDALONE)
     endif()
 
     if(NOT LIBJPEG_FOUND)
-        find_library(JPEG_LIBRARY NAMES jpeg)
-        find_path(JPEG_INCLUDE_DIR jpeglib.h)
+        find_library(JPEG_LIBRARY NAMES jpeg turbojpeg
+            HINTS ${_EDITOR_HB_HINTS}
+            PATH_SUFFIXES lib)
+        find_path(JPEG_INCLUDE_DIR jpeglib.h
+            HINTS ${_EDITOR_HB_HINTS}
+            PATH_SUFFIXES include)
         if(JPEG_LIBRARY AND JPEG_INCLUDE_DIR)
             add_library(JPEG::JPEG UNKNOWN IMPORTED)
             set_target_properties(JPEG::JPEG PROPERTIES
