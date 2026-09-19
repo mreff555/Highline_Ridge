@@ -742,7 +742,21 @@
         "right": false
       },
       "start": false,
-      "useDetails": ""
+      "useDetails": "",
+      "storyEvents": [
+        {
+          "id": "departure_disturbed_sod",
+          "when": "exit",
+          "direction": "backward",
+          "requiresConsumedStatus": ["cottonwood_meadow:rest_by_cottonwood"],
+          "unlessFlags": ["cottonwood_meadow:departure_noted"],
+          "setsFlags": ["cottonwood_meadow:departure_noted"],
+          "narrativeHeader": "Examining:",
+          "narrative": "You push yourself up from the cottonwood's shade, brushing grass from your coat. Your gaze returns to that unnaturally green patch you noticed earlier, roughly ten feet from the trunk. From here the difference is plainer still - and uglier. The sod has been disturbed recently. Edges are raw where turf was lifted and pressed back wrong. Darker soil shows through in a shape too deliberate for weather or cattle. Someone has been digging in this meadow within the last few days.",
+          "blockMovement": true,
+          "once": true
+        }
+      ]
     },
     "high_alpine_trail": {
       "actions": {
@@ -921,7 +935,22 @@
           "requiresStoryFlag": "ice_house_interior:ranger_badge_revealed"
         }
       ],
-      "useDetails": ""
+      "useDetails": "",
+      "storyEvents": [
+        {
+          "id": "ranger_badge_glint",
+          "when": "exit",
+          "direction": "right",
+          "requiresExamined": true,
+          "unlessFlags": ["ice_house_interior:ranger_badge_revealed"],
+          "setsFlags": ["ice_house_interior:ranger_badge_revealed"],
+          "narrativeHeader": "Examining:",
+          "narrative": "You finish examining the room and turn toward the door. As you do, a single ray of sunshine punches through a gap in the timber frame and strikes the floor where the hay lies thickest.\n\nSomething answers the light - a brief, hard glint, too deliberate to be ice.\n\nYou kneel. Your fingers close around a small circle of brass half-buried in the packed earth: a Texas Ranger badge, tarnished at the edges but not forgotten. Whoever left it here did not mean for it to stay hidden forever.\n\nYou can take it, or leave it where the light found it.",
+          "blockMovement": true,
+          "refreshTakeables": true,
+          "once": true
+        }
+      ]
     },
     "mining_camp": {
       "actions": {
@@ -2702,7 +2731,18 @@
         "right": true
       },
       "start": false,
-      "useDetails": ""
+      "useDetails": "",
+      "storyEvents": [
+        {
+          "id": "minister_greeting",
+          "when": "enter",
+          "unlessFlags": ["white_baptist_church_vestry:greeting_done"],
+          "setsFlags": ["white_baptist_church_vestry:greeting_done"],
+          "narrativeHeader": "Speaking:",
+          "narrative": "He turns to you and smiles.\n\n\"You are about an hour too late...\"\n\nHe pauses a moment.\n\n\"Mass ended about an hour ago.\"",
+          "once": true
+        }
+      ]
     },
     "winding_alpine_path": {
       "actions": {

@@ -31,6 +31,7 @@
 #include <SceneInteractionDef.h>
 #include <SceneInventoryDef.h>
 #include <SceneOverlayDef.h>
+#include <StoryEventDef.h>
 #include <SubSceneDef.h>
 #include <TakeableItemDef.h>
 #include <TtsVoiceMarkup.h>
@@ -109,6 +110,7 @@ struct SceneData
     std::vector<TakeableItemDef> takeables;
     std::vector<SceneInteractionDef> interactions;
     std::vector<SceneOverlayDef> overlays;
+    std::vector<StoryEventDef> storyEvents;
 };
 
 class SceneDatabase
@@ -150,6 +152,7 @@ class SceneDatabase
         const std::string& sceneId,
         const std::string& subSceneId) const;
     const std::vector<SceneOverlayDef>& getOverlays(const std::string& sceneId) const;
+    const std::vector<StoryEventDef>& getStoryEvents(const std::string& sceneId) const;
     const std::string& getAssetRoot() const { return assetRoot; }
     const SceneData* getScene(const std::string& sceneId) const;
     const SubSceneDef* getSubScene(const std::string& sceneId, const std::string& subSceneId) const;

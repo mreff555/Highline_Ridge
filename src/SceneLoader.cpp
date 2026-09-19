@@ -38,6 +38,8 @@ namespace timberline_engine
 namespace
 {
 
+bool parseNarrativeTts(const nlohmann::json& node, ItemTtsDef& out);
+
 Font loadGameFont(const std::string& assetRoot, const std::string& fontPath)
 {
     // Prefer AssetStore (pak or disk) via memory load.
@@ -882,6 +884,98 @@ bool parseTakeables(const nlohmann::json& takeables, std::vector<TakeableItemDef
     return true;
 }
 
+bool parseStringArrayField(const nlohmann::json& node, const char* key, std::vector<std::string>& out)
+{
+    out.clear();
+    const nlohmann::json arr = node.value(key, nlohmann::json::array());
+    if (!arr.is_array())
+        return true;
+    for (const nlohmann::json& entry : arr)
+    {
+        if (!entry.is_string())
+            return false;
+        out.push_back(entry.get<std::string>());
+    }
+    return true;
+}
+
+bool parseStoryEventWhen(const std::string& raw, StoryEventWhen& out)
+{
+    if (raw == "enter")
+    {
+        out = StoryEventWhen::Enter;
+        return true;
+    }
+    if (raw == "exit")
+    {
+        out = StoryEventWhen::Exit;
+        return true;
+    }
+    if (raw == "examine")
+    {
+        out = StoryEventWhen::Examine;
+        return true;
+    }
+    return false;
+}
+
+bool parseStoryEvent(const nlohmann::json& node, StoryEventDef& out)
+{
+    if (!node.is_object())
+        return false;
+
+    out = StoryEventDef{};
+    out.id = node.value("id", "");
+    if (out.id.empty())
+        return false;
+
+    const std::string whenRaw = node.value("when", "");
+    if (!parseStoryEventWhen(whenRaw, out.when))
+        return false;
+
+    out.direction = node.value("direction", "");
+    if (out.when == StoryEventWhen::Exit && out.direction.empty())
+        return false;
+
+    out.requiresExamined = node.value("requiresExamined", false);
+    if (!parseStringArrayField(node, "requiresFlags", out.requiresFlags))
+        return false;
+    if (!parseStringArrayField(node, "unlessFlags", out.unlessFlags))
+        return false;
+    if (!parseStringArrayField(node, "setsFlags", out.setsFlags))
+        return false;
+    if (!parseStringArrayField(node, "clearsFlags", out.clearsFlags))
+        return false;
+    if (!parseStringArrayField(node, "requiresConsumedStatus", out.requiresConsumedStatus))
+        return false;
+
+    out.narrativeHeader = node.value("narrativeHeader", "");
+    out.narrative = node.value("narrative", "");
+    if (!parseNarrativeTts(node.value("narrativeTts", nlohmann::json::object()), out.narrativeTts))
+        return false;
+
+    out.blockMovement = node.value("blockMovement", false);
+    out.refreshTakeables = node.value("refreshTakeables", false);
+    out.once = node.value("once", true);
+    return true;
+}
+
+bool parseStoryEvents(const nlohmann::json& events, std::vector<StoryEventDef>& out)
+{
+    out.clear();
+    if (!events.is_array())
+        return true;
+
+    for (const nlohmann::json& entry : events)
+    {
+        StoryEventDef parsed;
+        if (!parseStoryEvent(entry, parsed))
+            return false;
+        out.push_back(std::move(parsed));
+    }
+    return true;
+}
+
 bool parseInteraction(const nlohmann::json& interaction, SceneInteractionDef& out)
 {
     if (!interaction.is_object())
@@ -1689,6 +1783,9 @@ bool parseScene(const std::string& id, const nlohmann::json& sceneJson, SceneDat
     if (!parseTakeables(sceneJson.value("takeables", nlohmann::json::array()), out.takeables))
         return false;
 
+    if (!parseStoryEvents(sceneJson.value("storyEvents", nlohmann::json::array()), out.storyEvents))
+        return false;
+
     if (!parseInteractions(sceneJson.value("interactions", nlohmann::json::array()), out.interactions))
         return false;
 
@@ -2263,6 +2360,16 @@ const std::vector<TakeableItemDef>& SceneDatabase::getTakeables(const std::strin
         return kEmptyTakeables;
 
     return it->second.takeables;
+}
+
+const std::vector<StoryEventDef>& SceneDatabase::getStoryEvents(const std::string& sceneId) const
+{
+    static const std::vector<StoryEventDef> kEmptyStoryEvents;
+    std::map<std::string, SceneData>::const_iterator it = scenes.find(sceneId);
+    if (it == scenes.end())
+        return kEmptyStoryEvents;
+
+    return it->second.storyEvents;
 }
 
 const std::vector<SceneInteractionDef>& SceneDatabase::getInteractions(const std::string& sceneId) const

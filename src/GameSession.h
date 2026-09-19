@@ -191,9 +191,9 @@ class GameSession
     void transitionToScene(const std::string& sceneId, const std::string& subSceneId = "");
     void syncActiveSubScene();
     void tryMove(const std::string& direction);
-    bool maybeRevealIceHouseInteriorDeparture(const std::string& direction);
-    bool maybeRevealCottonwoodMeadowDeparture(const std::string& direction);
-    void maybeTriggerVestryMinisterGreeting();
+    bool tryFireStoryEvents(StoryEventWhen when, const std::string& direction = "");
+    bool storyEventGatesPass(const StoryEventDef& event) const;
+    void applyStoryEvent(const StoryEventDef& event);
     void appendBlockedMovementMessage(const std::string& details);
     void trimNarrativeBuffer();
     void handleNarrativeScrollInput();

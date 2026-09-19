@@ -1180,6 +1180,7 @@ namespace
         evaluateMilestones();
         updateActionAvailability();
         recordPlayerAction();
+        tryFireStoryEvents(StoryEventWhen::Examine);
     }
 
     void GameSession::appendSpeakDetails()
@@ -2636,86 +2637,75 @@ namespace
         scrollNarrativeToLine(details, true);
     }
 
-    bool GameSession::maybeRevealIceHouseInteriorDeparture(const std::string& direction)
+    bool GameSession::storyEventGatesPass(const StoryEventDef& event) const
     {
-        if (worldState.currentSceneId != "ice_house_interior" || direction != "right")
+        if (event.requiresExamined && !hasExaminedScene(worldState.currentSceneId))
             return false;
 
-        // Always allow leaving once the badge has been revealed (or taken).
-        if (worldState.storyFlags.count("ice_house_interior:ranger_badge_revealed") > 0)
-            return false;
+        for (const std::string& flag : event.requiresFlags)
+        {
+            if (worldState.storyFlags.count(flag) == 0)
+                return false;
+        }
 
-        // Until the room is examined, right still exits normally (no badge yet).
-        if (!hasExaminedScene(worldState.currentSceneId))
-            return false;
+        for (const std::string& flag : event.unlessFlags)
+        {
+            if (worldState.storyFlags.count(flag) > 0)
+                return false;
+        }
 
-        const std::string details =
-            "You finish examining the room and turn toward the door. As you do, a single ray of "
-            "sunshine punches through a gap in the timber frame and strikes the floor where the "
-            "hay lies thickest.\n\n"
-            "Something answers the light - a brief, hard glint, too deliberate to be ice.\n\n"
-            "You kneel. Your fingers close around a small circle of brass half-buried in the "
-            "packed earth: a Texas Ranger badge, tarnished at the edges but not forgotten. Whoever "
-            "left it here did not mean for it to stay hidden forever.\n\n"
-            "You can take it, or leave it where the light found it.";
+        for (const std::string& key : event.requiresConsumedStatus)
+        {
+            if (worldState.playerStats.consumedStatusActions.count(key) == 0)
+                return false;
+        }
 
-        appendNarrativeSection("Examining:", details);
-        worldState.storyFlags.insert("ice_house_interior:ranger_badge_revealed");
-        evaluateMilestones();
-        refreshTakeItems();
-        updateActionAvailability();
-        recordPlayerAction();
         return true;
     }
 
-    void GameSession::maybeTriggerVestryMinisterGreeting()
+    void GameSession::applyStoryEvent(const StoryEventDef& event)
     {
-        if (worldState.currentSceneId != "white_baptist_church_vestry")
-            return;
+        const char* header =
+            !event.narrativeHeader.empty() ? event.narrativeHeader.c_str() : "Examining:";
+        if (!event.narrative.empty())
+            appendNarrativeSection(header, event.narrative);
 
-        if (worldState.storyFlags.count("white_baptist_church_vestry:greeting_done") > 0)
-            return;
+        for (const std::string& flag : event.setsFlags)
+            applyGrantedStoryFlag(flag);
 
-        const std::string details =
-            "He turns to you and smiles.\n\n"
-            "\"You are about an hour too late...\"\n\n"
-            "He pauses a moment.\n\n"
-            "\"Mass ended about an hour ago.\"";
+        for (const std::string& flag : event.clearsFlags)
+            worldState.storyFlags.erase(flag);
 
-        appendNarrativeSection("Speaking:", details);
-        worldState.storyFlags.insert("white_baptist_church_vestry:greeting_done");
-        narrativeNotebook.getNarrativeText() = worldState.narrativeText;
         evaluateMilestones();
+        if (event.refreshTakeables)
+            refreshTakeItems();
+        if (event.narrativeTts.enabled || !event.narrativeTts.audio.empty())
+            playSceneNarrativeTts(event.narrativeTts);
         updateActionAvailability();
         recordPlayerAction();
     }
 
-    bool GameSession::maybeRevealCottonwoodMeadowDeparture(const std::string& direction)
+    bool GameSession::tryFireStoryEvents(StoryEventWhen when, const std::string& direction)
     {
-        if (worldState.currentSceneId != "cottonwood_meadow" || direction != "backward")
-            return false;
+        const std::vector<StoryEventDef>& events =
+            sceneDatabase.getStoryEvents(worldState.currentSceneId);
+        bool firedBlocking = false;
+        for (const StoryEventDef& event : events)
+        {
+            if (event.when != when)
+                continue;
+            if (when == StoryEventWhen::Exit && event.direction != direction)
+                continue;
+            if (!storyEventGatesPass(event))
+                continue;
 
-        const std::string restKey = interactionKey("rest_by_cottonwood");
-        if (worldState.playerStats.consumedStatusActions.count(restKey) == 0)
-            return false;
-
-        if (worldState.storyFlags.count("cottonwood_meadow:departure_noted") > 0)
-            return false;
-
-        const std::string details =
-            "You push yourself up from the cottonwood's shade, brushing grass from your coat. "
-            "Your gaze returns to that unnaturally green patch you noticed earlier, roughly ten "
-            "feet from the trunk. From here the difference is plainer still - and uglier. The "
-            "sod has been disturbed recently. Edges are raw where turf was lifted and pressed "
-            "back wrong. Darker soil shows through in a shape too deliberate for weather or "
-            "cattle. Someone has been digging in this meadow within the last few days.";
-
-        appendNarrativeSection("Examining:", details);
-        worldState.storyFlags.insert("cottonwood_meadow:departure_noted");
-        evaluateMilestones();
-        updateActionAvailability();
-        recordPlayerAction();
-        return true;
+            applyStoryEvent(event);
+            if (when == StoryEventWhen::Exit && event.blockMovement)
+                firedBlocking = true;
+            // First matching event per hook; array order is priority.
+            break;
+        }
+        return firedBlocking;
     }
 
     void GameSession::tryMove(const std::string& direction)
@@ -2724,10 +2714,7 @@ namespace
         if (sceneImageLoadPending)
             return;
 
-        if (maybeRevealIceHouseInteriorDeparture(direction))
-            return;
-
-        if (maybeRevealCottonwoodMeadowDeparture(direction))
+        if (tryFireStoryEvents(StoryEventWhen::Exit, direction))
             return;
 
         const bool leavingBlackjack =
@@ -3332,7 +3319,7 @@ namespace
             sceneDatabase.getSceneAudio(worldState.currentSceneId, worldState.activeSubSceneId),
             fromRoom);
 
-        maybeTriggerVestryMinisterGreeting();
+        tryFireStoryEvents(StoryEventWhen::Enter);
 
         narrativeNotebook.resetNarrativeScroll();
         narrativeNotebook.invalidateLayout();
