@@ -141,7 +141,7 @@ cmake --build build --config Release
 ### Notes
 
 - The project file is `CMakeLists.txt` (standard casing; required on Linux).
-- **Windows help wanted** — builds via vcpkg are documented but less battle-tested than macOS/Linux. Contact **feerstd@gmail.com** if you can harden MSVC packaging or CI.
+- **Windows help wanted** — builds via vcpkg are documented but less battle-tested than macOS/Linux. See [CONTRIBUTING.md](CONTRIBUTING.md) (contact **feerstd@gmail.com**).
 - Dev: run from the build folder so synced `resources/` resolve.
 - Release: content is embedded; saves/settings use `%AppData%\Highline Ridge\` (or `HIGHLINE_DATA_DIR`).
 - TTS refresh (`--key`, `--refresh-voices`) is a **dev** binary feature and needs `curl` on `PATH` for the xAI client.

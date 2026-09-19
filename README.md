@@ -37,17 +37,11 @@ Art, narrative beats, and engine features are co-evolved in the loop: human tast
 
 ---
 
-## Call for contributors
+## Contributing
 
-We welcome contributors—especially if you care about narrative games, Raylib, or tooling.
+Human and AI contributions are welcome — especially **Windows** support, storyboarding, scene/TTS generation, UI, and docs.
 
-**Most needed right now: Windows support** (MSVC/vcpkg build polish, packaging, CI, and “it just runs” player builds). macOS and Linux are the primary daily drivers; Windows is documented but under-exercised.
-
-- Email: **feerstd@gmail.com**  
-- Issues: [github.com/mreff555/Highline_Ridge](https://github.com/mreff555/Highline_Ridge/issues)  
-- Branch of record for v0.3 work: `v0.3.0.0_RC`
-
-Open an issue before large design swings (conversation file layout, global story-event graphs, packaging). Small fixes and docs PRs are always welcome.
+See **[CONTRIBUTING.md](CONTRIBUTING.md)** for contact (`feerstd@gmail.com`), branch/PR rules, and the current needs list. Work from the latest release-candidate branch (currently `v0.3.0.0_RC`).
 
 ---
 
