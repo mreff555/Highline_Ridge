@@ -1,6 +1,8 @@
 # Building Highline Ridge (Timberline engine)
 
-**Highline Ridge** is the showcase game; it runs on the **Timberline** engine. Build the game from the repo root and the **Timberline Resource Editor** from `tools/scene-editor`.
+**Highline Ridge** is the showcase game; it runs on the **Timberline** engine. Project overview, contributors, and architecture diagrams live in **[README.md](README.md)**.
+
+Build the game from the repo root; the **Timberline Resource Editor** is built as `scene-editor` (dev default ON).
 
 The game uses CMake, bundled raylib 5.5, and three native libraries for assets/audio:
 
@@ -139,6 +141,8 @@ cmake --build build --config Release
 ### Notes
 
 - The project file is `CMakeLists.txt` (standard casing; required on Linux).
-- Run the executable from the build folder so `resources/` and `saves/` resolve correctly, or keep `resources/` beside the `.exe`.
-- Optional dev tool `XaiTtsClient` (`--key=KEY --refresh-voices`) needs `curl` on `PATH`.
-- Save files live under `saves/` relative to the working directory.
+- **Windows help wanted** — builds via vcpkg are documented but less battle-tested than macOS/Linux. Contact **feerstd@gmail.com** if you can harden MSVC packaging or CI.
+- Dev: run from the build folder so synced `resources/` resolve.
+- Release: content is embedded; saves/settings use `%AppData%\Highline Ridge\` (or `HIGHLINE_DATA_DIR`).
+- TTS refresh (`--key`, `--refresh-voices`) is a **dev** binary feature and needs `curl` on `PATH` for the xAI client.
+- See [docs/dev-vs-release.md](docs/dev-vs-release.md) for the authoring vs player package split.

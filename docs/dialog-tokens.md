@@ -48,6 +48,6 @@ That'll be $2.00.
 
 ## Related
 
-- Voice markup for TTS (`{{voice:eve}}…`) is separate — see TTS sections in
-  `README.md` and `src/TtsVoiceMarkup.h`. That is **not** the same as
-  `{tab_amount}`-style world tokens.
+- Voice markup for TTS (`{{voice:eve}}…`) is separate — see [tts.md](tts.md)
+  and `src/TtsVoiceMarkup.h`. That is **not** the same as `{tab_amount}`-style
+  world tokens.
