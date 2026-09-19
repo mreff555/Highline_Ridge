@@ -5164,6 +5164,11 @@ void SceneMapCanvas::draw()
     if (preferences)
         preferences->draw(screenWidth, screenHeight);
 
+    // Must draw inside BeginDrawing/EndDrawing — SceneEditorApp::draw runs after
+    // EndDrawing and would never show (while still blocking input).
+    if (parchment != nullptr && parchment->blocksInput())
+        parchment->draw(screenWidth, screenHeight);
+
     EndDrawing();
 }
 

@@ -182,6 +182,7 @@ void SceneEditorApp::syncModuleFonts()
     itemEditor.uiFontBold = uiFontBold;
     mapCanvas.uiFont = uiFont;
     mapCanvas.uiFontBold = uiFontBold;
+    mapCanvas.parchment = &parchmentEditor;
     mapCanvas.sceneAuthoring.parchment = &parchmentEditor;
     mapCanvas.sceneAuthoring.uiFont = uiFont;
     mapCanvas.sceneAuthoring.uiFontBold = uiFontBold;
@@ -632,9 +633,8 @@ void SceneEditorApp::update()
 
 void SceneEditorApp::draw()
 {
+    // Parchment is drawn inside mapCanvas.draw() before EndDrawing().
     mapCanvas.draw();
-    // Immersive writing overlay sits above every editor chrome / modal.
-    parchmentEditor.draw(GetScreenWidth(), GetScreenHeight());
 }
 
 } // namespace timberline_editor

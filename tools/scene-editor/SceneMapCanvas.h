@@ -32,6 +32,7 @@
 #include "ItemEditor.h"
 #include "SceneAuthoringDialog.h"
 #include "SceneAssistDialog.h"
+#include "FullscreenParchmentEditor.h"
 #include "SceneInventoryDialog.h"
 #include "SceneStoryEventsDialog.h"
 #include "SceneEffectsDialog.h"
@@ -146,6 +147,7 @@ struct SceneMapCanvas
     DialogWalkthrough* dialogWalkthrough = nullptr;
     ItemEditor* itemEditor = nullptr;
     SceneAuthoringDialog sceneAuthoring;
+    FullscreenParchmentEditor* parchment = nullptr;
     SceneAssistDialog sceneAssist;
     SceneInventoryDialog sceneInventory;
     SceneStoryEventsDialog sceneStoryEvents;

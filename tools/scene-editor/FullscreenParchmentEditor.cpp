@@ -218,7 +218,13 @@ void FullscreenParchmentEditor::openEditor(
     scrollY = 0.0f;
     preferX = -1.0f;
     open = true;
-    ignoreInputFrames = 1;
+    ignoreInputFrames = 2;
+    TraceLog(
+        LOG_INFO,
+        "TIMBERLINE: parchment editor open (%s) desk=%s script=%s",
+        label.c_str(),
+        deskLoaded ? "yes" : "no",
+        scriptLoaded ? "yes" : "no");
 }
 
 void FullscreenParchmentEditor::confirm()
@@ -458,7 +464,8 @@ void FullscreenParchmentEditor::draw(int screenW, int screenH)
     if (!open)
         return;
 
-    // Cover entire editor chrome.
+    // Cover entire editor chrome (must run inside BeginDrawing/EndDrawing).
+    DrawRectangle(0, 0, screenW, screenH, Color{10, 8, 6, 255});
     if (deskLoaded && deskTexture.id != 0)
     {
         DrawTexturePro(
@@ -468,10 +475,6 @@ void FullscreenParchmentEditor::draw(int screenW, int screenH)
             {0, 0},
             0.0f,
             WHITE);
-    }
-    else
-    {
-        DrawRectangle(0, 0, screenW, screenH, Color{28, 18, 12, 255});
     }
 
     const Font font = scriptLoaded ? scriptFont : GetFontDefault();
