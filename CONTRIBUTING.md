@@ -30,7 +30,7 @@ Open an issue before large design swings (conversation file layout, global story
 
    Example: `Issue: 35 - Find Homebrew deps under /opt/homebrew on Apple Silicon`
 
-5. Pull requests with windows CRLF file endings will be rejected.  Update your global config to automate this.
+5. Pull requests with windows CRLF line endings will be rejected.  Update your global config to automate this.
    ```
    git config --global core.autocrlf input
    ```
