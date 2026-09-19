@@ -15,7 +15,9 @@ Corner ports (**NW / NE / SW / SE**) author **Use-driven scene changes**:
 | **Direct Use** | Scene `useExit` (+ optional `useDetails`, `useRepeatStatus`, map corner fields) | If the scene has **no** available `interactions[]`, Use runs immediately (no picker). |
 | **Interaction Use** | `interactions[]` entry with `exitSceneId` (map stubs are often `use_map_N`) | Use opens the interaction picker when any such interactions are available. |
 
-Drag corner → corner (or Manage Use Transition) to create/edit these. **Accept** saves the Use description and destination; **Cancel** closes without changing the destination.
+Drag corner → corner (or **Manage Use Transition**) to create/edit these. The dialog’s **Use description** box is the narrative shown when the player clicks Use (`useDetails`). **Accept** saves that description and the destination; **Cancel** closes without changing the destination.
+
+**Note:** Edit Scene does **not** author Use description / repeat — those live on the Use Transition dialog (and Effects for repeat status). Saving Edit Scene preserves them.
 
 ### What gets a silver Use wire on the map
 

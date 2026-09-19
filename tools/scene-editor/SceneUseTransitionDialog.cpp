@@ -290,6 +290,8 @@ bool SceneUseTransitionDialog::createNewBinding()
     status = "Created " + binding + " -> " + toId;
     error.clear();
     refreshRows();
+    // Keep focus on the description so authors edit narrative immediately.
+    detailsFocused = true;
     if (onSaved)
         onSaved();
     return true;
@@ -380,20 +382,22 @@ void SceneUseTransitionDialog::draw(int screenW, int screenH)
     y += 6.0f;
 
     const std::string help =
-        "Create new: add Direct Use (useExit) if free, else a repeatable interaction. "
-        "Clear: remove the selected binding. "
-        "Accept: save description, point the binding at the wire destination, close. "
-        "Cancel: close without changing the destination (keeps an already-created binding).";
+        "Create new: Direct Use if free, else a repeatable interaction. "
+        "Clear: remove binding. Accept: save description + destination. "
+        "Cancel: close without changing destination.";
     const auto helpLines = wrapUiText(font, help, kFontTiny, textMaxW);
     const float helpH = static_cast<float>(helpLines.size()) * 15.0f;
 
     const float detailsLabelH = 18.0f;
-    const float detailsBoxH = 72.0f;
+    const float detailsMetaH = 16.0f;
+    const float detailsBoxH = 110.0f;
     const float statusH = 18.0f;
     const float btnH = 32.0f;
     const float footerGap = 8.0f;
-    const float footerH = helpH + footerGap + detailsLabelH + detailsBoxH + footerGap
-        + statusH + footerGap + btnH + 14.0f;
+    // Description sits directly under the binding list (before help) so it is
+    // obvious — the primary authoring control for #27.
+    const float footerH = detailsLabelH + detailsMetaH + detailsBoxH + footerGap
+        + helpH + footerGap + statusH + footerGap + btnH + 14.0f;
 
     const Rectangle list = {
         dialog.x + 16.0f,
@@ -463,12 +467,6 @@ void SceneUseTransitionDialog::draw(int screenW, int screenH)
     EndScissorMode();
 
     float footY = list.y + list.height + 8.0f;
-    for (const std::string& line : helpLines)
-    {
-        DrawTextEx(font, line.c_str(), {dialog.x + pad, footY}, kFontTiny, 1.0f, kTextMuted);
-        footY += 15.0f;
-    }
-    footY += footerGap;
 
     DrawTextEx(
         font,
@@ -478,6 +476,33 @@ void SceneUseTransitionDialog::draw(int screenW, int screenH)
         1.0f,
         kTextPrimary);
     footY += detailsLabelH;
+
+    {
+        std::string meta = selectedBinding.empty()
+            ? "Select or create a binding to edit the description."
+            : ("Binding: " + selectedBinding);
+        if (!selectedBinding.empty())
+        {
+            bool repeat = true;
+            for (const auto& row : rows)
+            {
+                if (row.binding == selectedBinding)
+                {
+                    repeat = row.repeat;
+                    break;
+                }
+            }
+            meta += repeat ? "  ·  Repeatable" : "  ·  One-shot";
+        }
+        DrawTextEx(
+            font,
+            clipUiLine(font, meta, kFontTiny, textMaxW).c_str(),
+            {dialog.x + pad, footY},
+            kFontTiny,
+            1.0f,
+            kTextMuted);
+        footY += detailsMetaH;
+    }
 
     const Rectangle detailsBox = {
         dialog.x + pad, footY, textMaxW, detailsBoxH};
@@ -541,6 +566,12 @@ void SceneUseTransitionDialog::draw(int screenW, int screenH)
     }
 
     footY += detailsBoxH + footerGap;
+    for (const std::string& line : helpLines)
+    {
+        DrawTextEx(font, line.c_str(), {dialog.x + pad, footY}, kFontTiny, 1.0f, kTextMuted);
+        footY += 15.0f;
+    }
+    footY += footerGap;
     if (!status.empty() || !error.empty())
     {
         const std::string& msg = !error.empty() ? error : status;

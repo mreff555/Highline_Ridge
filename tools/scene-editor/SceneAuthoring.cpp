@@ -659,8 +659,16 @@ SceneUpsertResult upsertScene(
         for (auto it = fresh.begin(); it != fresh.end(); ++it)
         {
             const std::string& key = it.key();
+            // Preserve map / Use-transition / inventory / story authoring that this
+            // dialog does not edit. buildSceneJson stamps useDetails="" which was
+            // wiping Manage Use Transition narratives on every Edit Scene save (#27).
             if (key == "layout" || key == "exits" || key == "movement"
-                || key == "inventory" || key == "start")
+                || key == "inventory" || key == "start"
+                || key == "useDetails" || key == "useRepeatStatus"
+                || key == "useExitMapCorner" || key == "useExitMapToCorner"
+                || key == "interactions" || key == "takeables" || key == "storyEvents"
+                || key == "overlays" || key == "alternateImages"
+                || key == "speakDetails")
                 continue;
             (*existing)[key] = it.value();
         }
