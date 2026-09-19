@@ -396,6 +396,21 @@ add_custom_target(check_tts_resources ALL
     COMMENT "Validating TTS scene/item policies and voice markup"
 )
 add_dependencies(${PROJECT_NAME} check_tts_resources)
+
+# Soft story-events / flag-graph lint (schema errors fail; cross-ref warnings do not).
+add_executable(validate_story_events tools/validate_story_events.cpp)
+target_compile_features(validate_story_events PRIVATE cxx_std_17)
+target_link_libraries(validate_story_events PRIVATE nlohmann_json::nlohmann_json)
+add_custom_target(check_story_events ALL
+    COMMAND validate_story_events
+        --scenes "${CMAKE_SOURCE_DIR}/resources/scenes.json"
+        --conversations "${CMAKE_SOURCE_DIR}/resources/conversations.json"
+        --game-session "${CMAKE_SOURCE_DIR}/src/GameSession.cpp"
+    DEPENDS validate_story_events
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    COMMENT "Linting storyEvents schema and story-flag set/read graph"
+)
+add_dependencies(${PROJECT_NAME} check_story_events)
 if(TARGET sync_resources)
     add_dependencies(${PROJECT_NAME} sync_resources)
 endif()
