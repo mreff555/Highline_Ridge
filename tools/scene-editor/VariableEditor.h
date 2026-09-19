@@ -123,6 +123,8 @@ struct VariableEditor
     std::function<void()> onSceneInventory;
     /** Open Scene Effects (stat deltas) editor for the selected scene. */
     std::function<void()> onSceneEffects;
+    /** Open Story Events editor for the selected scene. */
+    std::function<void()> onSceneStoryEvents;
 
 
 

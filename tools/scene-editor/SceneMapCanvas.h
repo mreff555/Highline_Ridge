@@ -33,6 +33,7 @@
 #include "SceneAuthoringDialog.h"
 #include "SceneAssistDialog.h"
 #include "SceneInventoryDialog.h"
+#include "SceneStoryEventsDialog.h"
 #include "SceneEffectsDialog.h"
 #include "SceneTransitionDialog.h"
 #include "SceneUseTransitionDialog.h"
@@ -147,6 +148,7 @@ struct SceneMapCanvas
     SceneAuthoringDialog sceneAuthoring;
     SceneAssistDialog sceneAssist;
     SceneInventoryDialog sceneInventory;
+    SceneStoryEventsDialog sceneStoryEvents;
     SceneEffectsDialog sceneEffects;
     SceneTransitionDialog sceneTransition;
     SceneUseTransitionDialog sceneUseTransition;

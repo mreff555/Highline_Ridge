@@ -107,6 +107,7 @@ set(EDITOR_SOURCES
     SceneAuthoringDialog.cpp
     SceneAssistDialog.cpp
     SceneInventoryDialog.cpp
+    SceneStoryEventsDialog.cpp
     SceneEffectsDialog.cpp
     SceneTransitionDialog.cpp
     SceneUseTransitionDialog.cpp

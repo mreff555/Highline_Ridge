@@ -1685,8 +1685,13 @@ void VariableEditor::drawVariablesPane(Rectangle paneBounds, bool allowInteracti
         paneBounds.y + 6.0f,
         88.0f,
         20.0f};
-    const Rectangle effectsBtn = {
+    const Rectangle eventsBtn = {
         inventoryBtn.x - 80.0f,
+        paneBounds.y + 6.0f,
+        72.0f,
+        20.0f};
+    const Rectangle effectsBtn = {
+        eventsBtn.x - 80.0f,
         paneBounds.y + 6.0f,
         72.0f,
         20.0f};
@@ -1739,6 +1744,16 @@ void VariableEditor::drawVariablesPane(Rectangle paneBounds, bool allowInteracti
         1.0f,
         kTextPrimary);
 
+    DrawRectangleRec(eventsBtn, kPanelAccent);
+    DrawRectangleLinesEx(eventsBtn, 1.0f, kPanelBorder);
+    DrawTextEx(
+        font,
+        "Events",
+        {eventsBtn.x + 14.0f, eventsBtn.y + 3.0f},
+        kFontTiny,
+        1.0f,
+        kTextPrimary);
+
     DrawRectangleRec(inventoryBtn, kPanelAccent);
     DrawRectangleLinesEx(inventoryBtn, 1.0f, kPanelBorder);
     DrawTextEx(
@@ -1784,6 +1799,8 @@ void VariableEditor::drawVariablesPane(Rectangle paneBounds, bool allowInteracti
         {
             if (CheckCollisionPointRec(mouseEmpty, effectsBtn) && onSceneEffects)
                 onSceneEffects();
+            else if (CheckCollisionPointRec(mouseEmpty, eventsBtn) && onSceneStoryEvents)
+                onSceneStoryEvents();
             else if (CheckCollisionPointRec(mouseEmpty, inventoryBtn) && onSceneInventory)
                 onSceneInventory();
             else if (CheckCollisionPointRec(mouseEmpty, aiAssistBtn) && onAiAssist)
@@ -1816,6 +1833,10 @@ void VariableEditor::drawVariablesPane(Rectangle paneBounds, bool allowInteracti
         if (CheckCollisionPointRec(mouse, effectsBtn) && onSceneEffects)
         {
             onSceneEffects();
+        }
+        else if (CheckCollisionPointRec(mouse, eventsBtn) && onSceneStoryEvents)
+        {
+            onSceneStoryEvents();
         }
         else if (CheckCollisionPointRec(mouse, inventoryBtn) && onSceneInventory)
         {
