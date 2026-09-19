@@ -146,6 +146,44 @@ std::string ttsBagText(const nlohmann::json& scene, const char* key)
     return "";
 }
 
+std::string ttsBagAudio(const nlohmann::json& node, const char* key)
+{
+    if (!node.contains(key) || !node[key].is_object())
+        return "";
+    const auto& bag = node[key];
+    if (bag.contains("ttsAudio") && bag["ttsAudio"].is_string())
+        return bag["ttsAudio"].get<std::string>();
+    return "";
+}
+
+bool ttsBagPresent(const nlohmann::json& node, const char* key)
+{
+    return !ttsBagText(node, key).empty() || !ttsBagAudio(node, key).empty();
+}
+
+/** Write/update a TTS bag; keep existing ttsAudio so older filenames are not lost. */
+void writeTtsBagPreservingAudio(
+    nlohmann::json& target,
+    const char* key,
+    const std::string& text,
+    const std::string& defaultAudioPath)
+{
+    if (text.empty())
+    {
+        target.erase(key);
+        return;
+    }
+    std::string audio = defaultAudioPath;
+    const std::string existing = ttsBagAudio(target, key);
+    if (!existing.empty())
+        audio = existing;
+    target[key] = {
+        {"tts", true},
+        {"ttsText", text},
+        {"ttsVoice", ""},
+        {"ttsAudio", audio}};
+}
+
 } // namespace
 
 bool isSharedSceneImagePlaceholder(const std::string& relPath)
@@ -541,6 +579,31 @@ SceneUpsertResult upsertScene(
             sub["useExit"] = payload.useExit;
         else
             sub.erase("useExit");
+
+        // Sub-scene TTS bags (runtime pickSceneTts prefers these over parent).
+        if (payload.ttsEnabled)
+        {
+            if (!payload.ttsDefaultVoice.empty())
+                sub["ttsDefaultVoice"] = payload.ttsDefaultVoice;
+            writeTtsBagPreservingAudio(
+                sub,
+                "descriptionTts",
+                payload.ttsDescription,
+                "resources/audio/tts/" + payload.parentSceneId + "/" + payload.subSceneId
+                    + "_description.mp3");
+            writeTtsBagPreservingAudio(
+                sub,
+                "examineTts",
+                payload.ttsExamineDetails,
+                "resources/audio/tts/" + payload.parentSceneId + "/" + payload.subSceneId
+                    + "_examine.mp3");
+        }
+        else
+        {
+            sub.erase("descriptionTts");
+            sub.erase("examineTts");
+            sub.erase("ttsDefaultVoice");
+        }
 
         const std::string mapNode = timberline_engine::SceneDocument::makeMapNodeId(
             payload.parentSceneId, payload.subSceneId);
@@ -1032,16 +1095,21 @@ bool fillPayloadFromScene(
         out.description = sub.value("description", "");
         out.examineDetails = sub.value("examineDetails", "");
         out.imagePath = sub.value("image", "");
-        // Audio / TTS live on the parent room for now.
+        // Ambient/music still come from the parent room; spoken TTS bags live on
+        // the sub-scene (see pickSceneTts in SceneLoader).
         out.ambientPath = docs.scenes.getSceneAmbientPath(parentId);
         out.musicPath = docs.scenes.getSceneMusicPath(parentId);
         out.enterSfxPath.clear();
         out.exitSfxPath.clear();
-        out.speakEnabled = false;
-        out.ttsEnabled = false;
-        out.ttsDefaultVoice = parent->value("ttsDefaultVoice", "leo");
-        out.ttsDescription.clear();
-        out.ttsExamineDetails.clear();
+        out.ttsDescription = ttsBagText(sub, "descriptionTts");
+        out.ttsExamineDetails = ttsBagText(sub, "examineTts");
+        out.ttsEnabled = ttsBagPresent(sub, "descriptionTts")
+            || ttsBagPresent(sub, "examineTts")
+            || parent->value("ttsEnabled", false);
+        out.ttsDefaultVoice = sub.value(
+            "ttsDefaultVoice",
+            parent->value("ttsDefaultVoice", "leo"));
+        out.speakEnabled = out.ttsEnabled;
         const auto layout = docs.scenes.getLayout(sceneId);
         out.layoutX = layout.x;
         out.layoutY = layout.y;
@@ -1829,8 +1897,29 @@ void applySceneAiOutputsToPayload(
     DocumentWorkspace& docs,
     const std::string& sceneId)
 {
-    nlohmann::json* scene = docs.scenes.sceneJson(sceneId);
-    if (scene == nullptr || !scene->is_object())
+    // Alternate views store TTS on parent.subScenes[sub], not a top-level scene id.
+    nlohmann::json* scene = nullptr;
+    nlohmann::json* ttsTarget = nullptr;
+    if (payload.alternateMode && !payload.parentSceneId.empty()
+        && !payload.subSceneId.empty())
+    {
+        scene = docs.scenes.sceneJson(payload.parentSceneId);
+        if (scene != nullptr && scene->is_object())
+        {
+            if (!scene->contains("subScenes") || !(*scene)["subScenes"].is_object())
+                (*scene)["subScenes"] = nlohmann::json::object();
+            nlohmann::json& sub = (*scene)["subScenes"][payload.subSceneId];
+            if (!sub.is_object())
+                sub = nlohmann::json::object();
+            ttsTarget = &sub;
+        }
+    }
+    else
+    {
+        scene = docs.scenes.sceneJson(sceneId);
+        ttsTarget = scene;
+    }
+    if (scene == nullptr || !scene->is_object() || ttsTarget == nullptr)
         return;
 
     // Prefer known default paths if files exist under resources.
@@ -1844,7 +1933,8 @@ void applySceneAiOutputsToPayload(
         return p;
     };
 
-    payload.id = sceneId;
+    if (!payload.alternateMode)
+        payload.id = sceneId;
     normalizeSceneAuthoringPaths(payload);
 
     // If a prior bug wrote this scene's art onto the shared under-construction
@@ -1933,23 +2023,22 @@ void applySceneAiOutputsToPayload(
                     if (type == "generate_scene_description_tts_text")
                     {
                         payload.ttsDescription = text;
-                        (*scene)["descriptionTts"] = {
-                            {"tts", true},
-                            {"ttsText", text},
-                            {"ttsVoice", ""},
-                            {"ttsAudio",
-                             "resources/audio/tts/" + sceneId
-                                 + "/descriptionTts.mp3"}};
+                        const std::string defaultAudio = payload.alternateMode
+                            ? ("resources/audio/tts/" + payload.parentSceneId + "/"
+                               + payload.subSceneId + "_description.mp3")
+                            : ("resources/audio/tts/" + sceneId + "/descriptionTts.mp3");
+                        writeTtsBagPreservingAudio(
+                            *ttsTarget, "descriptionTts", text, defaultAudio);
                     }
                     else if (type == "generate_scene_examine_tts_text")
                     {
                         payload.ttsExamineDetails = text;
-                        (*scene)["examineTts"] = {
-                            {"tts", true},
-                            {"ttsText", text},
-                            {"ttsVoice", ""},
-                            {"ttsAudio",
-                             "resources/audio/tts/" + sceneId + "/examineTts.mp3"}};
+                        const std::string defaultAudio = payload.alternateMode
+                            ? ("resources/audio/tts/" + payload.parentSceneId + "/"
+                               + payload.subSceneId + "_examine.mp3")
+                            : ("resources/audio/tts/" + sceneId + "/examineTts.mp3");
+                        writeTtsBagPreservingAudio(
+                            *ttsTarget, "examineTts", text, defaultAudio);
                     }
                 }
             }
@@ -1966,14 +2055,26 @@ void applySceneAiOutputsToPayload(
 
     if (payload.ttsEnabled)
     {
-        (*scene)["ttsEnabled"] = true;
-        (*scene)["ttsDefaultVoice"] = payload.ttsDefaultVoice.empty()
+        const std::string voice = payload.ttsDefaultVoice.empty()
             ? "leo"
             : payload.ttsDefaultVoice;
-        if (!scene->contains("actions") || !(*scene)["actions"].is_object())
-            (*scene)["actions"] = nlohmann::json::object();
-        (*scene)["actions"]["speak"] = true;
-        (*scene)["actions"]["examine"] = true;
+        if (payload.alternateMode)
+        {
+            (*ttsTarget)["ttsDefaultVoice"] = voice;
+            // Keep parent ttsEnabled so room-level refresh still finds the scene.
+            (*scene)["ttsEnabled"] = true;
+            if ((*scene).value("ttsDefaultVoice", "").empty())
+                (*scene)["ttsDefaultVoice"] = voice;
+        }
+        else
+        {
+            (*scene)["ttsEnabled"] = true;
+            (*scene)["ttsDefaultVoice"] = voice;
+            if (!scene->contains("actions") || !(*scene)["actions"].is_object())
+                (*scene)["actions"] = nlohmann::json::object();
+            (*scene)["actions"]["speak"] = true;
+            (*scene)["actions"]["examine"] = true;
+        }
     }
 
     docs.markDirty();

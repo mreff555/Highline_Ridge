@@ -566,7 +566,7 @@ float SceneAuthoringDialog::estimateFormContentHeight() const
     h += (payload.alternateMode ? 1.0f : 3.0f) * (16.0f + 32.0f + 12.0f); // image[/ambient/music]
     h += 16.0f + 26.0f + 12.0f; // Alternate switch
     h += 16.0f + 26.0f + 12.0f; // TTS switch (+ label)
-    if (payload.ttsEnabled && !payload.alternateMode)
+    if (payload.ttsEnabled)
     {
         h += 16.0f + 28.0f + 8.0f;   // default voice
         h += 16.0f + 100.0f + 10.0f; // TTS description
@@ -1458,13 +1458,29 @@ void SceneAuthoringDialog::startVoiceRefresh()
         const std::string root =
             docs->assetRoot.empty() ? "." : docs->assetRoot;
         auto rotateBagAudio = [&](const char* bagKey) {
-            const nlohmann::json* scene = docs->scenes.sceneJson(payload.id);
-            if (scene == nullptr || !scene->is_object())
+            const nlohmann::json* bagOwner = nullptr;
+            if (payload.alternateMode)
+            {
+                const nlohmann::json* parent =
+                    docs->scenes.sceneJson(payload.parentSceneId);
+                if (parent == nullptr || !parent->is_object())
+                    return;
+                if (!parent->contains("subScenes") || !(*parent)["subScenes"].is_object())
+                    return;
+                if (!(*parent)["subScenes"].contains(payload.subSceneId))
+                    return;
+                bagOwner = &(*parent)["subScenes"][payload.subSceneId];
+            }
+            else
+            {
+                bagOwner = docs->scenes.sceneJson(payload.id);
+            }
+            if (bagOwner == nullptr || !bagOwner->is_object())
                 return;
-            if (!scene->contains(bagKey) || !(*scene)[bagKey].is_object())
+            if (!bagOwner->contains(bagKey) || !(*bagOwner)[bagKey].is_object())
                 return;
             const std::string audio =
-                (*scene)[bagKey].value("ttsAudio", std::string{});
+                (*bagOwner)[bagKey].value("ttsAudio", std::string{});
             if (!audio.empty())
                 rotateLiveAssetBackup(root, audio);
         };
@@ -2311,10 +2327,8 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
         kTextMuted);
     y += 38.0f;
 
-    // TTS section (replaces Speak button). Hidden for alternate views —
-    // TTS lives on the parent room.
-    if (!payload.alternateMode)
-    {
+    // TTS section — works for full rooms and alternate/sub-scene views.
+    // Sub-scene bags are stored on parent.subScenes[sub] (runtime pickSceneTts).
     drawLabel(font, "TTS on/off", labelX, y);
     y += 16.0f;
     // Enlarge hit target so the switch stays easy to click near the clip edge.
@@ -2336,6 +2350,16 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
             lastContentHeight = std::max(lastContentHeight, need);
             scrollY = std::max(0.0f, need - content.height);
         }
+    }
+    if (payload.alternateMode)
+    {
+        DrawTextEx(
+            font,
+            "Writes TTS onto this sub-scene (not the parent room).",
+            {ttsSwitchTrack.x + ttsSwitchTrack.width + 12.0f, ttsSwitchTrack.y + 5.0f},
+            kFontTiny,
+            1.0f,
+            kTextMuted);
     }
     y += 38.0f;
 
@@ -2424,13 +2448,6 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
     }
     else
     {
-        voiceBtnRect = {0, 0, 0, 0};
-        voiceMenuOpen = false;
-    }
-    } // !alternateMode TTS block
-    else
-    {
-        ttsSwitchTrack = {0, 0, 0, 0};
         voiceBtnRect = {0, 0, 0, 0};
         voiceMenuOpen = false;
     }

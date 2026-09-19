@@ -50,6 +50,8 @@ Right-click → **Edit…** (or equivalent) opens **Scene Authoring**:
 
 **Important:** Use **narrative** (`useDetails`) and **repeat** for map Use exits are **not** edited here — use **Manage Use Transition** (and Effects for status). Edit Scene **preserves** those fields so they are not wiped on save.
 
+**Alternate / focus views** (`parent#sub`, e.g. snow cave `chamber` / `toward_exit`): TTS description and examine bags live on the **sub-scene**. Edit the alternate map node (not only the parent room) to see TTS on and the spoken text. Saving writes `subScenes[sub].descriptionTts` / `examineTts` and keeps existing audio paths.
+
 **Screenshot:** `docs/images/editor-edit-scene.png` — Edit Scene with TTS section visible.
 
 ---
