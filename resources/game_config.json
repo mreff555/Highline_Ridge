@@ -1,25 +1,30 @@
 {
-  "display": {
-    "width": 1500,
-    "height": 1117,
-    "fullscreen": false
-  },
   "audio": {
-    "master": 1.0,
-    "music": 0.7,
     "ambient": 0.5,
-    "sfx": 0.8
+    "master": 1.0,
+    "music": 0.699999988079071,
+    "sfx": 0.800000011920929
+  },
+  "display": {
+    "aspectPreference": "auto",
+    "fullscreen": true,
+    "height": 1440,
+    "monitor": 0,
+    "width": 2560,
+    "x": 589,
+    "y": 137
   },
   "input": {
-    "clickHoldSeconds": 0.07
-  },
-  "tts": {
-    "enabled": true,
-    "voice": "leo",
-    "bundleDir": "resources/audio/tts"
+    "clickHoldSeconds": 0.07000000029802322,
+    "skipDropConfirmation": false
   },
   "saves": {
     "maxNamedSaves": 10
+  },
+  "tts": {
+    "bundleDir": "resources/audio/tts",
+    "enabled": true,
+    "voice": "leo"
   },
   "ui": {
     "background": "morris"
