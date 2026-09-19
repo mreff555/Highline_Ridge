@@ -1,6 +1,6 @@
-# Contributing to Highline Ridge / Timberline
+# Contributing to The Timberline Engine and/or Highline Ridge.
 
-Human and AI contributions are welcome. This project is largely AI co-developed (**c0d3B0t555** with Dan Feerst) and is built to work with **xAI** / Grok for TTS and authoring workflows.
+Human and AI contributions are welcome. This project is largely AI co-developed (**c0d3B0t555** with his human Dan) and is built to work with **xAI** / Grok for TTS and authoring workflows.
 
 ## Contact
 
@@ -30,6 +30,11 @@ Open an issue before large design swings (conversation file layout, global story
 
    Example: `Issue: 35 - Find Homebrew deps under /opt/homebrew on Apple Silicon`
 
+5. Pull requests with windows CRLF file endings will be rejected.  Update your global config to automate this.
+   ```
+   git config --global core.autocrlf input
+   ```
+
 ## Dev quick start
 
 See [README.md](README.md) and [BUILD.md](BUILD.md). Typical loop:
@@ -42,4 +47,4 @@ cmake -S . -B build && cmake --build build -j
 ./build/scene-editor
 ```
 
-Thanks for helping ship Timberline and Highline Ridge.
+Thanks for helping with Timberline and Highline Ridge.
