@@ -55,21 +55,21 @@ You will need to purchase credits to generate the TTS.  The cost should be minim
 
 *Inline tags:*
 Grok's text to speach includes bracket and angle bracket enclosed inline tags to improve realism in TTS dialogs.  Additionally the Timberline Engine also implements brace enclosed inline tags to switch voices at any point in the conversation.
-[pause]        - Standard pause for natural conversation breams
-[pause:Xms]    - Precise control ex. [pause:500ms]
-[long-pause]   - Extends a break for dramatic timing or to let a thought land
-[laugh]        -
-[chuckle]      -
-[giggle]       -
-[sigh]         -
-[cry]          -
-[hum-tune]     -
-[tsk]          -
-[tounge-click] -
-[lip-smack]    -
-[breath]       -
-[inhale]       -
-[exhale]       -
+- [pause]        - Standard pause for natural conversation breams
+- [pause:Xms]    - Precise control ex. [pause:500ms]
+- [long-pause]   - Extends a break for dramatic timing or to let a thought land
+- [laugh]        -
+- [chuckle]      -
+- [giggle]       -
+- [sigh]         -
+- [cry]          -
+- [hum-tune]     -
+- [tsk]          -
+- [tounge-click] -
+- [lip-smack]    -
+- [breath]       -
+- [inhale]       -
+- [exhale]       -
 
 *Style and tone wrappings* ex. <whisper>text</whisper>
 <soft>
