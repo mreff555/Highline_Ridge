@@ -65,6 +65,7 @@ void SceneEditorApp::wireModules()
     };
 
     dialogWalkthrough.docs = &document;
+    dialogWalkthrough.parchment = &parchmentEditor;
     dialogWalkthrough.selectionSceneId = &selectedSceneId;
     dialogWalkthrough.conversationSelectedKey = &conversation.selectedKey;
     dialogWalkthrough.onDirty = [this]() { document.markDirty(); };
@@ -181,6 +182,7 @@ void SceneEditorApp::syncModuleFonts()
     itemEditor.uiFontBold = uiFontBold;
     mapCanvas.uiFont = uiFont;
     mapCanvas.uiFontBold = uiFontBold;
+    mapCanvas.sceneAuthoring.parchment = &parchmentEditor;
     mapCanvas.sceneAuthoring.uiFont = uiFont;
     mapCanvas.sceneAuthoring.uiFontBold = uiFontBold;
     mapCanvas.sceneAssist.uiFont = uiFont;
@@ -262,6 +264,7 @@ void SceneEditorApp::loadUiFont()
 
 void SceneEditorApp::unloadUiFont()
 {
+    parchmentEditor.unloadAssets();
     if (uiFont.texture.id != 0)
         UnloadFont(uiFont);
     if (uiFontBold.texture.id != 0 && uiFontBold.texture.id != uiFont.texture.id)
@@ -425,8 +428,8 @@ bool SceneEditorApp::deleteSelectedScene()
 
 void SceneEditorApp::handleShortcuts()
 {
-    if (preferences.blocksInput() || variableEditor.open || sceneGraph.stackDialogOpen
-        || itemEditor.blocksInput()
+    if (parchmentEditor.blocksInput() || preferences.blocksInput() || variableEditor.open
+        || sceneGraph.stackDialogOpen || itemEditor.blocksInput()
         || mapCanvas.sceneAuthoring.blocksInput()
         || mapCanvas.sceneAssist.blocksInput()
         || mapCanvas.sceneInventory.blocksInput()
@@ -489,6 +492,12 @@ void SceneEditorApp::update()
 #endif
 
     handleShortcuts();
+
+    if (parchmentEditor.blocksInput())
+    {
+        parchmentEditor.handleInput(screenWidth, screenHeight);
+        return;
+    }
 
     if (!editorMouseDown(MOUSE_BUTTON_LEFT))
         layout.cancelDividerDrag();
@@ -624,6 +633,8 @@ void SceneEditorApp::update()
 void SceneEditorApp::draw()
 {
     mapCanvas.draw();
+    // Immersive writing overlay sits above every editor chrome / modal.
+    parchmentEditor.draw(GetScreenWidth(), GetScreenHeight());
 }
 
 } // namespace timberline_editor

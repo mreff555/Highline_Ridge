@@ -52,6 +52,8 @@ Right-click → **Edit…** (or equivalent) opens **Scene Authoring**:
 
 **Alternate / focus views** (`parent#sub`, e.g. snow cave `chamber` / `toward_exit`): TTS description and examine bags live on the **sub-scene**. Edit the alternate map node (not only the parent room) to see TTS on and the spoken text. Saving writes `subScenes[sub].descriptionTts` / `examineTts` and keeps existing audio paths.
 
+**Fullscreen writing desk:** right-click a description / examine / TTS multiline field (Edit Scene) or the Conversations text pane → **Edit full screen**. A parchment-on-desk overlay fills the editor; **Confirm** writes back, **Cancel** discards. TTS fields keep syntax coloring.
+
 **Screenshot:** `docs/images/editor-edit-scene.png` — Edit Scene with TTS section visible.
 
 ---

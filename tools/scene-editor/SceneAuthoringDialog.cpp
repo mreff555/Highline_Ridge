@@ -1604,14 +1604,85 @@ void SceneAuthoringDialog::handleInput(int screenW, int screenH)
         return;
     }
 
-    typeIntoFocusedField();
-
     // Scrollbar drag, click / drag selection (rects from last draw).
     const Vector2 mouse = GetMousePosition();
     const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
     const float fontSize = kFontSmall;
     const auto& cfg = editorButtons();
     const bool shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
+
+    // Right-click context: Edit full screen on multiline prose / TTS fields.
+    if (parchment != nullptr && editorMousePressed(MOUSE_BUTTON_RIGHT))
+    {
+        auto tryField = [&](int fieldId, const MultilineState& state) {
+            if (state.lastField.width > 1.0f
+                && CheckCollisionPointRec(mouse, state.lastField))
+            {
+                fieldContextOpen = true;
+                fieldContextTarget = fieldId;
+                fieldContextRect = {mouse.x, mouse.y, 160.0f, 28.0f};
+                if (fieldContextRect.x + fieldContextRect.width > GetScreenWidth())
+                    fieldContextRect.x = GetScreenWidth() - fieldContextRect.width - 4.0f;
+                if (fieldContextRect.y + fieldContextRect.height > GetScreenHeight())
+                    fieldContextRect.y = GetScreenHeight() - fieldContextRect.height - 4.0f;
+                return true;
+            }
+            return false;
+        };
+        if (!(tryField(1, descriptionEdit) || tryField(2, examineEdit)
+              || tryField(7, ttsDescriptionEdit) || tryField(8, ttsExamineEdit)))
+            fieldContextOpen = false;
+    }
+    if (fieldContextOpen && editorMousePressed(MOUSE_BUTTON_LEFT))
+    {
+        if (CheckCollisionPointRec(mouse, fieldContextRect) && parchment != nullptr
+            && docs != nullptr)
+        {
+            std::string* target = nullptr;
+            bool tts = false;
+            const char* label = "Edit";
+            if (fieldContextTarget == 1)
+            {
+                target = &payload.description;
+                label = "Description";
+            }
+            else if (fieldContextTarget == 2)
+            {
+                target = &payload.examineDetails;
+                label = "Examine details";
+            }
+            else if (fieldContextTarget == 7)
+            {
+                target = &payload.ttsDescription;
+                tts = true;
+                label = "TTS description";
+            }
+            else if (fieldContextTarget == 8)
+            {
+                target = &payload.ttsExamineDetails;
+                tts = true;
+                label = "TTS examine";
+            }
+            if (target != nullptr)
+            {
+                parchment->openEditor(
+                    target, tts, label, docs->resourceDir, docs->assetRoot);
+                parchment->onClosed = [this]() {
+                    descriptionEdit.cursor =
+                        static_cast<int>(payload.description.size());
+                    examineEdit.cursor =
+                        static_cast<int>(payload.examineDetails.size());
+                    ttsDescriptionEdit.cursor =
+                        static_cast<int>(payload.ttsDescription.size());
+                    ttsExamineEdit.cursor =
+                        static_cast<int>(payload.ttsExamineDetails.size());
+                };
+            }
+        }
+        fieldContextOpen = false;
+    }
+
+    typeIntoFocusedField();
 
     auto handleScrollbarPress = [&](MultilineState& state, int fieldIndex) -> bool {
         if (state.lastMaxScroll <= 0.5f || state.lastScrollTrack.width <= 0.0f)
@@ -2547,6 +2618,19 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
 
     if (busy)
         drawWorkingOverlay(screenW, screenH, font, bold);
+
+    if (fieldContextOpen)
+    {
+        DrawRectangleRec(fieldContextRect, Color{32, 28, 40, 245});
+        DrawRectangleLinesEx(fieldContextRect, 1.0f, kPanelBorder);
+        DrawTextEx(
+            font,
+            "Edit full screen",
+            {fieldContextRect.x + 10.0f, fieldContextRect.y + 6.0f},
+            kFontSmall,
+            1.0f,
+            kTextPrimary);
+    }
 }
 
 void SceneAuthoringDialog::drawWorkingOverlay(int screenW, int screenH, Font font, Font bold)

@@ -131,6 +131,7 @@ set(EDITOR_SOURCES
     ItemEditorAuthoring.cpp
     SceneAuthoring.cpp
     SceneAuthoringDialog.cpp
+    FullscreenParchmentEditor.cpp
     SceneAssistDialog.cpp
     SceneInventoryDialog.cpp
     SceneStoryEventsDialog.cpp

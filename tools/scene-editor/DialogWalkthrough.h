@@ -22,6 +22,7 @@
 
 #include "DocumentWorkspace.h"
 #include "EditorTypes.h"
+#include "FullscreenParchmentEditor.h"
 
 #include <functional>
 #include <string>
@@ -60,6 +61,7 @@ struct DialogWalkStep
 struct DialogWalkthrough
 {
     DocumentWorkspace* docs = nullptr;
+    FullscreenParchmentEditor* parchment = nullptr;
     std::string* selectionSceneId = nullptr;
     std::string* conversationSelectedKey = nullptr;
     std::function<void()> onDirty;
@@ -68,6 +70,9 @@ struct DialogWalkthrough
     std::function<void()> onSceneChanged;
     Font uiFont{};
     Font uiFontBold{};
+
+    bool fieldContextOpen = false;
+    Rectangle fieldContextRect{0, 0, 0, 0};
 
     std::vector<DialogWalkStep> steps;
     int index = 0;

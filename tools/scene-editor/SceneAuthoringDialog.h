@@ -9,6 +9,7 @@
 #define TIMBERLINE_SCENE_AUTHORING_DIALOG_H
 
 #include "DocumentWorkspace.h"
+#include "FullscreenParchmentEditor.h"
 #include "SceneAuthoring.h"
 
 #include <atomic>
@@ -25,9 +26,15 @@ namespace timberline_editor
 struct SceneAuthoringDialog
 {
     DocumentWorkspace* docs = nullptr;
+    FullscreenParchmentEditor* parchment = nullptr;
     std::function<void(const std::string&)> onCreated; // select new scene
     Font uiFont{};
     Font uiFontBold{};
+
+    /** Right-click "Edit full screen" menu over a multiline field. */
+    bool fieldContextOpen = false;
+    int fieldContextTarget = -1; // focusField id 1/2/7/8
+    Rectangle fieldContextRect{0, 0, 0, 0};
 
     bool open = false;
     bool editingExisting = false;

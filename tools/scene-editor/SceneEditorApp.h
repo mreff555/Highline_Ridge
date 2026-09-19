@@ -25,6 +25,7 @@
 #include "DocumentWorkspace.h"
 #include "EditorLayout.h"
 #include "EditorPreferencesDialog.h"
+#include "FullscreenParchmentEditor.h"
 #include "ItemEditor.h"
 #include "SceneGraphModel.h"
 #include "SceneMapCanvas.h"
@@ -51,6 +52,7 @@ struct SceneEditorApp
     SceneGraphModel sceneGraph;
     SceneMapCanvas mapCanvas;
     EditorPreferencesDialog preferences;
+    FullscreenParchmentEditor parchmentEditor;
 
     std::string selectedSceneId;
     float variablesScroll = 0.0f;

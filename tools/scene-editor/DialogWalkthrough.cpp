@@ -1140,6 +1140,37 @@ void DialogWalkthrough::handleInput(Rectangle pane)
     if (canClick && voiceMenuOpen && handleVoiceMenuClick(mouse))
         return;
 
+    if (parchment != nullptr && editorMousePressed(MOUSE_BUTTON_RIGHT)
+        && textField.width > 1.0f && CheckCollisionPointRec(mouse, textField))
+    {
+        fieldContextOpen = true;
+        fieldContextRect = {mouse.x, mouse.y, 160.0f, 28.0f};
+        if (fieldContextRect.x + fieldContextRect.width > GetScreenWidth())
+            fieldContextRect.x = GetScreenWidth() - fieldContextRect.width - 4.0f;
+        if (fieldContextRect.y + fieldContextRect.height > GetScreenHeight())
+            fieldContextRect.y = GetScreenHeight() - fieldContextRect.height - 4.0f;
+    }
+    if (fieldContextOpen && editorMousePressed(MOUSE_BUTTON_LEFT))
+    {
+        if (CheckCollisionPointRec(mouse, fieldContextRect) && parchment != nullptr
+            && docs != nullptr)
+        {
+            std::string* target = editTtsText ? &ttsTextBuffer : &textBuffer;
+            parchment->openEditor(
+                target,
+                editTtsText,
+                editTtsText ? "TTS dialog" : "Dialog text",
+                docs->resourceDir,
+                docs->assetRoot);
+            parchment->onClosed = [this]() {
+                dirtyStep = true;
+                cursor = static_cast<int>(
+                    (editTtsText ? ttsTextBuffer : textBuffer).size());
+            };
+        }
+        fieldContextOpen = false;
+    }
+
     if (steps.empty())
         return;
 
@@ -1688,7 +1719,7 @@ void DialogWalkthrough::draw(Rectangle pane)
 
     DrawTextEx(
         font,
-        "text/TTS slider  |  Shift+arrows / drag select  |  Ctrl/Cmd+C V X A  |  Alt+Left/Right  |  Ctrl+S  |  Enter=newline",
+        "Right-click text: Edit full screen  |  text/TTS slider  |  Ctrl/Cmd+C V X A  |  Alt+Left/Right  |  Ctrl+S",
         {editor.x + 10.0f, editor.y + editor.height - 18.0f},
         kFontTiny,
         1.0f,
@@ -1696,6 +1727,19 @@ void DialogWalkthrough::draw(Rectangle pane)
 
     // Draw voice menu LAST so it paints above the text field and list.
     drawVoiceMenu(font);
+
+    if (fieldContextOpen)
+    {
+        DrawRectangleRec(fieldContextRect, Color{32, 28, 40, 245});
+        DrawRectangleLinesEx(fieldContextRect, 1.0f, kPanelBorder);
+        DrawTextEx(
+            font,
+            "Edit full screen",
+            {fieldContextRect.x + 10.0f, fieldContextRect.y + 6.0f},
+            kFontSmall,
+            1.0f,
+            kTextPrimary);
+    }
 }
 
 } // namespace timberline_editor
