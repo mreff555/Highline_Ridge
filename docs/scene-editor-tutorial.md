@@ -122,7 +122,9 @@ Edit item definitions, combinations, and TTS where enabled. Prefer the item auth
 
 ## 8. Save and playtest
 
-1. **Ctrl/Cmd+S** (or Save control) so `resources/*.json` are on disk.  
+1. Save so `resources/*.json` are on disk:
+   - **macOS:** menu bar **File → Save** (⌘S)
+   - **All platforms:** **Ctrl/Cmd+S**
 2. Run `./build/Highline\ Ridge` from the build tree (resources are synced beside the binary).  
 3. For release packaging after TTS/art changes: `./build-release.sh`.
 

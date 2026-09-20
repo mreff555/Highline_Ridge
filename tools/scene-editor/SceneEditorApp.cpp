@@ -447,7 +447,8 @@ void SceneEditorApp::handleShortcuts()
     const bool super = IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER);
     if (ctrl || super)
     {
-        if (IsKeyPressed(KEY_S) && ctrl)
+        // Ctrl+S / Cmd+S — Save (macOS also has File → Save in the menu bar).
+        if (IsKeyPressed(KEY_S))
             saveDocument();
         // Ctrl+, / Cmd+, — Preferences (macOS also has a native menu item).
         if (IsKeyPressed(KEY_COMMA))
@@ -473,6 +474,10 @@ void SceneEditorApp::update()
     syncModuleFonts();
 
 #if defined(__APPLE__)
+    // Native File → Save (⌘S) from the Cocoa menu bar.
+    if (gEditorSaveMenuRequested.exchange(false))
+        saveDocument();
+
     // Native Preferences… menu (⌘,) sets this flag from Cocoa.
     if (gEditorPreferencesMenuRequested.exchange(false))
     {

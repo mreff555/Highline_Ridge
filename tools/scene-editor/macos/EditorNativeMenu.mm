@@ -2,7 +2,7 @@
  * Timberline engine
  * Copyright (C) 2026 Dan Feerst
  *
- * Minimal Cocoa Preferences menu for the raylib scene editor.
+ * Cocoa application + File menus for the raylib scene editor.
  ******************************************************************************/
 
 #import "EditorNativeMenu.h"
@@ -12,6 +12,7 @@
 #include <raylib.h>
 
 std::atomic<bool> gEditorPreferencesMenuRequested{false};
+std::atomic<bool> gEditorSaveMenuRequested{false};
 
 namespace
 {
@@ -20,17 +21,23 @@ void (*gOnPreferences)(void) = nullptr;
 
 } // namespace
 
-@interface EditorPreferencesMenuTarget : NSObject
+@interface EditorNativeMenuTarget : NSObject
 - (void)openPreferences:(id)sender;
+- (void)saveDocument:(id)sender;
 @end
 
-@implementation EditorPreferencesMenuTarget
+@implementation EditorNativeMenuTarget
 - (void)openPreferences:(id)sender
 {
     (void)sender;
     gEditorPreferencesMenuRequested.store(true);
     if (gOnPreferences)
         gOnPreferences();
+}
+- (void)saveDocument:(id)sender
+{
+    (void)sender;
+    gEditorSaveMenuRequested.store(true);
 }
 @end
 
@@ -72,49 +79,115 @@ extern "C" void editorInstallNativePreferencesMenu(void (*onPreferences)(void))
             [appMenuItem setSubmenu:appMenu];
         }
 
-        // Avoid duplicate Preferences items on re-install.
+        static EditorNativeMenuTarget* target = nil;
+        if (target == nil)
+            target = [[EditorNativeMenuTarget alloc] init];
+
+        // --- Preferences… in the application menu (⌘,) ---
+        bool hasPrefs = false;
         for (NSMenuItem* existing in [appMenu itemArray])
         {
             if ([[existing title] isEqualToString:@"Preferences…"]
                 || [[existing title] isEqualToString:@"Preferences..."])
-                return;
-        }
-
-        static EditorPreferencesMenuTarget* target = nil;
-        if (target == nil)
-            target = [[EditorPreferencesMenuTarget alloc] init];
-
-        NSMenuItem* prefs = [[NSMenuItem alloc]
-            initWithTitle:@"Preferences…"
-                   action:@selector(openPreferences:)
-            keyEquivalent:@","];
-        [prefs setKeyEquivalentModifierMask:NSEventModifierFlagCommand];
-        [prefs setTarget:target];
-
-        // Insert after About / before first separator when possible.
-        NSInteger insertAt = 0;
-        for (NSInteger i = 0; i < [appMenu numberOfItems]; ++i)
-        {
-            if ([[appMenu itemAtIndex:i] isSeparatorItem])
             {
-                insertAt = i;
+                hasPrefs = true;
                 break;
             }
-            insertAt = i + 1;
         }
-        [appMenu insertItem:prefs atIndex:insertAt];
-        if (insertAt == 0 || ![[appMenu itemAtIndex:0] isSeparatorItem])
+        if (!hasPrefs)
         {
-            // Keep a separator after Preferences when the menu was empty-ish.
+            NSMenuItem* prefs = [[NSMenuItem alloc]
+                initWithTitle:@"Preferences…"
+                       action:@selector(openPreferences:)
+                keyEquivalent:@","];
+            [prefs setKeyEquivalentModifierMask:NSEventModifierFlagCommand];
+            [prefs setTarget:target];
+
+            NSInteger insertAt = 0;
+            for (NSInteger i = 0; i < [appMenu numberOfItems]; ++i)
+            {
+                if ([[appMenu itemAtIndex:i] isSeparatorItem])
+                {
+                    insertAt = i;
+                    break;
+                }
+                insertAt = i + 1;
+            }
+            [appMenu insertItem:prefs atIndex:insertAt];
             const NSInteger after = [appMenu indexOfItem:prefs] + 1;
             if (after >= [appMenu numberOfItems]
                 || ![[appMenu itemAtIndex:after] isSeparatorItem])
                 [appMenu insertItem:[NSMenuItem separatorItem] atIndex:after];
+        }
+
+        // --- File menu between app menu and Window (Save ⌘S) ---
+        bool hasFileMenu = false;
+        for (NSMenuItem* item in [mainMenu itemArray])
+        {
+            if ([[item title] isEqualToString:@"File"])
+            {
+                hasFileMenu = true;
+                // Ensure Save exists if File was already created.
+                NSMenu* fileMenu = [item submenu];
+                bool hasSave = false;
+                for (NSMenuItem* sub in [fileMenu itemArray])
+                {
+                    if ([[sub title] isEqualToString:@"Save"])
+                    {
+                        hasSave = true;
+                        break;
+                    }
+                }
+                if (!hasSave && fileMenu != nil)
+                {
+                    NSMenuItem* save = [[NSMenuItem alloc]
+                        initWithTitle:@"Save"
+                               action:@selector(saveDocument:)
+                        keyEquivalent:@"s"];
+                    [save setKeyEquivalentModifierMask:NSEventModifierFlagCommand];
+                    [save setTarget:target];
+                    [fileMenu addItem:save];
+                }
+                break;
+            }
+        }
+
+        if (!hasFileMenu)
+        {
+            NSMenu* fileMenu = [[NSMenu alloc] initWithTitle:@"File"];
+            NSMenuItem* fileMenuItem =
+                [[NSMenuItem alloc] initWithTitle:@"File" action:nil keyEquivalent:@""];
+            [fileMenuItem setSubmenu:fileMenu];
+
+            NSMenuItem* save = [[NSMenuItem alloc]
+                initWithTitle:@"Save"
+                       action:@selector(saveDocument:)
+                keyEquivalent:@"s"];
+            [save setKeyEquivalentModifierMask:NSEventModifierFlagCommand];
+            [save setTarget:target];
+            [fileMenu addItem:save];
+
+            // Insert after the application menu (index 0), before Window/Help.
+            NSInteger insertAt = 1;
+            for (NSInteger i = 1; i < [mainMenu numberOfItems]; ++i)
+            {
+                NSString* title = [[mainMenu itemAtIndex:i] title];
+                if ([title isEqualToString:@"Window"] || [title isEqualToString:@"Help"]
+                    || [title isEqualToString:@"Edit"] || [title isEqualToString:@"View"])
+                {
+                    insertAt = i;
+                    break;
+                }
+                insertAt = i + 1;
+            }
+            if (insertAt > [mainMenu numberOfItems])
+                insertAt = [mainMenu numberOfItems];
+            [mainMenu insertItem:fileMenuItem atIndex:insertAt];
         }
     }
 }
 
 extern "C" void editorPollNativeMenuFlags(void)
 {
-    // Flag is read directly via gEditorPreferencesMenuRequested.
+    // Flags are read directly via the atomics.
 }
