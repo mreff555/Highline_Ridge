@@ -458,30 +458,11 @@ void FullscreenParchmentEditor::draw(int screenW, int screenH)
     layoutChrome(screenW, screenH);
     const Rectangle parchment = lastParchment;
 
-    // Lift the writing area with a parchment wash + warm lantern glow so the
-    // top of the page stays readable (desk art alone leaves that corner dark).
+    // Light lift only — realistic lantern falloff is baked into the desk plate.
+    // Avoid concentric DrawCircle glows (they read as hard layered rings).
     DrawRectangleRec(
-        {parchment.x + 4.0f, parchment.y + 4.0f, parchment.width - 8.0f, parchment.height - 8.0f},
-        Color{250, 236, 200, 70});
-    {
-        const Vector2 glowCenter = {
-            parchment.x + parchment.width * 0.22f,
-            parchment.y + parchment.height * 0.12f};
-        for (int i = 5; i >= 1; --i)
-        {
-            const float r = 90.0f + static_cast<float>(i) * 55.0f;
-            const unsigned char a = static_cast<unsigned char>(10 + i * 14);
-            DrawCircleV(glowCenter, r, Color{255, 210, 140, a});
-        }
-        // Soft fill across the text area so mid/lower lines stay lit too.
-        DrawRectangleGradientV(
-            static_cast<int>(lastTextArea.x - 8.0f),
-            static_cast<int>(lastTextArea.y - 8.0f),
-            static_cast<int>(lastTextArea.width + 16.0f),
-            static_cast<int>(lastTextArea.height + 16.0f),
-            Color{255, 220, 160, 55},
-            Color{255, 200, 130, 18});
-    }
+        {parchment.x + 6.0f, parchment.y + 6.0f, parchment.width - 12.0f, parchment.height - 12.0f},
+        Color{255, 236, 200, 28});
 
     if (!hintLabel.empty())
     {
