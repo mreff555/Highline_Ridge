@@ -10,6 +10,7 @@
 #include "EditorUiDraw.h"
 #include "ImageCompression.h"
 #include "PlatformPath.h"
+#include "TtsVoiceMarkup.h"
 
 #include <algorithm>
 #include <cmath>
@@ -520,9 +521,51 @@ void FullscreenParchmentEditor::draw(int screenW, int screenH)
     const float maxScroll = std::max(0.0f, contentH - lastTextArea.height);
     scrollY = std::clamp(scrollY, 0.0f, maxScroll);
 
+    // Parchment-tuned palette: theme colors are for dark editor panes.
+    const Color ink = Color{32, 24, 14, 255};
+    const Color styleTagInk = Color{120, 55, 18, 255};   // <soft>…</soft>
+    const Color styleBodyInk = Color{28, 48, 110, 255};  // text inside style wraps
+    const Color commandInk = Color{20, 110, 55, 255};    // [pause]
+    const Color voiceTagInk = Color{130, 95, 20, 255};   // {{voice:…}}
+    const Color voiceBodyInk = Color{20, 110, 55, 255};  // spoken voice spans
+    const Color errorInk = Color{150, 30, 30, 255};
+
     std::vector<Color> ttsColors;
     if (highlightTts && !draft.empty())
-        buildTtsHighlightColors(draft, ttsColors);
+    {
+        std::vector<timberline_engine::TtsHighlightKind> kinds;
+        timberline_engine::classifyTtsTextHighlight(draft, kinds);
+        ttsColors.resize(kinds.size(), ink);
+        for (size_t i = 0; i < kinds.size(); ++i)
+        {
+            using timberline_engine::TtsHighlightKind;
+            switch (kinds[i])
+            {
+            case TtsHighlightKind::Command:
+                ttsColors[i] = commandInk;
+                break;
+            case TtsHighlightKind::StyleMarkup:
+                ttsColors[i] = styleTagInk;
+                break;
+            case TtsHighlightKind::StyleContent:
+                ttsColors[i] = styleBodyInk;
+                break;
+            case TtsHighlightKind::VoiceMarkup:
+                ttsColors[i] = voiceTagInk;
+                break;
+            case TtsHighlightKind::VoiceDialog:
+                ttsColors[i] = voiceBodyInk;
+                break;
+            case TtsHighlightKind::MarkupError:
+                ttsColors[i] = errorInk;
+                break;
+            case TtsHighlightKind::Default:
+            default:
+                ttsColors[i] = ink;
+                break;
+            }
+        }
+    }
 
     BeginScissorMode(
         static_cast<int>(lastTextArea.x),
@@ -561,9 +604,6 @@ void FullscreenParchmentEditor::draw(int screenW, int screenH)
         if (lines[i].text.empty())
             continue;
 
-        // Ink on parchment — force dark default (theme "default" is light for
-        // dark editor panes and reads as white here).
-        const Color ink = Color{32, 24, 14, 255};
         if (!highlightTts || ttsColors.empty())
         {
             DrawTextEx(
@@ -581,13 +621,10 @@ void FullscreenParchmentEditor::draw(int screenW, int screenH)
         while (ci < lines[i].text.size())
         {
             const int bufIdx = lines[i].start + static_cast<int>(ci);
-            Color runColor =
+            const Color runColor =
                 (bufIdx >= 0 && bufIdx < static_cast<int>(ttsColors.size()))
                     ? ttsColors[static_cast<size_t>(bufIdx)]
                     : ink;
-            // Theme default is light gray — rewrite to ink on parchment.
-            if (runColor.r > 180 && runColor.g > 180 && runColor.b > 180)
-                runColor = ink;
             size_t cj = ci + 1;
             while (cj < lines[i].text.size())
             {
