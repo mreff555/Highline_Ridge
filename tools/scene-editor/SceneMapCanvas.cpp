@@ -1807,8 +1807,13 @@ void SceneMapCanvas::drawExitArrows(Rectangle canvasBounds)
 
 void SceneMapCanvas::drawStairIcons(Rectangle canvasBounds)
 {
-    if (!docs->scenes.isLoaded())
+    if (!docs->scenes.isLoaded() || graph == nullptr)
         return;
+
+    const Font font =
+        (uiFontBold.texture.id != 0 ? uiFontBold
+                                   : (uiFont.texture.id != 0 ? uiFont : GetFontDefault()));
+    const float fontSize = 14.0f;
 
     const std::vector<std::string> ids = docs->scenes.mapNodeIds();
     for (const std::string& id : ids)
@@ -1817,18 +1822,36 @@ void SceneMapCanvas::drawStairIcons(Rectangle canvasBounds)
         if (sceneLayout.level != level)
             continue;
 
-        const bool hasUp = !graph->getExitTarget(id, "up").empty();
-        const bool hasDown = !graph->getExitTarget(id, "down").empty();
-        if (!hasUp && !hasDown)
+        const std::string upTarget = graph->getExitTarget(id, "up");
+        const std::string downTarget = graph->getExitTarget(id, "down");
+        if (upTarget.empty() && downTarget.empty())
             continue;
 
+        // Label includes destination floor so "connected below" is unambiguous (#41).
+        std::string upLabel;
+        std::string downLabel;
+        if (!upTarget.empty())
+        {
+            const int targetLevel = docs->scenes.getLayout(upTarget).level;
+            upLabel = TextFormat("^%d", targetLevel);
+        }
+        if (!downTarget.empty())
+        {
+            const int targetLevel = docs->scenes.getLayout(downTarget).level;
+            downLabel = TextFormat("v%d", targetLevel);
+        }
+
+        const float upW = upLabel.empty()
+            ? 0.0f
+            : MeasureTextEx(font, upLabel.c_str(), fontSize, 1.0f).x;
+        const float downW = downLabel.empty()
+            ? 0.0f
+            : MeasureTextEx(font, downLabel.c_str(), fontSize, 1.0f).x;
+        const float gap = (!upLabel.empty() && !downLabel.empty()) ? 6.0f : 0.0f;
+        const float badgePad = 4.0f;
+        const float badgeW = upW + downW + gap + badgePad * 2.0f;
+        const float badgeH = fontSize + badgePad * 2.0f;
         const Rectangle card = sceneCardBounds(id, canvasBounds);
-        const float iconSize = 20.0f;
-        const float iconSlot = 16.0f;
-        const int iconCount = (hasUp ? 1 : 0) + (hasDown ? 1 : 0);
-        const float badgePad = 3.0f;
-        const float badgeW = iconCount * iconSlot + badgePad * 2.0f;
-        const float badgeH = iconSize + badgePad;
         const Rectangle badge = {
             card.x + card.width - badgeW - 3.0f,
             card.y + 2.0f,
@@ -1837,15 +1860,22 @@ void SceneMapCanvas::drawStairIcons(Rectangle canvasBounds)
         DrawRectangleRec(badge, Color{8, 7, 12, 230});
         DrawRectangleLinesEx(badge, 1.0f, Color{20, 18, 26, 255});
 
-        float iconX = badge.x + badge.width - badgePad - iconSlot;
-        if (hasUp)
+        float textX = badge.x + badgePad;
+        if (!upLabel.empty())
         {
-            DrawTextEx((uiFontBold.texture.id != 0 ? uiFontBold : (uiFont.texture.id != 0 ? uiFont : GetFontDefault())), "^", {iconX, badge.y}, iconSize, 1.0f, kPanelBorder);
-            iconX -= iconSlot;
+            DrawTextEx(
+                font, upLabel.c_str(), {textX, badge.y + badgePad - 1.0f}, fontSize, 1.0f, kPanelBorder);
+            textX += upW + gap;
         }
-        if (hasDown)
+        if (!downLabel.empty())
         {
-            DrawTextEx((uiFontBold.texture.id != 0 ? uiFontBold : (uiFont.texture.id != 0 ? uiFont : GetFontDefault())), "v", {iconX, badge.y}, iconSize, 1.0f, kPanelBorder);
+            DrawTextEx(
+                font,
+                downLabel.c_str(),
+                {textX, badge.y + badgePad - 1.0f},
+                fontSize,
+                1.0f,
+                kPanelBorder);
         }
     }
 }
