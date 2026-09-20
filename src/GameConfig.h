@@ -60,6 +60,11 @@ struct TtsConfig
     bool enabled = true;
     std::string voiceId = "leo";
     std::string bundleDir = "resources/audio/tts";
+    /**
+     * When true, skip enter/examine scene TTS after that scene (or examine)
+     * has already been heard this playthrough. Default off (#39).
+     */
+    bool silenceRevisitedSceneTts = false;
 };
 
 struct SaveConfig

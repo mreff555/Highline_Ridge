@@ -161,6 +161,7 @@ class GameSession
     void playDialogAudio(const SpeakResult& result);
     void playInteractionTts(const SceneInteractionDef& interaction, bool includeAfter = false);
     void playSceneNarrativeTts(const ItemTtsDef& tts);
+    void playEnterDescriptionTts();
     void playSceneNarrativeTtsSequence(const std::vector<std::string>& audioPaths);
     void scheduleDelayedSceneNarrativeTts(
         const std::vector<std::string>& audioPaths,

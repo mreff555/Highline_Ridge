@@ -1162,7 +1162,10 @@ namespace
             return;
 
         appendNarrativeSection("Examining:", details);
-        playSceneNarrativeTts(examineTts);
+        const bool silenceRevisit = gameConfig.tts.silenceRevisitedSceneTts
+            && worldState.sceneVisits.examinedSceneIds.count(worldState.currentSceneId) > 0;
+        if (!silenceRevisit)
+            playSceneNarrativeTts(examineTts);
         if (!examineFlag.empty())
             worldState.storyFlags.insert(examineFlag);
 
@@ -1315,6 +1318,16 @@ namespace
             return;
 
         playSceneNarrativeTtsSequence({ tts.audio });
+    }
+
+    void GameSession::playEnterDescriptionTts()
+    {
+        if (gameConfig.tts.silenceRevisitedSceneTts
+            && worldState.sceneVisits.heardEnterTtsSceneIds.count(worldState.currentSceneId) > 0)
+            return;
+        playSceneNarrativeTts(descriptionTts);
+        if (descriptionTts.enabled && !descriptionTts.audio.empty())
+            worldState.sceneVisits.heardEnterTtsSceneIds.insert(worldState.currentSceneId);
     }
 
     void GameSession::playSceneNarrativeTtsSequence(const std::vector<std::string>& audioPaths)
@@ -1970,7 +1983,7 @@ namespace
         refreshSceneImage();
         updateActionAvailability();
         if (!preserveNarrative)
-            playSceneNarrativeTts(descriptionTts);
+            playEnterDescriptionTts();
     }
 
     std::string GameSession::formatNewspaperDate(int day)
@@ -2773,7 +2786,7 @@ namespace
         // Compass / Use-return / under-construction Back all enter rooms through
         // tryMove. Use-kind transitions already play description TTS in
         // transitionToScene; movement must do the same or enter VO never fires.
-        playSceneNarrativeTts(descriptionTts);
+        playEnterDescriptionTts();
         recordPlayerAction();
     }
 
@@ -3330,7 +3343,7 @@ namespace
         updateActionAvailability();
 
         if (playDescriptionTts)
-            playSceneNarrativeTts(descriptionTts);
+            playEnterDescriptionTts();
     }
 
     SavedGameState GameSession::captureSaveState() const

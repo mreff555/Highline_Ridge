@@ -259,8 +259,17 @@ void FullscreenParchmentEditor::typeIntoDraft()
         const char* clip = GetClipboardText();
         if (clip != nullptr && clip[0] != '\0')
         {
-            draft.insert(static_cast<size_t>(std::clamp(cursor, 0, static_cast<int>(draft.size()))), clip);
-            cursor += static_cast<int>(std::string(clip).size());
+            if (selectAnchor >= 0 && selectAnchor != cursor)
+            {
+                const int a = std::min(selectAnchor, cursor);
+                const int b = std::max(selectAnchor, cursor);
+                draft.erase(static_cast<size_t>(a), static_cast<size_t>(b - a));
+                cursor = a;
+                selectAnchor = -1;
+            }
+            const std::string clipStr = clip;
+            draft.insert(static_cast<size_t>(std::clamp(cursor, 0, static_cast<int>(draft.size()))), clipStr);
+            cursor += static_cast<int>(clipStr.size());
         }
         while (GetCharPressed() > 0)
         {
@@ -386,14 +395,55 @@ void FullscreenParchmentEditor::handleInput(int screenW, int screenH)
         cursor = pos;
     };
 
-    if (IsKeyPressed(KEY_LEFT) || IsKeyPressedRepeat(KEY_LEFT))
+    const bool left = IsKeyPressed(KEY_LEFT) || IsKeyPressedRepeat(KEY_LEFT);
+    const bool right = IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_RIGHT);
+    const bool up = IsKeyPressed(KEY_UP) || IsKeyPressedRepeat(KEY_UP);
+    const bool down = IsKeyPressed(KEY_DOWN) || IsKeyPressedRepeat(KEY_DOWN);
+    if (left || right || IsKeyPressed(KEY_HOME) || IsKeyPressed(KEY_END))
+        preferX = -1.0f;
+    if (left)
         setCursor(cursor - 1);
-    if (IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_RIGHT))
+    if (right)
         setCursor(cursor + 1);
     if (IsKeyPressed(KEY_HOME))
         setCursor(0);
     if (IsKeyPressed(KEY_END))
         setCursor(static_cast<int>(draft.size()));
+    if (up || down)
+    {
+        const int next = moveCursorVertical(
+            font, lines, draft, cursor, up ? -1 : 1, kScriptFontSize, preferX);
+        setCursor(next);
+        // Keep caret visible.
+        const int lineIndex =
+            visualLineIndexForCursor(lines, cursor, static_cast<int>(draft.size()));
+        const float caretY = static_cast<float>(lineIndex) * lineH;
+        if (caretY < scrollY)
+            scrollY = caretY;
+        if (caretY + lineH > scrollY + lastTextArea.height)
+            scrollY = caretY + lineH - lastTextArea.height;
+        scrollY = std::clamp(scrollY, 0.0f, maxScroll);
+    }
+
+    // Clipboard: Ctrl/Cmd+C / X / V (V also handled in typeIntoDraft).
+    const bool mod = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)
+        || IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER);
+    if (mod && (IsKeyPressed(KEY_C) || IsKeyPressed(KEY_X)))
+    {
+        if (selectAnchor >= 0 && selectAnchor != cursor)
+        {
+            const int a = std::min(selectAnchor, cursor);
+            const int b = std::max(selectAnchor, cursor);
+            const std::string selected = draft.substr(static_cast<size_t>(a), static_cast<size_t>(b - a));
+            SetClipboardText(selected.c_str());
+            if (IsKeyPressed(KEY_X))
+            {
+                draft.erase(static_cast<size_t>(a), static_cast<size_t>(b - a));
+                cursor = a;
+                selectAnchor = -1;
+            }
+        }
+    }
 
     if (canClick)
     {
@@ -464,17 +514,6 @@ void FullscreenParchmentEditor::draw(int screenW, int screenH)
         {parchment.x + 6.0f, parchment.y + 6.0f, parchment.width - 12.0f, parchment.height - 12.0f},
         Color{255, 236, 200, 28});
 
-    if (!hintLabel.empty())
-    {
-        DrawTextEx(
-            font,
-            hintLabel.c_str(),
-            {parchment.x, parchment.y - 28.0f},
-            16.0f,
-            1.0f,
-            Color{230, 210, 170, 220});
-    }
-
     const float lineH = kScriptFontSize + kLineGap;
     const auto lines = layoutWrappedTextLines(font, draft, lastTextArea.width, kScriptFontSize);
     const float contentH = std::max(lineH, static_cast<float>(std::max<size_t>(1, lines.size())) * lineH);
@@ -522,6 +561,9 @@ void FullscreenParchmentEditor::draw(int screenW, int screenH)
         if (lines[i].text.empty())
             continue;
 
+        // Ink on parchment — force dark default (theme "default" is light for
+        // dark editor panes and reads as white here).
+        const Color ink = Color{32, 24, 14, 255};
         if (!highlightTts || ttsColors.empty())
         {
             DrawTextEx(
@@ -530,7 +572,7 @@ void FullscreenParchmentEditor::draw(int screenW, int screenH)
                 {lastTextArea.x, y},
                 kScriptFontSize,
                 1.0f,
-                Color{45, 32, 18, 255});
+                ink);
             continue;
         }
 
@@ -539,10 +581,13 @@ void FullscreenParchmentEditor::draw(int screenW, int screenH)
         while (ci < lines[i].text.size())
         {
             const int bufIdx = lines[i].start + static_cast<int>(ci);
-            const Color runColor =
+            Color runColor =
                 (bufIdx >= 0 && bufIdx < static_cast<int>(ttsColors.size()))
                     ? ttsColors[static_cast<size_t>(bufIdx)]
-                    : Color{45, 32, 18, 255};
+                    : ink;
+            // Theme default is light gray — rewrite to ink on parchment.
+            if (runColor.r > 180 && runColor.g > 180 && runColor.b > 180)
+                runColor = ink;
             size_t cj = ci + 1;
             while (cj < lines[i].text.size())
             {

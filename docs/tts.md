@@ -27,7 +27,9 @@ Set a default per scene / item / conversation line (`ttsDefaultVoice`, `ttsVoice
 
 ### Style wrappings
 
-Examples: `<whisper>…</whisper>`, also `<soft>` `<loud>` `<build-intensity>` `<decrease-intensity>` `<higher-pitch>` `<lower-pitch>` `<slow>` `<fast>` `<sing-song>` `<singing>` `<emphasis>`.
+Preferred paired form: `<whisper>…</whisper>`, also `<soft>` `<loud>` `<build-intensity>` `<decrease-intensity>` `<higher-pitch>` `<lower-pitch>` `<slow>` `<fast>` `<sing-song>` `<singing>` `<emphasis>`.
+
+Bracket form (`[emphasis]`, `[whisper]`, …) is also recognized for **editor highlighting** (and is common in authored copy). Prefer matched `<tag>…</tag>` for engine/TTS behavior.
 
 ### Voice substitution
 

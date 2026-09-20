@@ -66,6 +66,7 @@ struct SavedGameState
     bool hasUsedInCurrentScene = false;
     std::set<std::string> examinedSceneIds;
     std::set<std::string> usedSceneIds;
+    std::set<std::string> heardEnterTtsSceneIds;
     std::set<std::string> takenItemKeys;
     std::set<std::string> usedInteractionKeys;
     std::set<std::string> storyFlags;

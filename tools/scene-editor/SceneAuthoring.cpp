@@ -449,7 +449,22 @@ std::vector<SceneAiJob> buildSceneAiJobs(
     // TTS markup text (chat). Generate-all (0) only when TTS enabled.
     const bool wantTtsJobs = payload.ttsEnabled
         && (aiTargetFilter == 0 || aiTargetFilter == 6 || aiTargetFilter == 7);
-    if (wantTtsJobs && (want(6) || aiTargetFilter == 0) && !payload.description.empty())
+    // Prefer the current TTS field when present so "Generate TTS dialog" reflects
+    // what the author is looking at (#38). Fall back to prose description/examine.
+    const std::string descriptionSource = !payload.ttsDescription.empty()
+        ? payload.ttsDescription
+        : payload.description;
+    const std::string examineSource = !payload.ttsExamineDetails.empty()
+        ? payload.ttsExamineDetails
+        : payload.examineDetails;
+    const char* ttsEmbellishRules =
+        "Return ONLY the speakable text (no markdown fences, no commentary). "
+        "Do NOT rewrite plot, add new facts, or change meaning. Allowed edits only: "
+        "spelling fixes, grammar fixes, and light TTS life-like markup "
+        "([pause], [long-pause], [sigh], [laugh], <whisper>, <soft>, <emphasis>, "
+        "<slow>, <fast>, {{voice:ID}}...{{/voice}} for quoted speech). "
+        "Keep 1890s Highline Ridge tone. Narrator prose stays unwrapped.\n";
+    if (wantTtsJobs && (want(6) || aiTargetFilter == 0) && !descriptionSource.empty())
     {
         // Fill-if-empty on Generate all; dedicated target 6 always regenerates.
         if (aiTargetFilter == 6 || payload.ttsDescription.empty())
@@ -458,27 +473,16 @@ std::vector<SceneAiJob> buildSceneAiJobs(
             job.type = SceneAiJobType::GenerateDescriptionTtsText;
             job.action = "description_tts";
             job.outPath = "resources/.authoring/" + payload.id + "_description_tts.txt";
-            job.sourceText = payload.description;
+            job.sourceText = descriptionSource;
             job.defaultVoice = voice;
             job.prompt =
-                "Rewrite the following scene description as spoken Timberline TTS "
-                "narration markup. Return ONLY the speakable text (no markdown fences, "
-                "no commentary). Insert natural [pause] / [long-pause] and allowlisted "
-                "command tags where appropriate. Add style/tone wrappings such as "
-                "<whisper>, <soft>, <emphasis>, <slow>, <fast> when speech context "
-                "warrants. Quoted spoken dialog must be wrapped with "
-                "{{voice:"
-                + voice
-                + "}}...{{/voice}} using that default voice id (author may change later). "
-                  "Narrator prose stays unwrapped (owner default voice). Preserve meaning; "
-                  "1890s Highline Ridge tone.\n"
-                + styleBlock + "\nSOURCE:\n"
-                + payload.description;
+                std::string(
+                    "Prepare the following scene text as spoken Timberline TTS narration. ")
+                + ttsEmbellishRules + styleBlock + "\nSOURCE:\n" + descriptionSource;
             jobs.push_back(job);
         }
     }
-    if (wantTtsJobs && (want(7) || aiTargetFilter == 0)
-        && !payload.examineDetails.empty())
+    if (wantTtsJobs && (want(7) || aiTargetFilter == 0) && !examineSource.empty())
     {
         if (aiTargetFilter == 7 || payload.ttsExamineDetails.empty())
         {
@@ -486,22 +490,12 @@ std::vector<SceneAiJob> buildSceneAiJobs(
             job.type = SceneAiJobType::GenerateExamineTtsText;
             job.action = "examine_tts";
             job.outPath = "resources/.authoring/" + payload.id + "_examine_tts.txt";
-            job.sourceText = payload.examineDetails;
+            job.sourceText = examineSource;
             job.defaultVoice = voice;
             job.prompt =
-                "Rewrite the following scene examine details as spoken Timberline TTS "
-                "narration markup. Return ONLY the speakable text (no markdown fences, "
-                "no commentary). Insert natural [pause] / [long-pause] and allowlisted "
-                "command tags where appropriate. Add style/tone wrappings such as "
-                "<whisper>, <soft>, <emphasis>, <slow>, <fast> when speech context "
-                "warrants. Quoted spoken dialog must be wrapped with "
-                "{{voice:"
-                + voice
-                + "}}...{{/voice}} using that default voice id (author may change later). "
-                  "Narrator prose stays unwrapped (owner default voice). Preserve meaning; "
-                  "1890s Highline Ridge tone.\n"
-                + styleBlock + "\nSOURCE:\n"
-                + payload.examineDetails;
+                std::string(
+                    "Prepare the following examine text as spoken Timberline TTS narration. ")
+                + ttsEmbellishRules + styleBlock + "\nSOURCE:\n" + examineSource;
             jobs.push_back(job);
         }
     }

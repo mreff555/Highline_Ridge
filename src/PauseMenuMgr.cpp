@@ -151,6 +151,8 @@ const std::vector<PauseMenuMgr::ConfigRow>& PauseMenuMgr::getConfigRows() const
         // are supported in DisplayConfig / imageVariants for later UI.
         { ConfigRowType::SectionHeader, "INPUT", -1 },
         { ConfigRowType::Slider, "Click Hold Duration", kClickHoldSliderIndex },
+        { ConfigRowType::SectionHeader, "TTS", -1 },
+        { ConfigRowType::ToggleButton, "Silence revisited scene TTS", -1 },
         { ConfigRowType::SectionHeader, "SAVES", -1 },
         { ConfigRowType::CycleButton, "Max Number of Saves", -1 }
     };
@@ -648,6 +650,13 @@ void PauseMenuMgr::handleConfigButtonInput()
             else
                 cycleResolutionPreset();
         }
+        else if (std::string(row.label) == "Silence revisited scene TTS")
+        {
+            gameConfig->tts.silenceRevisitedSceneTts =
+                !gameConfig->tts.silenceRevisitedSceneTts;
+            if (!configPath.empty())
+                saveGameConfig(configPath, *gameConfig);
+        }
         else
             toggleFullscreen();
         break;
@@ -927,6 +936,15 @@ void PauseMenuMgr::drawConfigPanel() const
                     row.label,
                     resolutionLabel().c_str());
             }
+        }
+        else if (std::string(row.label) == "Silence revisited scene TTS")
+        {
+            snprintf(
+                buttonText,
+                sizeof(buttonText),
+                "%s: %s",
+                row.label,
+                gameConfig->tts.silenceRevisitedSceneTts ? "On" : "Off");
         }
         else
         {

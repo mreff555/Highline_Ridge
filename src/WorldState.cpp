@@ -46,6 +46,7 @@ SavedGameState WorldState::snapshot(
     state.hasUsedInCurrentScene = sceneVisits.hasUsedInCurrentScene;
     state.examinedSceneIds = sceneVisits.examinedSceneIds;
     state.usedSceneIds = sceneVisits.usedSceneIds;
+    state.heardEnterTtsSceneIds = sceneVisits.heardEnterTtsSceneIds;
     state.takenItemKeys = takenItemKeys;
     state.usedInteractionKeys = usedInteractionKeys;
     state.storyFlags = storyFlags;
@@ -91,6 +92,7 @@ bool WorldState::restore(
     sceneVisits.hasUsedInCurrentScene = state.hasUsedInCurrentScene;
     sceneVisits.examinedSceneIds = state.examinedSceneIds;
     sceneVisits.usedSceneIds = state.usedSceneIds;
+    sceneVisits.heardEnterTtsSceneIds = state.heardEnterTtsSceneIds;
     takenItemKeys = state.takenItemKeys;
     usedInteractionKeys = state.usedInteractionKeys;
     storyFlags = state.storyFlags;

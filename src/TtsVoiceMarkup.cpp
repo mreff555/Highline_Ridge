@@ -122,6 +122,45 @@ bool looksLikeTtsCommandBody(const std::string& body)
     return isAllowlistedTtsCommandTag(body);
 }
 
+/** Style/emotion tags — preferred as <tag>…</tag>, but [tag] is also authored. */
+bool isAllowlistedStyleTagName(const std::string& body)
+{
+    std::string normalized;
+    normalized.reserve(body.size());
+    size_t begin = 0;
+    while (begin < body.size() && std::isspace(static_cast<unsigned char>(body[begin])))
+        ++begin;
+    size_t end = body.size();
+    while (end > begin && std::isspace(static_cast<unsigned char>(body[end - 1])))
+        --end;
+    // Allow [/emphasis] close form.
+    if (begin < end && body[begin] == '/')
+        ++begin;
+    for (size_t i = begin; i < end; ++i)
+        normalized.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(body[i]))));
+
+    static const char* kStyles[] = {
+        "emphasis",
+        "whisper",
+        "soft",
+        "loud",
+        "slow",
+        "fast",
+        "sing-song",
+        "singing",
+        "build-intensity",
+        "decrease-intensity",
+        "higher-pitch",
+        "lower-pitch",
+    };
+    for (const char* tag : kStyles)
+    {
+        if (normalized == tag)
+            return true;
+    }
+    return false;
+}
+
 // Classify open tag body: returns true if it is a voice-open form.
 // knownVoice: true only when the voice id is recognized.
 bool classifyVoiceOpenTag(const std::string& body, bool& knownVoice, std::string& voiceIdOut)
@@ -575,7 +614,7 @@ void classifyTtsTextHighlight(
     size_t i = 0;
     while (i < text.size())
     {
-        // --- Bracket commands [pause] ---
+        // --- Bracket commands [pause] / style tags [emphasis] ---
         if (text[i] == '[')
         {
             const size_t close = text.find(']', i + 1);
@@ -585,6 +624,12 @@ void classifyTtsTextHighlight(
                 if (looksLikeTtsCommandBody(body))
                 {
                     fillHighlightRange(outKinds, i, close + 1, TtsHighlightKind::Command);
+                    i = close + 1;
+                    continue;
+                }
+                if (isAllowlistedStyleTagName(body))
+                {
+                    fillHighlightRange(outKinds, i, close + 1, TtsHighlightKind::StyleMarkup);
                     i = close + 1;
                     continue;
                 }

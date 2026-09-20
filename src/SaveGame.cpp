@@ -680,6 +680,7 @@ bool writeSaveFile(const std::string& path, const SavedGameState& state, const S
     root["hasSpokenInCurrentScene"] = state.hasSpokenInCurrentScene;
     root["hasUsedInCurrentScene"] = state.hasUsedInCurrentScene;
     root["examinedSceneIds"] = setToJsonArray(state.examinedSceneIds);
+    root["heardEnterTtsSceneIds"] = setToJsonArray(state.heardEnterTtsSceneIds);
     root["usedSceneIds"] = setToJsonArray(state.usedSceneIds);
     root["takenItemKeys"] = setToJsonArray(state.takenItemKeys);
     root["usedInteractionKeys"] = setToJsonArray(state.usedInteractionKeys);
@@ -793,6 +794,9 @@ bool readSaveFile(const std::string& path, SavedGameState& state, SaveSlotMetada
 
     jsonArrayToSet(root.value("examinedSceneIds", nlohmann::json::array()), state.examinedSceneIds);
     jsonArrayToSet(root.value("usedSceneIds", nlohmann::json::array()), state.usedSceneIds);
+    jsonArrayToSet(
+        root.value("heardEnterTtsSceneIds", nlohmann::json::array()),
+        state.heardEnterTtsSceneIds);
     jsonArrayToSet(root.value("takenItemKeys", nlohmann::json::array()), state.takenItemKeys);
     jsonArrayToSet(root.value("usedInteractionKeys", nlohmann::json::array()), state.usedInteractionKeys);
     jsonArrayToSet(root.value("storyFlags", nlohmann::json::array()), state.storyFlags);
