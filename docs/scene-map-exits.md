@@ -19,6 +19,17 @@ Drag corner → corner (or **Manage Use Transition**) to create/edit these. The 
 
 **Note:** Edit Scene does **not** author Use description / repeat — those live on the Use Transition dialog (and Effects for repeat status). Saving Edit Scene preserves them.
 
+### Exit requirements (gated compass exits)
+
+Right-click a **gold** exit wire → **Exit Requirements...**
+
+- Gates: needs light, room purchased, inventory item id, story flag  
+- **Block badge:** `auto` / `light` / `lock` / `gear` (padlock keys should use **lock**)  
+- **Blocked details** (notebook `Blocked:` text) + right-click **Edit full screen**  
+- **Blocked TTS** text + voice + **Generate Voice** / **Preview voice**  
+
+Runtime: clicking a gated MOVE button shows/plays the blocked copy without moving (see #42).
+
 ### What gets a silver Use wire on the map
 
 **Only Use actions that leave for another scene** are drawn as map wires:

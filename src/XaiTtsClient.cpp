@@ -788,6 +788,61 @@ void collectSceneInteractionEntries(
                 collectSceneNarrativeEntries(entries, subSceneIt.value(), defaultVoiceId);
         }
 
+        // Blocked exit VO (#42) — exitRequirements[dir].blockedTts (+ variants).
+        const nlohmann::json& exitReqs = sceneIt.value().value(
+            "exitRequirements",
+            sceneIt.value().value("exit_requirements", nlohmann::json::object()));
+        if (exitReqs.is_object())
+        {
+            for (auto reqIt = exitReqs.begin(); reqIt != exitReqs.end(); ++reqIt)
+            {
+                if (!reqIt.value().is_object())
+                    continue;
+                const nlohmann::json& req = reqIt.value();
+                if (req.contains("blockedTts") && req["blockedTts"].is_object())
+                {
+                    nlohmann::json bag = req["blockedTts"];
+                    if (bag.value("ttsAudio", bag.value("audio", "")).empty())
+                        bag["ttsAudio"] = "resources/audio/tts/" + sceneIt.key()
+                            + "/blocked_" + reqIt.key() + ".mp3";
+                    if (!bag.value("tts", false) && !bag.value("enabled", false)
+                        && !bag.value("ttsText", bag.value("text", "")).empty())
+                        bag["tts"] = true;
+                    addPrimaryTtsEntry(
+                        entries,
+                        bag,
+                        defaultVoiceId,
+                        req.value("blockedDetails", ""));
+                }
+                const nlohmann::json& variants = req.value(
+                    "blockedVariants",
+                    req.value("blocked_variants", nlohmann::json::array()));
+                if (!variants.is_array())
+                    continue;
+                int vi = 0;
+                for (const nlohmann::json& variant : variants)
+                {
+                    if (!variant.is_object() || !variant.contains("tts")
+                        || !variant["tts"].is_object())
+                    {
+                        ++vi;
+                        continue;
+                    }
+                    nlohmann::json bag = variant["tts"];
+                    if (bag.value("ttsAudio", bag.value("audio", "")).empty())
+                        bag["ttsAudio"] = "resources/audio/tts/" + sceneIt.key()
+                            + "/blocked_" + reqIt.key() + "_v" + std::to_string(vi)
+                            + ".mp3";
+                    if (!bag.value("tts", false) && !bag.value("enabled", false)
+                        && !bag.value("ttsText", bag.value("text", "")).empty())
+                        bag["tts"] = true;
+                    addPrimaryTtsEntry(
+                        entries, bag, defaultVoiceId, variant.value("details", ""));
+                    ++vi;
+                }
+            }
+        }
+
         const nlohmann::json& interactions = sceneIt.value().value("interactions", nlohmann::json::array());
         if (!interactions.is_array())
             continue;

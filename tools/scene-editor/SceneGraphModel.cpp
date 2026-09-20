@@ -127,6 +127,54 @@ void SceneGraphModel::clearExitTarget(const std::string& sceneId, const std::str
         (*scene)["exitRequirements"].erase(direction);
 }
 
+nlohmann::json SceneGraphModel::readExitRequirement(
+    const std::string& sceneId,
+    const std::string& direction) const
+{
+    const std::string parentId = parentSceneIdForExits(sceneId);
+    const nlohmann::json* scene = docs->scenes.sceneJson(parentId);
+    if (scene == nullptr || direction.empty())
+        return nlohmann::json::object();
+    if (scene->contains("exitRequirements") && (*scene)["exitRequirements"].is_object()
+        && (*scene)["exitRequirements"].contains(direction)
+        && (*scene)["exitRequirements"][direction].is_object())
+        return (*scene)["exitRequirements"][direction];
+    if (scene->contains("exit_requirements") && (*scene)["exit_requirements"].is_object()
+        && (*scene)["exit_requirements"].contains(direction)
+        && (*scene)["exit_requirements"][direction].is_object())
+        return (*scene)["exit_requirements"][direction];
+    return nlohmann::json::object();
+}
+
+bool SceneGraphModel::writeExitRequirement(
+    const std::string& sceneId,
+    const std::string& direction,
+    const nlohmann::json& requirement)
+{
+    const std::string parentId = parentSceneIdForExits(sceneId);
+    nlohmann::json* scene = docs->scenes.sceneJson(parentId);
+    if (scene == nullptr || direction.empty())
+        return false;
+    if (!scene->contains("exitRequirements") || !(*scene)["exitRequirements"].is_object())
+        (*scene)["exitRequirements"] = nlohmann::json::object();
+    if (requirement.is_object() && !requirement.empty())
+        (*scene)["exitRequirements"][direction] = requirement;
+    else
+        (*scene)["exitRequirements"].erase(direction);
+    // Drop empty map.
+    if ((*scene)["exitRequirements"].empty())
+        scene->erase("exitRequirements");
+    docs->markDirty();
+    return true;
+}
+
+bool SceneGraphModel::clearExitRequirement(
+    const std::string& sceneId,
+    const std::string& direction)
+{
+    return writeExitRequirement(sceneId, direction, nlohmann::json::object());
+}
+
 
 bool SceneGraphModel::deleteExitLink(
     const std::string& fromId,

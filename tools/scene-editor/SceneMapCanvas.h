@@ -33,6 +33,7 @@
 #include "SceneAuthoringDialog.h"
 #include "SceneAssistDialog.h"
 #include "FullscreenParchmentEditor.h"
+#include "SceneExitRequirementsDialog.h"
 #include "SceneInventoryDialog.h"
 #include "SceneStoryEventsDialog.h"
 #include "SceneEffectsDialog.h"
@@ -153,6 +154,7 @@ struct SceneMapCanvas
     SceneStoryEventsDialog sceneStoryEvents;
     SceneEffectsDialog sceneEffects;
     SceneTransitionDialog sceneTransition;
+    SceneExitRequirementsDialog sceneExitRequirements;
     SceneUseTransitionDialog sceneUseTransition;
     SceneFloorConnectDialog sceneFloorConnect;
     /** Optional topmost preferences modal (owned by SceneEditorApp). */

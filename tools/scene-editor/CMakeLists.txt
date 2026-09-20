@@ -137,6 +137,7 @@ set(EDITOR_SOURCES
     SceneStoryEventsDialog.cpp
     SceneEffectsDialog.cpp
     SceneTransitionDialog.cpp
+    SceneExitRequirementsDialog.cpp
     SceneUseTransitionDialog.cpp
     SceneFloorConnectDialog.cpp
     EditorPreferencesDialog.cpp

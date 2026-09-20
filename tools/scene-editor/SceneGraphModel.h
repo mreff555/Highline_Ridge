@@ -90,6 +90,18 @@ TransitionSfxPaths readConstrainedTransitionSfx(
  * Upsert/remove constrained enter/exit clips on owner for neighbor.
  * Empty path removes that matching entry; unrelated sfx are left alone.
  */
+/** Read/write exitRequirements[direction] on the parent scene JSON. */
+nlohmann::json readExitRequirement(
+    const std::string& sceneId,
+    const std::string& direction) const;
+bool writeExitRequirement(
+    const std::string& sceneId,
+    const std::string& direction,
+    const nlohmann::json& requirement);
+bool clearExitRequirement(
+    const std::string& sceneId,
+    const std::string& direction);
+
 bool upsertConstrainedTransitionSfx(
     const std::string& ownerId,
     const std::string& neighborId,

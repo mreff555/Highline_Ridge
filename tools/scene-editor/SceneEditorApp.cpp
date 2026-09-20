@@ -196,6 +196,11 @@ void SceneEditorApp::syncModuleFonts()
     mapCanvas.sceneEffects.uiFontBold = uiFontBold;
     mapCanvas.sceneTransition.uiFont = uiFont;
     mapCanvas.sceneTransition.uiFontBold = uiFontBold;
+    mapCanvas.sceneExitRequirements.docs = &document;
+    mapCanvas.sceneExitRequirements.graph = &sceneGraph;
+    mapCanvas.sceneExitRequirements.parchment = &parchmentEditor;
+    mapCanvas.sceneExitRequirements.uiFont = uiFont;
+    mapCanvas.sceneExitRequirements.uiFontBold = uiFontBold;
     mapCanvas.sceneUseTransition.uiFont = uiFont;
     mapCanvas.sceneUseTransition.uiFontBold = uiFontBold;
     mapCanvas.sceneFloorConnect.uiFont = uiFont;
@@ -437,6 +442,7 @@ void SceneEditorApp::handleShortcuts()
         || mapCanvas.sceneStoryEvents.blocksInput()
         || mapCanvas.sceneEffects.blocksInput()
         || mapCanvas.sceneTransition.blocksInput()
+        || mapCanvas.sceneExitRequirements.blocksInput()
         || mapCanvas.sceneUseTransition.blocksInput()
         || mapCanvas.sceneFloorConnect.blocksInput()
         || mapCanvas.confirmMode != SceneMapCanvas::ConfirmMode::None
@@ -488,6 +494,7 @@ void SceneEditorApp::update()
             && !mapCanvas.sceneStoryEvents.blocksInput()
             && !mapCanvas.sceneEffects.blocksInput()
             && !mapCanvas.sceneTransition.blocksInput()
+            && !mapCanvas.sceneExitRequirements.blocksInput()
             && !mapCanvas.sceneUseTransition.blocksInput()
             && !mapCanvas.sceneFloorConnect.blocksInput()
             && mapCanvas.confirmMode == SceneMapCanvas::ConfirmMode::None)
@@ -516,6 +523,7 @@ void SceneEditorApp::update()
         && !mapCanvas.sceneStoryEvents.blocksInput()
         && !mapCanvas.sceneEffects.blocksInput()
         && !mapCanvas.sceneTransition.blocksInput()
+        && !mapCanvas.sceneExitRequirements.blocksInput()
         && !mapCanvas.sceneUseTransition.blocksInput()
         && !mapCanvas.sceneFloorConnect.blocksInput()
         && mapCanvas.confirmMode == SceneMapCanvas::ConfirmMode::None
@@ -575,6 +583,12 @@ void SceneEditorApp::update()
     if (mapCanvas.sceneTransition.blocksInput())
     {
         mapCanvas.sceneTransition.handleInput(screenWidth, screenHeight);
+        return;
+    }
+
+    if (mapCanvas.sceneExitRequirements.blocksInput())
+    {
+        mapCanvas.sceneExitRequirements.handleInput(screenWidth, screenHeight);
         return;
     }
 

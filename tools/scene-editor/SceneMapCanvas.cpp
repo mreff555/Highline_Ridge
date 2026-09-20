@@ -2427,6 +2427,7 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         || sceneStoryEvents.blocksInput()
         || sceneEffects.blocksInput()
         || sceneTransition.blocksInput()
+        || sceneExitRequirements.blocksInput()
         || sceneUseTransition.blocksInput()
         || sceneFloorConnect.blocksInput()
         || (preferences && preferences->blocksInput())
@@ -3176,6 +3177,7 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         || sceneStoryEvents.blocksInput()
         || sceneEffects.blocksInput()
         || sceneTransition.blocksInput()
+        || sceneExitRequirements.blocksInput()
         || sceneUseTransition.blocksInput()
         || sceneFloorConnect.blocksInput()
         || (preferences && preferences->blocksInput())
@@ -3224,9 +3226,10 @@ bool SceneMapCanvas::anyAuthoringModalOpen() const
         || sceneStoryEvents.blocksInput()
         || sceneEffects.blocksInput()
         || sceneTransition.blocksInput()
+        || sceneExitRequirements.blocksInput()
         || sceneUseTransition.blocksInput()
         || sceneFloorConnect.blocksInput()
-        || (preferences && preferences->blocksInput())
+        || (preferences != nullptr && preferences->blocksInput())
         || (variableEditor && variableEditor->open)
         || (itemEditor && itemEditor->blocksInput())
         || (graph && graph->stackDialogOpen);
@@ -3566,6 +3569,17 @@ bool SceneMapCanvas::handleContextMenuClick(Vector2 mouse)
             }
             return true;
         }
+        if (i == 2 && !linkIsUse && !linkFrom.empty() && !linkDir.empty())
+        {
+            sceneExitRequirements.docs = docs;
+            sceneExitRequirements.graph = graph;
+            sceneExitRequirements.parchment = parchment;
+            sceneExitRequirements.uiFont = uiFont;
+            sceneExitRequirements.uiFontBold = uiFontBold;
+            sceneExitRequirements.onSaved = [this]() { (void)this; };
+            sceneExitRequirements.openForExit(linkFrom, linkDir, linkTo);
+            return true;
+        }
         return true;
     }
 
@@ -3714,9 +3728,14 @@ void SceneMapCanvas::drawContextMenu()
                       ? "Remove from map"
                       : "Delete scene..."));
     // Map parent card: Connect to floor, then optional Place alternate views.
+    // Exit link: Exit Requirements… after SFX transition edit.
     const char* item2 = nullptr;
     const char* item3 = nullptr;
-    if (mapParentMenu)
+    if (isExitLinkMenu)
+    {
+        item2 = "Exit Requirements...";
+    }
+    else if (mapParentMenu)
     {
         item2 = "Connect to floor...";
         if (unplacedSubs > 0)
@@ -4131,6 +4150,7 @@ void SceneMapCanvas::drawSceneList(Rectangle listBounds)
         && !sceneStoryEvents.blocksInput()
         && !sceneEffects.blocksInput()
         && !sceneTransition.blocksInput()
+        && !sceneExitRequirements.blocksInput()
         && !sceneUseTransition.blocksInput()
         && !sceneFloorConnect.blocksInput()
         && !(preferences && preferences->blocksInput())
@@ -4247,6 +4267,7 @@ void SceneMapCanvas::drawSceneList(Rectangle listBounds)
         && !sceneStoryEvents.blocksInput()
         && !sceneEffects.blocksInput()
         && !sceneTransition.blocksInput()
+        && !sceneExitRequirements.blocksInput()
         && !sceneUseTransition.blocksInput()
         && !sceneFloorConnect.blocksInput()
         && !(preferences && preferences->blocksInput())
@@ -4730,6 +4751,7 @@ void SceneMapCanvas::drawScenePreviewPane(Rectangle paneBounds)
         && !sceneStoryEvents.blocksInput()
         && !sceneEffects.blocksInput()
         && !sceneTransition.blocksInput()
+        && !sceneExitRequirements.blocksInput()
         && !sceneUseTransition.blocksInput()
         && !sceneFloorConnect.blocksInput()
         && !(preferences && preferences->blocksInput())
@@ -4987,6 +5009,7 @@ void SceneMapCanvas::drawBottomPane(Rectangle bottomBounds)
         && !sceneStoryEvents.blocksInput()
         && !sceneEffects.blocksInput()
         && !sceneTransition.blocksInput()
+        && !sceneExitRequirements.blocksInput()
         && !sceneUseTransition.blocksInput()
         && !sceneFloorConnect.blocksInput()
         && !(preferences && preferences->blocksInput())
@@ -5034,6 +5057,7 @@ void SceneMapCanvas::drawStatusBar(int screenWidth, int screenHeight)
         && !sceneStoryEvents.blocksInput()
         && !sceneEffects.blocksInput()
         && !sceneTransition.blocksInput()
+        && !sceneExitRequirements.blocksInput()
         && !sceneUseTransition.blocksInput()
         && !sceneFloorConnect.blocksInput()
         && confirmMode == ConfirmMode::None;
@@ -5189,6 +5213,7 @@ void SceneMapCanvas::draw()
     sceneStoryEvents.draw(screenWidth, screenHeight);
     sceneEffects.draw(screenWidth, screenHeight);
     sceneTransition.draw(screenWidth, screenHeight);
+    sceneExitRequirements.draw(screenWidth, screenHeight);
     sceneUseTransition.draw(screenWidth, screenHeight);
     sceneFloorConnect.draw(screenWidth, screenHeight);
     if (preferences)
