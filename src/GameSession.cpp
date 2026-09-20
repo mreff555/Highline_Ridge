@@ -2643,11 +2643,56 @@ namespace
         if (details.empty())
             return;
 
-        narrativeNotebook.getNarrativeText() += "\n\n";
-        narrativeNotebook.getNarrativeText() += details;
-        trimNarrativeBuffer();
-        narrativeNotebook.invalidateLayout();
-        scrollNarrativeToLine(details, true);
+        appendNarrativeSection("Blocked:", details);
+    }
+
+    void GameSession::handleBlockedExitClick(const std::string& direction)
+    {
+        ExitRequirementDef requirement;
+        if (!sceneDatabase.getExitRequirement(worldState.currentSceneId, direction, requirement))
+            return;
+
+        std::string details = requirement.blockedDetails;
+        ItemTtsDef tts = requirement.blockedTts;
+
+        // P1: honor simple inventory when-clauses on variants; full {{condition}}
+        // grammar arrives in P3.
+        for (const ExitBlockedVariantDef& variant : requirement.blockedVariants)
+        {
+            bool match = variant.when.empty();
+            if (!match)
+            {
+                // item:<id>:in_inventory
+                const std::string prefix = "item:";
+                const std::string suffix = ":in_inventory";
+                if (variant.when.rfind(prefix, 0) == 0
+                    && variant.when.size() > prefix.size() + suffix.size()
+                    && variant.when.compare(
+                           variant.when.size() - suffix.size(),
+                           suffix.size(),
+                           suffix)
+                        == 0)
+                {
+                    const std::string itemId = variant.when.substr(
+                        prefix.size(),
+                        variant.when.size() - prefix.size() - suffix.size());
+                    match = inventoryMgr.hasItem(itemId);
+                }
+            }
+            if (!match)
+                continue;
+            if (!variant.details.empty())
+                details = variant.details;
+            if (variant.tts.enabled || !variant.tts.audio.empty() || !variant.tts.text.empty())
+                tts = variant.tts;
+            break;
+        }
+
+        if (!details.empty())
+            appendBlockedMovementMessage(details);
+        if (tts.enabled || !tts.audio.empty())
+            playSceneNarrativeTts(tts);
+        recordPlayerAction();
     }
 
     bool GameSession::storyEventGatesPass(const StoryEventDef& event) const
@@ -2750,6 +2795,7 @@ namespace
                     return conversationMgr.isPhaseComplete(phaseId);
                 }))
         {
+            handleBlockedExitClick(direction);
             return;
         }
 

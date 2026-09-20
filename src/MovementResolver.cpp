@@ -224,8 +224,17 @@ MovementBlockReason MovementResolver::blockReasonForDirection(
     bool otherBlock = false;
 
     ExitRequirementDef requirement;
-    if (database.getExitRequirement(scene.id, direction, requirement))
+    const bool hasRequirement = database.getExitRequirement(scene.id, direction, requirement);
+    if (hasRequirement)
     {
+        // Explicit author badge wins (#42) — keys can show lock, gear stays gear.
+        if (requirement.blockBadge == ExitBlockBadge::Light)
+            return MovementBlockReason::NeedsLight;
+        if (requirement.blockBadge == ExitBlockBadge::Lock)
+            return MovementBlockReason::NeedsLock;
+        if (requirement.blockBadge == ExitBlockBadge::Gear)
+            return MovementBlockReason::NeedsGear;
+
         if (requirement.requiresLightSource
             && !playerHasTopLevelItemFlag(context, "light_source"))
             needsLight = true;

@@ -824,12 +824,56 @@ bool parseExitRequirement(const nlohmann::json& requirement, ExitRequirementDef&
     out.blockedDetails = requirement.value(
         "blockedDetails",
         requirement.value("blocked_details", ""));
+    if (!parseNarrativeTts(
+            requirement.value("blockedTts", requirement.value("blocked_tts", nlohmann::json::object())),
+            out.blockedTts))
+        return false;
+
+    const std::string badgeRaw = requirement.value(
+        "blockBadge",
+        requirement.value("block_badge", requirement.value("badge", "auto")));
+    if (badgeRaw == "light")
+        out.blockBadge = ExitBlockBadge::Light;
+    else if (badgeRaw == "lock")
+        out.blockBadge = ExitBlockBadge::Lock;
+    else if (badgeRaw == "gear")
+        out.blockBadge = ExitBlockBadge::Gear;
+    else
+        out.blockBadge = ExitBlockBadge::Auto;
+
+    out.blockedVariants.clear();
+    const nlohmann::json variants = requirement.value(
+        "blockedVariants",
+        requirement.value("blocked_variants", nlohmann::json::array()));
+    if (variants.is_array())
+    {
+        for (const nlohmann::json& entry : variants)
+        {
+            if (!entry.is_object())
+                return false;
+            ExitBlockedVariantDef variant;
+            variant.when = entry.value("when", "");
+            variant.details = entry.value("details", entry.value("blockedDetails", ""));
+            if (!parseNarrativeTts(entry.value("tts", entry.value("blockedTts", nlohmann::json::object())), variant.tts))
+                return false;
+            if (variant.when.empty() && variant.details.empty() && !variant.tts.enabled
+                && variant.tts.audio.empty() && variant.tts.text.empty())
+                continue;
+            out.blockedVariants.push_back(std::move(variant));
+        }
+    }
+
     return out.requiresLightSource
         || out.requiresRoomPurchasedToday
         || !out.requiresInventoryItem.empty()
         || !out.requiresInventoryItems.empty()
         || !out.requiresStoryFlag.empty()
-        || !out.blockedDetails.empty();
+        || !out.blockedDetails.empty()
+        || out.blockedTts.enabled
+        || !out.blockedTts.audio.empty()
+        || !out.blockedTts.text.empty()
+        || out.blockBadge != ExitBlockBadge::Auto
+        || !out.blockedVariants.empty();
 }
 
 bool parseExitRequirements(

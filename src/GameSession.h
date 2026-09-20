@@ -196,6 +196,7 @@ class GameSession
     bool storyEventGatesPass(const StoryEventDef& event) const;
     void applyStoryEvent(const StoryEventDef& event);
     void appendBlockedMovementMessage(const std::string& details);
+    void handleBlockedExitClick(const std::string& direction);
     void trimNarrativeBuffer();
     void handleNarrativeScrollInput();
     void handleInventoryExamineScrollInput();

@@ -428,6 +428,16 @@ int ButtonMgr::findEnabledButtonUnderMouse(Vector2 mousePos) const
             return i;
     }
 
+    // Gated MOVE chrome stays disabled visually but must accept clicks so the
+    // player can hear/read blockedDetails (#42 P1).
+    for (int i = 0; i < 6; ++i)
+    {
+        if (!buttons[i].isEnabled()
+            && movementIndexHasBlockIcon(i)
+            && isPointInClickableBounds(mousePos, buttons[i].getBounds(), clickPadding))
+            return i;
+    }
+
     if (buttons[11].isEnabled() &&
         isPointInClickableBounds(mousePos, buttons[11].getBounds(), clickPadding))
         return 11;
