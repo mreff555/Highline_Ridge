@@ -220,6 +220,7 @@ void FullscreenParchmentEditor::openEditor(
     hintLabel = label;
     cursor = static_cast<int>(draft.size());
     selectAnchor = -1;
+    mouseSelecting = false;
     scrollY = 0.0f;
     preferX = -1.0f;
     open = true;
@@ -251,6 +252,30 @@ void FullscreenParchmentEditor::cancel()
         onClosed();
 }
 
+bool FullscreenParchmentEditor::hasSelection() const
+{
+    return selectAnchor >= 0 && selectAnchor != cursor;
+}
+
+void FullscreenParchmentEditor::selectionRange(int& outStart, int& outEnd) const
+{
+    outStart = std::min(selectAnchor, cursor);
+    outEnd = std::max(selectAnchor, cursor);
+}
+
+bool FullscreenParchmentEditor::deleteSelection()
+{
+    if (!hasSelection())
+        return false;
+    int a = 0;
+    int b = 0;
+    selectionRange(a, b);
+    draft.erase(static_cast<size_t>(a), static_cast<size_t>(b - a));
+    cursor = a;
+    selectAnchor = -1;
+    return true;
+}
+
 void FullscreenParchmentEditor::typeIntoDraft()
 {
     const bool mod = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)
@@ -260,17 +285,13 @@ void FullscreenParchmentEditor::typeIntoDraft()
         const char* clip = GetClipboardText();
         if (clip != nullptr && clip[0] != '\0')
         {
-            if (selectAnchor >= 0 && selectAnchor != cursor)
-            {
-                const int a = std::min(selectAnchor, cursor);
-                const int b = std::max(selectAnchor, cursor);
-                draft.erase(static_cast<size_t>(a), static_cast<size_t>(b - a));
-                cursor = a;
-                selectAnchor = -1;
-            }
+            deleteSelection(); // paste replaces selection
             const std::string clipStr = clip;
-            draft.insert(static_cast<size_t>(std::clamp(cursor, 0, static_cast<int>(draft.size()))), clipStr);
+            draft.insert(
+                static_cast<size_t>(std::clamp(cursor, 0, static_cast<int>(draft.size()))),
+                clipStr);
             cursor += static_cast<int>(clipStr.size());
+            selectAnchor = -1;
         }
         while (GetCharPressed() > 0)
         {
@@ -287,49 +308,53 @@ void FullscreenParchmentEditor::typeIntoDraft()
     int cp = GetCharPressed();
     while (cp > 0)
     {
+        deleteSelection(); // typing replaces selection
         if (cp == '\n' || cp == '\r')
         {
-            draft.insert(static_cast<size_t>(std::clamp(cursor, 0, static_cast<int>(draft.size()))), "\n");
+            draft.insert(
+                static_cast<size_t>(std::clamp(cursor, 0, static_cast<int>(draft.size()))),
+                "\n");
             ++cursor;
         }
         else if (cp >= 32)
         {
             std::string ch;
             insertUtf8(ch, cp);
-            draft.insert(static_cast<size_t>(std::clamp(cursor, 0, static_cast<int>(draft.size()))), ch);
+            draft.insert(
+                static_cast<size_t>(std::clamp(cursor, 0, static_cast<int>(draft.size()))),
+                ch);
             cursor += static_cast<int>(ch.size());
         }
         selectAnchor = -1;
         cp = GetCharPressed();
     }
 
-    if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE))
+    if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)
+        || IsKeyPressed(KEY_DELETE) || IsKeyPressedRepeat(KEY_DELETE))
     {
-        if (selectAnchor >= 0 && selectAnchor != cursor)
+        if (deleteSelection())
+            return;
+        if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE))
         {
-            const int a = std::min(selectAnchor, cursor);
-            const int b = std::max(selectAnchor, cursor);
-            draft.erase(static_cast<size_t>(a), static_cast<size_t>(b - a));
-            cursor = a;
-            selectAnchor = -1;
+            if (cursor > 0)
+            {
+                int i = cursor - 1;
+                while (i > 0
+                       && (static_cast<unsigned char>(draft[static_cast<size_t>(i)]) & 0xC0)
+                           == 0x80)
+                    --i;
+                draft.erase(static_cast<size_t>(i), static_cast<size_t>(cursor - i));
+                cursor = i;
+            }
         }
-        else if (cursor > 0)
+        else if (cursor < static_cast<int>(draft.size()))
         {
-            // Delete one UTF-8 codepoint before cursor.
-            int i = cursor - 1;
-            while (i > 0
+            int i = cursor + 1;
+            while (i < static_cast<int>(draft.size())
                    && (static_cast<unsigned char>(draft[static_cast<size_t>(i)]) & 0xC0)
                        == 0x80)
-                --i;
-            draft.erase(static_cast<size_t>(i), static_cast<size_t>(cursor - i));
-            cursor = i;
-        }
-    }
-    if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER))
-    {
-        if (!(IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)))
-        {
-            // Char path may already insert; ensure newline if needed.
+                ++i;
+            draft.erase(static_cast<size_t>(cursor), static_cast<size_t>(i - cursor));
         }
     }
 }
@@ -431,59 +456,98 @@ void FullscreenParchmentEditor::handleInput(int screenW, int screenH)
         || IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER);
     if (mod && (IsKeyPressed(KEY_C) || IsKeyPressed(KEY_X)))
     {
-        if (selectAnchor >= 0 && selectAnchor != cursor)
+        if (hasSelection())
         {
-            const int a = std::min(selectAnchor, cursor);
-            const int b = std::max(selectAnchor, cursor);
-            const std::string selected = draft.substr(static_cast<size_t>(a), static_cast<size_t>(b - a));
-            SetClipboardText(selected.c_str());
+            int a = 0;
+            int b = 0;
+            selectionRange(a, b);
+            SetClipboardText(
+                draft.substr(static_cast<size_t>(a), static_cast<size_t>(b - a)).c_str());
             if (IsKeyPressed(KEY_X))
-            {
-                draft.erase(static_cast<size_t>(a), static_cast<size_t>(b - a));
-                cursor = a;
-                selectAnchor = -1;
-            }
+                deleteSelection();
         }
     }
+
+    auto indexAtMouse = [&](Vector2 m) -> int {
+        if (lines.empty())
+            return 0;
+        const float localY = m.y - lastTextArea.y + scrollY;
+        int lineIdx = static_cast<int>(localY / lineH);
+        lineIdx = std::clamp(lineIdx, 0, static_cast<int>(lines.size()) - 1);
+        const auto& line = lines[static_cast<size_t>(lineIdx)];
+        int best = line.start;
+        for (int i = line.start; i <= line.end; ++i)
+        {
+            if (i > line.start && i < line.end && i < static_cast<int>(draft.size())
+                && (static_cast<unsigned char>(draft[static_cast<size_t>(i)]) & 0xC0) == 0x80)
+                continue;
+            const std::string prefix = draft.substr(
+                static_cast<size_t>(line.start),
+                static_cast<size_t>(std::max(0, i - line.start)));
+            const float w = MeasureTextEx(font, prefix.c_str(), kScriptFontSize, 1.0f).x;
+            if (lastTextArea.x + w <= m.x)
+                best = i;
+            else
+                break;
+        }
+        return best;
+    };
+
+    if (!editorMouseDown(MOUSE_BUTTON_LEFT))
+        mouseSelecting = false;
 
     if (canClick)
     {
         if (CheckCollisionPointRec(mouse, confirmBtn))
         {
+            mouseSelecting = false;
             confirm();
             return;
         }
         if (CheckCollisionPointRec(mouse, cancelBtn))
         {
+            mouseSelecting = false;
             cancel();
             return;
         }
         if (CheckCollisionPointRec(mouse, lastTextArea))
         {
-            // Click-to-place caret: approximate by line + x.
-            const float localY = mouse.y - lastTextArea.y + scrollY;
-            int lineIdx = static_cast<int>(localY / lineH);
-            lineIdx = std::clamp(lineIdx, 0, std::max(0, static_cast<int>(lines.size()) - 1));
-            if (!lines.empty())
+            const int pos = indexAtMouse(mouse);
+            preferX = -1.0f;
+            if (shift)
             {
-                const auto& line = lines[static_cast<size_t>(lineIdx)];
-                float x = lastTextArea.x;
-                int best = line.start;
-                for (int i = line.start; i <= line.end; ++i)
-                {
-                    const std::string prefix = draft.substr(
-                        static_cast<size_t>(line.start),
-                        static_cast<size_t>(std::max(0, i - line.start)));
-                    const float w = MeasureTextEx(font, prefix.c_str(), kScriptFontSize, 1.0f).x;
-                    if (lastTextArea.x + w <= mouse.x)
-                        best = i;
-                    else
-                        break;
-                    (void)x;
-                }
-                setCursor(best);
+                // Shift+click extends an existing selection (or starts from caret).
+                if (selectAnchor < 0)
+                    selectAnchor = cursor;
+                cursor = pos;
+            }
+            else
+            {
+                // Click begins a drag selection (anchor = click, drag moves caret).
+                selectAnchor = pos;
+                cursor = pos;
+                mouseSelecting = true;
             }
         }
+        else
+        {
+            mouseSelecting = false;
+        }
+    }
+    else if (mouseSelecting && editorMouseDown(MOUSE_BUTTON_LEFT))
+    {
+        // Drag to extend selection; keep anchor fixed.
+        const int pos = indexAtMouse(mouse);
+        if (selectAnchor < 0)
+            selectAnchor = cursor;
+        cursor = pos;
+        preferX = -1.0f;
+
+        // Auto-scroll when dragging near the top/bottom of the text area.
+        if (mouse.y < lastTextArea.y + 12.0f)
+            scrollY = std::max(0.0f, scrollY - lineH);
+        else if (mouse.y > lastTextArea.y + lastTextArea.height - 12.0f)
+            scrollY = std::min(maxScroll, scrollY + lineH);
     }
 }
 

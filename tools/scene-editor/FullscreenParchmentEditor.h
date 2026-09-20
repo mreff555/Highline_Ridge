@@ -38,7 +38,8 @@ struct FullscreenParchmentEditor
     bool scriptLoaded = false;
 
     int cursor = 0;
-    int selectAnchor = -1;
+    int selectAnchor = -1; // -1 = no selection; else range with cursor
+    bool mouseSelecting = false;
     float scrollY = 0.0f;
     float preferX = -1.0f;
     Rectangle lastParchment{0, 0, 0, 0};
@@ -70,6 +71,9 @@ struct FullscreenParchmentEditor
 private:
     void typeIntoDraft();
     void layoutChrome(int screenW, int screenH);
+    bool hasSelection() const;
+    void selectionRange(int& outStart, int& outEnd) const;
+    bool deleteSelection();
 };
 
 } // namespace timberline_editor
