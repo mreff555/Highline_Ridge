@@ -1166,7 +1166,11 @@ void DialogWalkthrough::handleInput(Rectangle pane)
                 dirtyStep = true;
                 cursor = static_cast<int>(
                     (editTtsText ? ttsTextBuffer : textBuffer).size());
+                ignoreInputFrames = 1;
             };
+            fieldContextOpen = false;
+            ignoreInputFrames = 1;
+            return; // keep walkthrough state; don't fall through to other clicks
         }
         fieldContextOpen = false;
     }

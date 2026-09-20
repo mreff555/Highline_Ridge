@@ -1589,6 +1589,9 @@ void SceneAuthoringDialog::handleInput(int screenW, int screenH)
     (void)screenH;
     if (!open)
         return;
+    // Parchment owns the frame while open — never dismiss Edit Scene underneath.
+    if (parchment != nullptr && parchment->blocksInput())
+        return;
     pollGenerateResult();
     pollApiKeyValidity();
 
@@ -1676,7 +1679,13 @@ void SceneAuthoringDialog::handleInput(int screenW, int screenH)
                         static_cast<int>(payload.ttsDescription.size());
                     ttsExamineEdit.cursor =
                         static_cast<int>(payload.ttsExamineDetails.size());
+                    // Swallow the mouse release so Cancel/outside-click cannot
+                    // dismiss Edit Scene underneath the parchment.
+                    waitMouseRelease = true;
                 };
+                fieldContextOpen = false;
+                waitMouseRelease = true;
+                return; // do not treat this click as "outside dialog → close"
             }
         }
         fieldContextOpen = false;

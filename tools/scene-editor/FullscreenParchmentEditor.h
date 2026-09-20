@@ -18,8 +18,8 @@ namespace timberline_editor
 
 /**
  * Immersive fullscreen text editor: ironwood desk background, centered
- * yellowed parchment, Caveat script type, optional TTS syntax colors,
- * brass Confirm / Cancel nameplates.
+ * yellowed parchment, readable script type, optional TTS syntax colors,
+ * standard Confirm / Cancel editor buttons.
  */
 struct FullscreenParchmentEditor
 {
@@ -69,12 +69,7 @@ struct FullscreenParchmentEditor
 
 private:
     void typeIntoDraft();
-    void drawBrassPlate(
-        Font font,
-        Rectangle plate,
-        const char* label,
-        bool hovered,
-        bool pressed) const;
+    void layoutChrome(int screenW, int screenH);
 };
 
 } // namespace timberline_editor

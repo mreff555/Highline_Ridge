@@ -4,6 +4,7 @@
  ******************************************************************************/
 
 #include "FullscreenParchmentEditor.h"
+#include "EditorButton.h"
 #include "EditorInput.h"
 #include "EditorTheme.h"
 #include "EditorUiDraw.h"
@@ -25,10 +26,11 @@ namespace timberline_editor
 namespace
 {
 
-constexpr float kScriptFontSize = 18.0f; // ~14pt at typical display density
-constexpr float kLineGap = 6.0f;
-constexpr float kParchmentMarginX = 36.0f;
-constexpr float kParchmentMarginY = 40.0f;
+// ~18pt script; Caveat reads small so we size up for legibility on parchment.
+constexpr float kScriptFontSize = 26.0f;
+constexpr float kLineGap = 8.0f;
+constexpr float kParchmentMarginX = 40.0f;
+constexpr float kParchmentMarginY = 48.0f;
 
 void insertUtf8(std::string& buffer, int codepoint)
 {
@@ -106,7 +108,9 @@ bool loadTextureFromRoots(
 Font tryLoadScriptFont(const std::string& resourceDir, const std::string& assetRoot)
 {
     const char* leaves[] = {
+        "resources/fonts/Caveat-Bold.ttf",
         "resources/fonts/Caveat-Regular.ttf",
+        "fonts/Caveat-Bold.ttf",
         "fonts/Caveat-Regular.ttf",
     };
     for (const char* leaf : leaves)
@@ -320,35 +324,20 @@ void FullscreenParchmentEditor::typeIntoDraft()
     }
 }
 
-void FullscreenParchmentEditor::drawBrassPlate(
-    Font font,
-    Rectangle plate,
-    const char* label,
-    bool hovered,
-    bool pressed) const
+void FullscreenParchmentEditor::layoutChrome(int screenW, int screenH)
 {
-    const Color brass = pressed ? Color{140, 110, 55, 255}
-        : hovered                 ? Color{210, 175, 90, 255}
-                                  : Color{188, 150, 70, 255};
-    const Color edge = Color{90, 70, 35, 255};
-    const Color rivet = Color{70, 55, 30, 255};
-    DrawRectangleRounded(plate, 0.18f, 6, brass);
-    DrawRectangleRoundedLinesEx(plate, 0.18f, 6, 2.0f, edge);
-    // Rivets
-    const float r = 3.0f;
-    DrawCircleV({plate.x + 10.0f, plate.y + 10.0f}, r, rivet);
-    DrawCircleV({plate.x + plate.width - 10.0f, plate.y + 10.0f}, r, rivet);
-    DrawCircleV({plate.x + 10.0f, plate.y + plate.height - 10.0f}, r, rivet);
-    DrawCircleV({plate.x + plate.width - 10.0f, plate.y + plate.height - 10.0f}, r, rivet);
-    const float fs = 16.0f;
-    const Vector2 sz = MeasureTextEx(font, label, fs, 1.0f);
-    DrawTextEx(
-        font,
-        label,
-        {plate.x + (plate.width - sz.x) * 0.5f, plate.y + (plate.height - sz.y) * 0.5f},
-        fs,
-        1.0f,
-        Color{40, 28, 12, 255});
+    const Rectangle parchment = computeParchmentRect(screenW, screenH);
+    lastParchment = parchment;
+    lastTextArea = {
+        parchment.x + kParchmentMarginX,
+        parchment.y + kParchmentMarginY,
+        parchment.width - kParchmentMarginX * 2.0f - 14.0f,
+        parchment.height - kParchmentMarginY * 2.0f};
+    const float btnW = 140.0f;
+    const float btnH = 36.0f;
+    const float btnY = parchment.y + parchment.height + 24.0f;
+    confirmBtn = {parchment.x + parchment.width * 0.5f - btnW - 12.0f, btnY, btnW, btnH};
+    cancelBtn = {parchment.x + parchment.width * 0.5f + 12.0f, btnY, btnW, btnH};
 }
 
 void FullscreenParchmentEditor::handleInput(int screenW, int screenH)
@@ -372,19 +361,14 @@ void FullscreenParchmentEditor::handleInput(int screenW, int screenH)
     const Vector2 mouse = GetMousePosition();
     const bool canClick = editorMousePressed(MOUSE_BUTTON_LEFT);
     const Font font = scriptLoaded ? scriptFont : GetFontDefault();
-    const Rectangle parchment = computeParchmentRect(screenW, screenH);
-    lastParchment = parchment;
-    lastTextArea = {
-        parchment.x + kParchmentMarginX,
-        parchment.y + kParchmentMarginY,
-        parchment.width - kParchmentMarginX * 2.0f - 14.0f,
-        parchment.height - kParchmentMarginY * 2.0f};
+    layoutChrome(screenW, screenH);
 
     const float lineH = kScriptFontSize + kLineGap;
     const auto lines = layoutWrappedTextLines(font, draft, lastTextArea.width, kScriptFontSize);
     const float contentH = std::max(lineH, static_cast<float>(std::max<size_t>(1, lines.size())) * lineH);
     const float maxScroll = std::max(0.0f, contentH - lastTextArea.height);
-    if (CheckCollisionPointRec(mouse, lastTextArea) || CheckCollisionPointRec(mouse, parchment))
+    if (CheckCollisionPointRec(mouse, lastTextArea)
+        || CheckCollisionPointRec(mouse, lastParchment))
         scrollY -= GetMouseWheelMove() * lineH * 2.0f;
     scrollY = std::clamp(scrollY, 0.0f, maxScroll);
 
@@ -410,13 +394,6 @@ void FullscreenParchmentEditor::handleInput(int screenW, int screenH)
         setCursor(0);
     if (IsKeyPressed(KEY_END))
         setCursor(static_cast<int>(draft.size()));
-
-    // Brass plates below parchment on the desk.
-    const float plateW = 150.0f;
-    const float plateH = 42.0f;
-    const float plateY = parchment.y + parchment.height + 28.0f;
-    confirmBtn = {parchment.x + parchment.width * 0.5f - plateW - 16.0f, plateY, plateW, plateH};
-    cancelBtn = {parchment.x + parchment.width * 0.5f + 16.0f, plateY, plateW, plateH};
 
     if (canClick)
     {
@@ -478,18 +455,33 @@ void FullscreenParchmentEditor::draw(int screenW, int screenH)
     }
 
     const Font font = scriptLoaded ? scriptFont : GetFontDefault();
-    const Rectangle parchment = computeParchmentRect(screenW, screenH);
-    lastParchment = parchment;
-    // Soft parchment wash so generated plate + text stay readable if art shifts.
+    layoutChrome(screenW, screenH);
+    const Rectangle parchment = lastParchment;
+
+    // Lift the writing area with a parchment wash + warm lantern glow so the
+    // top of the page stays readable (desk art alone leaves that corner dark).
     DrawRectangleRec(
         {parchment.x + 4.0f, parchment.y + 4.0f, parchment.width - 8.0f, parchment.height - 8.0f},
-        Color{245, 230, 190, 40});
-
-    lastTextArea = {
-        parchment.x + kParchmentMarginX,
-        parchment.y + kParchmentMarginY,
-        parchment.width - kParchmentMarginX * 2.0f - 14.0f,
-        parchment.height - kParchmentMarginY * 2.0f};
+        Color{250, 236, 200, 70});
+    {
+        const Vector2 glowCenter = {
+            parchment.x + parchment.width * 0.22f,
+            parchment.y + parchment.height * 0.12f};
+        for (int i = 5; i >= 1; --i)
+        {
+            const float r = 90.0f + static_cast<float>(i) * 55.0f;
+            const unsigned char a = static_cast<unsigned char>(10 + i * 14);
+            DrawCircleV(glowCenter, r, Color{255, 210, 140, a});
+        }
+        // Soft fill across the text area so mid/lower lines stay lit too.
+        DrawRectangleGradientV(
+            static_cast<int>(lastTextArea.x - 8.0f),
+            static_cast<int>(lastTextArea.y - 8.0f),
+            static_cast<int>(lastTextArea.width + 16.0f),
+            static_cast<int>(lastTextArea.height + 16.0f),
+            Color{255, 220, 160, 55},
+            Color{255, 200, 130, 18});
+    }
 
     if (!hintLabel.empty())
     {
@@ -497,7 +489,7 @@ void FullscreenParchmentEditor::draw(int screenW, int screenH)
             font,
             hintLabel.c_str(),
             {parchment.x, parchment.y - 28.0f},
-            14.0f,
+            16.0f,
             1.0f,
             Color{230, 210, 170, 220});
     }
@@ -633,25 +625,9 @@ void FullscreenParchmentEditor::draw(int screenW, int screenH)
         DrawRectangleRec({track.x, thumbY, track.width, thumbH}, Color{140, 100, 50, 200});
     }
 
-    const Vector2 mouse = GetMousePosition();
-    const float plateW = 150.0f;
-    const float plateH = 42.0f;
-    const float plateY = parchment.y + parchment.height + 28.0f;
-    confirmBtn = {parchment.x + parchment.width * 0.5f - plateW - 16.0f, plateY, plateW, plateH};
-    cancelBtn = {parchment.x + parchment.width * 0.5f + 16.0f, plateY, plateW, plateH};
-    const Font plateFont = GetFontDefault();
-    drawBrassPlate(
-        plateFont,
-        confirmBtn,
-        "CONFIRM",
-        CheckCollisionPointRec(mouse, confirmBtn),
-        editorMouseDown(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, confirmBtn));
-    drawBrassPlate(
-        plateFont,
-        cancelBtn,
-        "CANCEL",
-        CheckCollisionPointRec(mouse, cancelBtn),
-        editorMouseDown(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, cancelBtn));
+    const Font ui = GetFontDefault();
+    drawEditorButton(ui, confirmBtn, "Confirm", true, true);
+    drawEditorButton(ui, cancelBtn, "Cancel", false, true);
 }
 
 } // namespace timberline_editor
