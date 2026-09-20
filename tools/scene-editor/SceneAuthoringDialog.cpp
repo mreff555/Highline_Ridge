@@ -9,6 +9,7 @@
 #include "EditorPrefs.h"
 #include "EditorTheme.h"
 #include "EditorUiDraw.h"
+#include "ImageCompression.h"
 #include "PlatformPath.h"
 #include "TtsVoiceMarkup.h"
 
@@ -424,13 +425,200 @@ void SceneAuthoringDialog::closeDialog()
         apiKeyThread.join();
     apiKeyCheckResult.store(-1);
     voiceMenuOpen = false;
+    stopPreviewVoice();
     open = false;
     editingExisting = false;
     error.clear();
 }
 
+std::string SceneAuthoringDialog::resolveTtsBagAudioPath(const char* bagKey) const
+{
+    if (docs == nullptr || bagKey == nullptr)
+        return {};
+    const nlohmann::json* bagOwner = nullptr;
+    if (payload.alternateMode)
+    {
+        const nlohmann::json* parent = docs->scenes.sceneJson(payload.parentSceneId);
+        if (parent == nullptr || !parent->is_object())
+            return {};
+        if (!parent->contains("subScenes") || !(*parent)["subScenes"].is_object())
+            return {};
+        if (!(*parent)["subScenes"].contains(payload.subSceneId))
+            return {};
+        bagOwner = &(*parent)["subScenes"][payload.subSceneId];
+    }
+    else
+    {
+        const std::string id = sanitizeSceneId(payload.id);
+        if (id.empty())
+            return {};
+        bagOwner = docs->scenes.sceneJson(id);
+    }
+    if (bagOwner == nullptr || !bagOwner->is_object())
+        return {};
+    if (!bagOwner->contains(bagKey) || !(*bagOwner)[bagKey].is_object())
+        return {};
+    return (*bagOwner)[bagKey].value("ttsAudio", std::string{});
+}
+
+bool SceneAuthoringDialog::ttsBagAudioExists(const char* bagKey) const
+{
+    const std::string rel = resolveTtsBagAudioPath(bagKey);
+    if (rel.empty() || docs == nullptr)
+        return false;
+    using timberline_engine::buildAssetSearchPaths;
+    using timberline_engine::compressedAssetPath;
+    const std::string assetRoot = docs->assetRoot.empty() ? "." : docs->assetRoot;
+    std::vector<std::string> candidates = buildAssetSearchPaths(assetRoot, rel);
+    if (!docs->resourceDir.empty())
+    {
+        std::string stripped = rel;
+        if (stripped.rfind("resources/", 0) == 0)
+            stripped = stripped.substr(std::string("resources/").size());
+        candidates.push_back(pathJoin(docs->resourceDir, stripped));
+    }
+    for (const std::string& path : candidates)
+    {
+        if (FileExists(path.c_str()))
+            return true;
+        if (FileExists(compressedAssetPath(path).c_str()))
+            return true;
+    }
+    return false;
+}
+
+void SceneAuthoringDialog::stopPreviewVoice()
+{
+    if (previewVoiceLoaded && IsMusicValid(previewVoice))
+    {
+        if (IsMusicStreamPlaying(previewVoice))
+            StopMusicStream(previewVoice);
+        UnloadMusicStream(previewVoice);
+    }
+    previewVoice = {};
+    previewVoiceLoaded = false;
+    previewVoicePlaying = false;
+    previewVoiceBagKey.clear();
+    if (!previewVoiceTempFile.empty())
+    {
+        std::remove(previewVoiceTempFile.c_str());
+        previewVoiceTempFile.clear();
+    }
+}
+
+void SceneAuthoringDialog::updatePreviewVoice()
+{
+    if (!previewVoiceLoaded || !previewVoicePlaying)
+        return;
+    if (!IsMusicValid(previewVoice))
+    {
+        stopPreviewVoice();
+        return;
+    }
+    UpdateMusicStream(previewVoice);
+    if (!IsMusicStreamPlaying(previewVoice))
+        stopPreviewVoice();
+}
+
+void SceneAuthoringDialog::startPreviewVoice(const char* bagKey)
+{
+    if (docs == nullptr || bagKey == nullptr || generateBusy.load())
+        return;
+    const std::string rel = resolveTtsBagAudioPath(bagKey);
+    if (rel.empty())
+    {
+        error = "No voice audio on disk for this TTS field yet.";
+        return;
+    }
+
+    stopPreviewVoice();
+    if (!IsAudioDeviceReady())
+        InitAudioDevice();
+    if (!IsAudioDeviceReady())
+    {
+        error = "Audio device not ready.";
+        return;
+    }
+
+    using timberline_engine::buildAssetSearchPaths;
+    using timberline_engine::compressedAssetPath;
+    using timberline_engine::loadAssetBytesFromFile;
+
+    const std::string assetRoot = docs->assetRoot.empty() ? "." : docs->assetRoot;
+    std::vector<std::string> candidates = buildAssetSearchPaths(assetRoot, rel);
+    if (!docs->resourceDir.empty())
+    {
+        std::string stripped = rel;
+        if (stripped.rfind("resources/", 0) == 0)
+            stripped = stripped.substr(std::string("resources/").size());
+        candidates.push_back(pathJoin(docs->resourceDir, stripped));
+    }
+
+    Music music{};
+    std::string tempFile;
+    bool ok = false;
+    for (const std::string& path : candidates)
+    {
+        if (FileExists(path.c_str()))
+        {
+            music = LoadMusicStream(path.c_str());
+            if (IsMusicValid(music))
+            {
+                ok = true;
+                break;
+            }
+        }
+        const std::string compressed = compressedAssetPath(path);
+        if (!FileExists(compressed.c_str()))
+            continue;
+        std::vector<unsigned char> bytes;
+        if (!loadAssetBytesFromFile(compressed, bytes) || bytes.empty())
+            continue;
+        std::string fileType = ".mp3";
+        const size_t dot = path.find_last_of('.');
+        if (dot != std::string::npos)
+            fileType = path.substr(dot);
+        const std::string tmp = pathJoin(
+            GetApplicationDirectory() ? GetApplicationDirectory() : ".",
+            std::string("editor_tts_preview") + fileType);
+        std::ofstream out(tmp.c_str(), std::ios::binary);
+        if (!out)
+            continue;
+        out.write(
+            reinterpret_cast<const char*>(bytes.data()),
+            static_cast<std::streamsize>(bytes.size()));
+        out.close();
+        music = LoadMusicStream(tmp.c_str());
+        if (IsMusicValid(music))
+        {
+            tempFile = tmp;
+            ok = true;
+            break;
+        }
+        std::remove(tmp.c_str());
+    }
+
+    if (!ok)
+    {
+        error = "Could not load TTS audio for preview.";
+        return;
+    }
+
+    music.looping = false;
+    previewVoice = music;
+    previewVoiceLoaded = true;
+    previewVoicePlaying = true;
+    previewVoiceTempFile = tempFile;
+    previewVoiceBagKey = bagKey;
+    SetMusicVolume(previewVoice, 1.0f);
+    PlayMusicStream(previewVoice);
+    status = std::string("Previewing ") + bagKey + "…";
+    error.clear();
+}
+
 void SceneAuthoringDialog::pollGenerateResult()
 {
+    updatePreviewVoice();
     if (!generateResultPending)
         return;
 
@@ -2476,24 +2664,44 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
         hitField(ttsDescField, 7);
         y += 110.0f;
 
-        const float btnW = 170.0f;
+        const float btnW = 150.0f;
+        const float btnGap = 8.0f;
         Rectangle genTtsDescBtn = {indentX, y, btnW, 28.0f};
-        Rectangle genVoiceDescBtn = {indentX + btnW + 10.0f, y, btnW, 28.0f};
+        Rectangle genVoiceDescBtn = {indentX + btnW + btnGap, y, btnW, 28.0f};
+        Rectangle previewVoiceDescBtn = {
+            indentX + (btnW + btnGap) * 2.0f, y, btnW, 28.0f};
         const bool canVoiceDesc =
             keyValid && sceneTtsTextHasWord(payload.ttsDescription);
+        const bool canPreviewDesc = ttsBagAudioExists("descriptionTts");
         drawEditorButton(font, genTtsDescBtn, "Generate TTS dialog", true, !busy);
         drawEditorButton(
             font, genVoiceDescBtn, "Generate Voice data", true, !busy && canVoiceDesc);
+        drawEditorButton(
+            font,
+            previewVoiceDescBtn,
+            previewVoicePlaying && previewVoiceBagKey == "descriptionTts"
+                ? "Stop preview"
+                : "Preview voice",
+            true,
+            !busy && canPreviewDesc);
         if (canClick && hitInContent(genTtsDescBtn))
             startGenerate(6);
         if (canClick && canVoiceDesc && hitInContent(genVoiceDescBtn))
             startVoiceRefresh();
+        if (canClick && canPreviewDesc && hitInContent(previewVoiceDescBtn))
+        {
+            if (previewVoicePlaying && previewVoiceBagKey == "descriptionTts")
+                stopPreviewVoice();
+            else
+                startPreviewVoice("descriptionTts");
+        }
         if (busy && (generateTarget.load() == 6 || generateTarget.load() == 10))
         {
             DrawTextEx(
                 font,
                 "Working",
-                {genVoiceDescBtn.x + genVoiceDescBtn.width + 8.0f, genVoiceDescBtn.y + 6.0f},
+                {previewVoiceDescBtn.x + previewVoiceDescBtn.width + 8.0f,
+                 previewVoiceDescBtn.y + 6.0f},
                 kFontTiny,
                 1.0f,
                 Color{220, 80, 70, 255});
@@ -2514,16 +2722,34 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
         y += 98.0f;
 
         Rectangle genTtsExamBtn = {indentX, y, btnW, 28.0f};
-        Rectangle genVoiceExamBtn = {indentX + btnW + 10.0f, y, btnW, 28.0f};
+        Rectangle genVoiceExamBtn = {indentX + btnW + btnGap, y, btnW, 28.0f};
+        Rectangle previewVoiceExamBtn = {
+            indentX + (btnW + btnGap) * 2.0f, y, btnW, 28.0f};
         const bool canVoiceExam =
             keyValid && sceneTtsTextHasWord(payload.ttsExamineDetails);
+        const bool canPreviewExam = ttsBagAudioExists("examineTts");
         drawEditorButton(font, genTtsExamBtn, "Generate TTS dialog", true, !busy);
         drawEditorButton(
             font, genVoiceExamBtn, "Generate Voice data", true, !busy && canVoiceExam);
+        drawEditorButton(
+            font,
+            previewVoiceExamBtn,
+            previewVoicePlaying && previewVoiceBagKey == "examineTts"
+                ? "Stop preview"
+                : "Preview voice",
+            true,
+            !busy && canPreviewExam);
         if (canClick && hitInContent(genTtsExamBtn))
             startGenerate(7);
         if (canClick && canVoiceExam && hitInContent(genVoiceExamBtn))
             startVoiceRefresh();
+        if (canClick && canPreviewExam && hitInContent(previewVoiceExamBtn))
+        {
+            if (previewVoicePlaying && previewVoiceBagKey == "examineTts")
+                stopPreviewVoice();
+            else
+                startPreviewVoice("examineTts");
+        }
         y += 40.0f;
     }
     else

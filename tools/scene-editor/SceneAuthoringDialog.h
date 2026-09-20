@@ -129,6 +129,13 @@ struct SceneAuthoringDialog
     std::thread generateThread;
     bool pendingVoiceRefresh = false;
 
+    /** One-shot TTS preview (description / examine bags). */
+    Music previewVoice{};
+    bool previewVoiceLoaded = false;
+    bool previewVoicePlaying = false;
+    std::string previewVoiceTempFile;
+    std::string previewVoiceBagKey; // "descriptionTts" | "examineTts"
+
     void openDialog();
     void openEditDialog(const std::string& sceneId);
     void closeDialog();
@@ -147,6 +154,11 @@ private:
     void startGenerate(int aiTarget);
     void startVoiceRefresh();
     void requestCancelGenerate();
+    std::string resolveTtsBagAudioPath(const char* bagKey) const;
+    bool ttsBagAudioExists(const char* bagKey) const;
+    void stopPreviewVoice();
+    void updatePreviewVoice();
+    void startPreviewVoice(const char* bagKey);
     void drawWorkingOverlay(int screenW, int screenH, Font font, Font bold);
     void typeIntoFocusedField();
     void handleMultilineNavigation(std::string& buffer, MultilineState& state, Font font, float fontSize);
