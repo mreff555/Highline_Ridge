@@ -1905,11 +1905,12 @@
         "ttsVoice": ""
       },
       "exits": {
-        "left": "saloon_side_passage"
+        "left": "saloon_side_passage",
+        "up": "saloon_service_hall"
       },
       "image": "resources/images/saloon_kitchen.png",
       "layout": {
-        "level": 0,
+        "level": -1,
         "x": 1832.0,
         "y": 1565.0
       },
@@ -1917,7 +1918,9 @@
         "backward": false,
         "forward": false,
         "left": true,
-        "right": false
+        "right": false,
+        "up": true,
+        "down": false
       },
       "speakDetails": "",
       "start": false,
