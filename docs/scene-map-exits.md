@@ -21,12 +21,37 @@ Drag corner → corner (or **Manage Use Transition**) to create/edit these. The 
 
 ### Exit requirements (gated compass exits)
 
-Right-click a **gold** exit wire → **Exit Requirements...**
+Right-click a **gold** same-floor exit wire → **Edit Transition Audio...** (SFX) or **Exit Requirements...** (gates / blocked VO).
 
-- Gates: needs light, room purchased, inventory item id, story flag  
-- **Block badge:** `auto` / `light` / `lock` / `gear` (padlock keys should use **lock**)  
-- **Blocked details** (notebook `Blocked:` text) + right-click **Edit full screen**  
-- **Blocked TTS** text + voice + **Generate Voice** / **Preview voice**  
+**Floor (up/down) links** do not draw a wire — the destination card lives on another map level. Use the stair badge on the card corner instead (`^N` / `vN`, gold-tinted when gated). **Right-click the badge** for the same menu: Delete / Edit Transition Audio… / Exit Requirements…. The direction slider still flips outbound vs return.
+
+Right-click a **silver** Use wire → **Manage...** (Use description / destination) or **Edit Transition Audio...** (same enter/exit SFX dialog).
+
+Requirements are **one-way** (`fromScene.exitRequirements[direction]`). The Exit Requirements dialog has a **direction slider**: left shows e.g. `snow_cave_exterior -> snow_cave_interior`, right shows the return path. Gates, badge, blocked details, and blocked TTS are unique per side. Switching sides auto-saves the side you leave.
+
+- **Needs light:** any inventory item with `lightSource: true` (lantern, future candle, …)
+- **Inventory item id(s):** one id, or comma-separated list when *all* are required (e.g. `mining_pick, crampons` on the alpine climb)
+- Also: room purchased, story flag  
+- **Block badge:** `auto` / `light` / `lock` / `gear`  
+- **Blocked TTS:** Voice · **Generate TTS dialog** · **Generate Voice** · **Preview voice**
+- **Blocked variants:** optional list of `{ when, details, tts }` bags. **First matching `when` wins**; leave `when` empty for the default branch and place it **last**.
+
+### `when` condition grammar (P3)
+
+Bare form (preferred in JSON / variant `when` field):
+
+| Example | Meaning |
+|---------|---------|
+| `item:padlock_key:in_inventory` | Player has item |
+| `item:padlock_key:discovered` | Taken/discovered (or in inventory) |
+| `not_item:padlock_key:in_inventory` | Negation (`not_` prefix works on object or state) |
+| `scene:saloon_service_hall:examined` | Scene examined this playthrough |
+| `scene:x:visited` | Entered / examined (best-effort) |
+| `flag:some_flag:set` | Story flag present |
+| `milestone:quest_id:set` | Milestone started or complete |
+| `actor:bartender:observed` | Actor known (`spoken_to` / `attacked` via `actor:<id>:<state>` flags) |
+
+Brace sugar `{{condition:item:padlock_key:in_inventory}}` is accepted as the same clause. **Do not** put `{{condition}}` inside TTS bake text — use separate variant TTS bags. Editor highlights condition tags (yellow) and body (gray).
 
 Runtime: clicking a gated MOVE button shows/plays the blocked copy without moving (see #42).
 

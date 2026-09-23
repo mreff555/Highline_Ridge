@@ -163,6 +163,13 @@ bool isAllowlistedStyleTagName(const std::string& body)
 
 // Classify open tag body: returns true if it is a voice-open form.
 // knownVoice: true only when the voice id is recognized.
+bool isConditionBraceBodyLocal(const std::string& body)
+{
+    const std::string lower = normalizeVoiceId(trimWhitespaceLocal(body));
+    return lower.rfind("condition:", 0) == 0 || lower.rfind("not_condition:", 0) == 0
+        || lower == "/condition";
+}
+
 bool classifyVoiceOpenTag(const std::string& body, bool& knownVoice, std::string& voiceIdOut)
 {
     knownVoice = false;
@@ -172,6 +179,10 @@ bool classifyVoiceOpenTag(const std::string& body, bool& knownVoice, std::string
         return false;
 
     const std::string lower = normalizeVoiceId(trimmed);
+    // Condition tags are not voice — carve out before the single-token heuristic.
+    if (lower.rfind("condition:", 0) == 0 || lower.rfind("not_condition:", 0) == 0)
+        return false;
+
     const std::string voicePrefix = "voice:";
     if (lower.rfind(voicePrefix, 0) == 0)
     {
@@ -209,6 +220,8 @@ bool classifyVoiceCloseTag(const std::string& body, bool& knownClose)
         return false;
 
     const std::string name = normalizeVoiceId(trimWhitespaceLocal(trimmed.substr(1)));
+    if (name == "condition")
+        return false; // handled as ConditionMarkup, not voice close
     if (name == "voice" || isKnownBuiltinVoiceId(name))
     {
         knownClose = true;
@@ -567,6 +580,35 @@ BraceKind classifyBraceBody(const std::string& body, std::string& voiceIdOut)
     return BraceKind::NotVoice;
 }
 
+size_t findMatchingConditionClose(const std::string& text, size_t contentStart)
+{
+    size_t i = contentStart;
+    int depth = 1;
+    while (i + 1 < text.size())
+    {
+        if (text[i] != '{' || text[i + 1] != '{')
+        {
+            ++i;
+            continue;
+        }
+        size_t close = std::string::npos;
+        std::string body;
+        if (!parseBraceTag(text, i, close, body))
+            return std::string::npos;
+        const std::string lower = normalizeVoiceId(trimWhitespaceLocal(body));
+        if (lower.rfind("condition:", 0) == 0 || lower.rfind("not_condition:", 0) == 0)
+            ++depth;
+        else if (lower == "/condition")
+        {
+            --depth;
+            if (depth == 0)
+                return i;
+        }
+        i = close + 1;
+    }
+    return std::string::npos;
+}
+
 size_t findMatchingBraceClose(
     const std::string& text,
     size_t contentStart,
@@ -707,7 +749,7 @@ void classifyTtsTextHighlight(
             continue;
         }
 
-        // --- Double-brace voice markup {{…}} ---
+        // --- Double-brace markup {{…}} (condition before voice) ---
         if (i + 1 < text.size() && text[i] == '{' && text[i + 1] == '{')
         {
             size_t close = std::string::npos;
@@ -716,6 +758,46 @@ void classifyTtsTextHighlight(
             {
                 fillHighlightRange(outKinds, i, text.size(), TtsHighlightKind::MarkupError);
                 break;
+            }
+
+            if (isConditionBraceBodyLocal(body))
+            {
+                const std::string lower = normalizeVoiceId(trimWhitespaceLocal(body));
+                if (lower == "/condition")
+                {
+                    fillHighlightRange(outKinds, i, close + 1, TtsHighlightKind::ConditionMarkup);
+                    i = close + 1;
+                    continue;
+                }
+
+                const size_t contentStart = close + 1;
+                const size_t closeOpen = findMatchingConditionClose(text, contentStart);
+                if (closeOpen == std::string::npos)
+                {
+                    fillHighlightRange(outKinds, i, text.size(), TtsHighlightKind::MarkupError);
+                    break;
+                }
+                size_t closeEnd = std::string::npos;
+                std::string closeBody;
+                parseBraceTag(text, closeOpen, closeEnd, closeBody);
+                fillHighlightRange(outKinds, i, close + 1, TtsHighlightKind::ConditionMarkup);
+                fillHighlightRange(
+                    outKinds, closeOpen, closeEnd + 1, TtsHighlightKind::ConditionMarkup);
+                if (closeOpen > contentStart)
+                {
+                    std::vector<TtsHighlightKind> inner;
+                    classifyTtsTextHighlight(
+                        text.substr(contentStart, closeOpen - contentStart), inner);
+                    for (size_t k = 0; k < inner.size(); ++k)
+                    {
+                        outKinds[contentStart + k] =
+                            (inner[k] == TtsHighlightKind::Default)
+                                ? TtsHighlightKind::ConditionContent
+                                : inner[k];
+                    }
+                }
+                i = closeEnd + 1;
+                continue;
             }
 
             std::string voiceId;

@@ -31,6 +31,7 @@ set(SOURCES
     src/SubSceneDef.cpp
     src/MovementMappingDef.cpp
     src/MaskEvaluator.cpp
+    src/ConditionMarkup.cpp
     src/MovementResolver.cpp
     src/SceneInventory.cpp
     src/SceneOverlayDef.cpp

@@ -92,6 +92,8 @@ void ensureTtsSyntaxThemeLoaded(const std::string& resourceDir)
         load("styleContent", gTtsTheme.styleContent);
         load("voiceMarkup", gTtsTheme.voiceMarkup);
         load("voiceDialog", gTtsTheme.voiceDialog);
+        load("conditionMarkup", gTtsTheme.conditionMarkup);
+        load("conditionContent", gTtsTheme.conditionContent);
         load("markupError", gTtsTheme.markupError);
         // Backward-compat aliases from older theme files.
         if (syntax.contains("voiceDialogError") && !syntax.contains("markupError"))
@@ -409,6 +411,10 @@ Color ttsHighlightKindColor(TtsHighlightKind kind)
         return theme.voiceMarkup;
     case TtsHighlightKind::VoiceDialog:
         return theme.voiceDialog;
+    case TtsHighlightKind::ConditionMarkup:
+        return theme.conditionMarkup;
+    case TtsHighlightKind::ConditionContent:
+        return theme.conditionContent;
     case TtsHighlightKind::MarkupError:
         return theme.markupError;
     case TtsHighlightKind::Default:

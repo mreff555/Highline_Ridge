@@ -18,9 +18,11 @@
  ******************************************************************************/
 
 #include <GameSession.h>
+#include <ConditionMarkup.h>
 #include <DisplayAspect.h>
 #include <ImageCompression.h>
 #include <JobSystem.h>
+#include <MaskEvaluator.h>
 #include <MovementBlockReason.h>
 #include <MovementMappingDef.h>
 #include <PlayerStats.h>
@@ -2655,31 +2657,56 @@ namespace
         std::string details = requirement.blockedDetails;
         ItemTtsDef tts = requirement.blockedTts;
 
-        // P1: honor simple inventory when-clauses on variants; full {{condition}}
-        // grammar arrives in P3.
+        MaskEvalContext maskCtx;
+        maskCtx.storyFlags = &worldState.storyFlags;
+        maskCtx.milestoneMgr = &milestoneMgr;
+        maskCtx.inventoryMgr = &inventoryMgr;
+        maskCtx.itemDatabase = &itemDatabase;
+        maskCtx.activeSubSceneId = worldState.activeSubSceneId;
+        maskCtx.currentDay = worldState.day;
+        maskCtx.saloonRoomPurchasedDay = worldState.saloonRoomPurchasedDay;
+
+        std::set<std::string> visited;
+        visited.insert(worldState.sceneVisits.examinedSceneIds.begin(),
+            worldState.sceneVisits.examinedSceneIds.end());
+        visited.insert(worldState.sceneVisits.heardEnterTtsSceneIds.begin(),
+            worldState.sceneVisits.heardEnterTtsSceneIds.end());
+        if (!worldState.currentSceneId.empty())
+            visited.insert(worldState.currentSceneId);
+        if (!worldState.previousSceneId.empty())
+            visited.insert(worldState.previousSceneId);
+
+        AuthorConditionContext condCtx;
+        condCtx.mask = &maskCtx;
+        condCtx.examinedSceneIds = &worldState.sceneVisits.examinedSceneIds;
+        condCtx.visitedSceneIds = &visited;
+        condCtx.knownActorIds = &worldState.knownActorIds;
+        condCtx.itemDiscovered = [this](const std::string& itemId) {
+            if (itemId.empty())
+                return false;
+            if (inventoryMgr.hasItem(itemId))
+                return true;
+            const std::string suffix = ":" + itemId;
+            for (const std::string& key : worldState.takenItemKeys)
+            {
+                if (key.size() >= suffix.size()
+                    && key.compare(key.size() - suffix.size(), suffix.size(), suffix) == 0)
+                    return true;
+            }
+            return false;
+        };
+        condCtx.actorState = [this](const std::string& actorId, const std::string& state) {
+            if (actorId.empty() || state.empty())
+                return false;
+            if (state == "observed")
+                return worldState.isActorKnown(actorId);
+            return worldState.storyFlags.count("actor:" + actorId + ":" + state) > 0;
+        };
+
+        // First matching when wins; empty when = default (place last).
         for (const ExitBlockedVariantDef& variant : requirement.blockedVariants)
         {
-            bool match = variant.when.empty();
-            if (!match)
-            {
-                // item:<id>:in_inventory
-                const std::string prefix = "item:";
-                const std::string suffix = ":in_inventory";
-                if (variant.when.rfind(prefix, 0) == 0
-                    && variant.when.size() > prefix.size() + suffix.size()
-                    && variant.when.compare(
-                           variant.when.size() - suffix.size(),
-                           suffix.size(),
-                           suffix)
-                        == 0)
-                {
-                    const std::string itemId = variant.when.substr(
-                        prefix.size(),
-                        variant.when.size() - prefix.size() - suffix.size());
-                    match = inventoryMgr.hasItem(itemId);
-                }
-            }
-            if (!match)
+            if (!evaluateAuthorCondition(variant.when, condCtx))
                 continue;
             if (!variant.details.empty())
                 details = variant.details;

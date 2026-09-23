@@ -101,6 +101,8 @@ struct TtsSyntaxThemeColors
     Color styleContent{50, 80, 170, 255};    // dark blue — angle content
     Color voiceMarkup{235, 210, 70, 255};    // yellow - {{voice:eve}}
     Color voiceDialog{70, 190, 100, 255};    // green - spoken span inside voice (incl. [pause])
+    Color conditionMarkup{235, 210, 70, 255}; // yellow - {{condition:…}}
+    Color conditionContent{150, 150, 155, 255}; // gray - condition body
     Color markupError{220, 55, 55, 255};     // red - unclosed
 };
 

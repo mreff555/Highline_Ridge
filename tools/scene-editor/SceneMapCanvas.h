@@ -125,6 +125,21 @@ struct SceneMapCanvas
     std::string linkDragHoverTarget;
     static constexpr float kLinkHitSlop = 12.0f;
 
+    /**
+     * Cross-floor up/down exits are not drawn as wires (destination is on another
+     * map level). Stair badges (^N / vN) stand in for those links and are
+     * right-clickable for the same ExitLink menu (audio / requirements / delete).
+     */
+    struct StairBadgeHit
+    {
+        std::string fromId;
+        std::string direction; // up | down
+        std::string toId;
+        Rectangle bounds{0, 0, 0, 0};
+        bool hasRequirement = false;
+    };
+    std::vector<StairBadgeHit> cachedStairBadges;
+
     // New connector drag from a card direction port (F/B/L/R) or Use corner.
     std::string portDragFromId;
     std::string portDragDirection;
@@ -210,6 +225,12 @@ struct SceneMapCanvas
         const std::string& sceneId,
         Vector2 mouse);
     void openLinkContextMenu(int routeIndex, Vector2 mouse);
+    void openFloorExitContextMenu(
+        const std::string& fromId,
+        const std::string& direction,
+        const std::string& toId,
+        Vector2 mouse);
+    int hitTestStairBadge(Vector2 mouse) const;
     void deleteContextMenuLink();
     void editContextMenuLinkTransition();
     void manageContextMenuUseLink();

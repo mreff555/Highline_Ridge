@@ -1807,6 +1807,7 @@ void SceneMapCanvas::drawExitArrows(Rectangle canvasBounds)
 
 void SceneMapCanvas::drawStairIcons(Rectangle canvasBounds)
 {
+    cachedStairBadges.clear();
     if (!docs->scenes.isLoaded() || graph == nullptr)
         return;
 
@@ -1828,54 +1829,81 @@ void SceneMapCanvas::drawStairIcons(Rectangle canvasBounds)
             continue;
 
         // Label includes destination floor so "connected below" is unambiguous (#41).
-        std::string upLabel;
-        std::string downLabel;
+        // Each direction is its own hit target — there is no cross-floor gold wire.
+        struct Chip
+        {
+            std::string direction;
+            std::string toId;
+            std::string label;
+            bool hasRequirement = false;
+        };
+        std::vector<Chip> chips;
         if (!upTarget.empty())
         {
-            const int targetLevel = docs->scenes.getLayout(upTarget).level;
-            upLabel = TextFormat("^%d", targetLevel);
+            Chip c;
+            c.direction = "up";
+            c.toId = upTarget;
+            c.label = TextFormat("^%d", docs->scenes.getLayout(upTarget).level);
+            const nlohmann::json req = graph->readExitRequirement(id, "up");
+            c.hasRequirement = req.is_object() && !req.empty();
+            chips.push_back(c);
         }
         if (!downTarget.empty())
         {
-            const int targetLevel = docs->scenes.getLayout(downTarget).level;
-            downLabel = TextFormat("v%d", targetLevel);
+            Chip c;
+            c.direction = "down";
+            c.toId = downTarget;
+            c.label = TextFormat("v%d", docs->scenes.getLayout(downTarget).level);
+            const nlohmann::json req = graph->readExitRequirement(id, "down");
+            c.hasRequirement = req.is_object() && !req.empty();
+            chips.push_back(c);
         }
 
-        const float upW = upLabel.empty()
-            ? 0.0f
-            : MeasureTextEx(font, upLabel.c_str(), fontSize, 1.0f).x;
-        const float downW = downLabel.empty()
-            ? 0.0f
-            : MeasureTextEx(font, downLabel.c_str(), fontSize, 1.0f).x;
-        const float gap = (!upLabel.empty() && !downLabel.empty()) ? 6.0f : 0.0f;
         const float badgePad = 4.0f;
-        const float badgeW = upW + downW + gap + badgePad * 2.0f;
+        const float chipGap = 4.0f;
+        float totalW = badgePad;
+        for (size_t i = 0; i < chips.size(); ++i)
+        {
+            totalW += MeasureTextEx(font, chips[i].label.c_str(), fontSize, 1.0f).x
+                + badgePad * 2.0f;
+            if (i + 1 < chips.size())
+                totalW += chipGap;
+        }
+        totalW += badgePad;
         const float badgeH = fontSize + badgePad * 2.0f;
         const Rectangle card = sceneCardBounds(id, canvasBounds);
-        const Rectangle badge = {
-            card.x + card.width - badgeW - 3.0f,
-            card.y + 2.0f,
-            badgeW,
-            badgeH};
-        DrawRectangleRec(badge, Color{8, 7, 12, 230});
-        DrawRectangleLinesEx(badge, 1.0f, Color{20, 18, 26, 255});
+        float chipX = card.x + card.width - totalW - 3.0f + badgePad;
+        const float chipY = card.y + 2.0f;
 
-        float textX = badge.x + badgePad;
-        if (!upLabel.empty())
+        for (const Chip& chip : chips)
         {
-            DrawTextEx(
-                font, upLabel.c_str(), {textX, badge.y + badgePad - 1.0f}, fontSize, 1.0f, kPanelBorder);
-            textX += upW + gap;
-        }
-        if (!downLabel.empty())
-        {
+            const float labelW =
+                MeasureTextEx(font, chip.label.c_str(), fontSize, 1.0f).x;
+            const Rectangle chipRect = {
+                chipX, chipY, labelW + badgePad * 2.0f, badgeH};
+            const Color fill = chip.hasRequirement ? Color{42, 34, 18, 235}
+                                                   : Color{8, 7, 12, 230};
+            const Color border = chip.hasRequirement ? Color{200, 170, 90, 255}
+                                                     : Color{140, 120, 70, 220};
+            DrawRectangleRec(chipRect, fill);
+            DrawRectangleLinesEx(chipRect, 1.0f, border);
             DrawTextEx(
                 font,
-                downLabel.c_str(),
-                {textX, badge.y + badgePad - 1.0f},
+                chip.label.c_str(),
+                {chipRect.x + badgePad, chipRect.y + badgePad - 1.0f},
                 fontSize,
                 1.0f,
-                kPanelBorder);
+                chip.hasRequirement ? Color{240, 220, 150, 255} : kPanelBorder);
+
+            StairBadgeHit hit;
+            hit.fromId = id;
+            hit.direction = chip.direction;
+            hit.toId = chip.toId;
+            hit.bounds = chipRect;
+            hit.hasRequirement = chip.hasRequirement;
+            cachedStairBadges.push_back(hit);
+
+            chipX += chipRect.width + chipGap;
         }
     }
 }
@@ -2561,7 +2589,8 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
     {
         const Vector2 mouse = GetMousePosition();
         bool opened = false;
-        // Exit-link menu is a geometry edit (delete / transition SFX).
+        // Exit-link menu: delete / transition audio / exit requirements.
+        // Same-level gold/silver wires first; then stair badges (cross-floor).
         if (!conversationsTab)
         {
             const int linkHit = hitTestLinkRoute(mouse);
@@ -2569,6 +2598,18 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
             {
                 openLinkContextMenu(linkHit, mouse);
                 opened = true;
+            }
+            if (!opened)
+            {
+                const int stairHit = hitTestStairBadge(mouse);
+                if (stairHit >= 0)
+                {
+                    const StairBadgeHit& badge =
+                        cachedStairBadges[static_cast<size_t>(stairHit)];
+                    openFloorExitContextMenu(
+                        badge.fromId, badge.direction, badge.toId, mouse);
+                    opened = true;
+                }
             }
         }
         if (!opened)
@@ -3323,6 +3364,46 @@ void SceneMapCanvas::openLinkContextMenu(int routeIndex, Vector2 mouse)
     contextMenuBounds = {0.0f, 0.0f, 0.0f, 0.0f};
 }
 
+int SceneMapCanvas::hitTestStairBadge(Vector2 mouse) const
+{
+    for (int i = static_cast<int>(cachedStairBadges.size()) - 1; i >= 0; --i)
+    {
+        if (CheckCollisionPointRec(mouse, cachedStairBadges[static_cast<size_t>(i)].bounds))
+            return i;
+    }
+    return -1;
+}
+
+void SceneMapCanvas::openFloorExitContextMenu(
+    const std::string& fromId,
+    const std::string& direction,
+    const std::string& toId,
+    Vector2 mouse)
+{
+    if (docs == nullptr || graph == nullptr)
+        return;
+    if (blocksInput())
+        return;
+    if (fromId.empty() || direction.empty() || toId.empty())
+        return;
+
+    dragSource = DragSource::None;
+    dragSceneId.clear();
+    cancelLinkDrag();
+    cancelPortDrag();
+
+    contextMenuSource = ContextMenuSource::ExitLink;
+    contextMenuSceneId.clear();
+    contextMenuLinkFromId = fromId;
+    contextMenuLinkToId = toId;
+    contextMenuLinkDirection = direction;
+    contextMenuLinkReciprocal = true; // floor links are authored as reciprocal up/down
+    contextMenuLinkIsUse = false;
+    contextMenuUseBinding.clear();
+    contextMenuAnchor = mouse;
+    contextMenuBounds = {0.0f, 0.0f, 0.0f, 0.0f};
+}
+
 void SceneMapCanvas::manageContextMenuUseLink()
 {
     if (contextMenuLinkFromId.empty() || contextMenuLinkToId.empty())
@@ -3569,15 +3650,28 @@ bool SceneMapCanvas::handleContextMenuClick(Vector2 mouse)
             }
             return true;
         }
-        if (i == 2 && !linkIsUse && !linkFrom.empty() && !linkDir.empty())
+        if (i == 2 && !linkFrom.empty() && !linkTo.empty())
         {
-            sceneExitRequirements.docs = docs;
-            sceneExitRequirements.graph = graph;
-            sceneExitRequirements.parchment = parchment;
-            sceneExitRequirements.uiFont = uiFont;
-            sceneExitRequirements.uiFontBold = uiFontBold;
-            sceneExitRequirements.onSaved = [this]() { (void)this; };
-            sceneExitRequirements.openForExit(linkFrom, linkDir, linkTo);
+            if (linkIsUse)
+            {
+                // Same constrained enter/exit SFX dialog used on gold compass wires.
+                sceneTransition.docs = docs;
+                sceneTransition.graph = graph;
+                sceneTransition.uiFont = uiFont;
+                sceneTransition.uiFontBold = uiFontBold;
+                sceneTransition.onSaved = [this]() { (void)this; };
+                sceneTransition.openForLink(linkFrom, linkTo, linkTo);
+            }
+            else if (!linkDir.empty())
+            {
+                sceneExitRequirements.docs = docs;
+                sceneExitRequirements.graph = graph;
+                sceneExitRequirements.parchment = parchment;
+                sceneExitRequirements.uiFont = uiFont;
+                sceneExitRequirements.uiFontBold = uiFontBold;
+                sceneExitRequirements.onSaved = [this]() { (void)this; };
+                sceneExitRequirements.openForExit(linkFrom, linkDir, linkTo);
+            }
             return true;
         }
         return true;
@@ -3723,17 +3817,22 @@ void SceneMapCanvas::drawContextMenu()
     const char* item1 = isUseLinkMenu
         ? "Manage..."
         : (isExitLinkMenu
-               ? "Edit Transition..."
+               ? "Edit Transition Audio..."
                : ((contextMenuSource == ContextMenuSource::Map)
                       ? "Remove from map"
                       : "Delete scene..."));
     // Map parent card: Connect to floor, then optional Place alternate views.
-    // Exit link: Exit Requirements… after SFX transition edit.
+    // Exit link: Exit Requirements… after transition-audio (SFX) edit.
+    // Use link: Edit Transition Audio… after Manage (narrative / destination).
     const char* item2 = nullptr;
     const char* item3 = nullptr;
     if (isExitLinkMenu)
     {
         item2 = "Exit Requirements...";
+    }
+    else if (isUseLinkMenu)
+    {
+        item2 = "Edit Transition Audio...";
     }
     else if (mapParentMenu)
     {

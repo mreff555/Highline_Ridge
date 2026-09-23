@@ -1638,6 +1638,10 @@ std::string SceneGraphModel::oppositeDirection(const std::string& direction) con
         return "backward";
     if (direction == "backward")
         return "forward";
+    if (direction == "up")
+        return "down";
+    if (direction == "down")
+        return "up";
     return "";
 }
 

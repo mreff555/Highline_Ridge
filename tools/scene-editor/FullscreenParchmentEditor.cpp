@@ -620,6 +620,12 @@ void FullscreenParchmentEditor::draw(int screenW, int screenH)
             case TtsHighlightKind::VoiceDialog:
                 ttsColors[i] = voiceBodyInk;
                 break;
+            case TtsHighlightKind::ConditionMarkup:
+                ttsColors[i] = voiceTagInk; // yellow family per #42
+                break;
+            case TtsHighlightKind::ConditionContent:
+                ttsColors[i] = Color{150, 150, 155, 255}; // gray body
+                break;
             case TtsHighlightKind::MarkupError:
                 ttsColors[i] = errorInk;
                 break;

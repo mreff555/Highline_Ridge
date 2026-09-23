@@ -17,11 +17,21 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include <raylib.h>
 
 namespace timberline_editor
 {
+
+struct ExitBlockedVariantEdit
+{
+    std::string when;
+    std::string details;
+    std::string ttsText;
+    std::string ttsVoice = "leo";
+    std::string ttsAudio;
+};
 
 struct SceneExitRequirementsDialog
 {
@@ -35,9 +45,21 @@ struct SceneExitRequirementsDialog
     int ignoreInputFrames = 0;
     bool waitMouseRelease = false;
 
+    /** Active side being edited (from → direction → to). */
     std::string sceneId;
     std::string direction;
     std::string toSceneId;
+
+    /**
+     * Wire endpoints. Side 0 is the opened link; side 1 is the reciprocal
+     * return path when one exists (slider flips between them).
+     */
+    std::string sideFrom[2];
+    std::string sideDir[2];
+    std::string sideTo[2];
+    bool reverseAvailable = false;
+    /** false = side 0, true = side 1 */
+    bool editingReverse = false;
 
     bool requiresLightSource = false;
     bool requiresRoomPurchasedToday = false;
@@ -50,9 +72,14 @@ struct SceneExitRequirementsDialog
     std::string blockedTtsVoice = "leo";
     std::string blockedTtsAudio;
 
-    int focusField = 0; // 0 item, 1 flag, 2 details, 3 tts, 4 api key
+    /** Conditional blocked VO bags (#42 P3). First matching when wins. */
+    std::vector<ExitBlockedVariantEdit> blockedVariants;
+    int selectedVariant = -1;
+
+    int focusField = 0; // 0 item, 1 flag, 2 details, 3 tts, 4 api, 5–7 variant
     float scrollY = 0.0f;
     float lastContentH = 0.0f;
+    Rectangle lastScrollClip{0, 0, 0, 0};
 
     bool fieldContextOpen = false;
     int fieldContextTarget = -1;
@@ -61,6 +88,7 @@ struct SceneExitRequirementsDialog
     bool voiceMenuOpen = false;
     Rectangle voiceBtnRect{0, 0, 0, 0};
     Rectangle voiceMenuRect{0, 0, 0, 0};
+    Rectangle directionSliderRect{0, 0, 0, 0};
 
     std::string sessionApiKey;
     std::string status;
@@ -76,6 +104,9 @@ struct SceneExitRequirementsDialog
     std::mutex generateMutex;
     std::string generateResultStatus;
     bool generateResultPending = false;
+    /** 0=none, 1=Generate TTS dialog, 2=Generate Voice */
+    int generateKind = 0;
+    std::string pendingTtsJobsPath;
     std::thread generateThread;
 
     std::function<void()> onSaved;
@@ -91,6 +122,12 @@ struct SceneExitRequirementsDialog
     void draw(int screenW, int screenH);
 
 private:
+    void resolveWireSides(
+        const std::string& fromSceneId,
+        const std::string& dir,
+        const std::string& toId);
+    void applyActiveSide();
+    bool setEditingReverse(bool reverse);
     void loadFromScene();
     bool applyChanges();
     void clearRequirement();
@@ -99,10 +136,14 @@ private:
     void cycleBadge();
     void suggestBadgeFromGates();
     std::string defaultBlockedAudioPath() const;
+    std::string defaultVariantAudioPath(int index) const;
     bool blockedAudioExists() const;
+    void addBlockedVariant();
+    void removeSelectedVariant();
     void stopPreviewVoice();
     void updatePreviewVoice();
     void startPreviewVoice();
+    void startTtsDialogGenerate();
     void startVoiceRefresh();
     void pollGenerateResult();
     std::string effectiveApiKey() const;

@@ -7,6 +7,8 @@
     "styleContent": [50, 80, 170, 255],
     "voiceMarkup": [235, 210, 70, 255],
     "voiceDialog": [70, 190, 100, 255],
+    "conditionMarkup": [235, 210, 70, 255],
+    "conditionContent": [150, 150, 155, 255],
     "markupError": [220, 55, 55, 255]
   },
   "notes": {
@@ -16,6 +18,8 @@
     "styleContent": "Text between a matched <tag>...</tag> pair (dark blue)",
     "voiceMarkup": "Double-brace voice keywords: {{voice:eve}}, {{/voice}}, {{eve}} (yellow)",
     "voiceDialog": "Spoken text inside a matched {{voice}}...{{/voice}} pair, including [pause] tags (green, same as command)",
-    "markupError": "Unclosed <... or {{voice:...}} stretch through end of text (red)"
+    "conditionMarkup": "Double-brace condition keywords: {{condition:item:key:in_inventory}}, {{/condition}} (yellow, same family as voice tags)",
+    "conditionContent": "Text between a matched {{condition}}...{{/condition}} pair (gray)",
+    "markupError": "Unclosed <... or {{voice:...}} / {{condition:...}} stretch through end of text (red)"
   }
 }
