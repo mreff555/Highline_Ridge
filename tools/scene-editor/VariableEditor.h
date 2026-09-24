@@ -121,6 +121,8 @@ struct VariableEditor
     std::function<void()> onAiAssist;
     /** Open Scene Inventory editor for the selected scene. */
     std::function<void()> onSceneInventory;
+    /** Open Scene Interactions / place-item editor for the selected scene. */
+    std::function<void()> onSceneInteractions;
     /** Open Scene Effects (stat deltas) editor for the selected scene. */
     std::function<void()> onSceneEffects;
     /** Open Story Events editor for the selected scene. */

@@ -1685,8 +1685,13 @@ void VariableEditor::drawVariablesPane(Rectangle paneBounds, bool allowInteracti
         paneBounds.y + 6.0f,
         88.0f,
         20.0f};
+    const Rectangle interactionsBtn = {
+        inventoryBtn.x - 100.0f,
+        paneBounds.y + 6.0f,
+        92.0f,
+        20.0f};
     const Rectangle eventsBtn = {
-        inventoryBtn.x - 80.0f,
+        interactionsBtn.x - 80.0f,
         paneBounds.y + 6.0f,
         72.0f,
         20.0f};
@@ -1754,6 +1759,16 @@ void VariableEditor::drawVariablesPane(Rectangle paneBounds, bool allowInteracti
         1.0f,
         kTextPrimary);
 
+    DrawRectangleRec(interactionsBtn, kPanelAccent);
+    DrawRectangleLinesEx(interactionsBtn, 1.0f, kPanelBorder);
+    DrawTextEx(
+        font,
+        "Interactions",
+        {interactionsBtn.x + 6.0f, interactionsBtn.y + 3.0f},
+        kFontTiny,
+        1.0f,
+        kTextPrimary);
+
     DrawRectangleRec(inventoryBtn, kPanelAccent);
     DrawRectangleLinesEx(inventoryBtn, 1.0f, kPanelBorder);
     DrawTextEx(
@@ -1801,6 +1816,8 @@ void VariableEditor::drawVariablesPane(Rectangle paneBounds, bool allowInteracti
                 onSceneEffects();
             else if (CheckCollisionPointRec(mouseEmpty, eventsBtn) && onSceneStoryEvents)
                 onSceneStoryEvents();
+            else if (CheckCollisionPointRec(mouseEmpty, interactionsBtn) && onSceneInteractions)
+                onSceneInteractions();
             else if (CheckCollisionPointRec(mouseEmpty, inventoryBtn) && onSceneInventory)
                 onSceneInventory();
             else if (CheckCollisionPointRec(mouseEmpty, aiAssistBtn) && onAiAssist)
@@ -1837,6 +1854,10 @@ void VariableEditor::drawVariablesPane(Rectangle paneBounds, bool allowInteracti
         else if (CheckCollisionPointRec(mouse, eventsBtn) && onSceneStoryEvents)
         {
             onSceneStoryEvents();
+        }
+        else if (CheckCollisionPointRec(mouse, interactionsBtn) && onSceneInteractions)
+        {
+            onSceneInteractions();
         }
         else if (CheckCollisionPointRec(mouse, inventoryBtn) && onSceneInventory)
         {

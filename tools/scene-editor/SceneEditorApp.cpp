@@ -142,6 +142,17 @@ void SceneEditorApp::wireModules()
         if (!selectedSceneId.empty())
             mapCanvas.sceneInventory.openForScene(selectedSceneId);
     };
+    mapCanvas.sceneInteractions.docs = &document;
+    mapCanvas.sceneInteractions.onSaved = [this]()
+    {
+        mapCanvas.cachedLinkRoutes.clear();
+        (void)this;
+    };
+    variableEditor.onSceneInteractions = [this]()
+    {
+        if (!selectedSceneId.empty())
+            mapCanvas.sceneInteractions.openForScene(selectedSceneId);
+    };
     mapCanvas.sceneEffects.docs = &document;
     mapCanvas.sceneEffects.onSaved = [this]() { (void)this; };
     variableEditor.onSceneEffects = [this]()
@@ -190,6 +201,8 @@ void SceneEditorApp::syncModuleFonts()
     mapCanvas.sceneAssist.uiFontBold = uiFontBold;
     mapCanvas.sceneInventory.uiFont = uiFont;
     mapCanvas.sceneInventory.uiFontBold = uiFontBold;
+    mapCanvas.sceneInteractions.uiFont = uiFont;
+    mapCanvas.sceneInteractions.uiFontBold = uiFontBold;
     mapCanvas.sceneStoryEvents.uiFont = uiFont;
     mapCanvas.sceneStoryEvents.uiFontBold = uiFontBold;
     mapCanvas.sceneEffects.uiFont = uiFont;
@@ -439,6 +452,7 @@ void SceneEditorApp::handleShortcuts()
         || mapCanvas.sceneAuthoring.blocksInput()
         || mapCanvas.sceneAssist.blocksInput()
         || mapCanvas.sceneInventory.blocksInput()
+        || mapCanvas.sceneInteractions.blocksInput()
         || mapCanvas.sceneStoryEvents.blocksInput()
         || mapCanvas.sceneEffects.blocksInput()
         || mapCanvas.sceneTransition.blocksInput()
@@ -491,6 +505,7 @@ void SceneEditorApp::update()
             && !mapCanvas.sceneAuthoring.blocksInput()
             && !mapCanvas.sceneAssist.blocksInput()
             && !mapCanvas.sceneInventory.blocksInput()
+            && !mapCanvas.sceneInteractions.blocksInput()
             && !mapCanvas.sceneStoryEvents.blocksInput()
             && !mapCanvas.sceneEffects.blocksInput()
             && !mapCanvas.sceneTransition.blocksInput()
@@ -520,6 +535,7 @@ void SceneEditorApp::update()
         && !mapCanvas.sceneAuthoring.blocksInput()
         && !mapCanvas.sceneAssist.blocksInput()
         && !mapCanvas.sceneInventory.blocksInput()
+        && !mapCanvas.sceneInteractions.blocksInput()
         && !mapCanvas.sceneStoryEvents.blocksInput()
         && !mapCanvas.sceneEffects.blocksInput()
         && !mapCanvas.sceneTransition.blocksInput()
@@ -601,6 +617,12 @@ void SceneEditorApp::update()
     if (mapCanvas.sceneStoryEvents.blocksInput())
     {
         mapCanvas.sceneStoryEvents.handleInput(screenWidth, screenHeight);
+        return;
+    }
+
+    if (mapCanvas.sceneInteractions.blocksInput())
+    {
+        mapCanvas.sceneInteractions.handleInput(screenWidth, screenHeight);
         return;
     }
 

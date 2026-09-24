@@ -134,6 +134,7 @@ set(EDITOR_SOURCES
     FullscreenParchmentEditor.cpp
     SceneAssistDialog.cpp
     SceneInventoryDialog.cpp
+    SceneInteractionsDialog.cpp
     SceneStoryEventsDialog.cpp
     SceneEffectsDialog.cpp
     SceneTransitionDialog.cpp

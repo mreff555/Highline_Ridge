@@ -35,6 +35,7 @@
 #include "FullscreenParchmentEditor.h"
 #include "SceneExitRequirementsDialog.h"
 #include "SceneInventoryDialog.h"
+#include "SceneInteractionsDialog.h"
 #include "SceneStoryEventsDialog.h"
 #include "SceneEffectsDialog.h"
 #include "SceneTransitionDialog.h"
@@ -166,6 +167,7 @@ struct SceneMapCanvas
     FullscreenParchmentEditor* parchment = nullptr;
     SceneAssistDialog sceneAssist;
     SceneInventoryDialog sceneInventory;
+    SceneInteractionsDialog sceneInteractions;
     SceneStoryEventsDialog sceneStoryEvents;
     SceneEffectsDialog sceneEffects;
     SceneTransitionDialog sceneTransition;

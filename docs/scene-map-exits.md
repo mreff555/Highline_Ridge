@@ -66,6 +66,12 @@ Runtime: clicking a gated MOVE button shows/plays the blocked copy without movin
 
 Missing art is unrelated: a transition Use still draws a wire to the destination card even if that scene still uses a placeholder image.
 
+### Place item on Use (Variables → Interactions)
+
+Same-room “search the nightstand” style finds use **`interactions[]`** with `grantItem` (not Inventory takeables). Variables pane → **Interactions** → **Add place item…** pick from `items.json`. Defaults: requires examine, unlock-once `useFlag` / `hideWhenStoryFlag` (`sceneId:itemId_taken`). Player path: **Examine → Use** (not Take). Map Use stubs with `exitSceneId` also appear in this list.
+
+Inventory (Variables → **Inventory**) remains for ground **Take** loot (`takeables[]`).
+
 ### Quick checklist
 
 | Authoring goal | Map wire? | Player UI |
@@ -73,5 +79,7 @@ Missing art is unrelated: a transition Use still draws a wire to the destination
 | Walk F/B/L/R (or floor) to another room | Gold compass / floor link | Movement buttons |
 | Use to enter another scene (door, rug, sit-at-desk focus, etc.) | Silver Use corner wire | Use (direct or picker) |
 | Use that only plays narrative / status in the same room | **No** wire | Use picker (interaction list) |
+| Find item via Use (nightstand / search) | **No** wire | Variables → Interactions → grantItem |
+| Find item via Take after examine | **No** wire | Variables → Inventory |
 
 See also Manage Use Transition help text in the editor for **Create new / Clear / Accept / Cancel**.
