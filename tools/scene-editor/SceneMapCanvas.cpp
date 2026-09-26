@@ -252,14 +252,41 @@ SceneMapCanvas::SceneCardMetrics SceneMapCanvas::measureSceneCard(const std::str
     SceneMapCanvas::SceneCardMetrics metrics;
     metrics.width = kSceneCardWidth;
     const float titleWidth = metrics.width - 12.0f;
-    // Sub-view cards: show "subId" then parent for clarity.
+    // Sub-view (alternate) cards: two short lines — sub id, then parent — so
+    // long "subId  (parentId)" strings do not overflow illegibly (#40).
     std::string parentId;
     std::string subId;
     timberline_engine::SceneDocument::parseMapNodeId(sceneId, parentId, subId);
-    const std::string title = subId.empty() ? sceneId : (subId + "  (" + parentId + ")");
-    metrics.titleLines = wrapTextToWidth(title, titleWidth, kSceneCardTitleFont);
-    if (static_cast<int>(metrics.titleLines.size()) > kSceneCardMaxTitleLines)
-        metrics.titleLines.resize(static_cast<size_t>(kSceneCardMaxTitleLines));
+    const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
+    auto ellipsize = [&](const std::string& text) -> std::string {
+        if (MeasureTextEx(font, text.c_str(), kSceneCardTitleFont, 1.0f).x <= titleWidth)
+            return text;
+        std::string out = text;
+        const std::string ellipsis = "...";
+        while (!out.empty()
+               && MeasureTextEx(font, (out + ellipsis).c_str(), kSceneCardTitleFont, 1.0f).x
+                   > titleWidth)
+            out.pop_back();
+        return out + ellipsis;
+    };
+
+    if (subId.empty())
+    {
+        metrics.titleLines = wrapTextToWidth(sceneId, titleWidth, kSceneCardTitleFont);
+        if (static_cast<int>(metrics.titleLines.size()) > kSceneCardMaxTitleLines)
+        {
+            metrics.titleLines.resize(static_cast<size_t>(kSceneCardMaxTitleLines));
+            if (!metrics.titleLines.empty())
+                metrics.titleLines.back() = ellipsize(metrics.titleLines.back());
+        }
+    }
+    else
+    {
+        metrics.titleLines.clear();
+        metrics.titleLines.push_back(ellipsize(subId));
+        if (kSceneCardMaxTitleLines >= 2)
+            metrics.titleLines.push_back(ellipsize(parentId));
+    }
 
     const float titleBlock =
         static_cast<float>(metrics.titleLines.size()) * kSceneCardTitleLineHeight;
@@ -1918,20 +1945,7 @@ void SceneMapCanvas::drawLevelChrome(Rectangle canvasBounds)
     const bool canGoUp = docs->scenes.isLoaded() && level < maxLevel;
     const int onLevel = docs->scenes.isLoaded() ? graph->countScenesOnLevel(level) : 0;
 
-    const std::string levelLabel = TextFormat(
-        "Floor level %d  |  range %d to %d  |  %d scene(s) here",
-        level,
-        minLevel,
-        maxLevel,
-        onLevel);
     const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
-    DrawTextEx(
-        font,
-        levelLabel.c_str(),
-        {canvasBounds.x + 12.0f, canvasBounds.y + 10.0f},
-        kFontBody,
-        1.0f,
-        kTextPrimary);
 
     const Rectangle levelDownBtn = {
         canvasBounds.x + canvasBounds.width - 76.0f,
@@ -1958,6 +1972,32 @@ void SceneMapCanvas::drawLevelChrome(Rectangle canvasBounds)
         canvasBounds.y + 8.0f,
         cleanW,
         cleanH};
+
+    // Floor label must stop before Clean up / floor buttons (#40 illegible chrome).
+    std::string levelLabel = TextFormat(
+        "Floor level %d  |  range %d to %d  |  %d scene(s) here",
+        level,
+        minLevel,
+        maxLevel,
+        onLevel);
+    const float labelMaxW = std::max(40.0f, cleanBtn.x - (canvasBounds.x + 12.0f) - 8.0f);
+    if (MeasureTextEx(font, levelLabel.c_str(), kFontBody, 1.0f).x > labelMaxW)
+    {
+        // Prefer a shorter form before ellipsizing.
+        levelLabel = TextFormat("Floor %d  |  %d–%d  |  %d here", level, minLevel, maxLevel, onLevel);
+    }
+    while (!levelLabel.empty()
+           && MeasureTextEx(font, (levelLabel + "...").c_str(), kFontBody, 1.0f).x > labelMaxW)
+        levelLabel.pop_back();
+    if (MeasureTextEx(font, levelLabel.c_str(), kFontBody, 1.0f).x > labelMaxW)
+        levelLabel += "...";
+    DrawTextEx(
+        font,
+        levelLabel.c_str(),
+        {canvasBounds.x + 12.0f, canvasBounds.y + 10.0f},
+        kFontBody,
+        1.0f,
+        kTextPrimary);
     const bool canClean =
         docs->scenes.isLoaded()
         && onLevel > 0
@@ -2426,15 +2466,20 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         }
 
         float titleY = thumbRect.y + thumbRect.height + 4.0f;
+        const bool isAlternateTitle = isSubView && metrics.titleLines.size() >= 2;
         for (size_t lineIndex = 0; lineIndex < metrics.titleLines.size(); ++lineIndex)
         {
+            // Alternate cards: parent id on line 2 is muted so the sub id stays primary.
+            // (No nested scissor — raylib EndScissorMode clears the map content clip.)
+            const Color titleColor =
+                (isAlternateTitle && lineIndex > 0) ? kTextMuted : kTextPrimary;
             DrawTextEx(
                 (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
                 metrics.titleLines[lineIndex].c_str(),
                 {card.x + 6.0f, titleY},
                 kSceneCardTitleFont,
                 1.0f,
-                kTextPrimary);
+                titleColor);
             titleY += kSceneCardTitleLineHeight;
         }
 

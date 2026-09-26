@@ -91,9 +91,9 @@ void installMenusNow(void)
 
         (void)GetWindowHandle();
 
-        // Tahoe SF Symbol menu injection needs a resolved appearance.
-        if ([app appearance] == nil)
-            [app setAppearance:[NSAppearance appearanceNamed:NSAppearanceNameAqua]];
+        // Follow system light/dark (do NOT force Aqua — that made the title bar
+        // light while the OS was in dark mode, #49). nil appearance = system.
+        [app setAppearance:nil];
 
         NSMenu* mainMenu = [app mainMenu];
         if (mainMenu == nil)

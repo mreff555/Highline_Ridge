@@ -67,6 +67,10 @@ Runtime: clicking a gated MOVE button shows/plays the blocked copy without movin
 
 Missing art is unrelated: a transition Use still draws a wire to the destination card even if that scene still uses a placeholder image.
 
+### Alternate views vs Use wires (#40)
+
+Keep **alternate / sub-scene cards** (`parent#sub`) for focus plates and per-view TTS (e.g. snow cave `chamber`). **Use wires** are for room-to-room Use destinations (doors, nightstand focus scene). Prefer Use when the player moves to another authored scene; prefer an alternate card when it is the same scene with a different image/description/TTS bag.
+
 ### Place item on Use (Variables → Interactions)
 
 Same-room “search the nightstand” style finds use **`interactions[]`** with `grantItem` (not Inventory takeables). Variables pane → **Interactions** → **Add place item…** pick from `items.json`. Defaults: requires examine, unlock-once `useFlag` / `hideWhenStoryFlag` (`sceneId:itemId_taken`). Player path: **Examine → Use** (not Take). Map Use stubs with `exitSceneId` also appear in this list.
