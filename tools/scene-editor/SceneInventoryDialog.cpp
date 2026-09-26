@@ -411,7 +411,8 @@ void SceneInventoryDialog::draw(int screenW, int screenH)
     DrawRectangleRec(content, Color{18, 16, 24, 255});
     DrawRectangleLinesEx(content, 1.0f, kPanelInnerEdge);
 
-    const float rowH = 52.0f;
+    // Taller rows: title, description, then examine slider (#50).
+    const float rowH = 78.0f;
     const float listTop = content.y + 10.0f;
     const float listH = content.height - 56.0f;
     const Rectangle listBounds = {content.x + 10.0f, listTop, content.width - 20.0f, listH};
@@ -452,47 +453,87 @@ void SceneInventoryDialog::draw(int screenW, int screenH)
             DrawRectangleRec(row, Color{26, 24, 34, 255});
             DrawRectangleLinesEx(row, 1.0f, kPanelInnerEdge);
 
-            const std::string title =
+            // Bold red X — top-right remove (#50).
+            const float xSize = 22.0f;
+            const Rectangle removeHit = {
+                row.x + row.width - xSize - 6.0f, row.y + 6.0f, xSize, xSize};
+            const bool removeHover = CheckCollisionPointRec(mouse, removeHit);
+            DrawTextEx(
+                bold,
+                "X",
+                {removeHit.x + 4.0f, removeHit.y - 1.0f},
+                kFontTitle,
+                1.0f,
+                removeHover ? Color{255, 90, 80, 255} : Color{220, 60, 50, 255});
+
+            const float titleMaxW = std::max(40.0f, removeHit.x - (row.x + 10.0f) - 8.0f);
+            std::string title =
                 entry.name.empty() ? entry.id : (entry.name + "  (" + entry.id + ")");
+            while (!title.empty()
+                   && MeasureTextEx(font, (title + "...").c_str(), kFontSmall, 1.0f).x
+                       > titleMaxW)
+                title.pop_back();
+            if (MeasureTextEx(font, title.c_str(), kFontSmall, 1.0f).x > titleMaxW)
+                title += "...";
             DrawTextEx(
                 font,
                 title.c_str(),
-                {row.x + 10.0f, row.y + 8.0f},
+                {row.x + 10.0f, row.y + 6.0f},
                 kFontSmall,
                 1.0f,
                 kTextPrimary);
 
-            const std::string meta =
-                std::string(entry.requiresExamine ? "Requires examine" : "Take anytime")
-                + (entry.requiresStoryFlag.empty()
-                       ? ""
-                       : ("  |  flag: " + entry.requiresStoryFlag));
+            // Description under the name (examine text or flag meta).
+            std::string desc = entry.examineText;
+            if (desc.empty() && !entry.requiresStoryFlag.empty())
+                desc = "flag: " + entry.requiresStoryFlag;
+            if (desc.empty())
+                desc = entry.id;
+            while (!desc.empty()
+                   && MeasureTextEx(font, (desc + "...").c_str(), kFontTiny, 1.0f).x
+                       > row.width - 20.0f)
+                desc.pop_back();
+            if (MeasureTextEx(font, desc.c_str(), kFontTiny, 1.0f).x > row.width - 20.0f)
+                desc += "...";
             DrawTextEx(
                 font,
-                meta.c_str(),
-                {row.x + 10.0f, row.y + 28.0f},
+                desc.c_str(),
+                {row.x + 10.0f, row.y + 26.0f},
                 kFontTiny,
                 1.0f,
                 kTextMuted);
 
-            const Rectangle examBtn = {
-                row.x + row.width - 168.0f, row.y + 12.0f, 78.0f, 26.0f};
-            const Rectangle removeBtn = {
-                row.x + row.width - 82.0f, row.y + 12.0f, 70.0f, 26.0f};
-            drawEditorButton(
+            // Exit-Requirements-style row slider under the description (#50).
+            const float sw = 44.0f;
+            const float sh = 22.0f;
+            const Rectangle track = {row.x + 10.0f, row.y + 46.0f, sw, sh};
+            DrawRectangleRounded(track, 0.5f, 6, Color{28, 26, 36, 255});
+            DrawRectangleRoundedLines(track, 0.5f, 6, kPanelInnerEdge);
+            const float ksz = 16.0f;
+            const float kx = entry.requiresExamine
+                ? (track.x + track.width - ksz - 3.0f)
+                : (track.x + 3.0f);
+            DrawRectangleRounded(
+                {kx, track.y + (sh - ksz) * 0.5f, ksz, ksz},
+                0.5f,
+                6,
+                entry.requiresExamine ? kPanelAccent : Color{70, 66, 80, 255});
+            DrawTextEx(
                 font,
-                examBtn,
-                entry.requiresExamine ? "Exam: ON" : "Exam: off",
-                entry.requiresExamine,
-                !addPickerOpen);
-            drawEditorButton(font, removeBtn, "Remove", false, !addPickerOpen);
+                "Must examine scene first",
+                {track.x + sw + 10.0f, track.y + 3.0f},
+                kFontSmall,
+                1.0f,
+                kTextPrimary);
+            const Rectangle examHit = {
+                track.x, track.y, sw + 10.0f + 200.0f, sh};
 
             if (canClick && !addPickerOpen)
             {
-                if (CheckCollisionPointRec(mouse, examBtn))
-                    entries[i].requiresExamine = !entries[i].requiresExamine;
-                else if (CheckCollisionPointRec(mouse, removeBtn))
+                if (CheckCollisionPointRec(mouse, removeHit))
                     removeAt(i);
+                else if (CheckCollisionPointRec(mouse, examHit))
+                    entries[i].requiresExamine = !entries[i].requiresExamine;
             }
 
             y += rowH;
@@ -500,10 +541,19 @@ void SceneInventoryDialog::draw(int screenW, int screenH)
     }
     EndScissorMode();
 
+    // Bold white + bottom-left instead of "Add item..." (#50).
     const Rectangle addBtn = {
-        content.x + 10.0f, content.y + content.height - 40.0f, 120.0f, 30.0f};
-    // ASCII "..." — UI fonts often lack U+2026 and draw it as '?'.
-    drawEditorButton(font, addBtn, "Add item...", true, true);
+        content.x + 10.0f, content.y + content.height - 40.0f, 36.0f, 32.0f};
+    const bool addHover = CheckCollisionPointRec(mouse, addBtn);
+    DrawRectangleRec(addBtn, addHover ? Color{50, 46, 62, 255} : Color{32, 28, 40, 255});
+    DrawRectangleLinesEx(addBtn, 1.0f, kPanelBorder);
+    DrawTextEx(
+        bold,
+        "+",
+        {addBtn.x + 9.0f, addBtn.y + 1.0f},
+        kFontHeading + 4.0f,
+        1.0f,
+        WHITE);
     if (canClick && CheckCollisionPointRec(mouse, addBtn))
     {
         addPickerOpen = !addPickerOpen;
