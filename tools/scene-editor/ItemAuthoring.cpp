@@ -27,6 +27,10 @@
 #include <iostream>
 #include <sstream>
 
+#if !defined(_WIN32)
+#include <sys/wait.h>
+#endif
+
 using timberline_engine::ensureDirectory;
 using timberline_engine::pathJoin;
 
@@ -607,7 +611,9 @@ ItemAiAssistPlan planItemAiAssist(
     {
         ItemAiAssistJob job;
         job.type = ItemAiAssistJobType::GenerateConstructionDescription;
-        job.outPath = "assembleNarrative";
+        // Must live under resources/ — runner rejects bare tokens like "assembleNarrative".
+        job.outPath =
+            "resources/.authoring/" + payload.id + "_assemble_narrative.txt";
         job.prompt =
             "Write construction/combine narrative for crafting product \""
             + payload.name + "\" from components \"" + payload.recipe.component1
@@ -619,7 +625,7 @@ ItemAiAssistPlan planItemAiAssist(
     {
         ItemAiAssistJob job;
         job.type = ItemAiAssistJobType::GenerateTtsConstructionDescription;
-        job.outPath = "assembleTts";
+        job.outPath = "resources/.authoring/" + payload.id + "_assemble_tts.txt";
         job.action = "assemble";
         job.prompt =
             "Write spoken assemble TTS for crafting \"" + payload.name
@@ -631,7 +637,7 @@ ItemAiAssistPlan planItemAiAssist(
     {
         ItemAiAssistJob job;
         job.type = ItemAiAssistJobType::GenerateTtsDescription;
-        job.outPath = "examineTts";
+        job.outPath = "resources/.authoring/" + payload.id + "_examine_tts.txt";
         job.action = "examine";
         job.prompt =
             "Write spoken examine TTS for item \"" + payload.name
@@ -679,6 +685,7 @@ bool writeItemAiAssistJobsFile(
         entry["type"] = jobTypeLabel(job.type);
         entry["prompt"] = job.prompt;
         entry["outPath"] = job.outPath;
+        entry["itemId"] = itemId;
         if (!job.action.empty())
             entry["action"] = job.action;
         root["jobs"].push_back(entry);
@@ -935,11 +942,18 @@ bool runItemAuthoringAiJobs(
         return std::system(command.str().c_str());
     };
 
+    // Prefer python3. Only fall back to `python` when the binary is missing
+    // (shell 127) — not when jobs fail with exit 1 (#55 noisy "python: not found").
     int code = runWith("python3");
-    if (code != 0)
+#if !defined(_WIN32)
+    const int python3Status =
+        (code >= 0 && WIFEXITED(code)) ? WEXITSTATUS(code) : code;
+#else
+    const int python3Status = code;
+#endif
+    if (python3Status == 127 || code == -1)
     {
-        std::cerr << "TIMBERLINE authoring: python3 exit " << code
-                  << ", trying python\n";
+        std::cerr << "TIMBERLINE authoring: python3 missing, trying python\n";
         code = runWith("python");
     }
     std::cerr << "TIMBERLINE authoring: runner exit code " << code << "\n";

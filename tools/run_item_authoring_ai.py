@@ -46,6 +46,18 @@ SCENE_TTS_TEXT_TYPES = {
     "generate_scene_description_tts_text",
     "generate_scene_examine_tts_text",
 }
+# Item dialog text jobs (chat → resultText + .txt under resources/.authoring/).
+ITEM_TEXT_TYPES = {
+    "generate_tts_description",
+    "generate_tts_construction_description",
+    "generate_construction_description",
+}
+# Legacy logical outPath tokens (still accepted; rewritten under .authoring/).
+LOGICAL_OUT_PATHS = {
+    "examineTts": "examine_tts.txt",
+    "assembleTts": "assemble_tts.txt",
+    "assembleNarrative": "assemble_narrative.txt",
+}
 
 
 def resolve_api_key(asset_root: Path, cli_key: str | None) -> str:
@@ -941,8 +953,19 @@ def process_job(
     if not out_rel:
         raise ValueError(f"Job missing outPath: {job}")
 
+    out_norm = str(out_rel).replace("\\", "/")
+    item_id = str(job.get("itemId") or "")
+
+    # Legacy tokens → real files under resources/.authoring/
+    if out_norm in LOGICAL_OUT_PATHS:
+        leaf = LOGICAL_OUT_PATHS[out_norm]
+        prefix = item_id if item_id else "item"
+        out_rel = f"resources/.authoring/{prefix}_{leaf}"
+        out_norm = out_rel
+        job["outPath"] = out_rel
+
     # Refuse garbage outPaths (e.g. a pasted API key mistaken for a path).
-    if not str(out_rel).replace("\\", "/").startswith("resources/"):
+    if not out_norm.startswith("resources/"):
         raise ValueError(
             f"Refusing outPath outside resources/: {out_rel!r} "
             "(check the path field — do not paste the API key there)"
@@ -1020,22 +1043,24 @@ def process_job(
         print(f"  [ok] wrote {out_path.name} + {xz.name}")
         return str(out_path.relative_to(asset_root))
 
-    if jtype in SCENE_TTS_TEXT_TYPES:
+    if jtype in SCENE_TTS_TEXT_TYPES or jtype in ITEM_TEXT_TYPES:
         if not api_key:
             raise RuntimeError(
-                "Missing XAI_API_KEY for TTS dialog generation. "
-                "Export XAI_API_KEY or place key in resources/xai_api_key."
+                "Missing XAI_API_KEY for TTS/text generation. "
+                "Export XAI_API_KEY or place key in ~/.config/highline-ridge/xai_api_key."
             )
-        print(f"  [tts-text] {jtype} …")
+        label = "tts-text" if "tts" in jtype else "text"
+        print(f"  [{label}] {jtype} …")
         text = generate_chat_text(api_key, prompt)
         job["resultText"] = text
         out_path.parent.mkdir(parents=True, exist_ok=True)
+        if not out_path.suffix:
+            out_path = out_path.with_suffix(".txt")
         out_path.write_text(text + "\n", encoding="utf-8")
-        print(f"  [ok] wrote TTS markup ({len(text)} chars) → {out_path.name}")
+        print(f"  [ok] wrote text ({len(text)} chars) → {out_path.name}")
         return str(out_path.relative_to(asset_root))
 
-    # Legacy item text/TTS construction jobs are applied in the editor payload.
-    print(f"  [skip] {jtype} (text job — handled by editor)")
+    print(f"  [skip] {jtype} (unknown job type)")
     return ""
 
 
@@ -1076,6 +1101,9 @@ def main() -> int:
     errors: list[str] = []
     produced: list[str] = []
     for job in jobs:
+        if not isinstance(job, dict):
+            continue
+        job["itemId"] = item_id
         try:
             rel = process_job(
                 api_key, asset_root, job, backup_rotate=backup_rotate)
@@ -1086,7 +1114,8 @@ def main() -> int:
             print(f"  [fail] {msg}", file=sys.stderr)
             errors.append(msg)
 
-    # Update jobs file status
+    # Persist resultText / rewritten outPaths alongside lastRun status.
+    data["jobs"] = jobs
     data["lastRun"] = {
         "produced": produced,
         "errors": errors,

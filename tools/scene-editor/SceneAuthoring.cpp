@@ -922,14 +922,14 @@ std::string runSceneAuthoringAiJobsFile(
 #if !defined(_WIN32)
     if (code == -999)
         return "Cancelled.";
-    if (WIFEXITED(code) && WEXITSTATUS(code) != 0)
-        code = runWith("python");
-    else if (!WIFEXITED(code) && code != -999)
+    // Only fall back when python3 is missing (127), not on job failures (#55).
+    if ((WIFEXITED(code) && WEXITSTATUS(code) == 127)
+        || (!WIFEXITED(code) && code != -999))
         code = runWith("python");
     if (code == -999)
         return "Cancelled.";
 #else
-    if (code != 0)
+    if (code == 127 || code == -1)
         code = runWith("python");
 #endif
 

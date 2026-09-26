@@ -844,7 +844,56 @@ void ItemEditor::pollAuthoringGenerateResult()
     authoringGenerateResultPending = false;
     authoringGenerateBusy = false;
     authoringGenerateTarget = 0;
-    // Reload previews from disk after worker finishes.
+
+    // Apply chat TTS/text results from the jobs file into the open payload (#55).
+    if (docs != nullptr && !authoringPayload.id.empty())
+    {
+        try
+        {
+            const std::string gameRoot =
+                docs->assetRoot.empty() ? "." : docs->assetRoot;
+            const std::string jobsPath = pathJoin(
+                pathJoin(pathJoin(gameRoot, "resources"), ".authoring"),
+                authoringPayload.id + "_ai_jobs.json");
+            std::ifstream in(jobsPath.c_str());
+            if (in)
+            {
+                nlohmann::json root;
+                in >> root;
+                if (root.contains("jobs") && root["jobs"].is_array())
+                {
+                    for (const auto& job : root["jobs"])
+                    {
+                        if (!job.is_object())
+                            continue;
+                        const std::string text = job.value("resultText", "");
+                        if (text.empty())
+                            continue;
+                        const std::string type = job.value("type", "");
+                        if (type == "generate_tts_description")
+                        {
+                            authoringPayload.ttsDescription = text;
+                            authoringPayload.descriptionTtsEnabled = true;
+                        }
+                        else if (type == "generate_tts_construction_description")
+                        {
+                            authoringPayload.recipe.ttsConstructionDescription = text;
+                            authoringPayload.recipe.ttsEnabled = true;
+                        }
+                        else if (type == "generate_construction_description")
+                        {
+                            authoringPayload.recipe.constructionDescription = text;
+                        }
+                    }
+                }
+            }
+        }
+        catch (const nlohmann::json::exception&)
+        {
+        }
+    }
+
+    // Reload image/icon previews from disk after worker finishes.
     authoringPreviewExaminePath.clear();
     authoringPreviewIconPath.clear();
     authoringPreviewExamineSoundPath.clear();
