@@ -16,9 +16,7 @@ std::atomic<bool> gEditorSaveMenuRequested{false};
 
 namespace
 {
-
 void (*gOnPreferences)(void) = nullptr;
-
 } // namespace
 
 @interface EditorNativeMenuTarget : NSObject
@@ -41,10 +39,48 @@ void (*gOnPreferences)(void) = nullptr;
 }
 @end
 
-extern "C" void editorInstallNativePreferencesMenu(void (*onPreferences)(void))
+namespace
 {
-    gOnPreferences = onPreferences;
 
+/**
+ * macOS Tahoe (26) can SIGSEGV in CoreUI while AppKit injects SF Symbol icons
+ * into the Windows menu ("Move & Resize by Halves") during key-equivalent
+ * routing from glfwPollEvents. Rebuild a plain Window menu we own so AppKit
+ * does not run the broken sidecar updater against a nil CUICatalog.
+ */
+void ensurePlainWindowsMenu(NSApplication* app, NSMenu* mainMenu)
+{
+    if (app == nil || mainMenu == nil)
+        return;
+
+    NSMenu* windowMenu = [[NSMenu alloc] initWithTitle:@"Window"];
+    [windowMenu addItemWithTitle:@"Minimize"
+                          action:@selector(performMiniaturize:)
+                   keyEquivalent:@"m"];
+    [windowMenu addItemWithTitle:@"Zoom"
+                          action:@selector(performZoom:)
+                   keyEquivalent:@""];
+    [windowMenu addItem:[NSMenuItem separatorItem]];
+    [windowMenu addItemWithTitle:@"Bring All to Front"
+                          action:@selector(arrangeInFront:)
+                   keyEquivalent:@""];
+
+    for (NSInteger i = [mainMenu numberOfItems] - 1; i >= 0; --i)
+    {
+        NSMenuItem* item = [mainMenu itemAtIndex:i];
+        if ([[item title] isEqualToString:@"Window"] || [app windowsMenu] == [item submenu])
+            [mainMenu removeItemAtIndex:i];
+    }
+
+    NSMenuItem* windowMenuItem =
+        [[NSMenuItem alloc] initWithTitle:@"Window" action:nil keyEquivalent:@""];
+    [windowMenuItem setSubmenu:windowMenu];
+    [mainMenu addItem:windowMenuItem];
+    [app setWindowsMenu:windowMenu];
+}
+
+void installMenusNow(void)
+{
     @autoreleasepool
     {
         NSApplication* app = NSApp;
@@ -53,8 +89,11 @@ extern "C" void editorInstallNativePreferencesMenu(void (*onPreferences)(void))
         if (app == nil)
             return;
 
-        // Ensure raylib's Cocoa window is up so NSApp has a main menu.
         (void)GetWindowHandle();
+
+        // Tahoe SF Symbol menu injection needs a resolved appearance.
+        if ([app appearance] == nil)
+            [app setAppearance:[NSAppearance appearanceNamed:NSAppearanceNameAqua]];
 
         NSMenu* mainMenu = [app mainMenu];
         if (mainMenu == nil)
@@ -69,7 +108,7 @@ extern "C" void editorInstallNativePreferencesMenu(void (*onPreferences)(void))
         if (appMenuItem == nil)
         {
             appMenuItem = [[NSMenuItem alloc] init];
-            [mainMenu addItem:appMenuItem];
+            [mainMenu insertItem:appMenuItem atIndex:0];
         }
 
         NSMenu* appMenu = [appMenuItem submenu];
@@ -83,7 +122,6 @@ extern "C" void editorInstallNativePreferencesMenu(void (*onPreferences)(void))
         if (target == nil)
             target = [[EditorNativeMenuTarget alloc] init];
 
-        // --- Preferences… in the application menu (⌘,) ---
         bool hasPrefs = false;
         for (NSMenuItem* existing in [appMenu itemArray])
         {
@@ -120,14 +158,12 @@ extern "C" void editorInstallNativePreferencesMenu(void (*onPreferences)(void))
                 [appMenu insertItem:[NSMenuItem separatorItem] atIndex:after];
         }
 
-        // --- File menu between app menu and Window (Save ⌘S) ---
         bool hasFileMenu = false;
         for (NSMenuItem* item in [mainMenu itemArray])
         {
             if ([[item title] isEqualToString:@"File"])
             {
                 hasFileMenu = true;
-                // Ensure Save exists if File was already created.
                 NSMenu* fileMenu = [item submenu];
                 bool hasSave = false;
                 for (NSMenuItem* sub in [fileMenu itemArray])
@@ -167,7 +203,6 @@ extern "C" void editorInstallNativePreferencesMenu(void (*onPreferences)(void))
             [save setTarget:target];
             [fileMenu addItem:save];
 
-            // Insert after the application menu (index 0), before Window/Help.
             NSInteger insertAt = 1;
             for (NSInteger i = 1; i < [mainMenu numberOfItems]; ++i)
             {
@@ -184,7 +219,23 @@ extern "C" void editorInstallNativePreferencesMenu(void (*onPreferences)(void))
                 insertAt = [mainMenu numberOfItems];
             [mainMenu insertItem:fileMenuItem atIndex:insertAt];
         }
+
+        ensurePlainWindowsMenu(app, mainMenu);
     }
+}
+
+} // namespace
+
+extern "C" void editorInstallNativePreferencesMenu(void (*onPreferences)(void))
+{
+    gOnPreferences = onPreferences;
+
+    // Defer until after GLFW finishes its first Cocoa menu/window setup. Installing
+    // synchronously can leave AppKit's Windows-menu sidecar updater holding a bad
+    // CUICatalog on macOS Tahoe (SIGSEGV in EndDrawing → glfwPollEvents → NSMenu).
+    dispatch_async(dispatch_get_main_queue(), ^{
+        installMenusNow();
+    });
 }
 
 extern "C" void editorPollNativeMenuFlags(void)
