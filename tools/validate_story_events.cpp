@@ -288,21 +288,36 @@ int main(int argc, char* argv[])
         };
 
         std::set<std::string> cppInserts;
+        std::set<std::string> cppErases;
         std::set<std::string> cppReads;
         collect(insertRe, cppInserts);
         collect(countRe, cppReads);
-        collect(eraseRe, cppInserts); // erase is also a write/mutation
+        collect(eraseRe, cppErases);
 
         for (const std::string& flag : cppReads)
             readFlags.insert(flag);
 
+        // Engine-managed runtime flags (insert/erase + count in C++) do not need
+        // a JSON setsFlags/examineFlag declaration (#48).
         for (const std::string& flag : cppInserts)
         {
-            if (setFlags.count(flag) == 0)
+            const bool runtimeManaged = cppReads.count(flag) > 0;
+            if (setFlags.count(flag) == 0 && !runtimeManaged)
             {
                 noteWarn(
-                    "GameSession.cpp inserts/erases story flag not set by JSON "
-                    "storyEvents/interactions/examineFlag: "
+                    "GameSession.cpp inserts story flag not set by JSON "
+                    "storyEvents/interactions/examineFlag (and not read in C++): "
+                    + flag);
+            }
+            setFlags.insert(flag);
+        }
+        for (const std::string& flag : cppErases)
+        {
+            // Erase alone is a mutation; if never inserted in JSON or C++, warn.
+            if (setFlags.count(flag) == 0 && cppInserts.count(flag) == 0)
+            {
+                noteWarn(
+                    "GameSession.cpp erases story flag never set in JSON or C++: "
                     + flag);
             }
             setFlags.insert(flag);

@@ -1537,9 +1537,6 @@ namespace
 
         if (!result.spokenActorId.empty())
             worldState.markActorKnown(result.spokenActorId);
-
-        if (conversationMgr.isPhaseComplete("blue_woman"))
-            worldState.storyFlags.insert("saloon_balcony:blue_woman_done");
     }
 
     void GameSession::resolveCombatEncounter(const std::string& encounterId)
@@ -3650,9 +3647,6 @@ namespace
                 worldState.storyFlags.insert("saloon_interior:chose_water");
             }
         }
-
-        if (conversationMgr.isPhaseComplete("blue_woman"))
-            worldState.storyFlags.insert("saloon_balcony:blue_woman_done");
     }
 
 #if defined(HIGHLINE_DEV_TOOLS)
