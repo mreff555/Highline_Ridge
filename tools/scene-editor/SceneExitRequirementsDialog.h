@@ -90,6 +90,12 @@ struct SceneExitRequirementsDialog
     Rectangle voiceMenuRect{0, 0, 0, 0};
     Rectangle directionSliderRect{0, 0, 0, 0};
 
+    /** Inventory-item id autocomplete (#47). */
+    bool itemSuggestOpen = false;
+    float itemSuggestScroll = 0.0f;
+    Rectangle itemSuggestRect{0, 0, 0, 0};
+    Rectangle itemFieldRect{0, 0, 0, 0};
+
     std::string sessionApiKey;
     std::string status;
     std::string error;
@@ -135,6 +141,10 @@ private:
     std::string* focusedString();
     void cycleBadge();
     void suggestBadgeFromGates();
+    /** Token being typed in the comma-separated inventory field (for autocomplete). */
+    std::string inventoryItemTokenPrefix() const;
+    void applyInventoryItemSuggestion(const std::string& itemId);
+    std::vector<std::string> inventoryItemSuggestions(int maxCount) const;
     std::string defaultBlockedAudioPath() const;
     std::string defaultVariantAudioPath(int index) const;
     bool blockedAudioExists() const;

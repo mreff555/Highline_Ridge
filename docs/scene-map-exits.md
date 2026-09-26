@@ -29,9 +29,10 @@ Right-click a **silver** Use wire → **Manage...** (Use description / destinati
 
 Requirements are **one-way** (`fromScene.exitRequirements[direction]`). The Exit Requirements dialog has a **direction slider**: left shows e.g. `snow_cave_exterior -> snow_cave_interior`, right shows the return path. Gates, badge, blocked details, and blocked TTS are unique per side. Switching sides auto-saves the side you leave.
 
-- **Needs light:** any inventory item with `lightSource: true` (lantern, future candle, …)
-- **Inventory item id(s):** one id, or comma-separated list when *all* are required (e.g. `mining_pick, crampons` on the alpine climb)
-- Also: room purchased, story flag  
+- **Exit requires a light source** / **room purchased today** — row toggles under the direction slider  
+- **Inventory item id(s):** full-width field with **autocomplete** (Tab accepts); comma-separated if *all* are required  
+- **Story flag:** separate full-width field (unlock-once pattern)  
+
 - **Block badge:** `auto` / `light` / `lock` / `gear`  
 - **Blocked TTS:** Voice · **Generate TTS dialog** · **Generate Voice** · **Preview voice**
 - **Blocked variants:** optional list of `{ when, details, tts }` bags. **First matching `when` wins**; leave `when` empty for the default branch and place it **last**.

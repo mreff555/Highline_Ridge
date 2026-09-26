@@ -290,6 +290,7 @@ void SceneExitRequirementsDialog::closeDialog()
     waitMouseRelease = false;
     voiceMenuOpen = false;
     fieldContextOpen = false;
+    itemSuggestOpen = false;
     editingReverse = false;
     reverseAvailable = false;
 }
@@ -381,6 +382,89 @@ void SceneExitRequirementsDialog::loadFromScene()
             ++idx;
         }
     }
+}
+
+std::string SceneExitRequirementsDialog::inventoryItemTokenPrefix() const
+{
+    // Autocomplete applies to the token after the last comma.
+    const std::string& s = requiresInventoryItem;
+    const size_t comma = s.find_last_of(",;\n");
+    std::string token = (comma == std::string::npos) ? s : s.substr(comma + 1);
+    size_t a = 0;
+    while (a < token.size()
+           && (token[a] == ' ' || token[a] == '\t' || token[a] == '\r'))
+        ++a;
+    return token.substr(a);
+}
+
+void SceneExitRequirementsDialog::applyInventoryItemSuggestion(const std::string& itemId)
+{
+    if (itemId.empty())
+        return;
+    const std::string& s = requiresInventoryItem;
+    const size_t comma = s.find_last_of(",;\n");
+    if (comma == std::string::npos)
+        requiresInventoryItem = itemId;
+    else
+    {
+        std::string head = s.substr(0, comma + 1);
+        // Keep a single space after the separator when present.
+        if (head.empty() || (head.back() != ' ' && head.back() != '\t'))
+            head.push_back(' ');
+        requiresInventoryItem = head + itemId;
+    }
+    itemSuggestOpen = false;
+    if (blockBadge == "auto")
+        suggestBadgeFromGates();
+}
+
+std::vector<std::string> SceneExitRequirementsDialog::inventoryItemSuggestions(int maxCount) const
+{
+    std::vector<std::string> out;
+    if (docs == nullptr || maxCount <= 0)
+        return out;
+    if (!docs->itemsLoaded)
+        const_cast<DocumentWorkspace*>(docs)->loadItemsDocument();
+    const std::string prefix = inventoryItemTokenPrefix();
+    std::string prefixLower = prefix;
+    for (char& ch : prefixLower)
+        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    const std::vector<std::string> ids = docs->itemIds();
+    for (const std::string& id : ids)
+    {
+        if (prefixLower.empty())
+        {
+            out.push_back(id);
+        }
+        else
+        {
+            std::string idLower = id;
+            for (char& ch : idLower)
+                ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+            if (idLower.rfind(prefixLower, 0) != 0 && idLower.find(prefixLower) == std::string::npos)
+                continue;
+            // Prefer prefix matches first — collect all then sort below.
+            out.push_back(id);
+        }
+        if (static_cast<int>(out.size()) >= maxCount * 3)
+            break;
+    }
+    std::sort(out.begin(), out.end(), [&](const std::string& a, const std::string& b) {
+        std::string al = a;
+        std::string bl = b;
+        for (char& ch : al)
+            ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+        for (char& ch : bl)
+            ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+        const bool ap = !prefixLower.empty() && al.rfind(prefixLower, 0) == 0;
+        const bool bp = !prefixLower.empty() && bl.rfind(prefixLower, 0) == 0;
+        if (ap != bp)
+            return ap;
+        return al < bl;
+    });
+    if (static_cast<int>(out.size()) > maxCount)
+        out.resize(static_cast<size_t>(maxCount));
+    return out;
 }
 
 void SceneExitRequirementsDialog::suggestBadgeFromGates()
@@ -577,6 +661,16 @@ void SceneExitRequirementsDialog::typeIntoFocusedField()
         return;
     const bool multiline =
         (focusField == 2 || focusField == 3 || focusField == 6 || focusField == 7);
+
+    // Tab accepts the top inventory autocomplete suggestion (#47).
+    if (focusField == 0 && itemSuggestOpen && IsKeyPressed(KEY_TAB))
+    {
+        const std::vector<std::string> suggestions = inventoryItemSuggestions(8);
+        if (!suggestions.empty())
+            applyInventoryItemSuggestion(suggestions.front());
+        return;
+    }
+
     int cp = GetCharPressed();
     while (cp > 0)
     {
@@ -586,18 +680,30 @@ void SceneExitRequirementsDialog::typeIntoFocusedField()
                 buffer->push_back('\n');
         }
         else if (cp >= 32)
+        {
             insertUtf8(*buffer, cp);
+            if (focusField == 0)
+                itemSuggestOpen = true;
+        }
         cp = GetCharPressed();
     }
     if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE))
+    {
         backspaceUtf8(*buffer);
+        if (focusField == 0)
+            itemSuggestOpen = true;
+    }
     const bool mod = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)
         || IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER);
     if (mod && IsKeyPressed(KEY_V))
     {
         const char* clip = GetClipboardText();
         if (clip != nullptr && clip[0] != '\0')
+        {
             buffer->append(clip);
+            if (focusField == 0)
+                itemSuggestOpen = true;
+        }
     }
 }
 
@@ -1053,6 +1159,16 @@ void SceneExitRequirementsDialog::draw(int screenW, int screenH)
         y += 16.0f;
     }
 
+    // Separator under direction controls (#47).
+    y += 4.0f;
+    DrawRectangle(
+        static_cast<int>(fieldX),
+        static_cast<int>(y),
+        static_cast<int>(fieldW),
+        1,
+        kPanelInnerEdge);
+    y += 10.0f;
+
     const float footerH = 52.0f;
     const Rectangle scrollClip = {
         fieldX, y, fieldW, dialog.y + dialogH - footerH - y};
@@ -1071,39 +1187,56 @@ void SceneExitRequirementsDialog::draw(int screenW, int screenH)
 
     auto rowY = [&]() { return scrollClip.y + contentY - scrollY; };
 
-    auto toggle = [&](const char* label, bool& value, float ox) {
-        const Rectangle btn = {fieldX + ox, rowY(), 200.0f, 26.0f};
-        drawEditorButton(
-            font, btn, (std::string(label) + (value ? ": ON" : ": off")).c_str(), value, !busy);
-        if (canClick && CheckCollisionPointRec(mouse, scrollClip)
-            && CheckCollisionPointRec(mouse, btn))
+    // Row toggles: compact slider + description (#47).
+    auto rowToggle = [&](const char* description, bool& value) {
+        const float rowH = 28.0f;
+        const float sw = 44.0f;
+        const float sh = 22.0f;
+        const Rectangle track = {fieldX, rowY() + 3.0f, sw, sh};
+        DrawRectangleRounded(track, 0.5f, 6, Color{28, 26, 36, 255});
+        DrawRectangleRoundedLines(track, 0.5f, 6, kPanelInnerEdge);
+        const float ksz = 16.0f;
+        const float kx = value ? (track.x + track.width - ksz - 3.0f) : (track.x + 3.0f);
+        DrawRectangleRounded(
+            {kx, track.y + (sh - ksz) * 0.5f, ksz, ksz},
+            0.5f,
+            6,
+            value ? kPanelAccent : Color{70, 66, 80, 255});
+        DrawTextEx(
+            font,
+            description,
+            {track.x + sw + 10.0f, rowY() + 5.0f},
+            kFontSmall,
+            1.0f,
+            kTextPrimary);
+        const Rectangle hit = {fieldX, rowY(), fieldW, rowH};
+        if (canClick && !busy && CheckCollisionPointRec(mouse, scrollClip)
+            && CheckCollisionPointRec(mouse, hit))
         {
             value = !value;
             if (blockBadge == "auto")
                 suggestBadgeFromGates();
         }
+        advance(rowH + 4.0f);
     };
-    toggle("Needs light", requiresLightSource, 0.0f);
-    toggle("Room purchased", requiresRoomPurchasedToday, 210.0f);
-    advance(34.0f);
+    rowToggle("Exit requires a light source (any inventory lightSource item)", requiresLightSource);
+    rowToggle(
+        "Exit requires a room purchased today (saloon lodging)",
+        requiresRoomPurchasedToday);
+    advance(6.0f);
 
+    // Inventory + story flag stacked full-width (was side-by-side and confusing).
     DrawTextEx(
         font,
-        "Requires inventory item id(s) — comma-separated if all needed",
+        "Requires inventory item id(s) — type to autocomplete; comma-separate if all needed",
         {fieldX, rowY()},
-        kFontTiny,
-        1.0f,
-        kTextMuted);
-    DrawTextEx(
-        font,
-        "Requires story flag",
-        {fieldX + fieldW * 0.52f, rowY()},
         kFontTiny,
         1.0f,
         kTextMuted);
     advance(16.0f);
 
-    Rectangle itemField = {fieldX, rowY(), fieldW * 0.48f, 28.0f};
+    Rectangle itemField = {fieldX, rowY(), fieldW, 28.0f};
+    itemFieldRect = itemField;
     DrawRectangleRec(itemField, Color{24, 22, 32, 255});
     DrawRectangleLinesEx(
         itemField, focusField == 0 ? 2.0f : 1.0f, focusField == 0 ? kPanelBorder : kPanelInnerEdge);
@@ -1111,14 +1244,34 @@ void SceneExitRequirementsDialog::draw(int screenW, int screenH)
         font,
         itemField,
         requiresInventoryItem,
-        "(none)",
+        "(none — e.g. key_ring)",
         kFontSmall,
         requiresInventoryItem.empty() ? kTextMuted : kTextPrimary);
+    BeginScissorMode(
+        (int)scrollClip.x,
+        (int)scrollClip.y,
+        (int)scrollClip.width,
+        (int)scrollClip.height);
     if (canClick && CheckCollisionPointRec(mouse, scrollClip)
         && CheckCollisionPointRec(mouse, itemField))
+    {
         focusField = 0;
+        itemSuggestOpen = true;
+        if (docs != nullptr && !docs->itemsLoaded)
+            docs->loadItemsDocument();
+    }
+    advance(36.0f);
 
-    Rectangle flagField = {fieldX + fieldW * 0.52f, rowY(), fieldW * 0.48f, 28.0f};
+    DrawTextEx(
+        font,
+        "Requires story flag (optional unlock-once; e.g. saloon_service_hall:supply_unlocked)",
+        {fieldX, rowY()},
+        kFontTiny,
+        1.0f,
+        kTextMuted);
+    advance(16.0f);
+
+    Rectangle flagField = {fieldX, rowY(), fieldW, 28.0f};
     DrawRectangleRec(flagField, Color{24, 22, 32, 255});
     DrawRectangleLinesEx(
         flagField, focusField == 1 ? 2.0f : 1.0f, focusField == 1 ? kPanelBorder : kPanelInnerEdge);
@@ -1129,9 +1282,17 @@ void SceneExitRequirementsDialog::draw(int screenW, int screenH)
         "(none)",
         kFontSmall,
         requiresStoryFlag.empty() ? kTextMuted : kTextPrimary);
+    BeginScissorMode(
+        (int)scrollClip.x,
+        (int)scrollClip.y,
+        (int)scrollClip.width,
+        (int)scrollClip.height);
     if (canClick && CheckCollisionPointRec(mouse, scrollClip)
         && CheckCollisionPointRec(mouse, flagField))
+    {
         focusField = 1;
+        itemSuggestOpen = false;
+    }
     advance(40.0f);
 
     Rectangle badgeBtn = {fieldX, rowY(), 220.0f, 28.0f};
@@ -1537,6 +1698,75 @@ void SceneExitRequirementsDialog::draw(int screenW, int screenH)
         const std::string shown = ellipsizeUi(font, status, kFontTiny, msgMaxW);
         DrawTextEx(
             font, shown.c_str(), {msgX, btnY + 8.0f}, kFontTiny, 1.0f, Color{120, 180, 120, 255});
+    }
+
+    // Inventory item autocomplete dropdown (drawn above footer / outside scissor).
+    if (itemSuggestOpen && focusField == 0)
+    {
+        const std::vector<std::string> suggestions = inventoryItemSuggestions(10);
+        if (!suggestions.empty())
+        {
+            const float rowH = 22.0f;
+            const float menuH = rowH * static_cast<float>(suggestions.size()) + 6.0f;
+            itemSuggestRect = {
+                itemFieldRect.x,
+                itemFieldRect.y + itemFieldRect.height + 2.0f,
+                itemFieldRect.width,
+                menuH};
+            // Keep on screen if near bottom of dialog.
+            if (itemSuggestRect.y + itemSuggestRect.height > dialog.y + dialogH - footerH)
+                itemSuggestRect.y = itemFieldRect.y - itemSuggestRect.height - 2.0f;
+            DrawRectangleRec(itemSuggestRect, Color{36, 32, 44, 255});
+            DrawRectangleLinesEx(itemSuggestRect, 1.0f, kPanelBorder);
+            float sy = itemSuggestRect.y + 3.0f;
+            for (const std::string& id : suggestions)
+            {
+                Rectangle row = {
+                    itemSuggestRect.x + 2.0f,
+                    sy,
+                    itemSuggestRect.width - 4.0f,
+                    rowH - 2.0f};
+                if (CheckCollisionPointRec(mouse, row))
+                {
+                    DrawRectangleRec(row, Color{60, 54, 72, 220});
+                    if (canClick)
+                        applyInventoryItemSuggestion(id);
+                }
+                std::string label = id;
+                if (docs != nullptr)
+                {
+                    const nlohmann::json* item = docs->itemJson(id);
+                    if (item != nullptr && item->is_object())
+                    {
+                        const std::string name = item->value("name", "");
+                        if (!name.empty() && name != id)
+                            label = name + "  (" + id + ")";
+                    }
+                }
+                DrawTextEx(
+                    font,
+                    ellipsizeUi(font, label, kFontSmall, row.width - 12.0f).c_str(),
+                    {row.x + 6.0f, row.y + 2.0f},
+                    kFontSmall,
+                    1.0f,
+                    kTextPrimary);
+                sy += rowH;
+            }
+            DrawTextEx(
+                font,
+                "Tab = accept top match",
+                {itemSuggestRect.x + 8.0f, itemSuggestRect.y + itemSuggestRect.height + 2.0f},
+                kFontTiny,
+                1.0f,
+                kTextMuted);
+        }
+        if (canClick && !CheckCollisionPointRec(mouse, itemFieldRect)
+            && !CheckCollisionPointRec(mouse, itemSuggestRect))
+            itemSuggestOpen = false;
+    }
+    else if (focusField != 0)
+    {
+        itemSuggestOpen = false;
     }
 
     if (voiceMenuOpen)
