@@ -525,7 +525,7 @@ void SceneAuthoringDialog::startPreviewVoice(const char* bagKey)
     }
 
     stopPreviewVoice();
-    editorEnsureAudioDevice();
+    // Startup owns InitAudioDevice; button click only plays if already ready.
     if (!editorAudioDeviceReady())
     {
         error = "Audio device not ready.";

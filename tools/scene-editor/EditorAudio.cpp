@@ -25,9 +25,8 @@ void editorEnsureAudioDevice()
         gAudioTried = true;
         return;
     }
-    // Only attempt once from a known-safe point (startup). Retrying every
-    // preview frame during draw races CoreAudio on macOS Tahoe (#51 follow-up /
-    // crash_3: InitAudioDevice → ma_on_output__coreaudio).
+    // Only attempt once from a known-safe point (startup). Never from draw —
+    // Tahoe races InitAudioDevice with ma_on_output (crash_3/crash_4 SIGFPE).
     if (gAudioTried)
         return;
     gAudioTried = true;

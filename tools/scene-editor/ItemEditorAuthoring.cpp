@@ -349,7 +349,8 @@ void ItemEditor::unloadAuthoringPreviews()
 
 void ItemEditor::ensureAuthoringAudio()
 {
-    // Never InitAudioDevice from draw/sync — startup owns that (EditorAudio).
+    // Never InitAudioDevice from ItemEditor — startup owns that (EditorAudio).
+    // Do not call editorEnsureAudioDevice() here; Tahoe races if init runs mid-draw.
     authoringAudioReady = editorAudioDeviceReady();
 }
 
@@ -398,6 +399,9 @@ bool ItemEditor::loadAuthoringSound(const std::string& relPath, Sound& outSound)
 {
     if (docs == nullptr || relPath.empty())
         return false;
+    // Refuse unless the device is already fully ready — never init from here.
+    // LoadSoundFromWave with sampleRate==0 SIGFPEs; InitAudioDevice mid-draw
+    // races CoreAudio on Tahoe (crash_3 / crash_4).
     ensureAuthoringAudio();
     if (!authoringAudioReady)
         return false;
@@ -482,6 +486,8 @@ bool ItemEditor::loadAuthoringSound(const std::string& relPath, Sound& outSound)
 
 void ItemEditor::syncAuthoringPreviews()
 {
+    // Images only during draw. Sound load/play is deferred to Play clicks so we
+    // never touch CoreAudio from the preview pane while AI image jobs run.
     const std::string& img = authoringPayload.imagePath;
     const std::string& icon = authoringPayload.iconPath;
     const std::string& exSfx = authoringPayload.examineSoundPath;
@@ -513,66 +519,59 @@ void ItemEditor::syncAuthoringPreviews()
             authoringPreviewIconLoaded =
                 loadAuthoringTexture(icon, authoringPreviewIcon);
     }
+
+    // Invalidate cached sounds when paths change — do not LoadSound here.
     if (exSfx != authoringPreviewExamineSoundPath)
     {
         if (authoringPreviewExamineSoundLoaded)
         {
-            if (IsSoundPlaying(authoringPreviewExamineSound))
+            if (authoringAudioReady && IsSoundPlaying(authoringPreviewExamineSound))
                 StopSound(authoringPreviewExamineSound);
-            UnloadSound(authoringPreviewExamineSound);
+            if (authoringAudioReady)
+                UnloadSound(authoringPreviewExamineSound);
             authoringPreviewExamineSound = {};
             authoringPreviewExamineSoundLoaded = false;
             if (authoringPlayingSound == 1)
                 authoringPlayingSound = 0;
         }
         authoringPreviewExamineSoundPath = exSfx;
-        authoringPreviewExamineSoundLoaded = false;
-        if (!exSfx.empty())
-            authoringPreviewExamineSoundLoaded =
-                loadAuthoringSound(exSfx, authoringPreviewExamineSound);
-    }
-    else if (!exSfx.empty() && !authoringPreviewExamineSoundLoaded && editorAudioDeviceReady())
-    {
-        authoringPreviewExamineSoundLoaded =
-            loadAuthoringSound(exSfx, authoringPreviewExamineSound);
     }
     if (useSfx != authoringPreviewUseSoundPath)
     {
         if (authoringPreviewUseSoundLoaded)
         {
-            if (IsSoundPlaying(authoringPreviewUseSound))
+            if (authoringAudioReady && IsSoundPlaying(authoringPreviewUseSound))
                 StopSound(authoringPreviewUseSound);
-            UnloadSound(authoringPreviewUseSound);
+            if (authoringAudioReady)
+                UnloadSound(authoringPreviewUseSound);
             authoringPreviewUseSound = {};
             authoringPreviewUseSoundLoaded = false;
             if (authoringPlayingSound == 2)
                 authoringPlayingSound = 0;
         }
         authoringPreviewUseSoundPath = useSfx;
-        authoringPreviewUseSoundLoaded = false;
-        if (!useSfx.empty())
-            authoringPreviewUseSoundLoaded =
-                loadAuthoringSound(useSfx, authoringPreviewUseSound);
-    }
-    else if (!useSfx.empty() && !authoringPreviewUseSoundLoaded && editorAudioDeviceReady())
-    {
-        authoringPreviewUseSoundLoaded =
-            loadAuthoringSound(useSfx, authoringPreviewUseSound);
     }
 
-    // Track play state
-    if (authoringPlayingSound == 1
-        && (!authoringPreviewExamineSoundLoaded
-            || !IsSoundPlaying(authoringPreviewExamineSound)))
-        authoringPlayingSound = 0;
-    if (authoringPlayingSound == 2
-        && (!authoringPreviewUseSoundLoaded
-            || !IsSoundPlaying(authoringPreviewUseSound)))
-        authoringPlayingSound = 0;
+    // Track play state without touching audio if device is down.
+    if (authoringPlayingSound == 1)
+    {
+        if (!authoringPreviewExamineSoundLoaded
+            || !authoringAudioReady
+            || !IsSoundPlaying(authoringPreviewExamineSound))
+            authoringPlayingSound = 0;
+    }
+    if (authoringPlayingSound == 2)
+    {
+        if (!authoringPreviewUseSoundLoaded
+            || !authoringAudioReady
+            || !IsSoundPlaying(authoringPreviewUseSound))
+            authoringPlayingSound = 0;
+    }
 }
 
 void ItemEditor::drawAuthoringPreviewPane(Font font, Rectangle pane, bool canClick)
 {
+    ensureAuthoringAudio();
     syncAuthoringPreviews();
 
     DrawRectangleRec(pane, Color{22, 20, 28, 255});
@@ -670,30 +669,33 @@ void ItemEditor::drawAuthoringPreviewPane(Font font, Rectangle pane, bool canCli
 
     const float btnH = 28.0f;
     const float btnW = (innerW - 8.0f) * 0.5f;
-    auto drawPlayRow = [&](const char* label, int channel, bool loaded, float rowY) {
+    auto drawPlayRow = [&](const char* label,
+                           int channel,
+                           const std::string& path,
+                           bool& loadedFlag,
+                           Sound& sound,
+                           float rowY) {
         DrawTextEx(font, label, {pane.x + pad, rowY}, kFontTiny, 1.0f, kTextMuted);
         const float by = rowY + 14.0f;
         const Rectangle playBtn = {pane.x + pad, by, btnW, btnH};
         const Rectangle stopBtn = {pane.x + pad + btnW + 8.0f, by, btnW, btnH};
         const bool playing = authoringPlayingSound == channel;
+        const bool canPlay = !path.empty() && authoringAudioReady;
         drawEditorButton(
-            font, playBtn, playing ? "Playing..." : "Play", playing, loaded);
-        drawEditorButton(font, stopBtn, "Stop", false, loaded && playing);
-        if (canClick && loaded)
+            font, playBtn, playing ? "Playing..." : "Play", playing, canPlay);
+        drawEditorButton(font, stopBtn, "Stop", false, playing);
+        if (canClick && canPlay)
         {
             const Vector2 mouse = GetMousePosition();
             if (CheckCollisionPointRec(mouse, playBtn))
             {
                 stopAuthoringSounds();
-                if (channel == 1)
+                if (!loadedFlag)
+                    loadedFlag = loadAuthoringSound(path, sound);
+                if (loadedFlag)
                 {
-                    PlaySound(authoringPreviewExamineSound);
-                    authoringPlayingSound = 1;
-                }
-                else if (channel == 2)
-                {
-                    PlaySound(authoringPreviewUseSound);
-                    authoringPlayingSound = 2;
+                    PlaySound(sound);
+                    authoringPlayingSound = channel;
                 }
             }
             else if (CheckCollisionPointRec(mouse, stopBtn) && playing)
@@ -707,12 +709,16 @@ void ItemEditor::drawAuthoringPreviewPane(Font font, Rectangle pane, bool canCli
             ? "Examine sound (none)"
             : "Examine sound",
         1,
+        authoringPayload.examineSoundPath,
         authoringPreviewExamineSoundLoaded,
+        authoringPreviewExamineSound,
         y);
     y = drawPlayRow(
         authoringPayload.useSoundPath.empty() ? "Use sound (none)" : "Use sound",
         2,
+        authoringPayload.useSoundPath,
         authoringPreviewUseSoundLoaded,
+        authoringPreviewUseSound,
         y);
 
     if (!authoringAudioReady && (!authoringPayload.examineSoundPath.empty()
@@ -720,7 +726,7 @@ void ItemEditor::drawAuthoringPreviewPane(Font font, Rectangle pane, bool canCli
     {
         DrawTextEx(
             font,
-            "Audio device not ready",
+            "Audio device not ready — SFX preview disabled",
             {pane.x + pad, y},
             kFontTiny,
             1.0f,

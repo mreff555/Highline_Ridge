@@ -4635,11 +4635,8 @@ bool SceneMapCanvas::loadScenePreviewMusic(
     Music& outMusic,
     std::string& outTempFile)
 {
-    if (!previewAudioReady)
-    {
-        editorEnsureAudioDevice();
-        previewAudioReady = editorAudioDeviceReady();
-    }
+    // Never InitAudioDevice from map draw/preview load — startup owns init.
+    previewAudioReady = editorAudioDeviceReady();
     if (!previewAudioReady || docs == nullptr || relPath.empty())
         return false;
 

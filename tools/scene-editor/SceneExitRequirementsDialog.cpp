@@ -778,7 +778,7 @@ void SceneExitRequirementsDialog::startPreviewVoice()
         return;
     }
     stopPreviewVoice();
-    editorEnsureAudioDevice();
+    // Startup owns InitAudioDevice; button click only plays if already ready.
     if (!editorAudioDeviceReady())
     {
         error = "Audio device not ready.";

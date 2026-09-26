@@ -93,9 +93,7 @@ void drawLabel(Font font, const char* text, float x, float y)
 
 void SceneAssistDialog::ensureAudio()
 {
-    if (audioDeviceReady)
-        return;
-    editorEnsureAudioDevice();
+    // Do not InitAudioDevice from dialog draw — startup owns init.
     audioDeviceReady = editorAudioDeviceReady();
 }
 
