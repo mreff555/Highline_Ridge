@@ -907,6 +907,7 @@ bool parseTakeableItem(const nlohmann::json& item, TakeableItemDef& out)
     out.examineText = item.value("examineText", "");
     out.requiresExamine = item.value("requiresExamine", true);
     out.requiresStoryFlag = item.value("requiresStoryFlag", "");
+    out.requiresInventoryItem = item.value("requiresInventoryItem", "");
 
     return !out.id.empty();
 }

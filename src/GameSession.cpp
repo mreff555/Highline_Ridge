@@ -768,6 +768,10 @@ namespace
                 && worldState.storyFlags.count(item.requiresStoryFlag) == 0)
                 continue;
 
+            if (!item.requiresInventoryItem.empty()
+                && !inventoryMgr.hasItem(item.requiresInventoryItem))
+                continue;
+
             available.push_back(item);
         }
 
@@ -777,6 +781,10 @@ namespace
                 continue;
 
             if (item.requiresExamine && !hasExaminedScene(worldState.currentSceneId))
+                continue;
+
+            if (!item.requiresInventoryItem.empty()
+                && !inventoryMgr.hasItem(item.requiresInventoryItem))
                 continue;
 
             available.push_back(item);
