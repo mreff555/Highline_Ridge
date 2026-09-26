@@ -687,6 +687,11 @@ void SceneExitRequirementsDialog::typeIntoFocusedField()
         }
         cp = GetCharPressed();
     }
+    // Enter is a key event — not always in GetCharPressed (#52).
+    if (multiline
+        && (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)
+            || IsKeyPressedRepeat(KEY_ENTER) || IsKeyPressedRepeat(KEY_KP_ENTER)))
+        buffer->push_back('\n');
     if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE))
     {
         backspaceUtf8(*buffer);

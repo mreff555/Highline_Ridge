@@ -390,14 +390,11 @@ void SceneStoryEventsDialog::typeIntoFocusedField()
     }
     if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE))
         backspace(*buffer);
-    if (multiline && (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)))
-    {
-        // Enter already handled via char press on some platforms; ensure newline.
-        if (!IsKeyDown(KEY_LEFT_SHIFT) && !IsKeyDown(KEY_RIGHT_SHIFT))
-        {
-            // Char path may not fire for Enter; append if buffer didn't grow from cp.
-        }
-    }
+    // Enter is a key event on macOS/GLFW — not always in GetCharPressed (#52).
+    if (multiline
+        && (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)
+            || IsKeyPressedRepeat(KEY_ENTER) || IsKeyPressedRepeat(KEY_KP_ENTER)))
+        buffer->push_back('\n');
 }
 
 void SceneStoryEventsDialog::handleInput(int screenW, int screenH)

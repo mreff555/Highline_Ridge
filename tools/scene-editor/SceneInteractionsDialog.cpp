@@ -459,9 +459,12 @@ void SceneInteractionsDialog::typeIntoFocusedField()
             continue;
         insertUtf8(*target, codepoint);
     }
-    if (IsKeyPressed(KEY_BACKSPACE))
+    if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE))
         backspace(*target);
-    if (multiline && IsKeyPressed(KEY_ENTER))
+    // Enter is a key event on macOS/GLFW — not always in GetCharPressed (#52).
+    if (multiline
+        && (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)
+            || IsKeyPressedRepeat(KEY_ENTER) || IsKeyPressedRepeat(KEY_KP_ENTER)))
         target->push_back('\n');
 }
 

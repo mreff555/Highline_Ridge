@@ -117,6 +117,15 @@ float measureUiTextWidth(Font font, const std::string& text, float fontSize)
 {
     if (text.empty())
         return 0.0f;
+    // Guard against unloaded / half-initialized Fonts (MeasureTextEx can SIGSEGV
+    // when glyphs is null — seen in FullscreenParchmentEditor, #51).
+    if (font.glyphs == nullptr || font.glyphCount <= 0 || font.texture.id == 0)
+    {
+        const Font fallback = GetFontDefault();
+        if (fallback.glyphs == nullptr || fallback.glyphCount <= 0)
+            return static_cast<float>(text.size()) * fontSize * 0.5f;
+        return MeasureTextEx(fallback, text.c_str(), fontSize, 1.0f).x;
+    }
     return MeasureTextEx(font, text.c_str(), fontSize, 1.0f).x;
 }
 

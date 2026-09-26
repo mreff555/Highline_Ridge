@@ -129,12 +129,19 @@ Font tryLoadScriptFont(const std::string& resourceDir, const std::string& assetR
         {
             if (!FileExists(path.c_str()))
                 continue;
-            Font f = LoadFontEx(path.c_str(), 64, nullptr, 0);
-            if (f.texture.id != 0)
+            // Request a wide BMP Latin range so MeasureTextEx has glyphs for
+            // prose punctuation (nullptr/0 often leaves glyphs thin or null).
+            int codepoints[224];
+            for (int i = 0; i < 224; ++i)
+                codepoints[i] = 32 + i;
+            Font f = LoadFontEx(path.c_str(), 64, codepoints, 224);
+            if (f.texture.id != 0 && f.glyphs != nullptr && f.glyphCount > 0)
             {
                 SetTextureFilter(f.texture, TEXTURE_FILTER_BILINEAR);
                 return f;
             }
+            if (f.texture.id != 0)
+                UnloadFont(f);
         }
     }
     return GetFontDefault();
@@ -181,7 +188,8 @@ void FullscreenParchmentEditor::loadAssets(
     if (!scriptLoaded)
     {
         scriptFont = tryLoadScriptFont(resourceDir, assetRoot);
-        scriptLoaded = (scriptFont.texture.id != 0);
+        scriptLoaded = (scriptFont.texture.id != 0 && scriptFont.glyphs != nullptr
+                        && scriptFont.glyphCount > 0);
     }
 }
 
@@ -329,6 +337,19 @@ void FullscreenParchmentEditor::typeIntoDraft()
         cp = GetCharPressed();
     }
 
+    // Enter is a key event on macOS/GLFW — not delivered via GetCharPressed (#52).
+    if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)
+        || IsKeyPressedRepeat(KEY_ENTER) || IsKeyPressedRepeat(KEY_KP_ENTER))
+    {
+        deleteSelection();
+        draft.insert(
+            static_cast<size_t>(std::clamp(cursor, 0, static_cast<int>(draft.size()))),
+            "\n");
+        ++cursor;
+        selectAnchor = -1;
+        preferX = -1.0f;
+    }
+
     if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)
         || IsKeyPressed(KEY_DELETE) || IsKeyPressedRepeat(KEY_DELETE))
     {
@@ -395,7 +416,11 @@ void FullscreenParchmentEditor::handleInput(int screenW, int screenH)
 
     const Vector2 mouse = GetMousePosition();
     const bool canClick = editorMousePressed(MOUSE_BUTTON_LEFT);
-    const Font font = scriptLoaded ? scriptFont : GetFontDefault();
+    const Font font =
+        (scriptLoaded && scriptFont.glyphs != nullptr && scriptFont.glyphCount > 0
+         && scriptFont.texture.id != 0)
+            ? scriptFont
+            : GetFontDefault();
     layoutChrome(screenW, screenH);
 
     const float lineH = kScriptFontSize + kLineGap;
@@ -484,7 +509,7 @@ void FullscreenParchmentEditor::handleInput(int screenW, int screenH)
             const std::string prefix = draft.substr(
                 static_cast<size_t>(line.start),
                 static_cast<size_t>(std::max(0, i - line.start)));
-            const float w = MeasureTextEx(font, prefix.c_str(), kScriptFontSize, 1.0f).x;
+            const float w = measureUiTextWidth(font, prefix, kScriptFontSize);
             if (lastTextArea.x + w <= m.x)
                 best = i;
             else
@@ -569,7 +594,11 @@ void FullscreenParchmentEditor::draw(int screenW, int screenH)
             WHITE);
     }
 
-    const Font font = scriptLoaded ? scriptFont : GetFontDefault();
+    const Font font =
+        (scriptLoaded && scriptFont.glyphs != nullptr && scriptFont.glyphCount > 0
+         && scriptFont.texture.id != 0)
+            ? scriptFont
+            : GetFontDefault();
     layoutChrome(screenW, screenH);
     const Rectangle parchment = lastParchment;
 
@@ -663,8 +692,8 @@ void FullscreenParchmentEditor::draw(int screenW, int screenH)
                     static_cast<size_t>(a - lines[i].start));
                 const std::string mid = draft.substr(static_cast<size_t>(a), static_cast<size_t>(b - a));
                 const float x0 = lastTextArea.x
-                    + MeasureTextEx(font, pre.c_str(), kScriptFontSize, 1.0f).x;
-                const float w = MeasureTextEx(font, mid.c_str(), kScriptFontSize, 1.0f).x;
+                    + measureUiTextWidth(font, pre, kScriptFontSize);
+                const float w = measureUiTextWidth(font, mid, kScriptFontSize);
                 DrawRectangleRec(
                     {x0, y, std::max(2.0f, w), kScriptFontSize + 2.0f},
                     Color{180, 150, 90, 120});
@@ -710,7 +739,7 @@ void FullscreenParchmentEditor::draw(int screenW, int screenH)
             }
             const std::string run = lines[i].text.substr(ci, cj - ci);
             DrawTextEx(font, run.c_str(), {drawX, y}, kScriptFontSize, 1.0f, runColor);
-            drawX += MeasureTextEx(font, run.c_str(), kScriptFontSize, 1.0f).x;
+            drawX += measureUiTextWidth(font, run, kScriptFontSize);
             ci = cj;
         }
     }
@@ -735,7 +764,7 @@ void FullscreenParchmentEditor::draw(int screenW, int screenH)
                 static_cast<size_t>(line.start),
                 static_cast<size_t>(std::max(0, cursor - line.start)));
             const float cx = lastTextArea.x
-                + MeasureTextEx(font, pre.c_str(), kScriptFontSize, 1.0f).x;
+                + measureUiTextWidth(font, pre, kScriptFontSize);
             const float cy = lastTextArea.y + static_cast<float>(lineIdx) * lineH - scrollY;
             if (((static_cast<int>(GetTime() * 2.0) % 2) == 0))
                 DrawRectangleRec({cx, cy, 2.0f, kScriptFontSize}, Color{60, 40, 20, 220});
