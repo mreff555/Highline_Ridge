@@ -1,10 +1,48 @@
-# Scene map exits (compass vs Use)
+# Scene map exits, floors, and gates
 
-The Timberline Resource Editor map shows two kinds of connectors between scene cards. They look similar but mean different things in play.
+The Timberline Resource Editor map shows connectors between scene cards. This guide covers **compass exits**, **floor links**, **Use transitions**, and **gated exits** (#42). It also answers the old “special case” transition ask (#16).
 
 ## Compass exits (gold)
 
-Mid-edge ports (**F / B / L / R**, plus floor **up / down** via Connect) write `exits` + `movement` on the scene. In game these are the directional movement buttons.
+Mid-edge ports (**F / B / L / R**) write `exits` + `movement` on the scene. In game these are the directional movement buttons.
+
+Right-click a **gold** same-floor wire:
+
+| Menu item | Purpose |
+|-----------|---------|
+| **Delete** | Remove the exit (optionally reciprocal) |
+| **Edit Transition Audio…** | Enter/exit SFX for this neighbor pair |
+| **Exit Requirements…** | Gates, block badge, blocked notebook/TTS |
+
+## Floor transitions (up / down)
+
+Floor links are still compass exits — **`exits.up` / `exits.down`** — but the destination card lives on **another map level**, so the editor **does not draw a gold wire** across floors.
+
+### How to connect floors
+
+1. Select a scene card → right-click → **Connect to floor…**, **or**  
+2. Drag one card onto another and choose **Up** / **Down** in the stack dialog.
+
+That authors reciprocal `up`/`down` (and `movement`) when the link is created as a floor connection. Prefer **`down`/`up`** for true floor changes (not `backward`/`forward` across levels), so stair badges appear on both cards.
+
+### Stair badges
+
+On each end of a floor link the card shows a badge:
+
+| Badge | Meaning |
+|-------|---------|
+| **`^N`** | Exit **up** to a scene on floor **N** |
+| **`vN`** | Exit **down** to a scene on floor **N** |
+
+Gold-tinted badges mean that direction has **exit requirements**.
+
+**Right-click the badge** (not the card body) for the same menu as a gold wire: Delete / Edit Transition Audio… / Exit Requirements….
+
+Switch floor chrome (**−** / **+** or floor label) to see the other card.
+
+### Example
+
+`high_alpine_trail` (floor 0) → **up** → `alpine_summit` (floor 1): badge **`^1`** on the trail, **`v0`** on the summit.
 
 ## Use transitions (silver)
 
@@ -13,29 +51,60 @@ Corner ports (**NW / NE / SW / SE**) author **Use-driven scene changes**:
 | Binding | JSON | In-game Use behavior |
 |---------|------|----------------------|
 | **Direct Use** | Scene `useExit` (+ optional `useDetails`, `useRepeatStatus`, map corner fields) | If the scene has **no** available `interactions[]`, Use runs immediately (no picker). |
-| **Interaction Use** | `interactions[]` entry with `exitSceneId` (map stubs are often `use_map_N`) | Use opens the interaction picker when any such interactions are available. |
+| **Interaction Use** | `interactions[]` entry with `exitSceneId` (map stubs are often `use_map_N`) | Use opens the interaction picker when more than one Use option exists. |
 
-Drag corner → corner (or **Manage Use Transition**) to create/edit these. The dialog’s **Use description** box is the narrative shown when the player clicks Use (`useDetails`). **Accept** saves that description and the destination; **Cancel** closes without changing the destination.
+Drag corner → corner (or **Manage…** on the silver wire) to create/edit these. The dialog’s **Use description** is the narrative when the player clicks Use (`useDetails`).
 
-**Note:** Edit Scene does **not** author Use description / repeat — those live on the Use Transition dialog (and Effects for repeat status). Saving Edit Scene preserves them.
+Right-click a **silver** wire → **Manage…** or **Edit Transition Audio…**.
 
-### Exit requirements (gated compass exits)
+**Note:** Edit Scene does **not** author Use description / repeat — those live on Manage Use Transition (and Effects for repeat status). Saving Edit Scene preserves them.
 
-Right-click a **gold** same-floor exit wire → **Edit Transition Audio...** (SFX) or **Exit Requirements...** (gates / blocked VO).
+### What gets a silver Use wire
 
-**Floor (up/down) links** do not draw a wire — the destination card lives on another map level. Use the stair badge on the card corner instead (`^N` / `vN`, gold-tinted when gated). **Right-click the badge** for the same menu: Delete / Edit Transition Audio… / Exit Requirements…. The direction slider still flips outbound vs return.
+**Only Use actions that leave for another scene** are drawn:
 
-Right-click a **silver** Use wire → **Manage...** (Use description / destination) or **Edit Transition Audio...** (same enter/exit SFX dialog).
+- Scene `useExit` → another scene / `scene#sub`
+- An interaction with non-empty `exitSceneId`
 
-Requirements are **one-way** (`fromScene.exitRequirements[direction]`). The Exit Requirements dialog has a **direction slider**: left shows e.g. `snow_cave_exterior -> snow_cave_interior`, right shows the return path. Gates, badge, blocked details, and blocked TTS are unique per side. Switching sides auto-saves the side you leave.
+**Same-room Use** (narrative only, no `exitSceneId`) has **no** map wire but still appears in the Use picker.
 
-- **Exit requires a light source** / **room purchased today** — row toggles under the direction slider  
-- **Inventory item id(s):** full-width field with **autocomplete** (Tab accepts); comma-separated if *all* are required  
-- **Story flag:** separate full-width field (unlock-once pattern)  
+## Special-case transitions (#16 fold)
 
-- **Block badge:** `auto` / `light` / `lock` / `gear`  
-- **Blocked TTS:** Voice · **Generate TTS dialog** · **Generate Voice** · **Preview voice**
-- **Blocked variants:** optional list of `{ when, details, tts }` bags. **First matching `when` wins**; leave `when` empty for the default branch and place it **last**.
+| Need | Author with | Player UI |
+|------|-------------|-----------|
+| Walk F/B/L/R | Gold compass wire | Movement buttons |
+| Climb/descend floors | Connect to floor → stair badge | Up/down movement |
+| “Use the door / rug / desk” to another scene | Silver Use wire | Use (direct or picker) |
+| Locked / dark / story-gated MOVE | Exit Requirements on gold wire or stair badge | Blocked notebook + optional TTS; no move |
+| “Search the drawer” for an item | Variables → **Interactions** (grantItem) | Examine → Use |
+| Item on the ground after examine | Variables → **Inventory** (takeable) | Examine → Take |
+
+There is no separate “special transition” schema beyond these tools.
+
+## Exit requirements (gated compass / floor exits)
+
+Open **Exit Requirements…** from a gold wire or stair badge.
+
+Requirements are **one-way** (`fromScene.exitRequirements[direction]`). The dialog **direction slider** flips outbound vs return (e.g. `snow_cave_exterior -> snow_cave_interior` vs the reverse). Each side has its own gates, badge, blocked details, and TTS.
+
+### Gates
+
+- **Exit requires a light source** — any inventory item with `lightSource: true` (lantern, future candle, …)
+- **Exit requires a room purchased today** — saloon lodging day flag
+- **Inventory item id(s)** — specific id(s); comma-separated if *all* are required (autocomplete; Tab accepts)
+- **Story flag** — unlock-once pattern (e.g. after a Use “unlock” sets the flag)
+
+### Block badge
+
+`auto` / `light` / `lock` / `gear` — padlock keys should use **lock**.
+
+### Blocked VO
+
+- **Blocked details** — notebook `Blocked:` text (right-click → Edit full screen / parchment)
+- **Blocked TTS** — Voice · **Generate TTS dialog** · **Generate Voice** · **Preview voice**
+- **Blocked variants** — `{ when, details, tts }` bags; **first matching `when` wins**; empty `when` = default (**place last**)
+
+Runtime: clicking a gated MOVE control shows/plays the blocked copy **without moving**.
 
 ### `when` condition grammar (P3)
 
@@ -45,46 +114,46 @@ Bare form (preferred in JSON / variant `when` field):
 |---------|---------|
 | `item:padlock_key:in_inventory` | Player has item |
 | `item:padlock_key:discovered` | Taken/discovered (or in inventory) |
-| `not_item:padlock_key:in_inventory` | Negation (`not_` prefix works on object or state) |
+| `not_item:padlock_key:in_inventory` | Negation (`not_` on object or state) |
 | `scene:saloon_service_hall:examined` | Scene examined this playthrough |
 | `scene:x:visited` | Entered / examined (best-effort) |
 | `flag:some_flag:set` | Story flag present |
 | `milestone:quest_id:set` | Milestone started or complete |
 | `actor:bartender:observed` | Actor known (`spoken_to` / `attacked` via `actor:<id>:<state>` flags) |
 
-Brace sugar `{{condition:item:padlock_key:in_inventory}}` is accepted as the same clause. **Do not** put `{{condition}}` inside TTS bake text — use separate variant TTS bags. Editor highlights condition tags (yellow) and body (gray).
+Brace sugar `{{condition:item:padlock_key:in_inventory}}` is accepted as the same clause. **Do not** put `{{condition}}` inside TTS bake text — use separate variant TTS bags. The editor highlights condition tags (yellow) and body (gray).
 
-Runtime: clicking a gated MOVE button shows/plays the blocked copy without moving (see #42).
+## Alternate views vs Use wires (#40)
 
-### What gets a silver Use wire on the map
+Keep **alternate / sub-scene cards** (`parent#sub`) for focus plates and per-view TTS (e.g. snow cave `chamber`). **Use wires** are for going to another authored scene (door, nightstand focus scene). Prefer Use when the player changes scene; prefer an alternate when it is the same scene with a different image/description/TTS bag.
 
-**Only Use actions that leave for another scene** are drawn as map wires:
+## Place item vs Inventory
 
-- Scene `useExit` pointing at another scene / `scene#sub`
-- An interaction with a non-empty `exitSceneId`
+| Goal | Where | Player path |
+|------|--------|-------------|
+| Search furniture / grant on Use | Variables → **Interactions** → **Add place item…** | Examine → **Use** |
+| Ground loot after examine | Variables → **Inventory** → **+** | Examine → **Take** |
 
-**Same-room Use actions do not get a map wire.** They still appear in the in-game Use list when authored as `interactions[]` with narrative (and no exit), for example cabin **Sit in the luxurious chair** (`sit_chair`): it has `useDetails` but no `exitSceneId`, so there is nothing to connect on the map. Cabin **Lift the rug** (`lift_rug`) has `exitSceneId: cabin_under_rug`, so it **does** show a Use line.
+Interactions defaults: requires examine, one-shot `useFlag` / `hideWhenStoryFlag` = `sceneId:itemId_taken`, `grantItem`. Inventory rows use a **Must examine scene first** slider (#50).
 
-Missing art is unrelated: a transition Use still draws a wire to the destination card even if that scene still uses a placeholder image.
+**These buttons are on the Scene Variables pane** (not inside Edit Scene).
 
-### Alternate views vs Use wires (#40)
+### Worked example (key + locked door)
 
-Keep **alternate / sub-scene cards** (`parent#sub`) for focus plates and per-view TTS (e.g. snow cave `chamber`). **Use wires** are for room-to-room Use destinations (doors, nightstand focus scene). Prefer Use when the player moves to another authored scene; prefer an alternate card when it is the same scene with a different image/description/TTS bag.
+1. Bedroom → Use wire to nightstand focus scene (silver).  
+2. On the nightstand scene → Variables → **Inventory** → **+** → `key_ring` (or **Interactions** → place item if you want Use instead of Take).  
+3. `saloon_service_hall` → right-click gold wire to the supply closet → **Exit Requirements…** → inventory `key_ring`, badge **lock**, blocked details/TTS → Save.
 
-### Place item on Use (Variables → Interactions)
+## Quick checklist
 
-Same-room “search the nightstand” style finds use **`interactions[]`** with `grantItem` (not Inventory takeables). Variables pane → **Interactions** → **Add place item…** pick from `items.json`. Defaults: requires examine, unlock-once `useFlag` / `hideWhenStoryFlag` (`sceneId:itemId_taken`). Player path: **Examine → Use** (not Take). Map Use stubs with `exitSceneId` also appear in this list.
-
-Inventory (Variables → **Inventory**) remains for ground **Take** loot (`takeables[]`).
-
-### Quick checklist
-
-| Authoring goal | Map wire? | Player UI |
-|----------------|-----------|-----------|
-| Walk F/B/L/R (or floor) to another room | Gold compass / floor link | Movement buttons |
-| Use to enter another scene (door, rug, sit-at-desk focus, etc.) | Silver Use corner wire | Use (direct or picker) |
-| Use that only plays narrative / status in the same room | **No** wire | Use picker (interaction list) |
-| Find item via Use (nightstand / search) | **No** wire | Variables → Interactions → grantItem |
-| Find item via Take after examine | **No** wire | Variables → Inventory |
+| Authoring goal | Map affordance | Player UI |
+|----------------|----------------|-----------|
+| Walk F/B/L/R | Gold wire | Movement |
+| Floor up/down | Stair badge `^N` / `vN` | Up/down |
+| Use into another scene | Silver wire | Use |
+| Same-room Use narrative | *(none)* | Use picker |
+| Gate a MOVE | Exit Requirements on wire/badge | Blocked + TTS |
+| Find item via Use | Interactions | Examine → Use |
+| Find item via Take | Inventory | Examine → Take |
 
 See also Manage Use Transition help text in the editor for **Create new / Clear / Accept / Cancel**.

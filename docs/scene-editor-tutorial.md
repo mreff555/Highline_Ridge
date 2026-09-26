@@ -28,11 +28,46 @@ You get a **left list** (scenes / conversations / items depending on tab), a **m
 3. Use floor chrome to change level; connect Above/Below with the floor-connect flow.  
 4. Right-click a card for Edit, Remove from map, Delete, etc.
 
-**Gold wires** (mid-edge) = compass exits. **Silver wires** (corners) = Use transitions to another scene.
+**Gold wires** (mid-edge) = compass exits. **Silver wires** (corners) = Use transitions to another scene. **Stair badges** (`^N` / `vN`) = floor up/down (no cross-floor wire).
 
 **Screenshot:** `docs/images/editor-map-wires.png` — map showing both wire types.
 
-See also [scene-map-exits.md](scene-map-exits.md).
+See also [scene-map-exits.md](scene-map-exits.md) (floors, gates, place-item, #16 special cases).
+
+---
+
+## 2b. Gates, floors, and special transitions
+
+### Floors
+
+1. Right-click a card → **Connect to floor…**, or drag one card onto another → Up/Down.  
+2. Switch floor chrome to see the other level.  
+3. **Right-click the stair badge** on the card for **Edit Transition Audio…** / **Exit Requirements…** (same as a gold wire).
+
+### Gated MOVE (locked / dark / story)
+
+1. Right-click a **gold wire** (same floor) or **stair badge** (floor link).  
+2. **Exit Requirements…**  
+3. Set light / room / inventory id(s) / story flag; blocked details + TTS; optional variants.  
+4. Use the **direction slider** for outbound vs return.  
+5. **Save**, then File → Save (⌘S).
+
+### Place item / takeables (not in Edit Scene)
+
+On the **Scene Variables** pane (select the scene first):
+
+| Button | Use for |
+|--------|---------|
+| **Interactions** | Use + `grantItem` (search nightstand / place key) |
+| **Inventory** | Take loot after examine (`+` / red **X** / examine slider) |
+
+### Mini recipe: key in drawer → locked hall door
+
+1. Use wire from bedroom → nightstand focus scene.  
+2. Nightstand scene → Variables → **Inventory** → **+** → your key item (or **Interactions** → Add place item…).  
+3. Hall scene → gold wire to locked room → Exit Requirements → require that item id, badge **lock**.
+
+Full detail: [scene-map-exits.md](scene-map-exits.md).
 
 ---
 
@@ -66,8 +101,10 @@ With a scene selected:
 |--------|--------|
 | **Effects** | Stat deltas / repeat for scene Use |
 | **Events** | `storyEvents[]` (enter / exit / examine beats) |
-| **Inventory** | Starting inventory for the scene |
+| **Interactions** | Use actions / place-item (`grantItem`) / map Use stubs |
+| **Inventory** | Scene takeables (Take after examine) |
 | **AI Assist** | Generation assist (when configured) |
+| **Edit** | Same as Edit Scene for the selection |
 
 Tree rows under the scene expose JSON fields (including TTS bags) for raw edit when needed.
 

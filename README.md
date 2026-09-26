@@ -69,10 +69,12 @@ Status effects can be one-shot or repeatable (`repeat` / `useRepeatStatus`). Sce
 ### Movement and Use
 
 - **Compass exits** — gold mid-edge wires on the map  
+- **Floor up/down** — Connect to floor; stair badges (`^N` / `vN`) for audio/gates  
 - **Use → another scene** — silver corner wires (`useExit` or interaction `exitSceneId`)  
 - **Same-room Use** (narrative only) — no map wire; still appears in-game  
+- **Gated MOVE** — Exit Requirements (light / item / flag + blocked VO)  
 
-Details: [docs/scene-map-exits.md](docs/scene-map-exits.md).
+Details: [docs/scene-map-exits.md](docs/scene-map-exits.md) (also covers place-item vs Inventory and folds #16 special cases).
 
 ### Saves
 
@@ -248,7 +250,7 @@ When `HIGHLINE_DEV_TOOLS=ON` (dev default):
 | [docs/scene-editor-tutorial.md](docs/scene-editor-tutorial.md) | Editor walkthrough |
 | [docs/tts.md](docs/tts.md) | TTS markup and refresh |
 | [docs/dev-vs-release.md](docs/dev-vs-release.md) | Dev vs player package |
-| [docs/scene-map-exits.md](docs/scene-map-exits.md) | Compass vs Use wires |
+| [docs/scene-map-exits.md](docs/scene-map-exits.md) | Compass, floors, Use, gates, place-item |
 | [docs/dialog-tokens.md](docs/dialog-tokens.md) | `{tab_amount}`-style tokens |
 | [docs/display-aspect.md](docs/display-aspect.md) | Display aspect preferences |
 | [docs/platform-parallelism.md](docs/platform-parallelism.md) | JobSystem / parallelism notes |
