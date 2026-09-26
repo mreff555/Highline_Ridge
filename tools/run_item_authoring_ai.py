@@ -714,6 +714,67 @@ def generate_chat_text(api_key: str, prompt: str) -> str:
     return text
 
 
+def soften_imagine_prompt(prompt: str) -> str:
+    """Rewrite gore/violence phrasing for Imagine; keep period atmosphere.
+
+    Game JSON keeps full forensic prose — only the Imagine API prompt is softened
+    so scenes like sawtooth_ridge_body can still generate plates.
+    """
+    import re
+
+    text = prompt
+    replacements = [
+        (r"\bblood\b", "dark staining"),
+        (r"\bbloody\b", "stained"),
+        (r"\bgunshot wound\b", "bandaged injury"),
+        (r"\bwound channel\b", "bandage packing"),
+        (r"\bwound\b", "injury"),
+        (r"\bwounds\b", "injuries"),
+        (r"\bbludgeon(?:ing|ed)?\b", "struck"),
+        (r"\bskull has been severly damaged\b", "hat covers his head"),
+        (r"\bskull has been severely damaged\b", "hat covers his head"),
+        (r"\bseverly damaged by\b", "hidden by"),
+        (r"\bcorpse\b", "fallen traveler"),
+        (r"\bthe body\b", "the fallen man"),
+        (r"\bThe body\b", "The fallen man"),
+        (r"\bdead body\b", "fallen traveler"),
+        (r"\btime of death\b", "how long he has lain here"),
+        (r"\bcause of death\b", "what happened"),
+        (r"\bkilled him\b", "brought him down"),
+        (r"\bdie[sd]?\b", "fell"),
+        (r"\bpeak rigidity\b", "stiff with cold"),
+        (r"\bfrozen stiff to the wool\b", "iced to the wool"),
+        (r"\bmeet cold metal\b", "feel something hard"),
+        (r"\bbullet that struck him\b", "round that hit him"),
+        (r"\bburied in the drift\b", "half-covered by the drift"),
+        (r"\bfield examination\b", "careful look"),
+    ]
+    for pattern, repl in replacements:
+        text = re.sub(pattern, repl, text, flags=re.IGNORECASE)
+
+    # Drop the most forensic examine paragraphs for image jobs — keep overview.
+    # If "Examine / detail notes:" is present, truncate after a short preview.
+    marker = "Examine / detail notes:"
+    idx = text.find(marker)
+    if idx >= 0:
+        head = text[:idx].rstrip()
+        # Keep a mild one-liner instead of the full autopsy-style notes.
+        text = (
+            head
+            + " A man in rancher's clothes lies still in the snow, hat covering "
+            "his face, no gore visible. Respectful distance."
+        )
+
+    suffix = (
+        " Strict visual rules for this image: PG-13, no gore, no blood, no open "
+        "wounds, no weapons mid-strike, no graphic injury. Show snow, ridge, "
+        "period clothing, and a still figure at a distance if needed."
+    )
+    if "no gore" not in text.lower():
+        text = text.rstrip() + suffix
+    return text
+
+
 def generate_image(
     api_key: str,
     prompt: str,
@@ -729,9 +790,10 @@ def generate_image(
     Icons stay 1:1; callers may pass resolution=\"1k\" to save cost.
     """
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    safe_prompt = soften_imagine_prompt(prompt)
     payload = {
         "model": model,
-        "prompt": prompt,
+        "prompt": safe_prompt,
         "n": 1,
         "response_format": "b64_json",
         "aspect_ratio": aspect_ratio,
@@ -758,8 +820,9 @@ def generate_image(
             code = str(parsed.get("code") or "")
             if "content-moderated" in code or "moderated" in err.lower():
                 hint = (
-                    " (content moderation — soften the item description: avoid gore/"
-                    "wounds/violence; then Generate again)"
+                    " (content moderation — the runner already softens gore; try a "
+                    "shorter scene overview without forensic wound detail, then "
+                    "Generate again)"
                 )
             elif "incorrect api key" in err.lower() or "invalid" in code.lower():
                 hint = (

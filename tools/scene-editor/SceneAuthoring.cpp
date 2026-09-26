@@ -389,9 +389,14 @@ std::vector<SceneAiJob> buildSceneAiJobs(
         SceneAiJob job;
         job.type = SceneAiJobType::GenerateImage;
         job.outPath = paths.imagePath;
+        // Prefer overview for plates; forensic examine notes often trip Imagine
+        // moderation (e.g. sawtooth_ridge_body). Runner also softens the prompt.
+        const std::string imageCtx = "Scene overview: " + overview;
         job.prompt = basePrompt
-            + "Wide establishing scene image of: " + ctx
-            + " Full-screen adventure game background, dimmable for UI.";
+            + "Wide establishing scene image of: " + imageCtx
+            + " Full-screen adventure game background, dimmable for UI. "
+              "PG-13: no gore, no blood, no graphic injuries; if a person is "
+              "present show them still and distant with face obscured.";
         jobs.push_back(job);
     }
     if (want(2))
