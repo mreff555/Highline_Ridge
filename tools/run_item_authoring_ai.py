@@ -751,7 +751,24 @@ def generate_image(
             body = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         err = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"Image API HTTP {exc.code}: {err}") from exc
+        # Surface Imagine moderation / auth clearly for the editor status line.
+        hint = ""
+        try:
+            parsed = json.loads(err)
+            code = str(parsed.get("code") or "")
+            if "content-moderated" in code or "moderated" in err.lower():
+                hint = (
+                    " (content moderation — soften the item description: avoid gore/"
+                    "wounds/violence; then Generate again)"
+                )
+            elif "incorrect api key" in err.lower() or "invalid" in code.lower():
+                hint = (
+                    " (bad API key — paste a valid xAI key in AI Assist, or update "
+                    "~/.config/highline-ridge/xai_api_key)"
+                )
+        except Exception:
+            pass
+        raise RuntimeError(f"Image API HTTP {exc.code}: {err}{hint}") from exc
 
     data = body.get("data") or []
     if not data:
@@ -1096,7 +1113,7 @@ def main() -> int:
     jobs = data.get("jobs") or []
     backup_rotate = bool(data.get("backupRotate", False))
     print(f"Running {len(jobs)} authoring job(s) for {item_id}"
-          + (" (backupRotate)" if backup_rotate else ""))
+          + (" (backupRotate)" if backup_rotate else ""), flush=True)
 
     errors: list[str] = []
     produced: list[str] = []

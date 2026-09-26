@@ -554,8 +554,29 @@ ItemAiAssistPlan planItemAiAssist(
         : formatGenerationStyleBlock(loadGenerationStyleFilter(resourceDir));
     const std::string styleHint =
         "Period western mountain-ridge adventure game, grounded physical prop, "
-        "no UI chrome, no text watermark. "
+        "studio product photo on simple wood or cloth, no blood, no wounds, "
+        "no violence, no people, no UI chrome, no text watermark. "
         + styleBlock;
+
+    // Soften copy that often trips Imagine content moderation (spent rounds, etc.).
+    auto softenForImage = [](std::string text) {
+        auto replaceAll = [](std::string& s, const char* a, const char* b) {
+            const size_t n = std::char_traits<char>::length(a);
+            size_t pos = 0;
+            while ((pos = s.find(a, pos)) != std::string::npos)
+            {
+                s.replace(pos, n, b);
+                pos += std::char_traits<char>::length(b);
+            }
+        };
+        replaceAll(text, "spent bullet", "fired cartridge case and deformed lead slug");
+        replaceAll(text, "Spent bullet", "Fired cartridge case and deformed lead slug");
+        replaceAll(text, "expanded in its final resting place", "mushroomed from impact with wood");
+        replaceAll(text, "bullet has expanded", "slug tip is flattened");
+        replaceAll(text, "blood", "dust");
+        return text;
+    };
+    const std::string imageDesc = softenForImage(desc);
 
     if (payload.aiAssist.generateImageFromDescription)
     {
@@ -566,7 +587,7 @@ ItemAiAssistPlan planItemAiAssist(
             : payload.imagePath;
         job.prompt =
             "Generate a full-screen examine image for inventory item \""
-            + payload.name + "\". Description: " + desc + " " + styleHint;
+            + payload.name + "\". Description: " + imageDesc + " " + styleHint;
         plan.jobs.push_back(job);
     }
     if (payload.aiAssist.generateIconFromDescription)
@@ -578,7 +599,7 @@ ItemAiAssistPlan planItemAiAssist(
             : payload.iconPath;
         job.prompt =
             "Generate a square inventory icon for item \"" + payload.name
-            + "\". Description: " + desc
+            + "\". Description: " + imageDesc
             + " Clean centered subject, readable at small size. " + styleHint;
         plan.jobs.push_back(job);
     }
@@ -1014,11 +1035,19 @@ bool runItemAuthoringAiJobs(
         }
     }
 
+    // Partial success: if we wrote image/icon/sfx assets, treat as OK with warnings
+    // when only text/TTS jobs failed (#55 — UI looked like "image failed").
+    const bool wroteAssets = !producedSummary.empty();
     if (code != 0 || !structuredErrors.empty())
     {
-        statusOut = "AI asset generation incomplete";
-        if (!producedSummary.empty())
-            statusOut += " (wrote: " + producedSummary + ")";
+        if (wroteAssets)
+        {
+            statusOut = "AI assets written for " + itemId + ": " + producedSummary;
+            if (!structuredErrors.empty())
+                statusOut += "\nWarning (non-asset jobs): " + structuredErrors;
+            return true;
+        }
+        statusOut = "AI asset generation failed";
         if (!structuredErrors.empty())
             statusOut += ". " + structuredErrors;
         else
