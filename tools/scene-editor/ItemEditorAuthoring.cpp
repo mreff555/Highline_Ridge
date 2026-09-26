@@ -6,6 +6,7 @@
  ******************************************************************************/
 
 #include "ItemEditor.h"
+#include "EditorAudio.h"
 #include "EditorInput.h"
 
 #include "EditorButton.h"
@@ -348,10 +349,8 @@ void ItemEditor::unloadAuthoringPreviews()
 
 void ItemEditor::ensureAuthoringAudio()
 {
-    if (authoringAudioReady)
-        return;
-    InitAudioDevice();
-    authoringAudioReady = IsAudioDeviceReady();
+    // Never InitAudioDevice from draw/sync — startup owns that (EditorAudio).
+    authoringAudioReady = editorAudioDeviceReady();
 }
 
 void ItemEditor::stopAuthoringSounds()
@@ -527,9 +526,15 @@ void ItemEditor::syncAuthoringPreviews()
                 authoringPlayingSound = 0;
         }
         authoringPreviewExamineSoundPath = exSfx;
+        authoringPreviewExamineSoundLoaded = false;
         if (!exSfx.empty())
             authoringPreviewExamineSoundLoaded =
                 loadAuthoringSound(exSfx, authoringPreviewExamineSound);
+    }
+    else if (!exSfx.empty() && !authoringPreviewExamineSoundLoaded && editorAudioDeviceReady())
+    {
+        authoringPreviewExamineSoundLoaded =
+            loadAuthoringSound(exSfx, authoringPreviewExamineSound);
     }
     if (useSfx != authoringPreviewUseSoundPath)
     {
@@ -544,9 +549,15 @@ void ItemEditor::syncAuthoringPreviews()
                 authoringPlayingSound = 0;
         }
         authoringPreviewUseSoundPath = useSfx;
+        authoringPreviewUseSoundLoaded = false;
         if (!useSfx.empty())
             authoringPreviewUseSoundLoaded =
                 loadAuthoringSound(useSfx, authoringPreviewUseSound);
+    }
+    else if (!useSfx.empty() && !authoringPreviewUseSoundLoaded && editorAudioDeviceReady())
+    {
+        authoringPreviewUseSoundLoaded =
+            loadAuthoringSound(useSfx, authoringPreviewUseSound);
     }
 
     // Track play state

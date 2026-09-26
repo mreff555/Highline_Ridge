@@ -4,6 +4,7 @@
  ******************************************************************************/
 
 #include "SceneAssistDialog.h"
+#include "EditorAudio.h"
 #include "EditorInput.h"
 #include "EditorButton.h"
 #include "EditorPaths.h"
@@ -94,9 +95,8 @@ void SceneAssistDialog::ensureAudio()
 {
     if (audioDeviceReady)
         return;
-    if (!IsAudioDeviceReady())
-        InitAudioDevice();
-    audioDeviceReady = IsAudioDeviceReady();
+    editorEnsureAudioDevice();
+    audioDeviceReady = editorAudioDeviceReady();
 }
 
 void SceneAssistDialog::stopPreviewMusic()

@@ -4,6 +4,7 @@
  ******************************************************************************/
 
 #include "SceneAuthoringDialog.h"
+#include "EditorAudio.h"
 #include "EditorInput.h"
 #include "EditorButton.h"
 #include "EditorPaths.h"
@@ -524,9 +525,8 @@ void SceneAuthoringDialog::startPreviewVoice(const char* bagKey)
     }
 
     stopPreviewVoice();
-    if (!IsAudioDeviceReady())
-        InitAudioDevice();
-    if (!IsAudioDeviceReady())
+    editorEnsureAudioDevice();
+    if (!editorAudioDeviceReady())
     {
         error = "Audio device not ready.";
         return;

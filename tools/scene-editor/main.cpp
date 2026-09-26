@@ -18,6 +18,7 @@
  ******************************************************************************/
 
 #include "SceneEditorApp.h"
+#include "EditorAudio.h"
 #include "EditorButton.h"
 #include "EditorInput.h"
 #include "EditorPaths.h"
@@ -48,6 +49,8 @@ int main(int argc, char** argv)
     InitWindow(screenWidth, screenHeight, "Timberline Resource Editor");
     SetTargetFPS(60);
     editorInputInit();
+    // Init audio once here — never from ItemEditor/dialog draw (CoreAudio crash).
+    timberline_editor::editorEnsureAudioDevice();
 
 #if defined(__APPLE__)
     editorInstallNativePreferencesMenu(nullptr);
@@ -100,6 +103,7 @@ int main(int argc, char** argv)
     app.unloadUiFont();
     if (app.document.dirty)
         app.saveDocument();
+    timberline_editor::editorShutdownAudioDevice();
     CloseWindow();
     return 0;
 }

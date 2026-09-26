@@ -116,6 +116,7 @@ set(EDITOR_SOURCES
     main.cpp
     EditorPaths.cpp
     EditorPrefs.cpp
+    EditorAudio.cpp
     EditorInput.cpp
     EditorUiDraw.cpp
     EditorButton.cpp

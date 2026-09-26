@@ -18,6 +18,7 @@
  ******************************************************************************/
 
 #include "SceneMapCanvas.h"
+#include "EditorAudio.h"
 #include "EditorInput.h"
 
 #include "ConversationHelpers.h"
@@ -4636,9 +4637,8 @@ bool SceneMapCanvas::loadScenePreviewMusic(
 {
     if (!previewAudioReady)
     {
-        if (!IsAudioDeviceReady())
-            InitAudioDevice();
-        previewAudioReady = IsAudioDeviceReady();
+        editorEnsureAudioDevice();
+        previewAudioReady = editorAudioDeviceReady();
     }
     if (!previewAudioReady || docs == nullptr || relPath.empty())
         return false;

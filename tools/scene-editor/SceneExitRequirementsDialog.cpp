@@ -4,6 +4,7 @@
  ******************************************************************************/
 
 #include "SceneExitRequirementsDialog.h"
+#include "EditorAudio.h"
 #include "EditorPaths.h"
 #include "EditorButton.h"
 #include "EditorInput.h"
@@ -777,8 +778,12 @@ void SceneExitRequirementsDialog::startPreviewVoice()
         return;
     }
     stopPreviewVoice();
-    if (!IsAudioDeviceReady())
-        InitAudioDevice();
+    editorEnsureAudioDevice();
+    if (!editorAudioDeviceReady())
+    {
+        error = "Audio device not ready.";
+        return;
+    }
     const std::string rel =
         blockedTtsAudio.empty() ? defaultBlockedAudioPath() : blockedTtsAudio;
     const std::string assetRoot = docs->assetRoot.empty() ? "." : docs->assetRoot;
