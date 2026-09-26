@@ -6,6 +6,7 @@
 #include "SceneAuthoringDialog.h"
 #include "EditorInput.h"
 #include "EditorButton.h"
+#include "EditorPaths.h"
 #include "EditorPrefs.h"
 #include "EditorTheme.h"
 #include "EditorUiDraw.h"
@@ -167,21 +168,12 @@ std::string SceneAuthoringDialog::effectiveApiKey() const
         return std::string(env);
     if (docs != nullptr)
     {
-        const std::string root = docs->assetRoot.empty() ? "." : docs->assetRoot;
-        const std::string a = pathJoin(pathJoin(root, "resources"), "xai_api_key");
-        const std::string b = pathJoin(root, "xai_api_key");
-        const std::string fromA = readApiKeyFile(a);
-        if (!fromA.empty())
-            return fromA;
-        const std::string fromB = readApiKeyFile(b);
-        if (!fromB.empty())
-            return fromB;
-        if (!docs->resourceDir.empty())
+        const std::string keyPath = resolveXaiApiKeyFile(docs->resourceDir);
+        if (!keyPath.empty())
         {
-            const std::string fromRes =
-                readApiKeyFile(pathJoin(docs->resourceDir, "xai_api_key"));
-            if (!fromRes.empty())
-                return fromRes;
+            const std::string fromFile = readApiKeyFile(keyPath);
+            if (!fromFile.empty())
+                return fromFile;
         }
     }
     return {};
@@ -2875,9 +2867,22 @@ void SceneAuthoringDialog::drawWorkingOverlay(int screenW, int screenH, Font fon
 
     DrawRectangle(0, 0, screenW, screenH, Color{0, 0, 0, 180});
 
-    const float panelW = 360.0f;
+    const float panelW = 420.0f;
     const float spin = static_cast<float>(cfg.sizePx);
-    const float panelH = 64.0f + spin + 28.0f + 44.0f + 28.0f;
+    const float detailMaxW = panelW - 32.0f;
+    const float detailLineSpacing = 4.0f;
+
+    // Detail from current status (job progress) — wrap, do not ellipsize (#46).
+    std::string detail = status;
+    if (detail.empty())
+        detail = "Running authoring job...";
+    const std::vector<EditorVisualLine> detailLines =
+        layoutWrappedTextLines(font, detail, detailMaxW, kFontTiny);
+    const float detailBlockH = std::max(
+        18.0f,
+        static_cast<float>(detailLines.size()) * (kFontTiny + detailLineSpacing));
+
+    const float panelH = 56.0f + detailBlockH + 12.0f + spin + 28.0f + 44.0f + 20.0f;
     const Rectangle panel = {
         (static_cast<float>(screenW) - panelW) * 0.5f,
         (static_cast<float>(screenH) - panelH) * 0.5f - 24.0f,
@@ -2892,28 +2897,23 @@ void SceneAuthoringDialog::drawWorkingOverlay(int screenW, int screenH, Font fon
     DrawTextEx(
         bold,
         title.c_str(),
-        {panel.x + (panel.width - titleSize.x) * 0.5f, panel.y + 18.0f},
+        {panel.x + (panel.width - titleSize.x) * 0.5f, panel.y + 16.0f},
         kFontHeading,
         1.0f,
         kTextPrimary);
 
-    // Detail line from current status (job progress message).
-    std::string detail = status;
-    if (detail.empty())
-        detail = "Running authoring job...";
-    if (detail.size() > 64)
-        detail = detail.substr(0, 61) + "...";
-    const Vector2 detailSize = MeasureTextEx(font, detail.c_str(), kFontTiny, 1.0f);
-    DrawTextEx(
+    const float detailY = panel.y + 48.0f;
+    drawWrappedText(
         font,
-        detail.c_str(),
-        {panel.x + (panel.width - detailSize.x) * 0.5f, panel.y + 48.0f},
+        detail,
+        {panel.x + 16.0f, detailY},
+        detailMaxW,
         kFontTiny,
-        1.0f,
+        detailLineSpacing,
         kTextMuted);
 
     const float spinX = panel.x + (panel.width - spin) * 0.5f;
-    const float spinY = panel.y + 72.0f;
+    const float spinY = detailY + detailBlockH + 8.0f;
     const float rpm = std::max(0.05f, cfg.revolutionsPerSecond);
     // Clockwise: positive angle in raylib DrawTexturePro is counterclockwise,
     // so negate.

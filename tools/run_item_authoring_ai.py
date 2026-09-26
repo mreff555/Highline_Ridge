@@ -9,8 +9,9 @@ Reads resources/.authoring/<itemId>_ai_jobs.json and generates:
 API key resolution (first match):
   1. --key=
   2. $XAI_API_KEY
-  3. <asset-root>/resources/xai_api_key
-  4. <asset-root>/xai_api_key
+  3. ~/.config/highline-ridge/xai_api_key
+  4. <asset-root>/resources/xai_api_key (legacy; prefer user config)
+  5. <asset-root>/xai_api_key (legacy)
 
 Usage:
   python3 tools/run_item_authoring_ai.py --asset-root . --jobs-file resources/.authoring/foo_ai_jobs.json
@@ -54,12 +55,13 @@ def resolve_api_key(asset_root: Path, cli_key: str | None) -> str:
         env = os.environ.get(env_name, "").strip()
         if env:
             return env
-    # Common project locations (gitignored).
+    # Prefer user config over resources/ (secrets must not live in the asset tree).
     candidates = [
-        asset_root / "resources" / "xai_api_key",
-        asset_root / "xai_api_key",
-        asset_root / ".env",
+        Path.home() / ".config" / "highline-ridge" / "xai_api_key",
         Path.home() / ".config" / "xai" / "api_key",
+        asset_root / "resources" / "xai_api_key",  # legacy
+        asset_root / "xai_api_key",  # legacy
+        asset_root / ".env",
     ]
     for candidate in candidates:
         if not candidate.is_file():

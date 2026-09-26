@@ -82,6 +82,9 @@ struct ThumbnailEntry
     bool missing = false;
     /** True while a JobSystem decode is in flight (not yet uploaded). */
     bool loading = false;
+    /** Disk mtime of the decoded asset; used to refresh when images change (#43). */
+    long sourceModTime = 0;
+    std::string sourcePath;
 };
 const float kTreeRowHeight = 24.0f;
 const float kTreeIndent = 18.0f;

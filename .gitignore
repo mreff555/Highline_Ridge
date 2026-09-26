@@ -50,8 +50,11 @@ compile_commands.json
 CMakeUserPresets.json
 
 # Secrets and local runtime caches
+# xAI secrets — never commit. Prefer ~/.config/highline-ridge/xai_api_key or XAI_API_KEY.
 **/xai_api_key
 resources/xai_api_key
+!resources/xai_api_key.example
+resources/editor_prefs.json
 .env
 **/cache/
 

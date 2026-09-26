@@ -91,8 +91,6 @@ ThumbnailEntry& ThumbnailCache::getOrLoad(
     const std::string& resourceDir)
 {
     ThumbnailEntry& entry = entries[sceneId];
-    if (entry.loaded || entry.missing || entry.loading)
-        return entry;
 
     const std::string imagePath = scenes.getSceneImagePath(sceneId);
     if (imagePath.empty())
@@ -101,7 +99,42 @@ ThumbnailEntry& ThumbnailCache::getOrLoad(
         return entry;
     }
 
+    // Prefer compressed asset when present; track mtime so replacements reload (#43).
+    long modTime = 0;
+    std::string resolvedPath;
+    {
+        const std::vector<std::string> paths =
+            timberline_engine::buildAssetSearchPaths(assetRoot, imagePath);
+        for (const std::string& path : paths)
+        {
+            const std::string compressed = timberline_engine::compressedAssetPath(path);
+            if (FileExists(compressed.c_str()))
+            {
+                resolvedPath = compressed;
+                modTime = GetFileModTime(compressed.c_str());
+                break;
+            }
+            if (FileExists(path.c_str()))
+            {
+                resolvedPath = path;
+                modTime = GetFileModTime(path.c_str());
+                break;
+            }
+        }
+    }
+    if (entry.loaded && !entry.loading && modTime > 0 && entry.sourceModTime > 0
+        && (modTime != entry.sourceModTime || resolvedPath != entry.sourcePath))
+    {
+        invalidate(sceneId);
+        entry = entries[sceneId];
+    }
+
+    if (entry.loaded || entry.missing || entry.loading)
+        return entry;
+
     entry.loading = true;
+    entry.sourceModTime = modTime;
+    entry.sourcePath = resolvedPath;
     enqueueDecode(sceneId, imagePath, assetRoot, resourceDir);
     return entry;
 }
@@ -172,6 +205,7 @@ void ThumbnailCache::enqueueDecode(
             entry.texture = tex;
             entry.loaded = true;
             entry.missing = false;
+            // Keep sourceModTime/sourcePath set by getOrLoad before enqueue.
         });
 }
 

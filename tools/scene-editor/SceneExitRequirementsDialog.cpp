@@ -4,6 +4,7 @@
  ******************************************************************************/
 
 #include "SceneExitRequirementsDialog.h"
+#include "EditorPaths.h"
 #include "EditorButton.h"
 #include "EditorInput.h"
 #include "EditorPrefs.h"
@@ -16,6 +17,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <fstream>
 
 using timberline_engine::builtinVoiceIds;
@@ -194,13 +196,13 @@ std::string SceneExitRequirementsDialog::effectiveApiKey() const
             key.pop_back();
         return key;
     };
-    const std::string root = docs->assetRoot.empty() ? "." : docs->assetRoot;
-    std::string key = tryRead(pathJoin(pathJoin(root, "resources"), "xai_api_key"));
-    if (key.empty())
-        key = tryRead(pathJoin(root, "xai_api_key"));
-    if (key.empty() && !docs->resourceDir.empty())
-        key = tryRead(pathJoin(docs->resourceDir, "xai_api_key"));
-    return key;
+    if (const char* env = std::getenv("XAI_API_KEY");
+        env != nullptr && env[0] != '\0')
+        return std::string(env);
+    const std::string keyPath = resolveXaiApiKeyFile(docs->resourceDir);
+    if (!keyPath.empty())
+        return tryRead(keyPath);
+    return {};
 }
 
 void SceneExitRequirementsDialog::resolveWireSides(

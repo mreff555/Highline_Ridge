@@ -389,11 +389,7 @@ void SceneAssistDialog::startGenerate(int target)
             haveFallback = true;
         if (!haveFallback && docs != nullptr)
         {
-            using timberline_engine::pathJoin;
-            const std::string root = docs->assetRoot.empty() ? "." : docs->assetRoot;
-            const std::string a = pathJoin(pathJoin(root, "resources"), "xai_api_key");
-            const std::string b = pathJoin(root, "xai_api_key");
-            if (FileExists(a.c_str()) || FileExists(b.c_str()))
+            if (!resolveXaiApiKeyFile(docs->resourceDir).empty())
                 haveFallback = true;
         }
         if (!haveFallback)
@@ -403,7 +399,7 @@ void SceneAssistDialog::startGenerate(int target)
             status.clear();
             return;
         }
-        status = "No session key  -  using XAI_API_KEY / resources/xai_api_key.";
+        status = "No session key — using XAI_API_KEY / ~/.config/highline-ridge/xai_api_key.";
     }
 
     const std::string jobsPath = writeSceneAiPreviewJobsFile(

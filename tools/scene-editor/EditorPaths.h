@@ -35,6 +35,13 @@ bool findResourcesFromBase(
 bool resolveEditorPaths(std::string& outResourceDir, std::string& outAssetRoot);
 bool ensureValidResourcePaths(std::string& resourceDir, std::string& assetRoot);
 
+/**
+ * Preferred on-disk xAI key locations (#45). Never write secrets into resources/.
+ * Order: ~/.config/highline-ridge/xai_api_key, then legacy resources/xai_api_key.
+ * Callers should still prefer session paste / XAI_API_KEY env first.
+ */
+std::string resolveXaiApiKeyFile(const std::string& resourceDir);
+
 } // namespace timberline_editor
 
 #endif
