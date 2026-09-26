@@ -798,15 +798,14 @@ void SceneInventoryDialog::draw(int screenW, int screenH)
     const Rectangle addBtn = {
         content.x + 10.0f, content.y + content.height - 40.0f, 36.0f, 32.0f};
     const bool addHover = CheckCollisionPointRec(mouse, addBtn);
-    DrawRectangleRec(addBtn, addHover ? Color{50, 46, 62, 255} : Color{32, 28, 40, 255});
-    DrawRectangleLinesEx(addBtn, 1.0f, kPanelBorder);
+    // No box border — just the bold + glyph (#50 follow-up).
     DrawTextEx(
         bold,
         "+",
         {addBtn.x + 9.0f, addBtn.y + 1.0f},
         kFontHeading + 4.0f,
         1.0f,
-        WHITE);
+        addHover ? Color{255, 255, 255, 255} : Color{230, 230, 235, 255});
     if (canClick && CheckCollisionPointRec(mouse, addBtn))
     {
         addPickerOpen = !addPickerOpen;
