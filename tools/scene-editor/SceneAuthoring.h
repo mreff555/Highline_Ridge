@@ -25,6 +25,12 @@ struct SceneAuthoringPayload
     std::string description;
     std::string examineDetails;
     std::string imagePath;
+    /**
+     * When true (default), Imagine prompts drop forensic examine notes and the
+     * runner softens gore language for API compliance. Toggle in Edit Scene
+     * under the image path field.
+     */
+    bool softenImagePrompt = true;
     std::string ambientPath;
     std::string musicPath;
     /** Enter/exit one-shots. Empty by default — do not stamp shared door SFX
@@ -75,6 +81,8 @@ struct SceneAiJob
     std::string sourceText;
     std::string defaultVoice;
     std::string resultText; // Filled by chat jobs (TTS markup).
+    /** For generate_image: whether the runner should soften the prompt. */
+    bool softenPrompt = true;
 };
 
 std::string sanitizeSceneId(const std::string& raw);

@@ -709,6 +709,10 @@ bool writeItemAiAssistJobsFile(
         entry["itemId"] = itemId;
         if (!job.action.empty())
             entry["action"] = job.action;
+        // Item plates default to softened Imagine prompts (scene Edit Scene can opt out).
+        if (job.type == ItemAiAssistJobType::GenerateImage
+            || job.type == ItemAiAssistJobType::GenerateIcon)
+            entry["softenPrompt"] = true;
         root["jobs"].push_back(entry);
     }
 

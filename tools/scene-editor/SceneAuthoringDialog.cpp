@@ -743,7 +743,10 @@ float SceneAuthoringDialog::estimateFormContentHeight() const
     h += 16.0f + 110.0f + 12.0f; // description
     h += 16.0f + 88.0f + 12.0f; // examine
     h += 16.0f + 32.0f + 12.0f; // api key
-    h += (payload.alternateMode ? 1.0f : 3.0f) * (16.0f + 32.0f + 12.0f); // image[/ambient/music]
+    // Image path (+ soften switch) and optional ambient/music rows.
+    h += 16.0f + 32.0f + 36.0f; // image path + soften compliance switch
+    if (!payload.alternateMode)
+        h += 2.0f * (16.0f + 32.0f + 12.0f); // ambient + music
     h += 16.0f + 26.0f + 12.0f; // Alternate switch
     h += 16.0f + 26.0f + 12.0f; // TTS switch (+ label)
     if (payload.ttsEnabled)
@@ -2529,7 +2532,26 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
                 1.0f,
                 Color{220, 80, 70, 255});
         }
-        y += 44.0f;
+        y += 40.0f;
+
+        // Soften switch only under the image path row.
+        if (ri == 0)
+        {
+            const Rectangle softenTrack = {fieldX, y, 64.0f, 26.0f};
+            bool softenToggled = false;
+            drawOnOffSwitch(
+                font,
+                softenTrack,
+                payload.softenImagePrompt,
+                "Soften description for image generation compliance",
+                canClick && hitInContent(softenTrack),
+                softenToggled);
+            if (softenToggled)
+                payload.softenImagePrompt = !payload.softenImagePrompt;
+            y += 36.0f;
+        }
+        else
+            y += 4.0f;
     }
 
     // Alternate / focus view switch (bottom of core fields).

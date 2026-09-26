@@ -783,14 +783,16 @@ def generate_image(
     *,
     resolution: str = "2k",
     model: str = "grok-imagine-image-2.0",
+    soften: bool = True,
 ) -> None:
     """Generate a scene/item plate via xAI Imagine.
 
     Scene masters default to 16:9 at resolution=2k (API max; ~2K class, not 4K).
     Icons stay 1:1; callers may pass resolution=\"1k\" to save cost.
+    When soften=True (default), gore/forensic phrasing is rewritten for Imagine.
     """
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    safe_prompt = soften_imagine_prompt(prompt)
+    safe_prompt = soften_imagine_prompt(prompt) if soften else prompt
     payload = {
         "model": model,
         "prompt": safe_prompt,
@@ -1081,9 +1083,12 @@ def process_job(
         if job_rotate:
             print(f"  [backup] rotate {out_path.name} → _1 / prior _1 → _2")
             rotate_live_asset_backup(out_path)
+        soften = bool(job.get("softenPrompt", True))
         print(
             f"  [image] {out_path.relative_to(asset_root)} "
-            f"({aspect}, {resolution}, {model}) …"
+            f"({aspect}, {resolution}, {model}"
+            f"{'' if soften else ', soften=off'}) …",
+            flush=True,
         )
         generate_image(
             api_key,
@@ -1092,6 +1097,7 @@ def process_job(
             aspect,
             resolution=resolution,
             model=model,
+            soften=soften,
         )
         xz = xz_compress(out_path, remove_source=False)
         print(f"  [ok] wrote {out_path.name} + {xz.name}")
