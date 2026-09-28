@@ -169,8 +169,8 @@
       ],
       "layout": {
         "level": 0,
-        "x": 290.92828369140625,
-        "y": 138.5
+        "x": 552.0,
+        "y": 269.0
       },
       "movement": {
         "backward": true,
@@ -211,8 +211,8 @@
       "image": "resources/images/cabin_cellar_open.png",
       "layout": {
         "level": 0,
-        "x": 673.6306762695313,
-        "y": -145.20001220703125
+        "x": 2600.0,
+        "y": 269.0
       },
       "movement": {
         "backward": false,
@@ -271,8 +271,8 @@
       "image": "resources/images/cabin_kitchen.png",
       "layout": {
         "level": 0,
-        "x": 255.0968475341797,
-        "y": 324.0
+        "x": 552.0,
+        "y": 485.0
       },
       "movement": {
         "backward": true,
@@ -324,8 +324,8 @@
       "image": "resources/images/cabin_under_rug.png",
       "layout": {
         "level": 0,
-        "x": 481.99066162109375,
-        "y": -8.0
+        "x": 3368.0,
+        "y": 269.0
       },
       "movement": {
         "backward": false,
@@ -734,7 +734,7 @@
       "layout": {
         "level": 0,
         "x": 1320.0,
-        "y": 694.4654541015625
+        "y": 701.0
       },
       "movement": {
         "backward": false,
@@ -858,7 +858,7 @@
       "layout": {
         "level": 0,
         "x": 1064.0,
-        "y": 936.9500122070313
+        "y": 917.0
       },
       "movement": {
         "backward": true,
@@ -922,7 +922,7 @@
       "layout": {
         "level": 0,
         "x": 808.0,
-        "y": 931.9500122070313
+        "y": 912.0
       },
       "movement": {
         "backward": false,
@@ -1306,7 +1306,7 @@
         "examine": true,
         "hit": false,
         "speak": false,
-        "use": false
+        "use": true
       },
       "audio": {
         "ambient": [
@@ -1325,10 +1325,21 @@
         "left": "cabin"
       },
       "image": "resources/images/ridge_cabin_bedroom.png",
+      "interactions": [
+        {
+          "exitMapCorner": "nw",
+          "exitMapToCorner": "se",
+          "exitSceneId": "ridge_cabin_br_nightstand_2",
+          "id": "use_map_1",
+          "label": "Use -> ridge_cabin_br_nightstand_2",
+          "repeat": true,
+          "useDetails": "You inspect the nightstand."
+        }
+      ],
       "layout": {
         "level": 0,
-        "x": 617.8782348632813,
-        "y": 143.5
+        "x": 552.0,
+        "y": 48.0
       },
       "movement": {
         "backward": false,
@@ -1337,7 +1348,76 @@
         "right": false
       },
       "start": false,
-      "useDetails": ""
+      "useDetails": "You step to the nightstand and open the drawer.",
+      "useExit": "ridge_cabin_br_nightstand",
+      "useRepeatStatus": true
+    },
+    "ridge_cabin_br_nightstand": {
+      "actions": {
+        "examine": true,
+        "hit": false,
+        "speak": false,
+        "use": true
+      },
+      "description": "The ordinary pine nightstand catches your eye.  You open the drawer to find a few candles, a matchbox, a small leatherbound bible and a steel keyring.",
+      "examineDetails": "The steel keyring has six keys on it.  Four of them are rather unremarkable.  One is larger and ornate.  One is smaller and rusted.  You pick up the bible and quickly flip through it.  Just as advertised it is a bible. A very nice one at that.  Hand painted plates of saints, apostles and even demons among the pages.  The topgrain leather with saddle stitching around the edges.",
+      "exits": {},
+      "image": "resources/images/ridge_cabin_bedroom_nightstand.png",
+      "layout": {
+        "level": 0,
+        "x": 4904.0,
+        "y": 264.0
+      },
+      "movement": {
+        "backward": false,
+        "down": false,
+        "forward": false,
+        "left": false,
+        "right": false,
+        "up": false
+      },
+      "takeables": [
+        {
+          "examineText": "Among the drawer clutter, a steel keyring waits to be taken.",
+          "id": "key_ring",
+          "requiresExamine": true
+        }
+      ],
+      "ttsEnabled": false
+    },
+    "ridge_cabin_br_nightstand_2": {
+      "actions": {
+        "examine": true,
+        "hit": false,
+        "speak": false,
+        "use": true
+      },
+      "description": "The ordinary pine nightstand catches your eye.  You open the drawer to find a few candles, a matchbox, a small leatherbound bible and a steel keyring.",
+      "examineDetails": "The steel keyring has six keys on it.  Four of them are rather unremarkable.  One is larger and ornate.  One is smaller and rusted.  You pick up the bible and quickly flip through it.  Just as advertised it is a bible. A very nice one at that.  Hand painted plates of saints, apostles and even demons among the pages.  The topgrain leather with saddle stitching around the edges.",
+      "exits": {},
+      "image": "resources/images/ridge_cabin_bedroom_nightstand.png",
+      "layout": {
+        "level": 0,
+        "x": 5672.0,
+        "y": 264.0
+      },
+      "movement": {
+        "backward": false,
+        "down": false,
+        "forward": false,
+        "left": false,
+        "right": false,
+        "up": false
+      },
+      "start": false,
+      "takeables": [
+        {
+          "examineText": "Among the drawer clutter, a steel keyring waits to be taken.",
+          "id": "key_ring",
+          "requiresExamine": true
+        }
+      ],
+      "ttsEnabled": false
     },
     "ridge_cabin_exterior": {
       "actions": {
@@ -1373,8 +1453,8 @@
       "image": "resources/images/ridge_cabin_exterior.png",
       "layout": {
         "level": 0,
-        "x": 257.09686279296875,
-        "y": 492.560546875
+        "x": 808.0,
+        "y": 480.0
       },
       "movement": {
         "backward": false,
@@ -2011,7 +2091,7 @@
       "image": "resources/images/saloon_owner_office_desk.png",
       "layout": {
         "level": 0,
-        "x": 4904.0,
+        "x": 6440.0,
         "y": 264.0
       },
       "movement": {
@@ -2078,6 +2158,19 @@
         "ttsAudio": "resources/audio/tts/saloon_service_hall/examineTts.mp3",
         "ttsText": "This section of the hallway is quite different from the dimly lit hall adjacent to the kitchen. [pause] The floors are not rough cut pine with a tongue oil finish, as you are accustomed to seeing. [pause] This floor is tongue and groove, installed by a craftsman. [slow] Wengewood perhaps? [pause] A runner rug lines the hallway. Navy blue with gold trim. [pause] The walls are of intricate walnut wainscoting and a polished venetian plaster that catches light emissions from the flickering gas lamps, [pause] creating a warm ambiance. [pause] The pine door to your right stands out as being rather boring for this place. [pause] There is a closed iron hasp with a padlock, locking this door. [pause] You put your ear near the walnut door, [soft] attempting to filter the bustle of the kitchen and listen for movement. [pause] You hear nothing. [long-pause] The door has an ornate brass lock and handle. [pause] As you gently test the door knob you are surprised to find it unlocked. [pause] Ahead the steel door is barred from the inside but could easily be opened.",
         "ttsVoice": ""
+      },
+      "exitRequirements": {
+        "right": {
+          "blockBadge": "lock",
+          "blockedDetails": "A small rusty padlock guards the door against intruders.  You.",
+          "blockedTts": {
+            "tts": true,
+            "ttsAudio": "resources/audio/tts/saloon_service_hall/blocked_right.mp3",
+            "ttsText": "A small rusty padlock guards the door against intruders. [pause] You.",
+            "ttsVoice": "leo"
+          },
+          "requiresInventoryItem": "key_ring"
+        }
       },
       "exits": {
         "backward": "saloon_side_passage",
@@ -2231,35 +2324,28 @@
         "examine": true,
         "hit": false,
         "speak": false,
-        "use": true
+        "use": false
       },
       "audio": {
         "ambient": [
           {
-            "fade_in": 2.0,
-            "fade_out": 2.0,
+            "fade_in": 1.5,
+            "fade_out": 1.5,
             "loop": true,
             "path": "resources/audio/ambient/wind.mp3",
-            "volume": 0.7
-          },
-          {
-            "fade_in": 3.0,
-            "fade_out": 2.5,
-            "loop": true,
-            "path": "resources/audio/ambient/cliff_wind_gusts.mp3",
             "volume": 0.45
           }
         ],
         "music": {
-          "fade_in": 4.0,
+          "fade_in": 3.0,
           "fade_out": 2.5,
           "loop": true,
           "path": "resources/audio/music/mountain_wind.mp3",
-          "volume": 0.18
+          "volume": 0.2
         }
       },
       "description": "Snow is coming down hard now — not the dry powder of the summit but wet, insistent flakes that stick and erase your tracks as fast as you make them. You pick your way out along the sawtoothed ridge, boot sinking to the knee in the lee of each tooth. The ridge is barely eight feet wide here, a knife-edge of snow between drops that do not forgive a misstep. What you saw from the peak becomes undeniable with every step: a man in rancher's clothes half-buried in the drift, blood darkening the snow around him in a frozen fan.\n\nHe lies on his side, one arm thrown out, snow piled where no one cleared it. A battered felt hat rests against his neck and shoulders, covering most of what would have been his face. The wind keeps trying to bury him again. The mountain does not care that you found him.",
-      "examineDetails": "You work with the discipline of a field examination, not the curiosity of a tourist.\n\nSex: male. Race: white. Stature: roughly five foot eleven, judging from leg length and the span of his frame in the snow. Age is harder — the cold and the beating have tightened his skin and fixed his features — but you estimate mid-thirties.\n\nClothing: canvas work coat over a wool union shirt, both ridge-worn and patched at the elbows. Heavy wool trousers, brace suspenders, leather belt with an empty brass buckle tongue. Lace-up snow boots, one still on the foot that broke the drift, laces frozen stiff. Fingerless gloves on both hands, one soaked through with old blood.\n\nIdentifying marks: a full sleeve of tattoos on the left arm — black ink vines wound with thorns from wrist to shoulder. Scars everywhere the coat and shirt allow you to see: knuckle lines, a pale furrow across the ribs, an old burn patch on the right forearm. It would take all day to document every scar. One is fresh — at most a few days old — still closed with a linen bandage under the shirt cuff, stained at the edge.\n\nGunshot wound: separate from whatever finished him afterward, he took a round through the upper left thigh. The trouser leg is cut away and packed with bloody dressing frozen stiff to the wool. You work two gloved fingers into the wound channel and meet cold metal an inch below the bone. It is very possible the nine-millimeter bullet that struck him is still lodged in the leg.\n\nCause of death: not exposure alone. The skull is stove in on the left side beneath the hat. Impact pattern and the bloody rock frozen in the snow near his outstretched hand say bludgeoning.\n\nOn his person: a flattened leather wallet with no cash, a fixed-blade hunting knife in a dark leather sheath tucked into his belt, a folded mining claim map creased to ruin by melt and blood, and a brass pocket watch stopped at ten seventeen. Nothing gives a name. Nothing explains why he died on this ridge with the summit in sight.",
+      "examineDetails": "The body is cold and is at peak rigidity.  Given the extreme temperature, you place the time of death, about 48 hours ago.  You begin a field examination.\n\nSex: male. \nRace: white. \nStature: roughly five foot eleven, judging from leg length and the span of his frame in the snow. \nAge is difficult given the condition of the body but you estimate mid-thirties.\n\nClothing: canvas work coat over a wool union shirt, both ridge-worn and patched at the elbows. Heavy wool trousers, brace suspenders, leather belt with an empty brass buckle tongue. Lace-up snow boots, one still on the foot that broke the drift, laces frozen stiff. Fingerless gloves on both hands, one soaked through with old blood.  He wears a hunting knife on his belt.\n\nIdentifying marks: a full sleeve of tattoos on the left arm, black ink vines wound with thorns from wrist to shoulder.  Rather uncommon out here in the west.  Scars everywhere the coat and shirt allow you to see: knuckle lines, a pale furrow across the ribs, an old burn patch on the right forearm. It would take all day to document every scar. One is fresh.  At most a few days old, still closed with a linen bandage over the left upper thigh.\n\nJudging by the marks on the trowsers, this appears to be a gunshot wound.   It is unlikely that this is what killed him.  The trouser leg is cut away and packed with bloody dressing frozen stiff to the wool. You work two gloved fingers into the wound channel and meet cold metal an inch below the bone. It is very possible that the bullet that struck him is still lodged in the leg.\n\nCause of death: not exposure alone.  His skull has been severly damaged by  bludgeoning.  Possibly the butt of a rifle or a rock.\n\nOn his person: a flattened leather wallet with no cash, a fixed-blade hunting knife in a dark leather sheath tucked into his belt, a folded mining claim map creased to ruin by melt and blood, and a brass pocket watch stopped at ten seventeen. Nothing gives a name. Nothing explains why he died on this ridge with the summit in sight.",
       "examineLucidityDelta": -3,
       "exits": {
         "backward": "alpine_summit"
@@ -2289,6 +2375,11 @@
           "defId": "hunting_knife",
           "instanceId": "hunting_knife",
           "quantity": 1
+        },
+        {
+          "defId": "spent_44cal_bullet",
+          "instanceId": "spent_44cal_bullet",
+          "quantity": 1
         }
       ],
       "layout": {
@@ -2310,7 +2401,16 @@
           "examineText": "A fixed-blade hunting knife in a dark leather sheath scuffed from carry. The wooden handle is smooth where a palm has worn it. When you ease the blade free, the edge catches the light—recently honed, and kept close at hand.",
           "icon": "resources/icons/hunting_knife_icon.png",
           "id": "hunting_knife",
-          "name": "Hunting Knife"
+          "name": "Hunting Knife",
+          "requiresExamine": true
+        },
+        {
+          "examineText": "You hold in your hand a spent bullet.  The bullet has expanded in its final resting place. It appears to .44 Calibur.",
+          "icon": "resources/icons/spent_44cal_bullet_icon.png",
+          "id": "spent_44cal_bullet",
+          "name": "spent_44cal_bullet",
+          "requiresExamine": true,
+          "requiresInventoryItem": "hunting_knife"
         }
       ],
       "useDetails": ""
@@ -2651,8 +2751,8 @@
       "image": "resources/images/white_baptist_church.png",
       "layout": {
         "level": 0,
-        "x": 696.4000244140625,
-        "y": 689.15966796875
+        "x": 808.0,
+        "y": 696.0
       },
       "movement": {
         "backward": false,
@@ -2698,7 +2798,7 @@
       "layout": {
         "level": 0,
         "x": 296.0,
-        "y": 688.8548583984375
+        "y": 696.0
       },
       "movement": {
         "backward": false,
@@ -2750,8 +2850,8 @@
       "image": "resources/images/white_baptist_church_interior.png",
       "layout": {
         "level": 0,
-        "x": 696.4000244140625,
-        "y": 801.1500244140625
+        "x": 552.0,
+        "y": 696.0
       },
       "movement": {
         "backward": true,
@@ -2802,8 +2902,8 @@
       "image": "resources/images/white_baptist_church_vestry.png",
       "layout": {
         "level": 0,
-        "x": 519.2000122070313,
-        "y": 801.1500244140625
+        "x": 552.0,
+        "y": 912.0
       },
       "movement": {
         "backward": false,
@@ -2866,7 +2966,7 @@
       "layout": {
         "level": 0,
         "x": 1064.0,
-        "y": 689.4654541015625
+        "y": 696.0
       },
       "movement": {
         "backward": true,
@@ -2923,7 +3023,7 @@
       "layout": {
         "level": 0,
         "x": 40.0,
-        "y": 693.8548583984375
+        "y": 701.0
       },
       "movement": {
         "backward": false,

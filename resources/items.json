@@ -225,6 +225,28 @@
       },
       "weightLb": 0.11
     },
+    "key_ring": {
+      "consumeOnUse": false,
+      "description": "A keyring consisting of a half dozen keys.  Most of them, unremarkable.  However, two stand out.  A larger and decorative brass key and a small rusty key.",
+      "examineTts": {
+        "enabled": true,
+        "text": "A keyring consisting of a half dozen keys.  Most of them, unremarkable.  However, two stand out.  A larger and decorative brass key and a small rusty key."
+      },
+      "icons": {
+        "icon": "resources/icons/key_ring_icon.png"
+      },
+      "name": "key_ring",
+      "sfx": {
+        "examine": "resources/audio/sfx/key_ring_examine.mp3",
+        "use": "resources/audio/sfx/key_ring_use.mp3"
+      },
+      "ttsDefaultVoice": "leo",
+      "ttsEnabled": true,
+      "visuals": {
+        "image": "resources/images/key_ring_examine.png"
+      },
+      "weightLb": 0.20000000298023224
+    },
     "lamp_oil": {
       "alternateDescription": "A small mason jar, half full of pale golden lamp oil. The glass is wick-yellow at the shoulder where oil has crept up the sides. The cork stopper is stained and fits tight, though a crude hole has been bored through the top where someone used a knife tip to pierce it.",
       "alternateDescriptionFlag": "drilled_stopper",
@@ -376,6 +398,28 @@
         "image": "resources/images/shovel_examine.png"
       },
       "weightLb": 3.6
+    },
+    "spent_44cal_bullet": {
+      "consumeOnUse": false,
+      "description": "You hold in your hand a spent bullet.  The bullet has expanded in its final resting place. It appears to .44 Calibur.",
+      "examineTts": {
+        "enabled": true,
+        "text": "You hold in your hand a spent bullet.  The bullet has expanded in its final resting place.[pause] It appears to .44 Calibur. "
+      },
+      "icons": {
+        "icon": "resources/icons/spent_44cal_bullet_icon.png"
+      },
+      "name": "spent_44cal_bullet",
+      "sfx": {
+        "examine": "resources/audio/sfx/spent_44cal_bullet_examine.mp3",
+        "use": "resources/audio/sfx/spent_44cal_bullet_use.mp3"
+      },
+      "ttsDefaultVoice": "leo",
+      "ttsEnabled": true,
+      "visuals": {
+        "image": "resources/images/spent_44cal_bullet_examine.png"
+      },
+      "weightLb": 0.10000000149011612
     },
     "spent_9mm_bullet": {
       "description": "A nine-millimeter bullet retrieved from the dead man's thigh — projectile only, no brass casing attached. The round has been fired: the copper jacket is split and the lead nose is slightly mushroomed and misshapen from impact and whatever tissue it crossed before lodging against bone. Frozen blood still clings to the rifling grooves. Evidence, if you can find a laboratory above timberline.",

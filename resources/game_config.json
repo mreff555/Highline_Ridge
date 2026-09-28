@@ -7,23 +7,24 @@
   },
   "display": {
     "aspectPreference": "auto",
-    "fullscreen": true,
-    "height": 1440,
+    "fullscreen": false,
+    "height": 1080,
     "monitor": 0,
-    "width": 2560,
-    "x": 589,
-    "y": 137
+    "width": 1920,
+    "x": 256,
+    "y": 107
   },
   "input": {
     "clickHoldSeconds": 0.07000000029802322,
     "skipDropConfirmation": false
   },
   "saves": {
-    "maxNamedSaves": 10
+    "maxNamedSaves": 20
   },
   "tts": {
     "bundleDir": "resources/audio/tts",
     "enabled": true,
+    "silenceRevisitedSceneTts": false,
     "voice": "leo"
   },
   "ui": {
