@@ -9,6 +9,7 @@
 #define TIMBERLINE_SCENE_EXIT_REQUIREMENTS_DIALOG_H
 
 #include "DocumentWorkspace.h"
+#include "EditorApiKeys.h"
 #include "FullscreenParchmentEditor.h"
 #include "SceneGraphModel.h"
 
@@ -76,7 +77,8 @@ struct SceneExitRequirementsDialog
     std::vector<ExitBlockedVariantEdit> blockedVariants;
     int selectedVariant = -1;
 
-    int focusField = 0; // 0 item, 1 flag, 2 details, 3 tts, 4 api, 5–7 variant
+    // 0 item, 1 flag, 2 details, 3 tts, 4 unused (was api), 5–7 variant
+    int focusField = 0;
     float scrollY = 0.0f;
     float lastContentH = 0.0f;
     Rectangle lastScrollClip{0, 0, 0, 0};
@@ -96,7 +98,8 @@ struct SceneExitRequirementsDialog
     Rectangle itemSuggestRect{0, 0, 0, 0};
     Rectangle itemFieldRect{0, 0, 0, 0};
 
-    std::string sessionApiKey;
+    /** Shared session keys from Options → Configure API keys (#56). */
+    EditorApiKeys* sessionKeys = nullptr;
     std::string status;
     std::string error;
 

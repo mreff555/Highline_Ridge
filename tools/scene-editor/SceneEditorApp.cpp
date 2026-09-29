@@ -181,6 +181,13 @@ void SceneEditorApp::wireModules()
     {
         preferences.openDialog(document.resourceDir, document.assetRoot);
     };
+
+    apiKeysDialog.keys = &sessionApiKeys;
+    mapCanvas.apiKeysDialog = &apiKeysDialog;
+    mapCanvas.sceneAuthoring.sessionKeys = &sessionApiKeys;
+    mapCanvas.sceneAssist.sessionKeys = &sessionApiKeys;
+    mapCanvas.sceneExitRequirements.sessionKeys = &sessionApiKeys;
+    itemEditor.sessionKeys = &sessionApiKeys;
 }
 
 void SceneEditorApp::syncModuleFonts()
@@ -199,6 +206,8 @@ void SceneEditorApp::syncModuleFonts()
     mapCanvas.sceneAuthoring.parchment = &parchmentEditor;
     mapCanvas.sceneAuthoring.uiFont = uiFont;
     mapCanvas.sceneAuthoring.uiFontBold = uiFontBold;
+    apiKeysDialog.uiFont = uiFont;
+    apiKeysDialog.uiFontBold = uiFontBold;
     mapCanvas.sceneAssist.uiFont = uiFont;
     mapCanvas.sceneAssist.uiFontBold = uiFontBold;
     mapCanvas.sceneInventory.uiFont = uiFont;
@@ -436,8 +445,8 @@ bool SceneEditorApp::deleteSelectedScene()
     // Do not delete scenes while editing Conversations/Items text (Delete key).
     if (document.isConversationsTab() || document.isItemsTab())
         return false;
-    if (preferences.blocksInput() || variableEditor.open || sceneGraph.stackDialogOpen
-        || itemEditor.blocksInput()
+    if (preferences.blocksInput() || apiKeysDialog.blocksInput() || variableEditor.open
+        || sceneGraph.stackDialogOpen || itemEditor.blocksInput()
         || mapCanvas.blocksInput()
         || mapCanvas.contextMenuSource != SceneMapCanvas::ContextMenuSource::None)
         return false;
@@ -449,7 +458,8 @@ bool SceneEditorApp::deleteSelectedScene()
 
 void SceneEditorApp::handleShortcuts()
 {
-    if (parchmentEditor.blocksInput() || preferences.blocksInput() || variableEditor.open
+    if (parchmentEditor.blocksInput() || preferences.blocksInput()
+        || apiKeysDialog.blocksInput() || variableEditor.open
         || sceneGraph.stackDialogOpen || itemEditor.blocksInput()
         || mapCanvas.sceneAuthoring.blocksInput()
         || mapCanvas.sceneAssist.blocksInput()
@@ -495,6 +505,8 @@ void SceneEditorApp::update()
     layout.syncToWindow(screenWidth, screenHeight);
     syncModuleFonts();
 
+    sessionApiKeys.poll();
+
 #if defined(__APPLE__)
     // Native File → Save (⌘S) from the Cocoa menu bar.
     if (gEditorSaveMenuRequested.exchange(false))
@@ -503,7 +515,8 @@ void SceneEditorApp::update()
     // Native Preferences… menu (⌘,) sets this flag from Cocoa.
     if (gEditorPreferencesMenuRequested.exchange(false))
     {
-        if (!preferences.blocksInput() && !variableEditor.open && !itemEditor.blocksInput()
+        if (!preferences.blocksInput() && !apiKeysDialog.blocksInput()
+            && !variableEditor.open && !itemEditor.blocksInput()
             && !mapCanvas.sceneAuthoring.blocksInput()
             && !mapCanvas.sceneAssist.blocksInput()
             && !mapCanvas.sceneInventory.blocksInput()
@@ -519,9 +532,26 @@ void SceneEditorApp::update()
             preferences.openDialog(document.resourceDir, document.assetRoot);
         }
     }
+
+    // Options → Configure API keys… (#56).
+    if (gEditorApiKeysMenuRequested.exchange(false))
+    {
+        if (!preferences.blocksInput() && !apiKeysDialog.blocksInput()
+            && !variableEditor.open && !itemEditor.blocksInput()
+            && mapCanvas.confirmMode == SceneMapCanvas::ConfirmMode::None)
+        {
+            apiKeysDialog.openDialog();
+        }
+    }
 #endif
 
     handleShortcuts();
+
+    if (apiKeysDialog.blocksInput())
+    {
+        apiKeysDialog.handleInput(screenWidth, screenHeight);
+        return;
+    }
 
     if (parchmentEditor.blocksInput())
     {

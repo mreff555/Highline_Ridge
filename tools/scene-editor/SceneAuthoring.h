@@ -131,7 +131,8 @@ std::string runSceneAuthoringAiJobs(
     const std::string& resourceDirHint,
     const std::string& sceneId,
     const std::string& sessionApiKey,
-    std::atomic<bool>* cancelFlag = nullptr);
+    std::atomic<bool>* cancelFlag = nullptr,
+    const std::string& sessionElevenLabsKey = {});
 
 /** Run the AI runner against an explicit jobs JSON path. */
 std::string runSceneAuthoringAiJobsFile(
@@ -139,7 +140,8 @@ std::string runSceneAuthoringAiJobsFile(
     const std::string& resourceDirHint,
     const std::string& jobsFilePath,
     const std::string& sessionApiKey,
-    std::atomic<bool>* cancelFlag = nullptr);
+    std::atomic<bool>* cancelFlag = nullptr,
+    const std::string& sessionElevenLabsKey = {});
 
 /** Merge generated asset paths (+ TTS markup results) back into payload / scene JSON. */
 void applySceneAiOutputsToPayload(

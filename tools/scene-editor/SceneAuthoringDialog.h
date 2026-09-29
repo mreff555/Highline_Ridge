@@ -9,6 +9,7 @@
 #define TIMBERLINE_SCENE_AUTHORING_DIALOG_H
 
 #include "DocumentWorkspace.h"
+#include "EditorApiKeys.h"
 #include "FullscreenParchmentEditor.h"
 #include "SceneAuthoring.h"
 
@@ -51,10 +52,12 @@ struct SceneAuthoringDialog
     float formScrollGrabOffset = 0.0f;
 
     SceneAuthoringPayload payload{};
-    std::string sessionApiKey;
+    /** Shared session keys from Options → Configure API keys (#56). */
+    EditorApiKeys* sessionKeys = nullptr;
     std::string status;
     std::string error;
-    // 0=id, 1=description, 2=examine, 3=api key, 4=image, 5=ambient, 6=music,
+    // 0=id, 1=description, 2=examine, 3 unused (was api key),
+    // 4=image, 5=ambient, 6=music,
     // 7=tts description, 8=tts examine,
     // 9=parent scene, 10=sub-scene id, 11=useExit (alternate mode)
     int focusField = 0;
@@ -82,14 +85,13 @@ struct SceneAuthoringDialog
     MultilineState ttsDescriptionEdit{};
     MultilineState ttsExamineEdit{};
 
-    /** Single-line caret (id / api key / paths). */
+    /** Single-line caret (id / paths). */
     struct SingleLineState
     {
         int cursor = 0;
         Rectangle lastField{0, 0, 0, 0};
     };
     SingleLineState idEdit{};
-    SingleLineState keyEdit{};
     SingleLineState imageEdit{};
     SingleLineState ambientEdit{};
     SingleLineState musicEdit{};
@@ -104,21 +106,6 @@ struct SceneAuthoringDialog
     Rectangle alternateSwitchTrack{0, 0, 0, 0};
     Rectangle focusViewSwitchTrack{0, 0, 0, 0};
     Rectangle showOnMapSwitchTrack{0, 0, 0, 0};
-
-    enum class ApiKeyValidity
-    {
-        Missing,
-        Unknown,
-        Valid,
-        Invalid
-    };
-    ApiKeyValidity apiKeyValidity = ApiKeyValidity::Missing;
-    std::string apiKeyValidatedFingerprint;
-    double apiKeyNextCheckTime = 0.0;
-    std::atomic<int> apiKeyCheckResult{-1}; // -1 idle, 0 invalid, 1 valid
-    std::string apiKeyCheckFingerprint;
-    std::mutex apiKeyMutex;
-    std::thread apiKeyThread;
 
     std::atomic<bool> generateBusy{false};
     std::atomic<bool> generateCancel{false};
@@ -191,8 +178,6 @@ private:
     float estimateFormContentHeight() const;
     SingleLineState* singleLineStateForFocus(int field);
     std::string* singleLineBufferForFocus(int field);
-    void pollApiKeyValidity();
-    void scheduleApiKeyCheck(const std::string& key);
     std::string effectiveApiKey() const;
     void syncSpeakWithTts();
     bool handleVoiceMenuClick(Vector2 mouse);

@@ -9,6 +9,7 @@
 #include "EditorAudio.h"
 #include "EditorInput.h"
 
+#include "EditorApiKeys.h"
 #include "EditorButton.h"
 #include "EditorTheme.h"
 #include "EditorUiDraw.h"
@@ -984,12 +985,12 @@ bool ItemEditor::generateAuthoringAssetsNow(int target)
 
     const bool needsImage =
         flags.generateImageFromDescription || flags.generateIconFromDescription;
-    if (needsImage && authoringAiApiKey.empty())
+    if (needsImage && (sessionKeys == nullptr || !sessionKeys->xaiValid()))
     {
         lastAuthoringStatus =
-            "Paste an xAI API key in the AI Assist section (session only), "
+            "Options → Configure API keys — set a valid xAI key, "
             "then press Generate.";
-        authoringLog("Generate blocked: missing session API key for image jobs");
+        authoringLog("Generate blocked: missing/invalid session xAI key for image jobs");
         return false;
     }
 
@@ -1017,7 +1018,8 @@ bool ItemEditor::generateAuthoringAssetsNow(int target)
     // dialog stays open while busy; closeAuthoringDialog joins the thread).
     const std::string assetRoot = docs->assetRoot;
     const std::string itemId = authoringPayload.id;
-    const std::string apiKey = authoringAiApiKey;
+    const std::string apiKey =
+        sessionKeys != nullptr ? sessionKeys->xaiKey : std::string{};
     const int targetSnap = target == 0 ? 5 : target;
 
     authoringLog(
@@ -1099,8 +1101,10 @@ bool ItemEditor::commitAuthoringDialog()
     if (wantsAssetJobs && !result.aiPlan.empty())
     {
         std::string runStatus;
+        const std::string apiKey =
+            sessionKeys != nullptr ? sessionKeys->xaiKey : std::string{};
         const bool ok = runItemAuthoringAiJobs(
-            docs->assetRoot, result.itemId, runStatus, authoringAiApiKey);
+            docs->assetRoot, result.itemId, runStatus, apiKey);
         lastAuthoringStatus += ok ? ("\n" + runStatus) : ("\n[AI assets FAILED] " + runStatus);
         // Keep the dialog closed but leave a sticky error if images were requested
         // and the runner could not produce them (usually missing API key).
@@ -1110,8 +1114,7 @@ bool ItemEditor::commitAuthoringDialog()
         {
             authoringError =
                 "Item saved, but image generation failed. "
-                "Paste your xAI API key in AI Assist (session only), then "
-                "Edit Item -> Save again. "
+                "Options → Configure API keys, then Edit Item → Save again. "
                 + runStatus;
             // Surface via lastAuthoringStatus on the main pane.
         }
@@ -2071,7 +2074,7 @@ void ItemEditor::handleAuthoringDialogInput(int screenWidth, int screenHeight)
     if (IsKeyPressed(KEY_TAB))
     {
         const int dir = (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) ? -1 : 1;
-        authoringFocusField = (authoringFocusField + dir + 3) % 3; // name / weight / API key
+        authoringFocusField = (authoringFocusField + dir + 2) % 2; // name / weight
     }
 
     int codepoint = GetCharPressed();
@@ -2084,8 +2087,6 @@ void ItemEditor::handleAuthoringDialogInput(int screenWidth, int screenHeight)
             if ((codepoint >= '0' && codepoint <= '9') || codepoint == '.' || codepoint == '-')
                 appendUtf8Codepoint(authoringWeightBuffer, codepoint);
         }
-        else if (authoringFocusField == 2 && codepoint >= 32)
-            appendUtf8Codepoint(authoringAiApiKey, codepoint);
         codepoint = GetCharPressed();
     }
     if (IsKeyPressed(KEY_BACKSPACE))
@@ -2094,33 +2095,6 @@ void ItemEditor::handleAuthoringDialogInput(int screenWidth, int screenHeight)
             authoringPayload.name.pop_back();
         else if (authoringFocusField == 1 && !authoringWeightBuffer.empty())
             authoringWeightBuffer.pop_back();
-        else if (authoringFocusField == 2 && !authoringAiApiKey.empty())
-            authoringAiApiKey.pop_back();
-    }
-
-    // Paste into the session API key field (Ctrl/Cmd+V).
-    const bool mod = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)
-        || IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER);
-    if (mod && IsKeyPressed(KEY_V) && authoringFocusField == 2)
-    {
-        const char* clip = GetClipboardText();
-        if (clip != nullptr && clip[0] != '\0')
-        {
-            // Trim whitespace/newlines from pasted keys.
-            std::string pasted = clip;
-            while (!pasted.empty()
-                   && (pasted.back() == '\n' || pasted.back() == '\r'
-                       || pasted.back() == ' ' || pasted.back() == '\t'))
-                pasted.pop_back();
-            size_t start = 0;
-            while (start < pasted.size()
-                   && (pasted[start] == ' ' || pasted[start] == '\t'
-                       || pasted[start] == '\n' || pasted[start] == '\r'))
-                ++start;
-            if (start > 0)
-                pasted = pasted.substr(start);
-            authoringAiApiKey = pasted;
-        }
     }
 
     if ((IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL))
@@ -2271,7 +2245,6 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
             AiAssistIcon,
             AiAssistExamineSound,
             AiAssistUseSound,
-            FocusApiKey,
             GenerateAssetsNow
         } kind;
         Rectangle rect{};
@@ -2291,7 +2264,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
         if (authoringPayload.descriptionTtsEnabled)
             y += 14.0f + 36.0f + 8.0f; // TTS description
         y += 22.0f + 4 * 22.0f + 10.0f; // capabilities
-        y += 22.0f + 14.0f + fieldH + 8.0f; // AI assist header + API key
+        y += 22.0f; // AI assist header
         y += 4 * (14.0f + 36.0f + 8.0f) + 12.0f; // AI assist path rows
         y += 54.0f + 58.0f + 78.0f; // Generate all + hint box + status box
         y += 28.0f; // product recipe switch
@@ -2476,57 +2449,12 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
     DrawTextEx(font, "AI assist", {fieldX, virt(layoutY)}, kFontLabel, 1.0f, kTextPrimary);
     layoutY += 22.0f;
 
-    // Session-only API key (never written to disk / items.json).
-    {
-        DrawTextEx(
-            font,
-            "xAI API key (session only  -  not saved)",
-            {fieldX, virt(layoutY)},
-            kFontTiny,
-            1.0f,
-            kTextMuted);
-        layoutY += 14.0f;
-        const Rectangle keyField = {fieldX, virt(layoutY), fieldW, fieldH};
-        const bool focused = authoringFocusField == 2;
-        DrawRectangleRec(keyField, Color{22, 20, 28, 255});
-        DrawRectangleLinesEx(keyField, 1.0f, focused ? kPanelBorder : kPanelInnerEdge);
-        std::string masked;
-        if (authoringAiApiKey.empty())
-        {
-            masked = focused ? "|" : "(paste key for image generation)";
-        }
-        else
-        {
-            masked.assign(authoringAiApiKey.size(), '*');
-            if (focused)
-                masked.push_back('|');
-        }
-        BeginScissorMode(
-            static_cast<int>(keyField.x + 2),
-            static_cast<int>(keyField.y + 2),
-            static_cast<int>(keyField.width - 4),
-            static_cast<int>(keyField.height - 4));
-        // Re-open content scissor after field scissor (raylib is not nested).
-        DrawTextEx(
-            font,
-            masked.c_str(),
-            {keyField.x + 6.0f, keyField.y + 5.0f},
-            kFontSmall,
-            1.0f,
-            authoringAiApiKey.empty() && !focused ? kTextMuted : kTextPrimary);
-        EndScissorMode();
-        BeginScissorMode(
-            static_cast<int>(content.x),
-            static_cast<int>(content.y),
-            static_cast<int>(content.width),
-            static_cast<int>(content.height));
-        hits.push_back({Hit::Kind::FocusApiKey, keyField, 2});
-        layoutY += fieldH + 8.0f;
-    }
-
     {
         const float aiBtnW = 88.0f;
         const float rowH = 36.0f;
+        const bool xaiOk = sessionKeys != nullptr && sessionKeys->xaiValid();
+        const Font boldFont =
+            (uiFontBold.texture.id != 0 ? uiFontBold : font);
         struct AiFieldRow
         {
             const char* label;
@@ -2535,6 +2463,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
             Hit::Kind assistKind;
             const char* emptyHint;
             int generateTarget; // 1..4
+            bool needsXai;
         };
         const AiFieldRow aiFields[] = {
             {"Examine image path",
@@ -2542,25 +2471,29 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
              Hit::Kind::OpenImagePath,
              Hit::Kind::AiAssistImage,
              "(path  -  click to edit)",
-             1},
+             1,
+             true},
             {"Icon path",
              &authoringPayload.iconPath,
              Hit::Kind::OpenIconPath,
              Hit::Kind::AiAssistIcon,
              "(path  -  click to edit)",
-             2},
+             2,
+             true},
             {"Examine sound",
              &authoringPayload.examineSoundPath,
              Hit::Kind::OpenExamineSound,
              Hit::Kind::AiAssistExamineSound,
              "(SFX path  -  click to edit)",
-             3},
+             3,
+             false},
             {"Use sound",
              &authoringPayload.useSoundPath,
              Hit::Kind::OpenUseSound,
              Hit::Kind::AiAssistUseSound,
              "(SFX path  -  click to edit)",
-             4},
+             4,
+             false},
         };
         // Leave room to the right of Generate for the pulsing "Working" label.
         const float workLabelW = 72.0f;
@@ -2570,33 +2503,52 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
         {
             DrawTextEx(font, row.label, {fieldX, virt(layoutY)}, kFontTiny, 1.0f, kTextMuted);
             layoutY += 14.0f;
-            const Rectangle field = {fieldX, virt(layoutY), rowFieldW, rowH};
+            const Rectangle fieldRow = {fieldX, virt(layoutY), rowFieldW, rowH};
+            Rectangle keyIcon{};
+            const Rectangle field = row.needsXai
+                ? aiFieldWithKeyIcon(fieldRow, &keyIcon)
+                : fieldRow;
             const Rectangle aiBtn = {
                 fieldX + rowFieldW + 8.0f, virt(layoutY) + 4.0f, aiBtnW, 28.0f};
+            if (row.needsXai)
+            {
+                drawApiKeyStatusIcon(
+                    boldFont,
+                    keyIcon,
+                    sessionKeys != nullptr ? sessionKeys->xaiValidity
+                                           : ApiKeyValidity::Missing);
+            }
             DrawRectangleRec(field, Color{22, 20, 28, 255});
             DrawRectangleLinesEx(field, 1.0f, kPanelInnerEdge);
             // Show path truncated/wrapped inside the box only.
             const std::string pathShown = isPlausibleResourcePath(*row.value)
                 ? *row.value
                 : std::string();
+            const std::string emptyHint = row.needsXai
+                ? aiPathFieldHint(
+                      ApiKeyProvider::Xai, sessionKeys, row.emptyHint)
+                : std::string(row.emptyHint);
             drawClippedFieldPreview(
                 font,
                 field,
                 content,
                 pathShown,
-                row.emptyHint,
+                emptyHint.c_str(),
                 kFontSmall,
                 2.0f);
+            const bool canGenRow =
+                !generateBusy && (!row.needsXai || xaiOk);
             EditorButton genBtn;
             genBtn.preferred = aiBtn;
             genBtn.label = "Generate";
-            genBtn.accent = true;
-            genBtn.enabled = !generateBusy;
+            genBtn.accent = canGenRow;
+            genBtn.enabled = canGenRow;
             genBtn.expandWidth = true;
             genBtn.layout(font, editorButtons().config);
             // Prefer the laid-out bounds for hit testing later.
             hits.push_back({row.openKind, field, 0});
-            hits.push_back({row.assistKind, genBtn.bounds, 0});
+            if (canGenRow)
+                hits.push_back({row.assistKind, genBtn.bounds, 0});
             // Defer draw until after scroll content? We're inside scissor — draw now.
             genBtn.draw(font, editorButtons().config);
             if (generateBusy
@@ -2613,17 +2565,19 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
                 virt(layoutY),
                 fieldW - workLabelW - 8.0f,
                 genAllH};
+            const bool canGenAll = !generateBusy && xaiOk;
             EditorButton genAll;
             genAll.preferred = genAllSlot;
             genAll.label = "Generate all assets";
-            genAll.accent = true;
-            genAll.enabled = !generateBusy;
+            genAll.accent = canGenAll;
+            genAll.enabled = canGenAll;
             genAll.expandWidth = true;
             genAll.layout(font, editorButtons().config);
             genAll.draw(font, editorButtons().config);
             if (generateBusy && busyTarget == 5)
                 drawWorkingLabel(genAll.bounds);
-            hits.push_back({Hit::Kind::GenerateAssetsNow, genAll.bounds, 0});
+            if (canGenAll)
+                hits.push_back({Hit::Kind::GenerateAssetsNow, genAll.bounds, 0});
             layoutY += genAllH + 10.0f;
         }
 
@@ -2636,8 +2590,8 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
                 font,
                 hintBox,
                 content,
-                "Generate writes PNG/MP3 now (API key required for images). "
-                "Save writes items.json. Paths must stay under resources/.",
+                "Generate writes PNG/MP3 now (Options → Configure API keys for "
+                "images). Save writes items.json. Paths must stay under resources/.",
                 "",
                 kFontTiny,
                 2.0f);
@@ -2957,9 +2911,6 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
                 {
                 case Hit::Kind::FocusField:
                     authoringFocusField = hit.index;
-                    break;
-                case Hit::Kind::FocusApiKey:
-                    authoringFocusField = 2;
                     break;
                 case Hit::Kind::CapToggle:
                     if (hit.index == 0)

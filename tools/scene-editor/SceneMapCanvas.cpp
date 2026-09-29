@@ -33,6 +33,7 @@
 #include "SceneAuthoringDialog.h"
 #include "SceneAssistDialog.h"
 #include "SceneEffectsDialog.h"
+#include "ApiKeysDialog.h"
 #include "EditorPreferencesDialog.h"
 #include "ImageCompression.h"
 #include "PlatformPath.h"
@@ -5368,6 +5369,8 @@ void SceneMapCanvas::draw()
     sceneFloorConnect.draw(screenWidth, screenHeight);
     if (preferences)
         preferences->draw(screenWidth, screenHeight);
+    if (apiKeysDialog)
+        apiKeysDialog->draw(screenWidth, screenHeight);
 
     // Must draw inside BeginDrawing/EndDrawing — SceneEditorApp::draw runs after
     // EndDrawing and would never show (while still blocking input).

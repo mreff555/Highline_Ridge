@@ -50,6 +50,7 @@
 namespace timberline_editor
 {
 
+struct ApiKeysDialog;
 struct EditorPreferencesDialog;
 
 using timberline_engine::SceneLayout;
@@ -176,6 +177,8 @@ struct SceneMapCanvas
     SceneFloorConnectDialog sceneFloorConnect;
     /** Optional topmost preferences modal (owned by SceneEditorApp). */
     EditorPreferencesDialog* preferences = nullptr;
+    /** Options → Configure API keys (#56). */
+    ApiKeysDialog* apiKeysDialog = nullptr;
     std::function<void()> openPreferences;
     std::string* selectionSceneId = nullptr;
     float* variablesScroll = nullptr;

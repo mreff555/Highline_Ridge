@@ -13,6 +13,7 @@
 
 std::atomic<bool> gEditorPreferencesMenuRequested{false};
 std::atomic<bool> gEditorSaveMenuRequested{false};
+std::atomic<bool> gEditorApiKeysMenuRequested{false};
 
 namespace
 {
@@ -22,6 +23,7 @@ void (*gOnPreferences)(void) = nullptr;
 @interface EditorNativeMenuTarget : NSObject
 - (void)openPreferences:(id)sender;
 - (void)saveDocument:(id)sender;
+- (void)configureApiKeys:(id)sender;
 @end
 
 @implementation EditorNativeMenuTarget
@@ -36,6 +38,11 @@ void (*gOnPreferences)(void) = nullptr;
 {
     (void)sender;
     gEditorSaveMenuRequested.store(true);
+}
+- (void)configureApiKeys:(id)sender
+{
+    (void)sender;
+    gEditorApiKeysMenuRequested.store(true);
 }
 @end
 
@@ -218,6 +225,70 @@ void installMenusNow(void)
             if (insertAt > [mainMenu numberOfItems])
                 insertAt = [mainMenu numberOfItems];
             [mainMenu insertItem:fileMenuItem atIndex:insertAt];
+        }
+
+        // Options menu between File and Window (#56).
+        bool hasOptionsMenu = false;
+        for (NSMenuItem* item in [mainMenu itemArray])
+        {
+            if ([[item title] isEqualToString:@"Options"])
+            {
+                hasOptionsMenu = true;
+                NSMenu* optionsMenu = [item submenu];
+                bool hasConfigure = false;
+                for (NSMenuItem* sub in [optionsMenu itemArray])
+                {
+                    if ([[sub title] isEqualToString:@"Configure API keys…"]
+                        || [[sub title] isEqualToString:@"Configure API keys..."])
+                    {
+                        hasConfigure = true;
+                        break;
+                    }
+                }
+                if (!hasConfigure && optionsMenu != nil)
+                {
+                    NSMenuItem* configure = [[NSMenuItem alloc]
+                        initWithTitle:@"Configure API keys…"
+                               action:@selector(configureApiKeys:)
+                        keyEquivalent:@""];
+                    [configure setTarget:target];
+                    [optionsMenu addItem:configure];
+                }
+                break;
+            }
+        }
+
+        if (!hasOptionsMenu)
+        {
+            NSMenu* optionsMenu = [[NSMenu alloc] initWithTitle:@"Options"];
+            NSMenuItem* optionsMenuItem = [[NSMenuItem alloc]
+                initWithTitle:@"Options"
+                       action:nil
+                keyEquivalent:@""];
+            [optionsMenuItem setSubmenu:optionsMenu];
+
+            NSMenuItem* configure = [[NSMenuItem alloc]
+                initWithTitle:@"Configure API keys…"
+                       action:@selector(configureApiKeys:)
+                keyEquivalent:@""];
+            [configure setTarget:target];
+            [optionsMenu addItem:configure];
+
+            NSInteger insertAt = [mainMenu numberOfItems];
+            for (NSInteger i = 0; i < [mainMenu numberOfItems]; ++i)
+            {
+                NSString* title = [[mainMenu itemAtIndex:i] title];
+                if ([title isEqualToString:@"Window"] || [title isEqualToString:@"Help"])
+                {
+                    insertAt = i;
+                    break;
+                }
+                if ([title isEqualToString:@"File"])
+                    insertAt = i + 1;
+            }
+            if (insertAt > [mainMenu numberOfItems])
+                insertAt = [mainMenu numberOfItems];
+            [mainMenu insertItem:optionsMenuItem atIndex:insertAt];
         }
 
         ensurePlainWindowsMenu(app, mainMenu);

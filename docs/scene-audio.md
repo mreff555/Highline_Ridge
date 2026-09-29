@@ -36,12 +36,18 @@ Copy `_1` back over the live file if a regen goes wrong.
 
 **Backend:** ElevenLabs Music (`music_v2_5`), instrumental-only. The period prompt is honored — there is **no** procedural sine-pad fallback.
 
-### Key
+### Keys (scene editor)
+
+**Preferred:** **Options → Configure API keys…** (native menu between File and Window). Paste xAI + ElevenLabs keys; Confirm keeps them **in memory for this editor session only** (never written to disk from the dialog). See issue #56.
+
+Empty AI path fields show a short hint when the required key is missing (e.g. `XAI key required — go to console.x.ai`). A red **X** / green **✓** icon sits left of each Generate row; Generate is accent-enabled only when the check is green and the row has content.
+
+### Key (CLI / temporary disk fallback)
 
 | Source | Path / env |
 |--------|------------|
 | Env | `ELEVENLABS_API_KEY` (also `ELEVEN_API_KEY` / `XI_API_KEY`) |
-| File | `~/.config/highline-ridge/elevenlabs_api_key` |
+| File | `~/.config/highline-ridge/elevenlabs_api_key` (gitignored; temporary) |
 | CLI | `python3 tools/run_item_authoring_ai.py --elevenlabs-key=...` |
 
 Do **not** put the key in `resources/`. Confirm your ElevenLabs plan allows commercial game use before shipping release beds.

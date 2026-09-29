@@ -2,7 +2,8 @@
  * Timberline engine
  * Copyright (C) 2026 Dan Feerst
  *
- * macOS native menu hooks for the scene editor (File → Save ⌘S, Preferences… ⌘,).
+ * macOS native menu hooks for the scene editor
+ * (File → Save ⌘S, Options → Configure API keys, Preferences… ⌘,).
  ******************************************************************************/
 
 #ifndef TIMBERLINE_EDITOR_NATIVE_MENU_H
@@ -18,6 +19,7 @@ extern "C" {
  * Install native menus after InitWindow:
  * - Application menu: Preferences… (⌘,)
  * - File menu (between app menu and Window): Save (⌘S)
+ * - Options menu (between File and Window): Configure API keys…
  */
 void editorInstallNativePreferencesMenu(void (*onPreferences)(void));
 
@@ -33,6 +35,8 @@ void editorPollNativeMenuFlags(void);
 extern std::atomic<bool> gEditorPreferencesMenuRequested;
 /** Set true when File → Save is chosen; SceneEditorApp clears after saving. */
 extern std::atomic<bool> gEditorSaveMenuRequested;
+/** Set true when Options → Configure API keys… is chosen. */
+extern std::atomic<bool> gEditorApiKeysMenuRequested;
 #endif
 
 #endif

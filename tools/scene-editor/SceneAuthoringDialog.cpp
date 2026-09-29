@@ -19,9 +19,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstdio>
-#include <cstdlib>
 #include <fstream>
-#include <sstream>
 
 using timberline_engine::builtinVoiceIds;
 using timberline_engine::isKnownBuiltinVoiceId;
@@ -116,43 +114,6 @@ void multilineSelectionRange(
         outStart = outEnd;
 }
 
-std::string shellSingleQuote(const std::string& value)
-{
-    std::string out = "'";
-    for (char ch : value)
-    {
-        if (ch == '\'')
-            out += "'\\''";
-        else
-            out += ch;
-    }
-    out += "'";
-    return out;
-}
-
-std::string trimAscii(const std::string& value)
-{
-    size_t begin = 0;
-    while (begin < value.size()
-           && std::isspace(static_cast<unsigned char>(value[begin])))
-        ++begin;
-    size_t end = value.size();
-    while (end > begin
-           && std::isspace(static_cast<unsigned char>(value[end - 1])))
-        --end;
-    return value.substr(begin, end - begin);
-}
-
-std::string readApiKeyFile(const std::string& path)
-{
-    std::ifstream in(path.c_str());
-    if (!in.is_open())
-        return {};
-    std::stringstream buffer;
-    buffer << in.rdbuf();
-    return trimAscii(buffer.str());
-}
-
 } // namespace
 
 void SceneAuthoringDialog::syncSpeakWithTts()
@@ -162,108 +123,7 @@ void SceneAuthoringDialog::syncSpeakWithTts()
 
 std::string SceneAuthoringDialog::effectiveApiKey() const
 {
-    if (!sessionApiKey.empty())
-        return sessionApiKey;
-    if (const char* env = std::getenv("XAI_API_KEY");
-        env != nullptr && env[0] != '\0')
-        return std::string(env);
-    if (docs != nullptr)
-    {
-        const std::string keyPath = resolveXaiApiKeyFile(docs->resourceDir);
-        if (!keyPath.empty())
-        {
-            const std::string fromFile = readApiKeyFile(keyPath);
-            if (!fromFile.empty())
-                return fromFile;
-        }
-    }
-    return {};
-}
-
-void SceneAuthoringDialog::scheduleApiKeyCheck(const std::string& key)
-{
-    if (key.empty())
-        return;
-    if (apiKeyThread.joinable())
-        return;
-
-    apiKeyCheckResult.store(-1);
-    {
-        std::lock_guard<std::mutex> lock(apiKeyMutex);
-        apiKeyCheckFingerprint = key;
-    }
-    apiKeyThread = std::thread([this, key]() {
-        // Short curl probe; Authorization via shell-quoted bearer token.
-        std::ostringstream safe;
-        safe << "curl -sS -o /dev/null -w \"%{http_code}\" --max-time 8 "
-             << "-H " << shellSingleQuote("Authorization: Bearer " + key) << " "
-             << "https://api.x.ai/v1/models 2>/dev/null";
-        int valid = 0;
-#if !defined(_WIN32)
-        FILE* pipe = popen(safe.str().c_str(), "r");
-        if (pipe != nullptr)
-        {
-            char buf[32] = {};
-            const char* got = fgets(buf, sizeof(buf), pipe);
-            (void)pclose(pipe);
-            if (got != nullptr && std::atoi(buf) == 200)
-                valid = 1;
-        }
-#else
-        (void)safe;
-#endif
-        apiKeyCheckResult.store(valid);
-    });
-}
-
-void SceneAuthoringDialog::pollApiKeyValidity()
-{
-    const std::string key = effectiveApiKey();
-    if (key.empty())
-    {
-        apiKeyValidity = ApiKeyValidity::Missing;
-        apiKeyValidatedFingerprint.clear();
-        if (apiKeyThread.joinable())
-        {
-            // Let in-flight check finish so we can join cleanly next open/close.
-            const int pending = apiKeyCheckResult.load();
-            if (pending == 0 || pending == 1)
-                apiKeyThread.join();
-        }
-        return;
-    }
-
-    if (apiKeyThread.joinable())
-    {
-        const int pending = apiKeyCheckResult.load();
-        if (pending == 0 || pending == 1)
-        {
-            apiKeyThread.join();
-            std::string checked;
-            {
-                std::lock_guard<std::mutex> lock(apiKeyMutex);
-                checked = apiKeyCheckFingerprint;
-            }
-            if (checked == key)
-            {
-                apiKeyValidity =
-                    (pending == 1) ? ApiKeyValidity::Valid : ApiKeyValidity::Invalid;
-                apiKeyValidatedFingerprint = key;
-            }
-            apiKeyCheckResult.store(-1);
-        }
-    }
-
-    if (apiKeyValidatedFingerprint != key)
-        apiKeyValidity = ApiKeyValidity::Unknown;
-
-    const double now = GetTime();
-    if (now >= apiKeyNextCheckTime)
-    {
-        apiKeyNextCheckTime = now + 1.0;
-        if (apiKeyValidatedFingerprint != key && !apiKeyThread.joinable())
-            scheduleApiKeyCheck(key);
-    }
+    return sessionKeys != nullptr ? sessionKeys->xaiKey : std::string{};
 }
 
 void SceneAuthoringDialog::openDialog()
@@ -287,18 +147,11 @@ void SceneAuthoringDialog::openDialog()
     else
         payload.ttsDefaultVoice = normalizeVoiceId(payload.ttsDefaultVoice);
 
-    sessionApiKey.clear();
-    // Prefer putting an available key into the field so generation has a visible key.
-    if (const char* env = std::getenv("XAI_API_KEY");
-        env != nullptr && env[0] != '\0')
-        sessionApiKey = env;
-
     descriptionEdit = MultilineState{};
     examineEdit = MultilineState{};
     ttsDescriptionEdit = MultilineState{};
     ttsExamineEdit = MultilineState{};
     idEdit = SingleLineState{};
-    keyEdit = SingleLineState{};
     imageEdit = SingleLineState{};
     ambientEdit = SingleLineState{};
     musicEdit = SingleLineState{};
@@ -316,10 +169,6 @@ void SceneAuthoringDialog::openDialog()
     lastFormScrollThumb = {0, 0, 0, 0};
     draggingFormScroll = false;
     formScrollGrabOffset = 0.0f;
-    apiKeyValidity = ApiKeyValidity::Missing;
-    apiKeyValidatedFingerprint.clear();
-    apiKeyNextCheckTime = 0.0;
-    apiKeyCheckResult.store(-1);
     pendingVoiceRefresh = false;
     generateCancel.store(false);
 }
@@ -414,9 +263,6 @@ void SceneAuthoringDialog::closeDialog()
         generateThread.join();
     generateBusy = false;
     generateCancel.store(false);
-    if (apiKeyThread.joinable())
-        apiKeyThread.join();
-    apiKeyCheckResult.store(-1);
     voiceMenuOpen = false;
     stopPreviewVoice();
     open = false;
@@ -742,7 +588,6 @@ float SceneAuthoringDialog::estimateFormContentHeight() const
     }
     h += 16.0f + 110.0f + 12.0f; // description
     h += 16.0f + 88.0f + 12.0f; // examine
-    h += 16.0f + 32.0f + 12.0f; // api key
     // Image path (+ soften switch) and optional ambient/music rows.
     h += 16.0f + 32.0f + 36.0f; // image path + soften compliance switch
     if (!payload.alternateMode)
@@ -770,8 +615,6 @@ SceneAuthoringDialog::SingleLineState* SceneAuthoringDialog::singleLineStateForF
     {
     case 0:
         return &idEdit;
-    case 3:
-        return &keyEdit;
     case 4:
         return &imageEdit;
     case 5:
@@ -795,8 +638,6 @@ std::string* SceneAuthoringDialog::singleLineBufferForFocus(int field)
     {
     case 0:
         return &idDraft;
-    case 3:
-        return &sessionApiKey;
     case 4:
         return &payload.imagePath;
     case 5:
@@ -1146,9 +987,6 @@ void SceneAuthoringDialog::typeIntoFocusedField()
         target = &payload.examineDetails;
         multi = &examineEdit;
         break;
-    case 3:
-        target = &sessionApiKey;
-        break;
     case 4:
         target = &payload.imagePath;
         break;
@@ -1237,7 +1075,7 @@ void SceneAuthoringDialog::typeIntoFocusedField()
         if (clip != nullptr && clip[0] != '\0')
         {
             std::string pasted = clip;
-            if (focusField == 3 || single != nullptr)
+            if (single != nullptr)
             {
                 pasted.erase(
                     std::remove_if(
@@ -1247,19 +1085,10 @@ void SceneAuthoringDialog::typeIntoFocusedField()
                             return ch == '\n' || ch == '\r';
                         }),
                     pasted.end());
-                if (focusField == 3)
-                {
-                    *target = pasted;
-                    if (single != nullptr)
-                        single->cursor = static_cast<int>(target->size());
-                }
-                else if (single != nullptr)
-                {
-                    single->cursor =
-                        std::clamp(single->cursor, 0, static_cast<int>(target->size()));
-                    target->insert(static_cast<size_t>(single->cursor), pasted);
-                    single->cursor += static_cast<int>(pasted.size());
-                }
+                single->cursor =
+                    std::clamp(single->cursor, 0, static_cast<int>(target->size()));
+                target->insert(static_cast<size_t>(single->cursor), pasted);
+                single->cursor += static_cast<int>(pasted.size());
             }
             else if (multi != nullptr)
             {
@@ -1533,6 +1362,22 @@ void SceneAuthoringDialog::startGenerate(int aiTarget)
         return;
     }
 
+    const bool needsElevenLabs = (aiTarget == 3);
+    const bool needsXai = (aiTarget != 3);
+    if (needsElevenLabs
+        && (sessionKeys == nullptr || !sessionKeys->elevenLabsValid()))
+    {
+        error = "Options → Configure API keys — set a valid ElevenLabs key "
+                "before generating music.";
+        return;
+    }
+    if (needsXai && (sessionKeys == nullptr || !sessionKeys->xaiValid()))
+    {
+        error = "Options → Configure API keys — set a valid xAI key "
+                "before generating.";
+        return;
+    }
+
     // Never generate into shared under-construction plates.
     normalizeSceneAuthoringPaths(payload);
 
@@ -1579,7 +1424,7 @@ void SceneAuthoringDialog::startGenerate(int aiTarget)
     }
 
     if (aiTarget == 0 && payload.ttsEnabled
-        && apiKeyValidity == ApiKeyValidity::Valid)
+        && sessionKeys != nullptr && sessionKeys->xaiValid())
         pendingVoiceRefresh = true;
 
     generateCancel.store(false);
@@ -1587,18 +1432,26 @@ void SceneAuthoringDialog::startGenerate(int aiTarget)
     generateTarget = aiTarget;
     generateResultPending = false;
     const std::string keySnap = effectiveApiKey();
+    const std::string elevenSnap =
+        sessionKeys != nullptr ? sessionKeys->elevenLabsKey : std::string{};
     const std::string idSnap = payload.id;
     const std::string assetRoot = docs->assetRoot;
     const std::string resourceDir = docs->resourceDir;
     if (generateThread.joinable())
         generateThread.join();
-    generateThread = std::thread([this, keySnap, idSnap, assetRoot, resourceDir]() {
-        const std::string msg = runSceneAuthoringAiJobs(
-            assetRoot, resourceDir, idSnap, keySnap, &generateCancel);
-        std::lock_guard<std::mutex> lock(generateMutex);
-        generateResultStatus = msg;
-        generateResultPending = true;
-    });
+    generateThread = std::thread(
+        [this, keySnap, elevenSnap, idSnap, assetRoot, resourceDir]() {
+            const std::string msg = runSceneAuthoringAiJobs(
+                assetRoot,
+                resourceDir,
+                idSnap,
+                keySnap,
+                &generateCancel,
+                elevenSnap);
+            std::lock_guard<std::mutex> lock(generateMutex);
+            generateResultStatus = msg;
+            generateResultPending = true;
+        });
 }
 
 void SceneAuthoringDialog::startVoiceRefresh()
@@ -1612,9 +1465,10 @@ void SceneAuthoringDialog::startVoiceRefresh()
         error = "Enter a valid scene id before generating voice data.";
         return;
     }
-    if (apiKeyValidity != ApiKeyValidity::Valid)
+    if (sessionKeys == nullptr || !sessionKeys->xaiValid())
     {
-        error = "Paste a valid xAI API key before generating voice data.";
+        error = "Options → Configure API keys — set a valid xAI key "
+                "before generating voice data.";
         return;
     }
     if (!sceneTtsTextHasWord(payload.ttsDescription)
@@ -1779,7 +1633,6 @@ void SceneAuthoringDialog::handleInput(int screenW, int screenH)
     if (parchment != nullptr && parchment->blocksInput())
         return;
     pollGenerateResult();
-    pollApiKeyValidity();
 
     if (waitMouseRelease)
     {
@@ -2030,7 +1883,6 @@ void SceneAuthoringDialog::handleInput(int screenW, int screenH)
                      && !CheckCollisionPointRec(mouse, ttsExamineEdit.lastScrollTrack))
                 beginOrExtendClick(ttsExamineEdit, payload.ttsExamineDetails, 8);
             else if (clickSingle(idEdit, idDraft, 0, kFontSmall)
-                     || clickSingle(keyEdit, sessionApiKey, 3, kFontSmall)
                      || clickSingle(imageEdit, payload.imagePath, 4, kFontTiny)
                      || clickSingle(ambientEdit, payload.ambientPath, 5, kFontTiny)
                      || clickSingle(musicEdit, payload.musicPath, 6, kFontTiny))
@@ -2203,7 +2055,6 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
     if (!open)
         return;
     pollGenerateResult();
-    pollApiKeyValidity();
 
     const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
     const Font bold = (uiFontBold.texture.id != 0 ? uiFontBold : font);
@@ -2212,7 +2063,10 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
         !waitMouseRelease && ignoreInputFrames <= 0 && !generateBusy.load()
         && editorMousePressed(MOUSE_BUTTON_LEFT);
     const bool busy = generateBusy.load();
-    const bool keyValid = apiKeyValidity == ApiKeyValidity::Valid;
+    const bool xaiValid = sessionKeys != nullptr && sessionKeys->xaiValid();
+    const bool elevenLabsValid =
+        sessionKeys != nullptr && sessionKeys->elevenLabsValid();
+    const bool keyValid = xaiValid;
 
     DrawRectangle(0, 0, screenW, screenH, kModalOverlay);
 
@@ -2440,54 +2294,6 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
     hitField(examField, 2);
     y += 100.0f;
 
-    // API key
-    drawLabel(font, "Session xAI API key (images / voice; not saved to disk)", labelX, y);
-    if (apiKeyValidity == ApiKeyValidity::Invalid)
-    {
-        const Vector2 labelSize = MeasureTextEx(
-            font,
-            "Session xAI API key (images / voice; not saved to disk)",
-            kFontTiny,
-            1.0f);
-        DrawTextEx(
-            bold,
-            "(INVALID)",
-            {labelX + labelSize.x + 8.0f, y},
-            kFontTiny,
-            1.0f,
-            Color{220, 70, 60, 255});
-    }
-    y += 16.0f;
-    Rectangle keyField = {fieldX, y, fieldW, 32.0f};
-    // Mask when unfocused; show live text while editing so caret/navigation match.
-    if (focusField == 3)
-    {
-        drawSingleLineField(
-            font,
-            keyField,
-            sessionApiKey,
-            "(optional if XAI_API_KEY is set)",
-            keyEdit,
-            true,
-            kFontSmall);
-    }
-    else
-    {
-        const std::string keyShow = sessionApiKey.empty()
-            ? std::string{}
-            : std::string(std::min<size_t>(sessionApiKey.size(), 28), '*');
-        drawSingleLineField(
-            font,
-            keyField,
-            keyShow,
-            "(optional if XAI_API_KEY is set)",
-            keyEdit,
-            false,
-            kFontSmall);
-    }
-    hitField(keyField, 3);
-    y += 44.0f;
-
     // Paths + generate buttons. Alternates only own an image plate.
     struct PathRow
     {
@@ -2497,11 +2303,30 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
         int focus;
         int genTarget;
         const char* genLabel;
+        ApiKeyProvider provider;
     };
     PathRow rows[] = {
-        {"Image path", &payload.imagePath, &imageEdit, 4, 1, "Generate image"},
-        {"Ambient path", &payload.ambientPath, &ambientEdit, 5, 2, "Generate ambient"},
-        {"Music path", &payload.musicPath, &musicEdit, 6, 3, "Generate music"},
+        {"Image path",
+         &payload.imagePath,
+         &imageEdit,
+         4,
+         1,
+         "Generate image",
+         ApiKeyProvider::Xai},
+        {"Ambient path",
+         &payload.ambientPath,
+         &ambientEdit,
+         5,
+         2,
+         "Generate ambient",
+         ApiKeyProvider::Xai},
+        {"Music path",
+         &payload.musicPath,
+         &musicEdit,
+         6,
+         3,
+         "Generate music",
+         ApiKeyProvider::ElevenLabs},
     };
     const int pathRowCount = payload.alternateMode ? 1 : 3;
 
@@ -2511,19 +2336,34 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
         drawLabel(font, row.label, labelX, y);
         y += 16.0f;
         const float genW = 150.0f;
-        Rectangle pathField = {fieldX, y, fieldW - genW - 10.0f, 32.0f};
-        Rectangle genBtn = {fieldX + pathField.width + 10.0f, y, genW, 32.0f};
+        Rectangle pathRow = {fieldX, y, fieldW - genW - 10.0f, 32.0f};
+        Rectangle keyIcon{};
+        Rectangle pathField = aiFieldWithKeyIcon(pathRow, &keyIcon);
+        Rectangle genBtn = {fieldX + pathRow.width + 10.0f, y, genW, 32.0f};
+        drawApiKeyStatusIcon(
+            bold,
+            keyIcon,
+            sessionKeys != nullptr ? sessionKeys->validity(row.provider)
+                                   : ApiKeyValidity::Missing);
+        const std::string pathHint =
+            aiPathFieldHint(row.provider, sessionKeys, "(auto from id)");
         drawSingleLineField(
             font,
             pathField,
             *row.value,
-            "(auto from id)",
+            pathHint.c_str(),
             *row.edit,
             focusField == row.focus,
             kFontTiny);
         hitField(pathField, row.focus);
-        drawEditorButton(font, genBtn, row.genLabel, true, !busy);
-        if (canClick && hitInContent(genBtn))
+        const bool rowKeyOk = row.provider == ApiKeyProvider::ElevenLabs
+            ? elevenLabsValid
+            : xaiValid;
+        const bool rowContentOk =
+            !payload.description.empty() || !row.value->empty();
+        const bool canGenRow = !busy && rowKeyOk && rowContentOk;
+        drawEditorButton(font, genBtn, row.genLabel, canGenRow, canGenRow);
+        if (canClick && canGenRow && hitInContent(genBtn))
             startGenerate(row.genTarget);
         if (busy && generateTarget.load() == row.genTarget)
         {
@@ -2607,7 +2447,9 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
             }
             DrawTextEx(
                 font,
-                "Click to cycle  -  needs ELEVENLABS_API_KEY",
+                elevenLabsValid
+                    ? "Click to cycle"
+                    : "Click to cycle — Options → Configure API keys",
                 {presetBtn.x + presetBtn.width + 10.0f, presetBtn.y + 6.0f},
                 kFontTiny,
                 1.0f,
@@ -2748,12 +2590,21 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
         Rectangle genVoiceDescBtn = {indentX + btnW + btnGap, y, btnW, 28.0f};
         Rectangle previewVoiceDescBtn = {
             indentX + (btnW + btnGap) * 2.0f, y, btnW, 28.0f};
+        const bool canTtsDesc =
+            keyValid
+            && (!payload.description.empty()
+                || sceneTtsTextHasWord(payload.ttsDescription));
         const bool canVoiceDesc =
             keyValid && sceneTtsTextHasWord(payload.ttsDescription);
         const bool canPreviewDesc = ttsBagAudioExists("descriptionTts");
-        drawEditorButton(font, genTtsDescBtn, "Generate TTS dialog", true, !busy);
         drawEditorButton(
-            font, genVoiceDescBtn, "Generate Voice data", true, !busy && canVoiceDesc);
+            font, genTtsDescBtn, "Generate TTS dialog", canTtsDesc, !busy && canTtsDesc);
+        drawEditorButton(
+            font,
+            genVoiceDescBtn,
+            "Generate Voice data",
+            canVoiceDesc,
+            !busy && canVoiceDesc);
         drawEditorButton(
             font,
             previewVoiceDescBtn,
@@ -2762,7 +2613,7 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
                 : "Preview voice",
             true,
             !busy && canPreviewDesc);
-        if (canClick && hitInContent(genTtsDescBtn))
+        if (canClick && canTtsDesc && hitInContent(genTtsDescBtn))
             startGenerate(6);
         if (canClick && canVoiceDesc && hitInContent(genVoiceDescBtn))
             startVoiceRefresh();
@@ -2803,12 +2654,21 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
         Rectangle genVoiceExamBtn = {indentX + btnW + btnGap, y, btnW, 28.0f};
         Rectangle previewVoiceExamBtn = {
             indentX + (btnW + btnGap) * 2.0f, y, btnW, 28.0f};
+        const bool canTtsExam =
+            keyValid
+            && (!payload.examineDetails.empty()
+                || sceneTtsTextHasWord(payload.ttsExamineDetails));
         const bool canVoiceExam =
             keyValid && sceneTtsTextHasWord(payload.ttsExamineDetails);
         const bool canPreviewExam = ttsBagAudioExists("examineTts");
-        drawEditorButton(font, genTtsExamBtn, "Generate TTS dialog", true, !busy);
         drawEditorButton(
-            font, genVoiceExamBtn, "Generate Voice data", true, !busy && canVoiceExam);
+            font, genTtsExamBtn, "Generate TTS dialog", canTtsExam, !busy && canTtsExam);
+        drawEditorButton(
+            font,
+            genVoiceExamBtn,
+            "Generate Voice data",
+            canVoiceExam,
+            !busy && canVoiceExam);
         drawEditorButton(
             font,
             previewVoiceExamBtn,
@@ -2817,7 +2677,7 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
                 : "Preview voice",
             true,
             !busy && canPreviewExam);
-        if (canClick && hitInContent(genTtsExamBtn))
+        if (canClick && canTtsExam && hitInContent(genTtsExamBtn))
             startGenerate(7);
         if (canClick && canVoiceExam && hitInContent(genVoiceExamBtn))
             startVoiceRefresh();
@@ -2877,7 +2737,11 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
     Rectangle cancelBtn = {dialog.x + dialogW - btnW - 18.0f, btnY, btnW, btnH};
     Rectangle genAllBtn = {dialog.x + 20.0f, btnY, 180.0f, btnH};
 
-    drawEditorButton(font, genAllBtn, "Generate all assets", true, !busy);
+    const bool canGenAll =
+        !busy && xaiValid
+        && (!payload.description.empty() || !payload.imagePath.empty()
+            || !payload.ambientPath.empty() || !payload.musicPath.empty());
+    drawEditorButton(font, genAllBtn, "Generate all assets", canGenAll, canGenAll);
     const bool primaryEnabled = editingExisting ? !busy : (canEnableCreate() && !busy);
     drawEditorButton(
         font,
@@ -2897,7 +2761,7 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
             closeDialog();
         else if (primaryEnabled && CheckCollisionPointRec(mouse, createBtn))
             commitSave(false, 0);
-        else if (CheckCollisionPointRec(mouse, genAllBtn))
+        else if (canGenAll && CheckCollisionPointRec(mouse, genAllBtn))
             startGenerate(0);
         else if (!CheckCollisionPointRec(mouse, dialog) && !busy)
             closeDialog();

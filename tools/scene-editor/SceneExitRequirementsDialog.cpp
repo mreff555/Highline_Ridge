@@ -181,29 +181,7 @@ void SceneExitRequirementsDialog::removeSelectedVariant()
 
 std::string SceneExitRequirementsDialog::effectiveApiKey() const
 {
-    if (!sessionApiKey.empty())
-        return sessionApiKey;
-    if (docs == nullptr)
-        return {};
-    auto tryRead = [](const std::string& path) -> std::string {
-        std::ifstream in(path.c_str());
-        if (!in)
-            return {};
-        std::string key;
-        std::getline(in, key);
-        while (!key.empty()
-               && (key.back() == '\r' || key.back() == '\n' || key.back() == ' '
-                   || key.back() == '\t'))
-            key.pop_back();
-        return key;
-    };
-    if (const char* env = std::getenv("XAI_API_KEY");
-        env != nullptr && env[0] != '\0')
-        return std::string(env);
-    const std::string keyPath = resolveXaiApiKeyFile(docs->resourceDir);
-    if (!keyPath.empty())
-        return tryRead(keyPath);
-    return {};
+    return sessionKeys != nullptr ? sessionKeys->xaiKey : std::string{};
 }
 
 void SceneExitRequirementsDialog::resolveWireSides(
@@ -633,8 +611,6 @@ std::string* SceneExitRequirementsDialog::focusedString()
         return &blockedDetails;
     case 3:
         return &blockedTtsText;
-    case 4:
-        return &sessionApiKey;
     case 5:
         if (selectedVariant >= 0
             && selectedVariant < static_cast<int>(blockedVariants.size()))
@@ -862,9 +838,10 @@ void SceneExitRequirementsDialog::startTtsDialogGenerate()
         error = "Add blocked details (or TTS text) before Generate TTS dialog.";
         return;
     }
-    if (effectiveApiKey().empty())
+    if (sessionKeys == nullptr || !sessionKeys->xaiValid())
     {
-        error = "Paste an xAI API key (field below) before Generate TTS dialog.";
+        error = "Options → Configure API keys — set a valid xAI key "
+                "before Generate TTS dialog.";
         return;
     }
 
@@ -947,9 +924,10 @@ void SceneExitRequirementsDialog::startVoiceRefresh()
         error = "Add blocked TTS text before generating voice.";
         return;
     }
-    if (effectiveApiKey().empty())
+    if (sessionKeys == nullptr || !sessionKeys->xaiValid())
     {
-        error = "Paste an xAI API key (field below) before generating voice.";
+        error = "Options → Configure API keys — set a valid xAI key "
+                "before generating voice.";
         return;
     }
     if (!applyChanges())
@@ -1399,9 +1377,12 @@ void SceneExitRequirementsDialog::draw(int screenW, int screenH)
     const float btnW = (fieldW - 8.0f) * 0.5f;
     const float btnH = 28.0f;
     voiceBtnRect = {fieldX, rowY(), btnW, btnH};
-    Rectangle genTtsBtn = {fieldX + btnW + 8.0f, rowY(), btnW, btnH};
+    Rectangle genTtsSlot = {fieldX + btnW + 8.0f, rowY(), btnW, btnH};
+    Rectangle ttsKeyIcon{};
+    Rectangle genTtsBtn = aiFieldWithKeyIcon(genTtsSlot, &ttsKeyIcon);
+    const bool xaiOk = sessionKeys != nullptr && sessionKeys->xaiValid();
     const bool canTtsDialog =
-        !busy && !effectiveApiKey().empty()
+        !busy && xaiOk
         && (sceneTtsTextHasWord(blockedTtsText) || sceneTtsTextHasWord(blockedDetails));
     drawEditorButton(
         font,
@@ -1409,11 +1390,15 @@ void SceneExitRequirementsDialog::draw(int screenW, int screenH)
         ("Voice: " + (blockedTtsVoice.empty() ? "leo" : blockedTtsVoice)).c_str(),
         true,
         !busy);
+    drawApiKeyStatusIcon(
+        uiFontBold.texture.id != 0 ? uiFontBold : font,
+        ttsKeyIcon,
+        sessionKeys != nullptr ? sessionKeys->xaiValidity : ApiKeyValidity::Missing);
     drawEditorButton(
         font,
         genTtsBtn,
         (busy && generateKind == 1) ? "Working..." : "Generate TTS dialog",
-        true,
+        canTtsDialog,
         canTtsDialog);
     if (canClick && CheckCollisionPointRec(mouse, scrollClip)
         && CheckCollisionPointRec(mouse, voiceBtnRect))
@@ -1423,16 +1408,22 @@ void SceneExitRequirementsDialog::draw(int screenW, int screenH)
         startTtsDialogGenerate();
     advance(btnH + 8.0f);
 
-    Rectangle genVoiceBtn = {fieldX, rowY(), btnW, btnH};
+    Rectangle genVoiceSlot = {fieldX, rowY(), btnW, btnH};
+    Rectangle voiceKeyIcon{};
+    Rectangle genVoiceBtn = aiFieldWithKeyIcon(genVoiceSlot, &voiceKeyIcon);
     Rectangle previewBtn = {fieldX + btnW + 8.0f, rowY(), btnW, btnH};
     const bool canGen =
-        !busy && sceneTtsTextHasWord(blockedTtsText) && !effectiveApiKey().empty();
+        !busy && sceneTtsTextHasWord(blockedTtsText) && xaiOk;
     const bool canPrev = !busy && blockedAudioExists();
+    drawApiKeyStatusIcon(
+        uiFontBold.texture.id != 0 ? uiFontBold : font,
+        voiceKeyIcon,
+        sessionKeys != nullptr ? sessionKeys->xaiValidity : ApiKeyValidity::Missing);
     drawEditorButton(
         font,
         genVoiceBtn,
         (busy && generateKind == 2) ? "Working..." : "Generate Voice",
-        true,
+        canGen,
         canGen);
     drawEditorButton(
         font,
@@ -1634,33 +1625,6 @@ void SceneExitRequirementsDialog::draw(int screenW, int screenH)
         advance(18.0f);
         (void)v;
     }
-
-    DrawTextEx(font, "xAI API key (session)", {fieldX, rowY()}, kFontTiny, 1.0f, kTextMuted);
-    advance(16.0f);
-    Rectangle keyField = {fieldX, rowY(), fieldW, 28.0f};
-    DrawRectangleRec(keyField, Color{24, 22, 32, 255});
-    DrawRectangleLinesEx(
-        keyField, focusField == 4 ? 2.0f : 1.0f, focusField == 4 ? kPanelBorder : kPanelInnerEdge);
-    const std::string keyRaw =
-        sessionApiKey.empty() ? "(uses editor prefs if set)"
-                              : std::string(sessionApiKey.size(), '*');
-    drawClippedFieldText(
-        font,
-        keyField,
-        keyRaw,
-        "(uses editor prefs if set)",
-        kFontSmall,
-        sessionApiKey.empty() ? kTextMuted : kTextPrimary);
-    // drawClippedFieldText ends scissor — restore scroll clip
-    BeginScissorMode(
-        (int)scrollClip.x,
-        (int)scrollClip.y,
-        (int)scrollClip.width,
-        (int)scrollClip.height);
-    if (canClick && CheckCollisionPointRec(mouse, scrollClip)
-        && CheckCollisionPointRec(mouse, keyField))
-        focusField = 4;
-    advance(36.0f);
 
     lastContentH = contentY;
     const float maxScroll = std::max(0.0f, lastContentH - scrollClip.height);

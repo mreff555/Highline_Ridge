@@ -841,7 +841,8 @@ std::string runSceneAuthoringAiJobsFile(
     const std::string& resourceDirHint,
     const std::string& jobsFilePath,
     const std::string& sessionApiKey,
-    std::atomic<bool>* cancelFlag)
+    std::atomic<bool>* cancelFlag,
+    const std::string& sessionElevenLabsKey)
 {
     const std::string gameRoot = findGameRoot(assetRootHint, resourceDirHint);
     const std::string runner =
@@ -881,6 +882,8 @@ std::string runSceneAuthoringAiJobsFile(
                    << "gameRoot: " << gameRoot << "\n"
                    << "jobsFile: " << jobsFilePath << "\n"
                    << "hasSessionKey: " << (sessionApiKey.empty() ? "no" : "yes")
+                   << " hasElevenLabsKey: "
+                   << (sessionElevenLabsKey.empty() ? "no" : "yes")
                    << "\n--- python output follows ---\n";
         }
     }
@@ -900,6 +903,8 @@ std::string runSceneAuthoringAiJobsFile(
                 << " --jobs-file " << shellQuote(jobsFilePath);
             if (!sessionApiKey.empty())
                 cmd << " --key " << shellQuote(sessionApiKey);
+            if (!sessionElevenLabsKey.empty())
+                cmd << " --elevenlabs-key " << shellQuote(sessionElevenLabsKey);
             cmd << " >> " << shellQuote(logFile) << " 2>&1";
             execl("/bin/sh", "sh", "-c", cmd.str().c_str(), static_cast<char*>(nullptr));
             _exit(127);
@@ -932,6 +937,8 @@ std::string runSceneAuthoringAiJobsFile(
             << " --jobs-file " << shellQuote(jobsFilePath);
         if (!sessionApiKey.empty())
             cmd << " --key " << shellQuote(sessionApiKey);
+        if (!sessionElevenLabsKey.empty())
+            cmd << " --elevenlabs-key " << shellQuote(sessionElevenLabsKey);
         cmd << " >> " << shellQuote(logFile) << " 2>&1";
         return std::system(cmd.str().c_str());
     };
@@ -1023,14 +1030,20 @@ std::string runSceneAuthoringAiJobs(
     const std::string& resourceDirHint,
     const std::string& sceneId,
     const std::string& sessionApiKey,
-    std::atomic<bool>* cancelFlag)
+    std::atomic<bool>* cancelFlag,
+    const std::string& sessionElevenLabsKey)
 {
     const std::string gameRoot = findGameRoot(assetRootHint, resourceDirHint);
     const std::string jobsPath = pathJoin(
         pathJoin(pathJoin(gameRoot, "resources"), ".authoring"),
         sceneId + "_ai_jobs.json");
     const std::string msg = runSceneAuthoringAiJobsFile(
-        assetRootHint, resourceDirHint, jobsPath, sessionApiKey, cancelFlag);
+        assetRootHint,
+        resourceDirHint,
+        jobsPath,
+        sessionApiKey,
+        cancelFlag,
+        sessionElevenLabsKey);
     if (msg == "AI generate finished OK")
         return "AI generate finished OK for " + sceneId;
     return msg;

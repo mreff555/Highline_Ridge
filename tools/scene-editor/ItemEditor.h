@@ -21,6 +21,7 @@
 #define TIMBERLINE_ITEM_EDITOR_H
 
 #include "DocumentWorkspace.h"
+#include "EditorApiKeys.h"
 #include "EditorTypes.h"
 #include "FullscreenParchmentEditor.h"
 #include "ItemAuthoring.h"
@@ -60,19 +61,16 @@ struct ItemEditor
     std::function<bool()> draggingDivider;
     Font uiFont{};
     Font uiFontBold{};
+    /** Shared session keys from Options → Configure API keys (#56). */
+    EditorApiKeys* sessionKeys = nullptr;
 
     // --- Authoring dialog (create + modify) ---
     bool authoringDialogOpen = false;
     bool authoringIsModify = false;
     ItemAuthoringPayload authoringPayload{};
-    /** 0=name, 1=weight, 2=AI API key (description is dialog-only) */
+    /** 0=name, 1=weight (description is dialog-only) */
     int authoringFocusField = 0;
     std::string authoringWeightBuffer = "0.1";
-    /**
-     * Session-only xAI API key for AI Assist image generation.
-     * Never written to items.json or resources/xai_api_key.
-     */
-    std::string authoringAiApiKey;
     std::string authoringError;
     std::string lastAuthoringStatus;
     int authoringIgnoreInputFrames = 0;

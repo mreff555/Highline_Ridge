@@ -1057,7 +1057,7 @@ bool runItemAuthoringAiJobs(
         else
             statusOut +=
                 ". Runner exit " + std::to_string(code)
-                + ". Paste an xAI API key in the AI Assist section for images; "
+                + ". Options → Configure API keys for images; "
                   "install lame/ffmpeg for SFX.";
         if (!logTail.empty())
             statusOut += "\n--- log ---\n" + logTail;

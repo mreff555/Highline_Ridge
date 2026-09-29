@@ -9,6 +9,7 @@
 #define TIMBERLINE_SCENE_ASSIST_DIALOG_H
 
 #include "DocumentWorkspace.h"
+#include "EditorApiKeys.h"
 #include "SceneAuthoring.h"
 #include "ThumbnailCache.h"
 
@@ -36,10 +37,10 @@ struct SceneAssistDialog
     float descScrollY = 0.0f;
 
     SceneAuthoringPayload payload{};
-    std::string sessionApiKey;
+    /** Shared session keys from Options → Configure API keys (#56). */
+    EditorApiKeys* sessionKeys = nullptr;
     std::string status;
     std::string error;
-    int focusField = 0; // 0=api key
 
     // 0=idle chooser, 1=image, 2=ambient, 3=music
     int generateTarget = 0;
@@ -86,7 +87,6 @@ private:
     void startGenerate(int target);
     void acceptPreview();
     void revertPreview();
-    void typeIntoFocusedField();
     bool loadPreviewTexture(const std::string& relPath);
     bool loadPreviewMusic(const std::string& relPath);
     void stopPreviewMusic();
