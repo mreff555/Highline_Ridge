@@ -22,6 +22,7 @@
 
 #include "DocumentWorkspace.h"
 #include "EditorTypes.h"
+#include "FullscreenParchmentEditor.h"
 #include "ItemAuthoring.h"
 #include "VariableEditor.h"
 
@@ -54,6 +55,7 @@ struct ItemEditor
 
     DocumentWorkspace* docs = nullptr;
     VariableEditor* text = nullptr;
+    FullscreenParchmentEditor* parchment = nullptr;
     bool* stackDialogOpen = nullptr;
     std::function<bool()> draggingDivider;
     Font uiFont{};
@@ -202,6 +204,8 @@ struct ItemEditor
     Rectangle editItemBtnBounds(Rectangle listBounds) const;
 
     void openSubEdit(SubEditKind kind);
+    /** Prose/TTS fields use the fullscreen parchment desk (#54). */
+    void openProseParchment(SubEditKind kind);
     void closeSubEdit(bool apply);
     void handleSubEditInput();
     void drawSubEditDialog(int screenWidth, int screenHeight);

@@ -523,9 +523,13 @@ void SceneInventoryDialog::draw(int screenW, int screenH)
     DrawRectangleLinesEx(content, 1.0f, kPanelInnerEdge);
 
     // Title, description, examine slider, must-have slider+field.
+    // Leave bottom strip for the + control (equal side/bottom margins).
     const float rowH = 108.0f;
+    const float addMargin = 10.0f;
+    const float addSize = 32.0f;
     const float listTop = content.y + 10.0f;
-    const float listH = content.height - 56.0f;
+    const float listH =
+        std::max(40.0f, content.height - (addMargin + addSize + addMargin) - 4.0f);
     const Rectangle listBounds = {content.x + 10.0f, listTop, content.width - 20.0f, listH};
 
     const float contentH = static_cast<float>(entries.size()) * rowH + 8.0f;
@@ -794,16 +798,22 @@ void SceneInventoryDialog::draw(int screenW, int screenH)
             mustHaveSuggestOpen = false;
     }
 
-    // Bold white + bottom-left instead of "Add item..." (#50).
+    // Bold white + bottom-left, equal side/bottom margins, no border (#50/#53).
     const Rectangle addBtn = {
-        content.x + 10.0f, content.y + content.height - 40.0f, 36.0f, 32.0f};
+        content.x + addMargin,
+        content.y + content.height - addMargin - addSize,
+        addSize,
+        addSize};
     const bool addHover = CheckCollisionPointRec(mouse, addBtn);
-    // No box border — just the bold + glyph (#50 follow-up).
+    // Bare glyph only — no fill or border; hover brightens (#53).
+    const float plusFont = kFontHeading + 4.0f;
+    const Vector2 plusMeasure = MeasureTextEx(bold, "+", plusFont, 1.0f);
     DrawTextEx(
         bold,
         "+",
-        {addBtn.x + 9.0f, addBtn.y + 1.0f},
-        kFontHeading + 4.0f,
+        {addBtn.x + (addBtn.width - plusMeasure.x) * 0.5f,
+         addBtn.y + (addBtn.height - plusMeasure.y) * 0.5f},
+        plusFont,
         1.0f,
         addHover ? Color{255, 255, 255, 255} : Color{230, 230, 235, 255});
     if (canClick && CheckCollisionPointRec(mouse, addBtn))

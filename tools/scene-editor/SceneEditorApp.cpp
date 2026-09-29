@@ -80,6 +80,7 @@ void SceneEditorApp::wireModules()
 
     itemEditor.docs = &document;
     itemEditor.text = &variableEditor;
+    itemEditor.parchment = &parchmentEditor;
     itemEditor.stackDialogOpen = &sceneGraph.stackDialogOpen;
     itemEditor.draggingDivider = [this]() { return layout.isDraggingDivider(); };
 

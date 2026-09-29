@@ -1163,8 +1163,67 @@ bool ItemEditor::commitAuthoringDialog()
 
 // ---------- Sub-edit popup (description / TTS / sounds / paths) ----------
 
+void ItemEditor::openProseParchment(SubEditKind kind)
+{
+    if (parchment == nullptr || docs == nullptr)
+    {
+        openSubEdit(kind);
+        return;
+    }
+
+    std::string* target = nullptr;
+    bool tts = false;
+    const char* label = "Edit";
+    switch (kind)
+    {
+    case SubEditKind::Description:
+        target = &authoringPayload.description;
+        label = "Item description";
+        break;
+    case SubEditKind::TtsDescription:
+        target = &authoringPayload.ttsDescription;
+        tts = true;
+        label = "Item TTS description";
+        break;
+    case SubEditKind::ConstructionDescription:
+        target = &authoringPayload.recipe.constructionDescription;
+        label = "Construction description";
+        break;
+    case SubEditKind::TtsConstructionDescription:
+        target = &authoringPayload.recipe.ttsConstructionDescription;
+        tts = true;
+        label = "TTS construction description";
+        break;
+    default:
+        openSubEdit(kind);
+        return;
+    }
+
+    parchment->openEditor(
+        target, tts, label, docs->resourceDir, docs->assetRoot);
+    parchment->onClosed = [this]() {
+        // Swallow the mouse release so Cancel/outside-click cannot dismiss
+        // the authoring dialog underneath the parchment.
+        authoringWaitMouseRelease = true;
+    };
+    authoringWaitMouseRelease = true;
+    authoringDropdown = 0;
+}
+
 void ItemEditor::openSubEdit(SubEditKind kind)
 {
+    // Prose/TTS description fields prefer the fullscreen parchment desk (#54).
+    if (kind == SubEditKind::Description || kind == SubEditKind::TtsDescription
+        || kind == SubEditKind::ConstructionDescription
+        || kind == SubEditKind::TtsConstructionDescription)
+    {
+        if (parchment != nullptr && docs != nullptr)
+        {
+            openProseParchment(kind);
+            return;
+        }
+    }
+
     subEditKind = kind;
     subEditScrollY = 0.0f;
     subEditIgnoreFrames = 1;
@@ -2342,7 +2401,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
             field,
             content,
             authoringPayload.description,
-            "(click to edit in dialog)",
+            "(click to edit on parchment)",
             kFontSmall,
             2.0f);
         hits.push_back({Hit::Kind::OpenDescription, field, 0});
@@ -2380,7 +2439,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
             field,
             content,
             authoringPayload.ttsDescription,
-            "(click to edit  -  TTS syntax highlighting)",
+            "(click to edit on parchment  -  TTS highlighting)",
             kFontSmall,
             2.0f);
         drawEditorButton(font, aiBtn, "AI Assist", false, true);
@@ -2682,7 +2741,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
                 field,
                 content,
                 authoringPayload.recipe.constructionDescription,
-                "(click to edit in dialog)",
+                "(click to edit on parchment)",
                 kFontSmall,
                 2.0f);
             drawEditorButton(font, aiBtn, "AI Assist", false, true);
@@ -2722,7 +2781,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
                 field,
                 content,
                 authoringPayload.recipe.ttsConstructionDescription,
-                "(click to edit  -  TTS syntax highlighting)",
+                "(click to edit on parchment  -  TTS highlighting)",
                 kFontSmall,
                 2.0f);
             drawEditorButton(font, aiBtn, "AI Assist", false, true);
