@@ -43,6 +43,7 @@ SceneEditorApp::SceneEditorApp()
 void SceneEditorApp::wireModules()
 {
     variableEditor.docs = &document;
+    variableEditor.parchment = &parchmentEditor;
     variableEditor.selectionSceneId = &selectedSceneId;
     variableEditor.variablesScroll = &variablesScroll;
     variableEditor.stackDialogOpen = &sceneGraph.stackDialogOpen;

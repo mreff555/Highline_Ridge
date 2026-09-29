@@ -96,9 +96,55 @@ void VariableEditor::closeVariableEditor()
     keyRepeatKey = 0;
     keyRepeatTimer = 0.0f;
     textTtsToggle = {0, 0, 0, 0};
+    fullscreenBtn = {0, 0, 0, 0};
+    fieldContextOpen = false;
+    fieldContextRect = {0, 0, 0, 0};
     voiceDropdownOpen = false;
     voiceDropdownBtn = {0, 0, 0, 0};
     voiceDropdownMenu = {0, 0, 0, 0};
+}
+
+bool VariableEditor::canOpenParchment() const
+{
+    return open && parchment != nullptr && docs != nullptr && multiline
+        && kind == VariableKindString;
+}
+
+void VariableEditor::openParchmentEditor()
+{
+    if (!canOpenParchment())
+        return;
+
+    const bool ttsHighlight = showTts && textTtsEnabled;
+    std::string label = editorKey.empty() ? "Edit" : editorKey;
+    if (docTarget == ConversationEditDoc::Items && !editorItemId.empty())
+        label = "Item " + editorKey;
+    else if (!editorSceneId.empty())
+        label = editorKey;
+
+    parchment->openEditor(
+        &buffer,
+        ttsHighlight,
+        label,
+        docs->resourceDir,
+        docs->assetRoot);
+    parchment->onClosed = [this]() {
+        // Confirm already wrote draft → buffer; stash so Text/TTS dual-side
+        // Save still sees the parchment result.
+        if (textTtsEnabled)
+            stashActiveBufferToSide();
+        cursor = static_cast<int>(buffer.size());
+        selectAnchor = -1;
+        mouseSelecting = false;
+        fieldContextOpen = false;
+        // Swallow the click that dismissed parchment so Save/Cancel/outside
+        // cannot fire underneath.
+        ignoreInputFrames = 2;
+    };
+    fieldContextOpen = false;
+    voiceDropdownOpen = false;
+    mouseSelecting = false;
+    ignoreInputFrames = 1;
 }
 
 
@@ -973,6 +1019,19 @@ void VariableEditor::syncDialogLayout(int screenWidth, int screenHeight)
         btnY - (dialogY + 44.0f) - 14.0f};
     saveBtn = {dialogX + dialogW - btnW * 2.0f - 28.0f, btnY, btnW, btnH};
     cancelBtn = {dialogX + dialogW - btnW - 18.0f, btnY, btnW, btnH};
+    if (canOpenParchment())
+    {
+        const float fullW = 120.0f;
+        fullscreenBtn = {
+            dialogX + dialogW - btnW * 2.0f - 28.0f - fullW - 10.0f,
+            btnY,
+            fullW,
+            btnH};
+    }
+    else
+    {
+        fullscreenBtn = {0, 0, 0, 0};
+    }
 
     if (textTtsEnabled)
     {
@@ -1024,9 +1083,33 @@ void VariableEditor::handleVariableEditorTextInput()
         IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER);
     const Vector2 mouse = GetMousePosition();
 
+    // Right-click field → "Edit full screen" (same affordance as Edit Scene).
+    if (canOpenParchment() && editorMousePressed(MOUSE_BUTTON_RIGHT)
+        && CheckCollisionPointRec(mouse, field))
+    {
+        fieldContextOpen = true;
+        fieldContextRect = {mouse.x, mouse.y, 160.0f, 28.0f};
+        if (fieldContextRect.x + fieldContextRect.width > GetScreenWidth())
+            fieldContextRect.x = GetScreenWidth() - fieldContextRect.width - 4.0f;
+        if (fieldContextRect.y + fieldContextRect.height > GetScreenHeight())
+            fieldContextRect.y = GetScreenHeight() - fieldContextRect.height - 4.0f;
+        mouseSelecting = false;
+        return;
+    }
+
     // Buttons take priority over the text field (handled here in update).
     if (editorMousePressed(MOUSE_BUTTON_LEFT))
     {
+        if (fieldContextOpen)
+        {
+            if (CheckCollisionPointRec(mouse, fieldContextRect))
+            {
+                mouseSelecting = false;
+                openParchmentEditor();
+                return;
+            }
+            fieldContextOpen = false;
+        }
         if (CheckCollisionPointRec(mouse, saveBtn))
         {
             mouseSelecting = false;
@@ -1041,6 +1124,12 @@ void VariableEditor::handleVariableEditorTextInput()
         {
             mouseSelecting = false;
             closeVariableEditor();
+            return;
+        }
+        if (fullscreenBtn.width > 1.0f && CheckCollisionPointRec(mouse, fullscreenBtn))
+        {
+            mouseSelecting = false;
+            openParchmentEditor();
             return;
         }
         if (textTtsEnabled &&
@@ -1540,10 +1629,21 @@ void VariableEditor::drawVariableEditor(int screenWidth, int screenHeight)
 
     const Rectangle localSaveBtn = {dialog.x + dialogW - btnW * 2.0f - 28.0f, btnY, btnW, btnH};
     const Rectangle localCancelBtn = {dialog.x + dialogW - btnW - 18.0f, btnY, btnW, btnH};
+    Rectangle localFullscreenBtn{0, 0, 0, 0};
+    if (canOpenParchment())
+    {
+        const float fullW = 120.0f;
+        localFullscreenBtn = {
+            dialog.x + dialogW - btnW * 2.0f - 28.0f - fullW - 10.0f,
+            btnY,
+            fullW,
+            btnH};
+    }
 
     // Keep rects identical to update() hit-testing.
     saveBtn = localSaveBtn;
     cancelBtn = localCancelBtn;
+    fullscreenBtn = localFullscreenBtn;
 
     // Lower-left text/TTS switch (conversation dialog editors only).
     if (textTtsEnabled)
@@ -1610,6 +1710,8 @@ void VariableEditor::drawVariableEditor(int screenWidth, int screenHeight)
 
     {
         const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
+        if (localFullscreenBtn.width > 1.0f)
+            drawEditorButton(font, localFullscreenBtn, "Fullscreen", false, true);
         drawEditorButton(font, localSaveBtn, "Save", true, true);
         drawEditorButton(font, localCancelBtn, "Cancel", false, true);
     }
@@ -1652,6 +1754,20 @@ void VariableEditor::drawVariableEditor(int screenWidth, int screenHeight)
                 1.0f,
                 kTextPrimary);
         }
+    }
+
+    if (fieldContextOpen)
+    {
+        const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
+        DrawRectangleRec(fieldContextRect, Color{32, 28, 40, 245});
+        DrawRectangleLinesEx(fieldContextRect, 1.0f, kPanelBorder);
+        DrawTextEx(
+            font,
+            "Edit full screen",
+            {fieldContextRect.x + 10.0f, fieldContextRect.y + 6.0f},
+            kFontSmall,
+            1.0f,
+            kTextPrimary);
     }
 
     // Enter saves single-line fields; multiline uses Enter for newlines.
