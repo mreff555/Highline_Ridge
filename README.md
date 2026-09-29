@@ -133,6 +133,8 @@ See **[docs/scene-editor-tutorial.md](docs/scene-editor-tutorial.md)** — map, 
 
 See **[docs/tts.md](docs/tts.md)** — voices, `[pause]` / style tags, `{{voice:…}}`, refresh CLI, and release packaging.
 
+Scene ambient beds and period music generation: **[docs/scene-audio.md](docs/scene-audio.md)**.
+
 Dialog **world tokens** like `{tab_amount}` (not TTS): [docs/dialog-tokens.md](docs/dialog-tokens.md).
 
 ### Dev vs release package
@@ -249,6 +251,7 @@ When `HIGHLINE_DEV_TOOLS=ON` (dev default):
 | [BUILD.md](BUILD.md) | Platform builds, flags, Homebrew `/opt/homebrew` |
 | [docs/scene-editor-tutorial.md](docs/scene-editor-tutorial.md) | Editor walkthrough |
 | [docs/tts.md](docs/tts.md) | TTS markup and refresh |
+| [docs/scene-audio.md](docs/scene-audio.md) | Ambient beds + period music (ElevenLabs) |
 | [docs/dev-vs-release.md](docs/dev-vs-release.md) | Dev vs player package |
 | [docs/scene-map-exits.md](docs/scene-map-exits.md) | Compass, floors, Use, gates, place-item |
 | [docs/dialog-tokens.md](docs/dialog-tokens.md) | `{tab_amount}`-style tokens |

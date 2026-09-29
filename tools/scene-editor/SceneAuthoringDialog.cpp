@@ -746,7 +746,10 @@ float SceneAuthoringDialog::estimateFormContentHeight() const
     // Image path (+ soften switch) and optional ambient/music rows.
     h += 16.0f + 32.0f + 36.0f; // image path + soften compliance switch
     if (!payload.alternateMode)
-        h += 2.0f * (16.0f + 32.0f + 12.0f); // ambient + music
+    {
+        h += 16.0f + 32.0f + 12.0f; // ambient
+        h += 16.0f + 32.0f + 16.0f + 28.0f + 12.0f; // music + style preset
+    }
     h += 16.0f + 26.0f + 12.0f; // Alternate switch
     h += 16.0f + 26.0f + 12.0f; // TTS switch (+ label)
     if (payload.ttsEnabled)
@@ -2548,6 +2551,67 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
                 softenToggled);
             if (softenToggled)
                 payload.softenImagePrompt = !payload.softenImagePrompt;
+            y += 36.0f;
+        }
+        else if (ri == 2)
+        {
+            // Period music preset — cycles through 1890s style beds (ElevenLabs).
+            static const char* kMusicPresets[] = {
+                "saloon_piano",
+                "trail_folk",
+                "cabin_hearth",
+                "mining_camp",
+                "tension",
+                "title_hymn"};
+            static const char* kMusicPresetLabels[] = {
+                "Saloon piano / ragtime",
+                "Trail folk (fiddle)",
+                "Cabin hearth piano",
+                "Mining camp harmonica",
+                "Tension underscore",
+                "Title / menu hymn"};
+            const int presetCount =
+                static_cast<int>(sizeof(kMusicPresets) / sizeof(kMusicPresets[0]));
+            int presetIndex = 2; // cabin_hearth default
+            for (int i = 0; i < presetCount; ++i)
+            {
+                if (payload.musicStylePreset == kMusicPresets[i])
+                {
+                    presetIndex = i;
+                    break;
+                }
+            }
+            if (payload.musicStylePreset.empty())
+            {
+                payload.musicStylePreset = kMusicPresets[presetIndex];
+            }
+            DrawTextEx(
+                font,
+                "Music style (1890s)",
+                {fieldX, y},
+                kFontTiny,
+                1.0f,
+                kTextMuted);
+            y += 16.0f;
+            const Rectangle presetBtn = {fieldX, y, std::min(320.0f, fieldW), 28.0f};
+            drawEditorButton(
+                font,
+                presetBtn,
+                kMusicPresetLabels[presetIndex],
+                false,
+                true);
+            if (canClick && hitInContent(presetBtn))
+            {
+                presetIndex = (presetIndex + 1) % presetCount;
+                payload.musicStylePreset = kMusicPresets[presetIndex];
+            }
+            DrawTextEx(
+                font,
+                "Click to cycle  -  needs ELEVENLABS_API_KEY",
+                {presetBtn.x + presetBtn.width + 10.0f, presetBtn.y + 6.0f},
+                kFontTiny,
+                1.0f,
+                kTextMuted);
             y += 36.0f;
         }
         else

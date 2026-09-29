@@ -133,6 +133,8 @@ nlohmann::json sceneAiJobToJson(const SceneAiJob& job)
         j["defaultVoice"] = job.defaultVoice;
     if (job.type == SceneAiJobType::GenerateImage)
         j["softenPrompt"] = job.softenPrompt;
+    if (job.type == SceneAiJobType::GenerateMusic && !job.musicStylePreset.empty())
+        j["musicStylePreset"] = job.musicStylePreset;
     return j;
 }
 
@@ -417,16 +419,16 @@ std::vector<SceneAiJob> buildSceneAiJobs(
         job.type = SceneAiJobType::GenerateAmbient;
         job.action = "ambient";
         job.outPath = paths.ambientPath;
-        // Prompt carries scene + style for chat layer-planning in the runner.
-        // Note: current runner synthesizes beds locally from named layers —
-        // ask for kitchen/crowd layers when the scene is an interior workplace.
+        // Overview-only context: examine notes often mention humming / speech /
+        // music and steer Imagine Video into strange non-ambient audio.
         job.prompt =
             std::string(
                 "Diegetic ambient soundscape for a Timberline adventure-game room bed. "
-                "No dialogue, no narrator, no music score  -  only environmental audio "
-                "that could loop under gameplay. Capture activity, room tone, and any "
-                "distant bleed that fits the place.\n")
-            + styleBlock + "Scene context:\n" + ctx;
+                "Hard rules: no dialogue, no whispering, no humming, no singing, "
+                "no narrator, no melodic music score, no UI beeps  -  only "
+                "environmental audio that could loop under gameplay. "
+                "Capture activity, room tone, and distant bleed that fits the place.\n")
+            + styleBlock + "Scene overview:\n" + overview;
         job.imagePath = paths.imagePath; // Imagine Video image-to-video when present
         jobs.push_back(job);
     }
@@ -436,8 +438,11 @@ std::vector<SceneAiJob> buildSceneAiJobs(
         job.type = SceneAiJobType::GenerateMusic;
         job.action = "music";
         job.outPath = paths.musicPath;
+        job.musicStylePreset = payload.musicStylePreset.empty()
+            ? "cabin_hearth"
+            : payload.musicStylePreset;
         job.prompt = std::string("Loopable period instrumental underscore.\n")
-            + styleBlock + "Scene context:\n" + ctx;
+            + styleBlock + "Scene overview:\n" + overview;
         jobs.push_back(job);
     }
     if (want(4))

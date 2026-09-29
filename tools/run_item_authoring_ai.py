@@ -60,6 +60,28 @@ LOGICAL_OUT_PATHS = {
 }
 
 
+def _read_env_file_key(path: Path, names: tuple[str, ...]) -> str:
+    if not path.is_file():
+        return ""
+    text = path.read_text(encoding="utf-8").strip()
+    if not text:
+        return ""
+    first = text.splitlines()[0]
+    if path.name == ".env" or "=" in first:
+        for line in text.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            for name in names:
+                prefix = name + "="
+                if line.startswith(prefix):
+                    val = line.split("=", 1)[1].strip().strip('"').strip("'")
+                    if val:
+                        return val
+        return ""
+    return text
+
+
 def resolve_api_key(asset_root: Path, cli_key: str | None) -> str:
     if cli_key and cli_key.strip():
         return cli_key.strip()
@@ -76,23 +98,44 @@ def resolve_api_key(asset_root: Path, cli_key: str | None) -> str:
         asset_root / ".env",
     ]
     for candidate in candidates:
-        if not candidate.is_file():
-            continue
-        text = candidate.read_text(encoding="utf-8").strip()
-        if not text:
-            continue
-        # .env style: XAI_API_KEY=...
-        if candidate.name == ".env" or "=" in text.splitlines()[0]:
-            for line in text.splitlines():
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                if line.startswith("XAI_API_KEY="):
-                    val = line.split("=", 1)[1].strip().strip('"').strip("'")
-                    if val:
-                        return val
-            continue
-        return text
+        val = _read_env_file_key(
+            candidate, ("XAI_API_KEY", "xAI_API_KEY", "GROK_API_KEY")
+        )
+        if val:
+            return val
+        # Plain single-line key files (not .env).
+        if candidate.name != ".env" and candidate.is_file():
+            text = candidate.read_text(encoding="utf-8").strip()
+            if text and "=" not in text.splitlines()[0]:
+                return text
+    return ""
+
+
+def resolve_elevenlabs_api_key(
+    asset_root: Path, cli_key: str | None = None
+) -> str:
+    """ElevenLabs Music key — never fall back to the xAI key."""
+    if cli_key and cli_key.strip():
+        return cli_key.strip()
+    for env_name in ("ELEVENLABS_API_KEY", "ELEVEN_API_KEY", "XI_API_KEY"):
+        env = os.environ.get(env_name, "").strip()
+        if env:
+            return env
+    candidates = [
+        Path.home() / ".config" / "highline-ridge" / "elevenlabs_api_key",
+        Path.home() / ".config" / "elevenlabs" / "api_key",
+        asset_root / ".env",
+    ]
+    for candidate in candidates:
+        val = _read_env_file_key(
+            candidate, ("ELEVENLABS_API_KEY", "ELEVEN_API_KEY", "XI_API_KEY")
+        )
+        if val:
+            return val
+        if candidate.name != ".env" and candidate.is_file():
+            text = candidate.read_text(encoding="utf-8").strip()
+            if text and "=" not in text.splitlines()[0]:
+                return text
     return ""
 
 
@@ -144,7 +187,7 @@ def rotate_live_asset_backup(path: Path) -> None:
     _rename_replace(xz, xz1)
 
 
-# --- Ambient backend (swappable; LocalLayerSynth v1; ElevenLabs later) ---
+# --- Ambient backend (swappable; LocalLayerSynth v1; music via ElevenLabs) ---
 
 AMBIENT_LAYER_CATALOG = [
     "wind_soft",
@@ -156,7 +199,36 @@ AMBIENT_LAYER_CATALOG = [
     "fire_soft",
     "rain_light",
     "insects_night",
+    # Interior / workplace layers (implemented in _layer_sample).
+    "kitchen_clatter",
+    "steam_hiss",
+    "crowd_muffled",
 ]
+
+MUSIC_STYLE_PRESETS = {
+    "saloon_piano": (
+        "saloon parlor upright piano, early ragtime or waltz fragments, "
+        "warm wooden room, modest tempo"
+    ),
+    "trail_folk": (
+        "mountain trail folk underscore, sparse fiddle and acoustic guitar, "
+        "open-air high country"
+    ),
+    "cabin_hearth": (
+        "cabin hearth sparse piano, intimate and quiet, soft pedaled notes"
+    ),
+    "mining_camp": (
+        "mining camp spare harmonica and acoustic guitar, dusty and restrained"
+    ),
+    "tension": (
+        "period tension underscore, low piano and muted strings, still 1890s, "
+        "no trailer braams"
+    ),
+    "title_hymn": (
+        "title or menu hymn-like acoustic guitar and soft piano, hopeful but "
+        "frontier-worn"
+    ),
+}
 
 
 def plan_ambient_layers_via_chat(api_key: str, prompt: str) -> dict:
@@ -481,6 +553,17 @@ def resolve_ffmpeg_exe() -> str:
     )
 
 
+def validate_audio_mp3(path: Path, *, min_bytes: int = 4000, label: str = "audio") -> None:
+    """Reject empty / tiny MP3 writes before they clobber a live bed."""
+    if not path.is_file():
+        raise RuntimeError(f"{label} missing after generate: {path}")
+    size = path.stat().st_size
+    if size < min_bytes:
+        raise RuntimeError(
+            f"{label} too small ({size} bytes < {min_bytes}); refusing to keep junk"
+        )
+
+
 def extract_audio_mp3_from_video(video_path: Path, out_mp3: Path) -> None:
     """Pull the audio stream from an mp4 into a loop-friendly mono/stereo MP3."""
     ffmpeg = resolve_ffmpeg_exe()
@@ -502,11 +585,10 @@ def extract_audio_mp3_from_video(video_path: Path, out_mp3: Path) -> None:
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         raise RuntimeError(
-            f"ffmpeg extract failed (rc={result.returncode}): "
+            f"ffmpeg extract failed (rc={result.returncode}) using {ffmpeg}: "
             f"{(result.stderr or result.stdout)[-800:]}"
         )
-    if not out_mp3.is_file() or out_mp3.stat().st_size < 1000:
-        raise RuntimeError(f"ffmpeg produced empty/missing audio: {out_mp3}")
+    validate_audio_mp3(out_mp3, min_bytes=4000, label="ffmpeg ambient extract")
 
 
 def render_ambient_via_xai_video(
@@ -522,11 +604,11 @@ def render_ambient_via_xai_video(
     Prefer image-to-video when a scene plate exists so ambience matches the room.
     """
     ambient_prompt = (
-        "Generate continuous diegetic environmental AUDIO for this game scene. "
-        "No spoken dialogue, no narrator, no UI sounds. "
-        "Focus on a seamless ambient soundscape that could loop as a room bed: "
-        "natural room tone, activity, and distant bleed. "
-        "Keep the camera nearly still or with a very subtle drift so sound is primary.\n\n"
+        "Generate continuous diegetic ENVIRONMENTAL AUDIO only for this game scene. "
+        "Hard rules: no spoken dialogue, no whispering, no humming, no singing, "
+        "no narrator, no melodic music score, no UI beeps. "
+        "Seamless loopable room bed: natural room tone, activity, distant bleed. "
+        "Keep the camera nearly still so sound is primary.\n\n"
         f"{prompt}"
     )
     _url, mp4_path = generate_imagine_video(
@@ -588,7 +670,104 @@ def render_ambient_local_layers(api_key: str, prompt: str, out_path: Path) -> st
         wav_to_mp3(wav, generate_target)
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_bytes(generate_target.read_bytes())
+        validate_audio_mp3(out_path, min_bytes=2000, label="local ambient")
     return backend
+
+
+def build_period_music_prompt(job: dict) -> str:
+    """Compose an ElevenLabs instrumental prompt from job fields + preset."""
+    preset_key = str(job.get("musicStylePreset") or job.get("stylePreset") or "").strip()
+    if not preset_key:
+        # Infer lightly from outPath / itemId when UI omitted the preset.
+        hint = (
+            str(job.get("outPath") or "")
+            + " "
+            + str(job.get("itemId") or "")
+            + " "
+            + str(job.get("prompt") or "")
+        ).lower()
+        if "saloon" in hint or "pub" in hint or "blackjack" in hint:
+            preset_key = "saloon_piano"
+        elif "trail" in hint or "alpine" in hint or "wind" in hint:
+            preset_key = "trail_folk"
+        elif "cabin" in hint or "bedroom" in hint:
+            preset_key = "cabin_hearth"
+        elif "mine" in hint or "camp" in hint:
+            preset_key = "mining_camp"
+        elif "title" in hint:
+            preset_key = "title_hymn"
+        else:
+            preset_key = "cabin_hearth"
+    style = MUSIC_STYLE_PRESETS.get(preset_key, MUSIC_STYLE_PRESETS["cabin_hearth"])
+    scene_bits = str(job.get("prompt") or "").strip()
+    # Keep ElevenLabs prompt bounded; drop long examine dumps if present.
+    if len(scene_bits) > 700:
+        scene_bits = scene_bits[:700].rsplit(" ", 1)[0] + "…"
+    return (
+        "Instrumental only game underscore bed. No vocals, no lyrics, no choir, "
+        "no humming.\n"
+        "Setting: late-1890s Colorado high-country frontier detective adventure.\n"
+        f"Style: {style}.\n"
+        "Seamless loopable bed, moderate dynamics, acoustic period instruments only. "
+        "No modern drums, synths, electric guitars, EDM, noir jazz, or trailer braams.\n"
+        f"Scene mood context:\n{scene_bits}"
+    )
+
+
+def render_music_via_elevenlabs(
+    api_key: str,
+    prompt: str,
+    out_path: Path,
+    *,
+    length_ms: int = 24000,
+    model_id: str = "music_v2_5",
+) -> str:
+    """
+    ElevenLabs Music compose → MP3 bed.
+    Requires a real ELEVENLABS_API_KEY; never falls back to procedural pads.
+    """
+    if not api_key:
+        raise RuntimeError(
+            "Missing ELEVENLABS_API_KEY for generate_music. "
+            "Export ELEVENLABS_API_KEY or place it in "
+            "~/.config/highline-ridge/elevenlabs_api_key."
+        )
+    length_ms = max(8000, min(60000, int(length_ms)))
+    payload = {
+        "prompt": prompt,
+        "music_length_ms": length_ms,
+        "model_id": model_id,
+        "force_instrumental": True,
+    }
+    req = urllib.request.Request(
+        "https://api.elevenlabs.io/v1/music?output_format=mp3_44100_128",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "xi-api-key": api_key,
+            "Content-Type": "application/json",
+            "Accept": "audio/mpeg",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=300) as resp:
+            audio = resp.read()
+            content_type = (resp.headers.get("Content-Type") or "").lower()
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"ElevenLabs music HTTP {exc.code}: {detail[:1200]}") from exc
+    if not audio or len(audio) < 4000:
+        raise RuntimeError(
+            f"ElevenLabs music returned empty/tiny body ({len(audio) if audio else 0} bytes)"
+        )
+    if "json" in content_type or audio[:1] == b"{":
+        raise RuntimeError(
+            f"ElevenLabs music returned non-audio payload: {audio[:400]!r}"
+        )
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_bytes(audio)
+    validate_audio_mp3(out_path, min_bytes=4000, label="elevenlabs music")
+    return f"elevenlabs_{model_id}"
 
 
 def resolve_ambient_image_path(asset_root: Path, out_path: Path, job: dict | None = None) -> Path | None:
@@ -1027,6 +1206,7 @@ def process_job(
     job: dict,
     *,
     backup_rotate: bool = False,
+    elevenlabs_key: str | None = None,
 ) -> str:
     jtype = job.get("type", "")
     out_rel = job.get("outPath", "")
@@ -1122,7 +1302,24 @@ def process_job(
             backend = render_ambient_backend(
                 api_key, prompt, out_path, image_path=image_path
             )
-            print(f"  [ambient-backend] {backend}")
+            print(f"  [ambient-backend] {backend}", flush=True)
+            if backend.startswith("local_layers"):
+                print(
+                    "  [ambient-note] local procedural fallback — prefer fixing "
+                    "ffmpeg / Imagine Video if this sounds thin",
+                    flush=True,
+                )
+        elif jtype == "generate_music":
+            el_key = resolve_elevenlabs_api_key(
+                asset_root,
+                (elevenlabs_key or str(job.get("elevenLabsApiKey") or "") or None),
+            )
+            music_prompt = build_period_music_prompt(job)
+            length_ms = int(job.get("musicLengthMs") or job.get("lengthMs") or 24000)
+            backend = render_music_via_elevenlabs(
+                el_key, music_prompt, out_path, length_ms=length_ms
+            )
+            print(f"  [music-backend] {backend}", flush=True)
         else:
             generate_sound(out_path, action)
         xz = xz_compress(out_path, remove_source=False)
@@ -1160,7 +1357,13 @@ def main() -> int:
     )
     parser.add_argument("--jobs-file", type=Path, default=None)
     parser.add_argument("--item-id", type=str, default=None)
-    parser.add_argument("--key", type=str, default=None)
+    parser.add_argument("--key", type=str, default=None, help="xAI API key override")
+    parser.add_argument(
+        "--elevenlabs-key",
+        type=str,
+        default=None,
+        help="ElevenLabs API key override (music only)",
+    )
     args = parser.parse_args()
 
     asset_root = args.asset_root.resolve()
@@ -1177,12 +1380,22 @@ def main() -> int:
         return 2
 
     api_key = resolve_api_key(asset_root, args.key)
+    elevenlabs_key = resolve_elevenlabs_api_key(asset_root, args.elevenlabs_key)
     data = load_jobs(jobs_path)
     item_id = data.get("itemId", args.item_id or "?")
     jobs = data.get("jobs") or []
     backup_rotate = bool(data.get("backupRotate", False))
     print(f"Running {len(jobs)} authoring job(s) for {item_id}"
           + (" (backupRotate)" if backup_rotate else ""), flush=True)
+    has_music = any(
+        isinstance(j, dict) and j.get("type") == "generate_music" for j in jobs
+    )
+    if has_music and not elevenlabs_key:
+        print(
+            "  [warn] generate_music jobs present but no ELEVENLABS_API_KEY "
+            "(~/.config/highline-ridge/elevenlabs_api_key)",
+            flush=True,
+        )
 
     errors: list[str] = []
     produced: list[str] = []
@@ -1192,7 +1405,12 @@ def main() -> int:
         job["itemId"] = item_id
         try:
             rel = process_job(
-                api_key, asset_root, job, backup_rotate=backup_rotate)
+                api_key,
+                asset_root,
+                job,
+                backup_rotate=backup_rotate,
+                elevenlabs_key=elevenlabs_key,
+            )
             if rel:
                 produced.append(rel)
         except Exception as exc:  # noqa: BLE001 — report per-job
