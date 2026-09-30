@@ -188,6 +188,9 @@ void SceneEditorApp::wireModules()
     mapCanvas.sceneAssist.sessionKeys = &sessionApiKeys;
     mapCanvas.sceneExitRequirements.sessionKeys = &sessionApiKeys;
     itemEditor.sessionKeys = &sessionApiKeys;
+
+    // Temporary: seed session from env / ~/.config/highline-ridge/*_api_key.
+    sessionApiKeys.bootstrapFromEnvAndFiles();
 }
 
 void SceneEditorApp::syncModuleFonts()

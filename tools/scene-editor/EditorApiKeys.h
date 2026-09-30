@@ -79,6 +79,14 @@ struct EditorApiKeys
     /** Apply confirmed drafts from the Configure dialog (memory only). */
     void applySessionKeys(const std::string& xai, const std::string& elevenLabs);
 
+    /**
+     * Temporary bootstrap: if a session slot is empty, load from env or
+     * ~/.config/highline-ridge/ xai_api_key / elevenlabs_api_key into memory
+     * (never writes). Call once at editor startup so disk keys enable Generate
+     * without re-pasting.
+     */
+    void bootstrapFromEnvAndFiles();
+
     /** Call once per frame while the editor runs. */
     void poll();
 
@@ -87,6 +95,7 @@ struct EditorApiKeys
 private:
     void scheduleXaiCheck(const std::string& key);
     void scheduleElevenLabsCheck(const std::string& key);
+    bool bootstrapped = false;
 };
 
 /** Faded empty-field hints when a provider key is missing / invalid. */

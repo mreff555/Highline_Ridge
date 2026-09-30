@@ -7,13 +7,17 @@
 
 #include "EditorApiKeys.h"
 #include "EditorTheme.h"
+#include "PlatformPath.h"
 
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
 #include <sstream>
 #include <thread>
+
+using timberline_engine::pathJoin;
 
 namespace timberline_editor
 {
@@ -138,6 +142,129 @@ void EditorApiKeys::applySessionKeys(
     elevenLabsNextCheckTime = 0.0;
 }
 
+namespace
+{
+
+std::string trimAscii(std::string s)
+{
+    while (!s.empty()
+           && (s.back() == ' ' || s.back() == '\t' || s.back() == '\n'
+               || s.back() == '\r'))
+        s.pop_back();
+    size_t i = 0;
+    while (i < s.size()
+           && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r'))
+        ++i;
+    return s.substr(i);
+}
+
+std::string readKeyFile(const std::string& path, const char* envNames[], int envCount)
+{
+    std::ifstream in(path.c_str());
+    if (!in)
+        return {};
+    std::stringstream buffer;
+    buffer << in.rdbuf();
+    std::string text = trimAscii(buffer.str());
+    if (text.empty())
+        return {};
+    if (text.find('=') != std::string::npos)
+    {
+        std::istringstream lines(text);
+        std::string line;
+        while (std::getline(lines, line))
+        {
+            line = trimAscii(line);
+            if (line.empty() || line[0] == '#')
+                continue;
+            for (int i = 0; i < envCount; ++i)
+            {
+                const std::string prefix = std::string(envNames[i]) + "=";
+                if (line.rfind(prefix, 0) == 0)
+                {
+                    std::string val = trimAscii(line.substr(prefix.size()));
+                    if (!val.empty() && val.front() == '"' && val.back() == '"')
+                        val = val.substr(1, val.size() - 2);
+                    return val;
+                }
+            }
+        }
+        return {};
+    }
+    return text;
+}
+
+} // namespace
+
+void EditorApiKeys::bootstrapFromEnvAndFiles()
+{
+    if (bootstrapped)
+        return;
+    bootstrapped = true;
+
+    const char* xaiEnvNames[] = {"XAI_API_KEY", "xAI_API_KEY", "GROK_API_KEY"};
+    const char* elEnvNames[] = {
+        "ELEVENLABS_API_KEY", "ELEVEN_API_KEY", "XI_API_KEY"};
+
+    std::string xai = xaiKey;
+    std::string el = elevenLabsKey;
+
+    if (xai.empty())
+    {
+        for (const char* name : xaiEnvNames)
+        {
+            if (const char* env = std::getenv(name);
+                env != nullptr && env[0] != '\0')
+            {
+                xai = env;
+                break;
+            }
+        }
+    }
+    if (el.empty())
+    {
+        for (const char* name : elEnvNames)
+        {
+            if (const char* env = std::getenv(name);
+                env != nullptr && env[0] != '\0')
+            {
+                el = env;
+                break;
+            }
+        }
+    }
+
+    const char* home = std::getenv("HOME");
+    if (home != nullptr && home[0] != '\0')
+    {
+        const std::string cfg =
+            pathJoin(pathJoin(pathJoin(home, ".config"), "highline-ridge"), "");
+        if (xai.empty())
+        {
+            xai = readKeyFile(
+                pathJoin(
+                    pathJoin(pathJoin(home, ".config"), "highline-ridge"),
+                    "xai_api_key"),
+                xaiEnvNames,
+                3);
+        }
+        if (el.empty())
+        {
+            el = readKeyFile(
+                pathJoin(
+                    pathJoin(pathJoin(home, ".config"), "highline-ridge"),
+                    "elevenlabs_api_key"),
+                elEnvNames,
+                3);
+        }
+        (void)cfg;
+    }
+
+    if ((!xai.empty() && xai != xaiKey) || (!el.empty() && el != elevenLabsKey))
+        applySessionKeys(
+            xai.empty() ? xaiKey : xai, el.empty() ? elevenLabsKey : el);
+}
+
 void EditorApiKeys::scheduleXaiCheck(const std::string& key)
 {
     if (key.empty() || xaiThread.joinable())
@@ -167,12 +294,25 @@ void EditorApiKeys::scheduleElevenLabsCheck(const std::string& key)
         elevenLabsCheckFingerprint = key;
     }
     elevenLabsThread = std::thread([this, key]() {
+        // Prefer /v1/user when the key has user_read. Restricted music-only keys
+        // often return 401 missing_permissions instead of invalid_api_key — that
+        // still means the key is real and can compose music.
         std::ostringstream safe;
-        safe << "curl -sS -o /dev/null -w \"%{http_code}\" --max-time 8 "
+        safe << "RESP=$(curl -sS -w \"\\n%{http_code}\" --max-time 8 "
              << "-H " << shellSingleQuote("xi-api-key: " + key) << " "
-             << "https://api.elevenlabs.io/v1/user 2>/dev/null";
+             << "https://api.elevenlabs.io/v1/user 2>/dev/null); "
+             << "CODE=$(printf '%s' \"$RESP\" | tail -n1); "
+             << "BODY=$(printf '%s' \"$RESP\" | sed '$d'); "
+             << "if [ \"$CODE\" = \"200\" ]; then echo 1; "
+             << "elif [ \"$CODE\" = \"401\" ] && printf '%s' \"$BODY\" | grep -q missing_permissions; "
+             << "then echo 1; "
+             << "elif [ \"$CODE\" = \"401\" ] && printf '%s' \"$BODY\" | grep -q invalid_api_key; "
+             << "then echo 0; "
+             << "elif [ \"$CODE\" = \"401\" ]; then echo 1; "
+             << "else echo 0; fi";
         const int code = curlHttpCode(safe.str());
-        elevenLabsCheckResult.store(code == 200 ? 1 : 0);
+        // curlHttpCode reads first line as atoi — our script echoes 0/1.
+        elevenLabsCheckResult.store(code == 1 ? 1 : 0);
     });
 }
 
