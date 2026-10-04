@@ -34,6 +34,7 @@ SavedGameState WorldState::snapshot(
     state.activeSubSceneId = activeSubSceneId;
     state.previousSceneId = previousSceneId;
     state.previousSubSceneId = previousSubSceneId;
+    state.useReturnStack = useReturnStack;
     state.narrativeText = narrativeText;
     state.health = playerStats.health;
     state.energy = playerStats.energy;
@@ -45,6 +46,7 @@ SavedGameState WorldState::snapshot(
     state.hasUsedInCurrentScene = sceneVisits.hasUsedInCurrentScene;
     state.examinedSceneIds = sceneVisits.examinedSceneIds;
     state.usedSceneIds = sceneVisits.usedSceneIds;
+    state.heardEnterTtsSceneIds = sceneVisits.heardEnterTtsSceneIds;
     state.takenItemKeys = takenItemKeys;
     state.usedInteractionKeys = usedInteractionKeys;
     state.storyFlags = storyFlags;
@@ -78,6 +80,7 @@ bool WorldState::restore(
     activeSubSceneId = state.activeSubSceneId;
     previousSceneId = state.previousSceneId;
     previousSubSceneId = state.previousSubSceneId;
+    useReturnStack = state.useReturnStack;
     narrativeText = state.narrativeText;
     playerStats.health = state.health;
     playerStats.energy = state.energy;
@@ -89,6 +92,7 @@ bool WorldState::restore(
     sceneVisits.hasUsedInCurrentScene = state.hasUsedInCurrentScene;
     sceneVisits.examinedSceneIds = state.examinedSceneIds;
     sceneVisits.usedSceneIds = state.usedSceneIds;
+    sceneVisits.heardEnterTtsSceneIds = state.heardEnterTtsSceneIds;
     takenItemKeys = state.takenItemKeys;
     usedInteractionKeys = state.usedInteractionKeys;
     storyFlags = state.storyFlags;

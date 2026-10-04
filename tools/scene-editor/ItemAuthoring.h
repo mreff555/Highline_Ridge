@@ -156,7 +156,9 @@ nlohmann::json applyPayloadToItemJson(
     const ItemAuthoringPayload& payload,
     const nlohmann::json* existingOrNull);
 
-ItemAiAssistPlan planItemAiAssist(const ItemAuthoringPayload& payload);
+ItemAiAssistPlan planItemAiAssist(
+    const ItemAuthoringPayload& payload,
+    const std::string& resourceDir = {});
 
 bool writeItemAiAssistJobsFile(
     const std::string& assetRoot,
@@ -171,15 +173,17 @@ ItemAuthoringResult upsertItemFromPayload(
 
 /**
  * Run tools/run_item_authoring_ai.py for a jobs file written by upsert.
- * Generates images (xAI) and SFX (procedural MP3) for pending jobs.
- * apiKey is optional session key from the authoring UI (not written to disk).
+ * Generates images (xAI) and SFX (ElevenLabs sound-generation).
+ * apiKey / elevenLabsKey are optional session keys from the authoring UI;
+ * Confirm also persists them under ~/.config/highline-ridge/.
  * Returns true when the runner exits 0.
  */
 bool runItemAuthoringAiJobs(
     const std::string& assetRoot,
     const std::string& itemId,
     std::string& statusOut,
-    const std::string& apiKey = {});
+    const std::string& apiKey = {},
+    const std::string& elevenLabsKey = {});
 
 } // namespace timberline_editor
 

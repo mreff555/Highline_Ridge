@@ -41,6 +41,14 @@ struct MaskEvalContext
     std::string activeSubSceneId;
     std::function<bool(const std::string& itemDefId)> sceneInventoryHasItem;
     std::function<bool(const std::string& itemFlag)> sceneInventoryHasItemFlag;
+    /** Used by exitRequirements.requiresRoomPurchasedToday. */
+    int currentDay = 0;
+    int saloonRoomPurchasedDay = 0;
+
+    bool roomPurchasedToday() const
+    {
+        return saloonRoomPurchasedDay > 0 && saloonRoomPurchasedDay == currentDay;
+    }
 };
 
 bool evaluateMaskCondition(const MaskCondition& condition, const MaskEvalContext& context);

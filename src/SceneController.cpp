@@ -69,6 +69,8 @@ MaskEvalContext SceneController::buildMaskContext(
     context.inventoryMgr = &inventoryMgr;
     context.itemDatabase = &itemDatabase;
     context.activeSubSceneId = worldState.activeSubSceneId;
+    context.currentDay = worldState.day;
+    context.saloonRoomPurchasedDay = worldState.saloonRoomPurchasedDay;
     context.sceneInventoryHasItem = [&](const std::string& defId)
     {
         return sceneInventoryHasItem(worldState.sceneInventories, worldState.currentSceneId, defId);
@@ -104,7 +106,8 @@ bool SceneController::transitionToScene(
     InventoryMgr& inventoryMgr,
     const ItemDatabase& itemDatabase,
     const MilestoneManager& milestoneMgr,
-    const std::function<bool(const std::string& phaseId)>& isPhaseComplete)
+    const std::function<bool(const std::string& phaseId)>& isPhaseComplete,
+    TransitionKind kind)
 {
     if (nextSceneId.empty())
         return false;
@@ -120,17 +123,29 @@ bool SceneController::transitionToScene(
         SubSceneResolveMode::OnEnter,
         isPhaseComplete);
 
+    // Defer GPU texture upload to GameSession::refreshSceneImage (JobSystem).
+    // Keep the previous room image drawn until that completes.
     LocationStruct nextLocation;
-    if (!sceneDatabase.loadScene(nextSceneId, resolvedSubSceneId, nextLocation))
+    if (!sceneDatabase.loadScene(nextSceneId, resolvedSubSceneId, nextLocation, false))
         return false;
-
-    activeScene.unloadOwnedImage();
 
     const std::string fromSceneId = worldState.currentSceneId;
     const std::string fromSubSceneId = worldState.activeSubSceneId;
     audioManager.onRoomExit(
         sceneDatabase.getSceneAudio(fromSceneId, fromSubSceneId),
         nextSceneId);
+
+    if (kind == TransitionKind::Use && !fromSceneId.empty())
+    {
+        UseReturnFrame frame;
+        frame.sceneId = fromSceneId;
+        frame.subSceneId = fromSubSceneId;
+        worldState.useReturnStack.push_back(frame);
+    }
+    else if (kind == TransitionKind::Movement)
+    {
+        worldState.useReturnStack.clear();
+    }
 
     worldState.previousSceneId = fromSceneId;
     worldState.previousSubSceneId = fromSubSceneId;
@@ -151,6 +166,8 @@ bool SceneController::transitionToScene(
 
     applySceneStruct(nextLocation, fromSceneId, worldState);
 
+    // Under-construction stubs keep previous* for Back. Use arrivals use
+    // useReturnStack instead (so they are not gold compass exits on the map).
     if (!nextLocation.isUnderConstruction)
     {
         worldState.previousSceneId.clear();
@@ -240,7 +257,26 @@ bool SceneController::tryMove(
             inventoryMgr,
             itemDatabase,
             milestoneMgr,
-            isPhaseComplete);
+            isPhaseComplete,
+            TransitionKind::Other);
+    }
+
+    // Use-arrival Back: unwind stack before authored compass exits.
+    if (direction == "backward" && !worldState.useReturnStack.empty())
+    {
+        const UseReturnFrame frame = worldState.useReturnStack.back();
+        worldState.useReturnStack.pop_back();
+        return transitionToScene(
+            frame.sceneId,
+            frame.subSceneId,
+            worldState,
+            takeMgr,
+            interactionMgr,
+            inventoryMgr,
+            itemDatabase,
+            milestoneMgr,
+            isPhaseComplete,
+            TransitionKind::UseReturn);
     }
 
     const SceneData* scene = sceneDatabase.getScene(worldState.currentSceneId);
@@ -272,7 +308,8 @@ bool SceneController::tryMove(
         inventoryMgr,
         itemDatabase,
         milestoneMgr,
-        isPhaseComplete);
+        isPhaseComplete,
+        TransitionKind::Movement);
 }
 
 }

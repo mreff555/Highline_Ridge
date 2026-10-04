@@ -788,6 +788,61 @@ void collectSceneInteractionEntries(
                 collectSceneNarrativeEntries(entries, subSceneIt.value(), defaultVoiceId);
         }
 
+        // Blocked exit VO (#42) — exitRequirements[dir].blockedTts (+ variants).
+        const nlohmann::json& exitReqs = sceneIt.value().value(
+            "exitRequirements",
+            sceneIt.value().value("exit_requirements", nlohmann::json::object()));
+        if (exitReqs.is_object())
+        {
+            for (auto reqIt = exitReqs.begin(); reqIt != exitReqs.end(); ++reqIt)
+            {
+                if (!reqIt.value().is_object())
+                    continue;
+                const nlohmann::json& req = reqIt.value();
+                if (req.contains("blockedTts") && req["blockedTts"].is_object())
+                {
+                    nlohmann::json bag = req["blockedTts"];
+                    if (bag.value("ttsAudio", bag.value("audio", "")).empty())
+                        bag["ttsAudio"] = "resources/audio/tts/" + sceneIt.key()
+                            + "/blocked_" + reqIt.key() + ".mp3";
+                    if (!bag.value("tts", false) && !bag.value("enabled", false)
+                        && !bag.value("ttsText", bag.value("text", "")).empty())
+                        bag["tts"] = true;
+                    addPrimaryTtsEntry(
+                        entries,
+                        bag,
+                        defaultVoiceId,
+                        req.value("blockedDetails", ""));
+                }
+                const nlohmann::json& variants = req.value(
+                    "blockedVariants",
+                    req.value("blocked_variants", nlohmann::json::array()));
+                if (!variants.is_array())
+                    continue;
+                int vi = 0;
+                for (const nlohmann::json& variant : variants)
+                {
+                    if (!variant.is_object() || !variant.contains("tts")
+                        || !variant["tts"].is_object())
+                    {
+                        ++vi;
+                        continue;
+                    }
+                    nlohmann::json bag = variant["tts"];
+                    if (bag.value("ttsAudio", bag.value("audio", "")).empty())
+                        bag["ttsAudio"] = "resources/audio/tts/" + sceneIt.key()
+                            + "/blocked_" + reqIt.key() + "_v" + std::to_string(vi)
+                            + ".mp3";
+                    if (!bag.value("tts", false) && !bag.value("enabled", false)
+                        && !bag.value("ttsText", bag.value("text", "")).empty())
+                        bag["tts"] = true;
+                    addPrimaryTtsEntry(
+                        entries, bag, defaultVoiceId, variant.value("details", ""));
+                    ++vi;
+                }
+            }
+        }
+
         const nlohmann::json& interactions = sceneIt.value().value("interactions", nlohmann::json::array());
         if (!interactions.is_array())
             continue;
@@ -1028,7 +1083,9 @@ void printGameHelp(const char* executableName)
         << "Usage:\n"
         << "  \"" << programName << "\" [options]\n\n"
         << "Options:\n"
-        << "  -h, --help                 Show this help message\n"
+        << "  -h, --help                 Show this help message\n";
+#if !defined(HIGHLINE_RELEASE)
+    std::cout
         << "  --key=API_KEY              x.ai API key for TTS refresh commands.\n"
         << "                             The key is not stored.\n"
         << "  --refresh-voices           After editing dialog in conversations.json,\n"
@@ -1044,24 +1101,35 @@ void printGameHelp(const char* executableName)
         << "                             to switch voices mid-line (ara, eve, leo, rex, sal).\n"
         << "                             Multi-voice lines save ttsAudioSegments and play\n"
         << "                             each segment in order.\n"
+        << "                             Dev/authoring only — not in release builds.\n"
+        << "                             Rebuild release after refreshing so the pak updates.\n"
         << "  --refresh=ID               Same as --refresh-voices, but only for one\n"
         << "                             conversation phase id, random line id, dialog\n"
         << "                             choice id, scene id, item id, or combine recipe id.\n"
         << "                             Requires --key.\n"
         << "  -force, --force            With refresh commands, ignore stored text\n"
-        << "                             hashes and regenerate every matching line.\n\n"
+        << "                             hashes and regenerate every matching line.\n\n";
+#endif
 #if defined(HIGHLINE_DEV_TOOLS)
+    std::cout
         << "In-game developer tools (this build):\n"
         << "  Ctrl+Shift+S               Toggle scene debug overlay\n"
         << "  ` or ~                     Toggle developer command console\n"
-        << "    give-item <item id>      Add an item (stacks if stackable)\n\n"
+        << "    give-item <item id>      Add an item (stacks if stackable)\n\n";
 #endif
+#if !defined(HIGHLINE_RELEASE)
+    std::cout
         << "Examples:\n"
         << "  \"" << programName << "\" --key=YOUR_XAI_API_KEY --refresh-voices\n"
         << "  \"" << programName << "\" --key=YOUR_XAI_API_KEY --refresh=blackjack_invite\n"
         << "  \"" << programName << "\" --key=YOUR_XAI_API_KEY --refresh=saloon_interior\n\n"
         << "Normal play uses the bundled voice files already in resources/audio/tts/\n"
         << "and does not call x.ai or require an API key.\n";
+#else
+    std::cout
+        << "This is a release build. TTS refresh CLI options are omitted;\n"
+        << "refresh voices with a dev build, then rebuild release to repack assets.\n";
+#endif
 }
 
 std::vector<TtsVoiceEntry> XaiTtsClient::collectVoiceEntries(

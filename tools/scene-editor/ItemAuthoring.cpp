@@ -18,7 +18,7 @@
  ******************************************************************************/
 
 #include "ItemAuthoring.h"
-
+#include "EditorPrefs.h"
 #include "PlatformPath.h"
 
 #include <cctype>
@@ -26,6 +26,10 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+
+#if !defined(_WIN32)
+#include <sys/wait.h>
+#endif
 
 using timberline_engine::ensureDirectory;
 using timberline_engine::pathJoin;
@@ -100,7 +104,7 @@ std::string summarizeAiPlan(const ItemAiAssistPlan& plan)
             stream << "; ";
         stream << jobTypeLabel(plan.jobs[i].type);
         if (!plan.jobs[i].outPath.empty())
-            stream << " → " << plan.jobs[i].outPath;
+            stream << " -> " << plan.jobs[i].outPath;
     }
     return stream.str();
 }
@@ -539,13 +543,40 @@ nlohmann::json applyPayloadToItemJson(
     return item;
 }
 
-ItemAiAssistPlan planItemAiAssist(const ItemAuthoringPayload& payload)
+ItemAiAssistPlan planItemAiAssist(
+    const ItemAuthoringPayload& payload,
+    const std::string& resourceDir)
 {
     ItemAiAssistPlan plan;
     const std::string& desc = payload.description;
+    const std::string styleBlock = resourceDir.empty()
+        ? std::string{}
+        : formatGenerationStyleBlock(loadGenerationStyleFilter(resourceDir));
     const std::string styleHint =
         "Period western mountain-ridge adventure game, grounded physical prop, "
-        "no UI chrome, no text watermark.";
+        "studio product photo on simple wood or cloth, no blood, no wounds, "
+        "no violence, no people, no UI chrome, no text watermark. "
+        + styleBlock;
+
+    // Soften copy that often trips Imagine content moderation (spent rounds, etc.).
+    auto softenForImage = [](std::string text) {
+        auto replaceAll = [](std::string& s, const char* a, const char* b) {
+            const size_t n = std::char_traits<char>::length(a);
+            size_t pos = 0;
+            while ((pos = s.find(a, pos)) != std::string::npos)
+            {
+                s.replace(pos, n, b);
+                pos += std::char_traits<char>::length(b);
+            }
+        };
+        replaceAll(text, "spent bullet", "fired cartridge case and deformed lead slug");
+        replaceAll(text, "Spent bullet", "Fired cartridge case and deformed lead slug");
+        replaceAll(text, "expanded in its final resting place", "mushroomed from impact with wood");
+        replaceAll(text, "bullet has expanded", "slug tip is flattened");
+        replaceAll(text, "blood", "dust");
+        return text;
+    };
+    const std::string imageDesc = softenForImage(desc);
 
     if (payload.aiAssist.generateImageFromDescription)
     {
@@ -556,7 +587,7 @@ ItemAiAssistPlan planItemAiAssist(const ItemAuthoringPayload& payload)
             : payload.imagePath;
         job.prompt =
             "Generate a full-screen examine image for inventory item \""
-            + payload.name + "\". Description: " + desc + " " + styleHint;
+            + payload.name + "\". Description: " + imageDesc + " " + styleHint;
         plan.jobs.push_back(job);
     }
     if (payload.aiAssist.generateIconFromDescription)
@@ -568,7 +599,7 @@ ItemAiAssistPlan planItemAiAssist(const ItemAuthoringPayload& payload)
             : payload.iconPath;
         job.prompt =
             "Generate a square inventory icon for item \"" + payload.name
-            + "\". Description: " + desc
+            + "\". Description: " + imageDesc
             + " Clean centered subject, readable at small size. " + styleHint;
         plan.jobs.push_back(job);
     }
@@ -581,8 +612,11 @@ ItemAiAssistPlan planItemAiAssist(const ItemAuthoringPayload& payload)
             ? defaultItemExamineSoundPath(payload.id)
             : payload.examineSoundPath;
         job.prompt =
-            "Generate examine SFX for item \"" + payload.name
-            + "\" from: " + desc;
+            "Short game Foley examine sound for inventory item \"" + payload.name
+            + "\". Period 1890s Colorado frontier. Soft pickup / handle / rustle "
+              "appropriate to the object. No music, no dialogue, no UI beeps. "
+              "Object: "
+            + desc;
         plan.jobs.push_back(job);
     }
     if (payload.aiAssist.generateUseSound)
@@ -594,14 +628,21 @@ ItemAiAssistPlan planItemAiAssist(const ItemAuthoringPayload& payload)
             ? defaultItemUseSoundPath(payload.id)
             : payload.useSoundPath;
         job.prompt =
-            "Generate use SFX for item \"" + payload.name + "\" from: " + desc;
+            "Short game Foley use/activate sound for inventory item \""
+            + payload.name
+            + "\". Period 1890s Colorado frontier. One-shot interaction "
+              "(click, pour, strike, open) matching the object. No music, no "
+              "dialogue, no UI beeps. Object: "
+            + desc;
         plan.jobs.push_back(job);
     }
     if (payload.aiAssist.assistConstructionDescription)
     {
         ItemAiAssistJob job;
         job.type = ItemAiAssistJobType::GenerateConstructionDescription;
-        job.outPath = "assembleNarrative";
+        // Must live under resources/ — runner rejects bare tokens like "assembleNarrative".
+        job.outPath =
+            "resources/.authoring/" + payload.id + "_assemble_narrative.txt";
         job.prompt =
             "Write construction/combine narrative for crafting product \""
             + payload.name + "\" from components \"" + payload.recipe.component1
@@ -613,7 +654,7 @@ ItemAiAssistPlan planItemAiAssist(const ItemAuthoringPayload& payload)
     {
         ItemAiAssistJob job;
         job.type = ItemAiAssistJobType::GenerateTtsConstructionDescription;
-        job.outPath = "assembleTts";
+        job.outPath = "resources/.authoring/" + payload.id + "_assemble_tts.txt";
         job.action = "assemble";
         job.prompt =
             "Write spoken assemble TTS for crafting \"" + payload.name
@@ -625,7 +666,7 @@ ItemAiAssistPlan planItemAiAssist(const ItemAuthoringPayload& payload)
     {
         ItemAiAssistJob job;
         job.type = ItemAiAssistJobType::GenerateTtsDescription;
-        job.outPath = "examineTts";
+        job.outPath = "resources/.authoring/" + payload.id + "_examine_tts.txt";
         job.action = "examine";
         job.prompt =
             "Write spoken examine TTS for item \"" + payload.name
@@ -673,8 +714,13 @@ bool writeItemAiAssistJobsFile(
         entry["type"] = jobTypeLabel(job.type);
         entry["prompt"] = job.prompt;
         entry["outPath"] = job.outPath;
+        entry["itemId"] = itemId;
         if (!job.action.empty())
             entry["action"] = job.action;
+        // Item plates default to softened Imagine prompts (scene Edit Scene can opt out).
+        if (job.type == ItemAiAssistJobType::GenerateImage
+            || job.type == ItemAiAssistJobType::GenerateIcon)
+            entry["softenPrompt"] = true;
         root["jobs"].push_back(entry);
     }
 
@@ -870,7 +916,8 @@ bool runItemAuthoringAiJobs(
     const std::string& assetRoot,
     const std::string& itemId,
     std::string& statusOut,
-    const std::string& apiKey)
+    const std::string& apiKey,
+    const std::string& elevenLabsKey)
 {
     if (itemId.empty())
     {
@@ -909,31 +956,43 @@ bool runItemAuthoringAiJobs(
                    << "jobsFile: " << jobsFile << "\n"
                    << "script: " << script << "\n"
                    << "hasSessionKey: " << (apiKey.empty() ? "no" : "yes") << "\n"
+                   << "hasElevenLabsKey: "
+                   << (elevenLabsKey.empty() ? "no" : "yes") << "\n"
                    << "--- python output follows ---\n";
         }
         std::cerr << "TIMBERLINE authoring: launching runner item=" << itemId
                   << " root=" << gameRoot
-                  << " key=" << (apiKey.empty() ? "no" : "yes") << "\n";
+                  << " key=" << (apiKey.empty() ? "no" : "yes")
+                  << " el=" << (elevenLabsKey.empty() ? "no" : "yes") << "\n";
     }
 
     // Redirect runner output (append) to the log the UI can surface.
-    // Session API key is passed only via CLI --key (not written to disk).
+    // Keys also persist under ~/.config/highline-ridge/ when Confirm'd.
     auto runWith = [&](const char* pythonBin) -> int {
         std::ostringstream command;
         command << pythonBin << " \"" << script << "\" --asset-root \"" << gameRoot
                 << "\" --jobs-file \"" << jobsFile << "\"";
         if (!apiKey.empty())
             command << " --key " << shellSingleQuote(apiKey);
+        if (!elevenLabsKey.empty())
+            command << " --elevenlabs-key " << shellSingleQuote(elevenLabsKey);
         command << " >> \"" << logFile << "\" 2>&1";
         std::cerr << "TIMBERLINE authoring: exec " << pythonBin << "\n";
         return std::system(command.str().c_str());
     };
 
+    // Prefer python3. Only fall back to `python` when the binary is missing
+    // (shell 127) — not when jobs fail with exit 1 (#55 noisy "python: not found").
     int code = runWith("python3");
-    if (code != 0)
+#if !defined(_WIN32)
+    const int python3Status =
+        (code >= 0 && WIFEXITED(code)) ? WEXITSTATUS(code) : code;
+#else
+    const int python3Status = code;
+#endif
+    if (python3Status == 127 || code == -1)
     {
-        std::cerr << "TIMBERLINE authoring: python3 exit " << code
-                  << ", trying python\n";
+        std::cerr << "TIMBERLINE authoring: python3 missing, trying python\n";
         code = runWith("python");
     }
     std::cerr << "TIMBERLINE authoring: runner exit code " << code << "\n";
@@ -994,17 +1053,25 @@ bool runItemAuthoringAiJobs(
         }
     }
 
+    // Partial success: if we wrote image/icon/sfx assets, treat as OK with warnings
+    // when only text/TTS jobs failed (#55 — UI looked like "image failed").
+    const bool wroteAssets = !producedSummary.empty();
     if (code != 0 || !structuredErrors.empty())
     {
-        statusOut = "AI asset generation incomplete";
-        if (!producedSummary.empty())
-            statusOut += " (wrote: " + producedSummary + ")";
+        if (wroteAssets)
+        {
+            statusOut = "AI assets written for " + itemId + ": " + producedSummary;
+            if (!structuredErrors.empty())
+                statusOut += "\nWarning (non-asset jobs): " + structuredErrors;
+            return true;
+        }
+        statusOut = "AI asset generation failed";
         if (!structuredErrors.empty())
             statusOut += ". " + structuredErrors;
         else
             statusOut +=
                 ". Runner exit " + std::to_string(code)
-                + ". Paste an xAI API key in the AI Assist section for images; "
+                + ". Options → Configure API keys for images; "
                   "install lame/ffmpeg for SFX.";
         if (!logTail.empty())
             statusOut += "\n--- log ---\n" + logTail;

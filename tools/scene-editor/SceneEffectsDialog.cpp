@@ -4,6 +4,7 @@
  ******************************************************************************/
 
 #include "SceneEffectsDialog.h"
+#include "EditorInput.h"
 #include "EditorButton.h"
 #include "EditorTheme.h"
 #include "EditorUiDraw.h"
@@ -197,7 +198,7 @@ std::string summarizeSceneEffects(const nlohmann::json& scene)
     if (use.anyNonZero())
     {
         if (any)
-            out << " · ";
+            out << "  |  ";
         out << "Use";
         if (use.health != 0.0f)
             out << " H" << formatDelta(use.health);
@@ -230,10 +231,10 @@ std::string summarizeSceneEffects(const nlohmann::json& scene)
     if (interCount > 0)
     {
         if (any)
-            out << " · ";
+            out << "  |  ";
         out << interCount << " interaction" << (interCount == 1 ? "" : "s");
         if (interWithDelta > 0)
-            out << " (" << interWithDelta << " with Δ)";
+            out << " (" << interWithDelta << " with d)";
         any = true;
     }
     return any ? out.str() : "";
@@ -433,7 +434,7 @@ void SceneEffectsDialog::handleInput(int screenW, int screenH)
         return;
     if (waitMouseRelease)
     {
-        if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        if (!editorMouseDown(MOUSE_BUTTON_LEFT))
             waitMouseRelease = false;
         return;
     }
@@ -457,7 +458,7 @@ void SceneEffectsDialog::draw(int screenW, int screenH)
     const Vector2 mouse = GetMousePosition();
     const bool canClick =
         !waitMouseRelease && ignoreInputFrames <= 0
-        && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+        && editorMousePressed(MOUSE_BUTTON_LEFT);
 
     DrawRectangle(0, 0, screenW, screenH, kModalOverlay);
 
@@ -514,7 +515,7 @@ void SceneEffectsDialog::draw(int screenW, int screenH)
 
     DrawTextEx(font, "Examine", {x, y}, kFontSmall, 1.0f, kTextPrimary);
     y += 22.0f;
-    DrawTextEx(font, "Lucidity Δ", {x, y}, kFontTiny, 1.0f, kTextMuted);
+    DrawTextEx(font, "Lucidity delta", {x, y}, kFontTiny, 1.0f, kTextMuted);
     const Rectangle examBox = {x, y + 16.0f, 120.0f, 28.0f};
     DrawRectangleRec(examBox, Color{22, 20, 28, 255});
     DrawRectangleLinesEx(

@@ -34,6 +34,8 @@ struct TakeableItemDef
     std::string examineText;
     bool requiresExamine = true;
     std::string requiresStoryFlag;
+    /** If non-empty, player must already hold this item id to Take. */
+    std::string requiresInventoryItem;
 
     bool hasOverrides() const
     {

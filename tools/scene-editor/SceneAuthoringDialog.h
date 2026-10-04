@@ -2,13 +2,15 @@
  * Timberline engine
  * Copyright (C) 2026 Dan Feerst
  *
- * New Scene dialog for the scenes tab (manual fields + AI generate).
+ * New Scene dialog for the scenes tab (manual fields + AI generate + TTS).
  ******************************************************************************/
 
 #ifndef TIMBERLINE_SCENE_AUTHORING_DIALOG_H
 #define TIMBERLINE_SCENE_AUTHORING_DIALOG_H
 
 #include "DocumentWorkspace.h"
+#include "EditorApiKeys.h"
+#include "FullscreenParchmentEditor.h"
 #include "SceneAuthoring.h"
 
 #include <atomic>
@@ -25,29 +27,104 @@ namespace timberline_editor
 struct SceneAuthoringDialog
 {
     DocumentWorkspace* docs = nullptr;
+    FullscreenParchmentEditor* parchment = nullptr;
     std::function<void(const std::string&)> onCreated; // select new scene
     Font uiFont{};
     Font uiFontBold{};
 
+    /** Right-click "Edit full screen" menu over a multiline field. */
+    bool fieldContextOpen = false;
+    int fieldContextTarget = -1; // focusField id 1/2/7/8
+    Rectangle fieldContextRect{0, 0, 0, 0};
+
     bool open = false;
+    bool editingExisting = false;
+    /** Id shown in the id field. Confirm (edit) ignores this unless Rename was used. */
+    std::string idDraft;
     int ignoreInputFrames = 0;
     bool waitMouseRelease = false;
     float scrollY = 0.0f;
+    float lastContentHeight = 0.0f;
+    Rectangle lastContentRect{0, 0, 0, 0};
+    Rectangle lastFormScrollTrack{0, 0, 0, 0};
+    Rectangle lastFormScrollThumb{0, 0, 0, 0};
+    bool draggingFormScroll = false;
+    float formScrollGrabOffset = 0.0f;
 
     SceneAuthoringPayload payload{};
-    std::string sessionApiKey;
+    /** Shared session keys from Options → Configure API keys (#56). */
+    EditorApiKeys* sessionKeys = nullptr;
     std::string status;
     std::string error;
-    int focusField = 0; // 0=id, 1=description, 2=examine, 3=api key, 4=image, 5=ambient, 6=music
+    // 0=id, 1=description, 2=examine, 3 unused (was api key),
+    // 4=image, 5=ambient, 6=music,
+    // 7=tts description, 8=tts examine,
+    // 9=parent scene, 10=sub-scene id, 11=useExit (alternate mode)
+    int focusField = 0;
+
+    /** Caret + selection + per-field scroll for multiline fields. */
+    struct MultilineState
+    {
+        int cursor = 0;
+        int selectAnchor = -1; // -1 = no selection; else [min(anchor,cursor), max(...))
+        bool mouseSelecting = false;
+        bool draggingScroll = false;
+        float scrollGrabOffset = 0.0f;
+        float scrollY = 0.0f;
+        float preferX = -1.0f;
+        float lastWrapWidth = 400.0f;
+        float lastContentH = 0.0f;
+        float lastViewH = 0.0f;
+        float lastMaxScroll = 0.0f;
+        Rectangle lastField{0, 0, 0, 0};
+        Rectangle lastScrollTrack{0, 0, 0, 0};
+        Rectangle lastScrollThumb{0, 0, 0, 0};
+    };
+    MultilineState descriptionEdit{};
+    MultilineState examineEdit{};
+    MultilineState ttsDescriptionEdit{};
+    MultilineState ttsExamineEdit{};
+
+    /** Single-line caret (id / paths). */
+    struct SingleLineState
+    {
+        int cursor = 0;
+        Rectangle lastField{0, 0, 0, 0};
+    };
+    SingleLineState idEdit{};
+    SingleLineState imageEdit{};
+    SingleLineState ambientEdit{};
+    SingleLineState musicEdit{};
+    SingleLineState parentEdit{};
+    SingleLineState subIdEdit{};
+    SingleLineState useExitEdit{};
+
+    bool voiceMenuOpen = false;
+    Rectangle voiceBtnRect{0, 0, 0, 0};
+    Rectangle voiceMenuRect{0, 0, 0, 0};
+    Rectangle ttsSwitchTrack{0, 0, 0, 0};
+    Rectangle alternateSwitchTrack{0, 0, 0, 0};
+    Rectangle focusViewSwitchTrack{0, 0, 0, 0};
+    Rectangle showOnMapSwitchTrack{0, 0, 0, 0};
 
     std::atomic<bool> generateBusy{false};
+    std::atomic<bool> generateCancel{false};
     std::atomic<int> generateTarget{0};
     std::mutex generateMutex;
     std::string generateResultStatus;
     bool generateResultPending = false;
     std::thread generateThread;
+    bool pendingVoiceRefresh = false;
+
+    /** One-shot TTS preview (description / examine bags). */
+    Music previewVoice{};
+    bool previewVoiceLoaded = false;
+    bool previewVoicePlaying = false;
+    std::string previewVoiceTempFile;
+    std::string previewVoiceBagKey; // "descriptionTts" | "examineTts"
 
     void openDialog();
+    void openEditDialog(const std::string& sceneId);
     void closeDialog();
     bool blocksInput() const { return open; }
 
@@ -57,8 +134,54 @@ struct SceneAuthoringDialog
 
 private:
     void commitCreate(bool runAi, int aiTarget);
+    void commitSave(bool runAi, int aiTarget);
+    void applyRename();
+    bool canEnableCreate() const;
+    bool canEnableRename() const;
     void startGenerate(int aiTarget);
+    void startVoiceRefresh();
+    void requestCancelGenerate();
+    std::string resolveTtsBagAudioPath(const char* bagKey) const;
+    bool ttsBagAudioExists(const char* bagKey) const;
+    void stopPreviewVoice();
+    void updatePreviewVoice();
+    void startPreviewVoice(const char* bagKey);
+    void drawWorkingOverlay(int screenW, int screenH, Font font, Font bold);
     void typeIntoFocusedField();
+    void handleMultilineNavigation(std::string& buffer, MultilineState& state, Font font, float fontSize);
+    void handleSingleLineNavigation(std::string& buffer, SingleLineState& state);
+    void setMultilineCursor(MultilineState& state, int pos, bool extendSelection, int bufferSize);
+    bool deleteMultilineSelection(std::string& buffer, MultilineState& state);
+    void drawMultilineField(
+        Font font,
+        Rectangle field,
+        const std::string& buffer,
+        const char* placeholder,
+        MultilineState& state,
+        bool focused,
+        Rectangle parentClip = {},
+        bool highlightTts = false) const;
+    void drawSingleLineField(
+        Font font,
+        Rectangle field,
+        const std::string& buffer,
+        const char* placeholder,
+        SingleLineState& state,
+        bool focused,
+        float fontSize) const;
+    void ensureMultilineCursorVisible(
+        Font font,
+        const std::string& buffer,
+        MultilineState& state,
+        Rectangle field,
+        float fontSize) const;
+    float estimateFormContentHeight() const;
+    SingleLineState* singleLineStateForFocus(int field);
+    std::string* singleLineBufferForFocus(int field);
+    std::string effectiveApiKey() const;
+    void syncSpeakWithTts();
+    bool handleVoiceMenuClick(Vector2 mouse);
+    void drawVoiceMenu(Font font);
 };
 
 } // namespace timberline_editor

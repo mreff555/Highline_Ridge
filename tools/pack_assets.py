@@ -39,7 +39,12 @@ def collect_files(resources: Path) -> list[tuple[str, Path, bool]]:
             continue
         # Skip authoring scratch / secrets.
         rel = path.relative_to(resources).as_posix()
-        if rel.startswith(".authoring/") or rel.endswith("/xai_api_key") or rel == "xai_api_key":
+        if (
+            rel.startswith(".authoring/")
+            or rel.endswith("/xai_api_key")
+            or rel == "xai_api_key"
+            or rel == "editor_prefs.json"
+        ):
             continue
         if path.name.startswith("."):
             continue

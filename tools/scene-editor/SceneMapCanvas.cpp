@@ -18,17 +18,23 @@
  ******************************************************************************/
 
 #include "SceneMapCanvas.h"
+#include "EditorAudio.h"
+#include "EditorInput.h"
 
 #include "ConversationHelpers.h"
 #include "DocumentWorkspace.h"
 #include "EditorButton.h"
 #include "EditorPaths.h"
+#include "EditorPrefs.h"
 #include "EditorTheme.h"
 #include "EditorTypes.h"
 #include "EditorUiDraw.h"
+#include "SceneAuthoring.h"
 #include "SceneAuthoringDialog.h"
 #include "SceneAssistDialog.h"
 #include "SceneEffectsDialog.h"
+#include "ApiKeysDialog.h"
+#include "EditorPreferencesDialog.h"
 #include "ImageCompression.h"
 #include "PlatformPath.h"
 #include "RaylibCompat.h"
@@ -39,6 +45,7 @@
 #include <raymath.h>
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cmath>
 #include <fstream>
@@ -65,6 +72,98 @@ namespace fs = std::filesystem;
 
 namespace timberline_editor
 {
+
+namespace
+{
+
+/** One-line description preview: word-safe fit with "..." (no space before ellipsis). */
+std::string fitSceneListDescriptionPreview(
+    Font font,
+    const std::string& raw,
+    float maxWidth,
+    float fontSize)
+{
+    if (maxWidth < 8.0f)
+        return {};
+
+    // Flatten whitespace to single spaces.
+    std::string text;
+    text.reserve(raw.size());
+    bool prevSpace = true;
+    for (unsigned char uch : raw)
+    {
+        char ch = static_cast<char>(uch);
+        if (ch == '\n' || ch == '\r' || ch == '\t')
+            ch = ' ';
+        if (ch == ' ')
+        {
+            if (prevSpace)
+                continue;
+            prevSpace = true;
+            text.push_back(' ');
+        }
+        else
+        {
+            prevSpace = false;
+            text.push_back(ch);
+        }
+    }
+    while (!text.empty() && text.back() == ' ')
+        text.pop_back();
+    if (text.empty())
+        return {};
+
+    if (measureUiTextWidth(font, text, fontSize) <= maxWidth)
+        return text;
+
+    const std::string ellipsis = "...";
+    // Largest prefix length n where prefix + "..." fits.
+    size_t lo = 0;
+    size_t hi = text.size();
+    size_t best = 0;
+    while (lo <= hi)
+    {
+        const size_t mid = lo + (hi - lo) / 2;
+        const std::string candidate = text.substr(0, mid) + ellipsis;
+        if (measureUiTextWidth(font, candidate, fontSize) <= maxWidth)
+        {
+            best = mid;
+            lo = mid + 1;
+        }
+        else
+        {
+            if (mid == 0)
+                break;
+            hi = mid - 1;
+        }
+    }
+    if (best == 0)
+        return ellipsis;
+
+    // Drop a partial final word when possible.
+    size_t cut = best;
+    if (cut < text.size())
+    {
+        const size_t sp = text.find_last_of(' ', cut - 1);
+        if (sp != std::string::npos && sp + 1 < cut)
+            cut = sp;
+    }
+    while (cut > 0 && text[cut - 1] == ' ')
+        --cut;
+    if (cut == 0)
+    {
+        // Single long word: hard-cut to whatever still fits with ellipsis.
+        cut = best;
+        while (cut > 0
+               && measureUiTextWidth(font, text.substr(0, cut) + ellipsis, fontSize) > maxWidth)
+            --cut;
+        if (cut == 0)
+            return ellipsis;
+    }
+    return text.substr(0, cut) + ellipsis;
+}
+
+} // namespace
 
 Vector2 SceneMapCanvas::sceneCardScreenPos(const SceneLayout& sceneLayout, Rectangle canvasBounds) const
 {
@@ -155,9 +254,41 @@ SceneMapCanvas::SceneCardMetrics SceneMapCanvas::measureSceneCard(const std::str
     SceneMapCanvas::SceneCardMetrics metrics;
     metrics.width = kSceneCardWidth;
     const float titleWidth = metrics.width - 12.0f;
-    metrics.titleLines = wrapTextToWidth(sceneId, titleWidth, kSceneCardTitleFont);
-    if (static_cast<int>(metrics.titleLines.size()) > kSceneCardMaxTitleLines)
-        metrics.titleLines.resize(static_cast<size_t>(kSceneCardMaxTitleLines));
+    // Sub-view (alternate) cards: two short lines — sub id, then parent — so
+    // long "subId  (parentId)" strings do not overflow illegibly (#40).
+    std::string parentId;
+    std::string subId;
+    timberline_engine::SceneDocument::parseMapNodeId(sceneId, parentId, subId);
+    const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
+    auto ellipsize = [&](const std::string& text) -> std::string {
+        if (MeasureTextEx(font, text.c_str(), kSceneCardTitleFont, 1.0f).x <= titleWidth)
+            return text;
+        std::string out = text;
+        const std::string ellipsis = "...";
+        while (!out.empty()
+               && MeasureTextEx(font, (out + ellipsis).c_str(), kSceneCardTitleFont, 1.0f).x
+                   > titleWidth)
+            out.pop_back();
+        return out + ellipsis;
+    };
+
+    if (subId.empty())
+    {
+        metrics.titleLines = wrapTextToWidth(sceneId, titleWidth, kSceneCardTitleFont);
+        if (static_cast<int>(metrics.titleLines.size()) > kSceneCardMaxTitleLines)
+        {
+            metrics.titleLines.resize(static_cast<size_t>(kSceneCardMaxTitleLines));
+            if (!metrics.titleLines.empty())
+                metrics.titleLines.back() = ellipsize(metrics.titleLines.back());
+        }
+    }
+    else
+    {
+        metrics.titleLines.clear();
+        metrics.titleLines.push_back(ellipsize(subId));
+        if (kSceneCardMaxTitleLines >= 2)
+            metrics.titleLines.push_back(ellipsize(parentId));
+    }
 
     const float titleBlock =
         static_cast<float>(metrics.titleLines.size()) * kSceneCardTitleLineHeight;
@@ -746,12 +877,18 @@ void SceneMapCanvas::rebuildLinkRoutes(Rectangle canvasBounds)
     for (size_t i = 0; i < levelIds.size(); ++i)
     {
         const std::string& fromId = levelIds[i];
+        // Compass exits are authored on parent scenes. Sub-view cards (parent#sub)
+        // are map destinations / future Use ports — skip as compass sources.
+        if (fromId.find('#') != std::string::npos)
+            continue;
         const char* dirs[] = {"forward", "backward", "left", "right"};
         for (size_t d = 0; d < 4; ++d)
         {
             const std::string direction = dirs[d];
             const std::string toId = graph->getExitTarget(fromId, direction);
-            if (toId.empty() || !graph->isSameLevelLink(fromId, toId))
+            if (toId.empty() || !docs->scenes.hasMapPlacement(toId))
+                continue;
+            if (!graph->isSameLevelLink(fromId, toId))
                 continue;
 
             const bool reciprocalOpposite = isOppositeReciprocal(fromId, direction, toId);
@@ -797,6 +934,139 @@ void SceneMapCanvas::rebuildLinkRoutes(Rectangle canvasBounds)
                 route.fromSide = facingSide(fromCard, toCard);
             }
 
+            cachedLinkRoutes.push_back(route);
+        }
+    }
+
+    // Use-action wires (silver): derived from useExit / interaction exitSceneId.
+    // Each card corner is an exclusive Use slot — never shared by two wires.
+    auto resolveUseMapTarget = [&](const std::string& target) -> std::string {
+        if (target.empty())
+            return {};
+        if (docs->scenes.hasMapPlacement(target))
+            return target;
+        std::string parent;
+        std::string sub;
+        timberline_engine::SceneDocument::parseMapNodeId(target, parent, sub);
+        if (!parent.empty() && docs->scenes.hasMapPlacement(parent))
+            return parent;
+        return {};
+    };
+
+    auto cornerIndex = [](const std::string& c) -> int {
+        if (c == "nw")
+            return 0;
+        if (c == "ne")
+            return 1;
+        if (c == "sw")
+            return 2;
+        if (c == "se")
+            return 3;
+        return -1;
+    };
+    static const char* kCorners[] = {"nw", "ne", "sw", "se"};
+
+    struct PendingUse
+    {
+        SceneGraphModel::UseBinding binding;
+        std::string fromId;
+        std::string toId;
+        std::string fromCorner;
+        std::string toCorner;
+    };
+    std::vector<PendingUse> pending;
+    std::map<std::string, std::array<bool, 4>> used;
+
+    auto tryClaim = [&](const std::string& nodeId, const std::string& corner) -> bool {
+        const int idx = cornerIndex(corner);
+        if (idx < 0 || nodeId.empty())
+            return false;
+        auto& slots = used[nodeId];
+        if (slots[static_cast<size_t>(idx)])
+            return false;
+        slots[static_cast<size_t>(idx)] = true;
+        return true;
+    };
+    auto claimFirstFree = [&](const std::string& nodeId, const std::string& prefer)
+        -> std::string {
+        if (tryClaim(nodeId, prefer))
+            return prefer;
+        for (int c = 0; c < 4; ++c)
+        {
+            if (tryClaim(nodeId, kCorners[c]))
+                return kCorners[c];
+        }
+        return {};
+    };
+
+    if (graph)
+    {
+        for (const std::string& fromId : levelIds)
+        {
+            const auto bindings = graph->enumerateUseBindings(fromId);
+            for (const SceneGraphModel::UseBinding& binding : bindings)
+            {
+                const std::string toId = resolveUseMapTarget(binding.target);
+                if (toId.empty() || toId == fromId)
+                    continue;
+                if (!graph->isSameLevelLink(fromId, toId))
+                    continue;
+                PendingUse p;
+                p.binding = binding;
+                p.fromId = fromId;
+                p.toId = toId;
+                pending.push_back(p);
+            }
+        }
+
+        // Pass 1: claim non-conflicting persisted corners.
+        for (PendingUse& p : pending)
+        {
+            if (!p.binding.mapCorner.empty() && tryClaim(p.fromId, p.binding.mapCorner))
+                p.fromCorner = p.binding.mapCorner;
+            if (!p.binding.mapToCorner.empty() && tryClaim(p.toId, p.binding.mapToCorner))
+                p.toCorner = p.binding.mapToCorner;
+        }
+        // Pass 2: fill remaining — prefer facing, else first free. Skip if no slot.
+        for (PendingUse& p : pending)
+        {
+            if (p.fromCorner.empty())
+            {
+                const Rectangle fromCard = sceneCardBounds(p.fromId, canvasBounds);
+                const Rectangle toCard = sceneCardBounds(p.toId, canvasBounds);
+                // Prefer the outward corner toward the destination.
+                const std::string prefer = facingUseCorner(fromCard, toCard);
+                p.fromCorner = claimFirstFree(p.fromId, prefer);
+            }
+            if (p.toCorner.empty())
+            {
+                const Rectangle fromCard = sceneCardBounds(p.fromId, canvasBounds);
+                const Rectangle toCard = sceneCardBounds(p.toId, canvasBounds);
+                const std::string prefer = facingUseCorner(toCard, fromCard);
+                p.toCorner = claimFirstFree(p.toId, prefer);
+            }
+        }
+
+        for (const PendingUse& p : pending)
+        {
+            if (p.fromCorner.empty() || p.toCorner.empty())
+                continue; // no exclusive slot left on one end
+            const Rectangle fromCard = sceneCardBounds(p.fromId, canvasBounds);
+            const Rectangle toCard = sceneCardBounds(p.toId, canvasBounds);
+            SceneLinkRoute route;
+            route.points =
+                buildUseCornerRoute(fromCard, toCard, p.fromCorner, p.toCorner);
+            route.arrowAtStart = false;
+            route.arrowAtEnd = true;
+            route.semicircleAtStart = true;
+            route.fromSide = p.fromCorner;
+            route.fromId = p.fromId;
+            route.toId = p.toId;
+            route.direction = p.fromCorner;
+            route.reciprocal = false;
+            route.isUseLink = true;
+            route.useBinding = p.binding.binding;
+            route.toCorner = p.toCorner;
             cachedLinkRoutes.push_back(route);
         }
     }
@@ -858,18 +1128,31 @@ std::string SceneMapCanvas::sceneCardAtPoint(Vector2 mouse, Rectangle canvasBoun
 {
     if (!docs || !docs->scenes.isLoaded())
         return "";
-    const std::vector<std::string> ids = docs->scenes.sceneIds();
+    // Prefer the card whose center is closest to the cursor among hits. First-match
+    // on sceneIds() order made overlapping / stacked cards feel one-directional.
+    std::string bestId;
+    float bestDistSq = 1.0e12f;
+    const std::vector<std::string> ids = docs->scenes.mapNodeIds();
     for (const std::string& id : ids)
     {
-        if (!docs->scenes.hasMapPlacement(id))
-            continue;
         const SceneLayout sceneLayout = docs->scenes.getLayout(id);
         if (sceneLayout.level != level)
             continue;
-        if (CheckCollisionPointRec(mouse, sceneCardBounds(id, canvasBounds)))
-            return id;
+        const Rectangle card = sceneCardBounds(id, canvasBounds);
+        if (!CheckCollisionPointRec(mouse, card))
+            continue;
+        const float cx = card.x + card.width * 0.5f;
+        const float cy = card.y + card.height * 0.5f;
+        const float dx = mouse.x - cx;
+        const float dy = mouse.y - cy;
+        const float distSq = dx * dx + dy * dy;
+        if (distSq < bestDistSq)
+        {
+            bestDistSq = distSq;
+            bestId = id;
+        }
     }
-    return "";
+    return bestId;
 }
 
 Rectangle SceneMapCanvas::directionPortBounds(Rectangle card, const std::string& direction) const
@@ -886,6 +1169,176 @@ Rectangle SceneMapCanvas::directionPortBounds(Rectangle card, const std::string&
     return {0, 0, 0, 0};
 }
 
+Rectangle SceneMapCanvas::useCornerPortBounds(Rectangle card, const std::string& corner) const
+{
+    const float s = kUsePortHitSize;
+    if (corner == "nw")
+        return {card.x - s * 0.5f, card.y - s * 0.5f, s, s};
+    if (corner == "ne")
+        return {card.x + card.width - s * 0.5f, card.y - s * 0.5f, s, s};
+    if (corner == "sw")
+        return {card.x - s * 0.5f, card.y + card.height - s * 0.5f, s, s};
+    if (corner == "se")
+        return {card.x + card.width - s * 0.5f, card.y + card.height - s * 0.5f, s, s};
+    return {0, 0, 0, 0};
+}
+
+Vector2 SceneMapCanvas::useCornerPortCenter(Rectangle card, const std::string& corner) const
+{
+    const Rectangle r = useCornerPortBounds(card, corner);
+    return {r.x + r.width * 0.5f, r.y + r.height * 0.5f};
+}
+
+const char* SceneMapCanvas::useCornerForIndex(int index)
+{
+    static const char* corners[] = {"nw", "ne", "sw", "se"};
+    if (index < 0)
+        index = 0;
+    return corners[index % 4];
+}
+
+std::vector<std::string> SceneMapCanvas::resolveUseCornersForBindings(
+    const std::vector<SceneGraphModel::UseBinding>& bindings) const
+{
+    static const char* kCorners[] = {"nw", "ne", "sw", "se"};
+    std::vector<std::string> out(bindings.size());
+    bool used[4] = {false, false, false, false};
+
+    auto cornerIndex = [](const std::string& c) -> int {
+        if (c == "nw")
+            return 0;
+        if (c == "ne")
+            return 1;
+        if (c == "sw")
+            return 2;
+        if (c == "se")
+            return 3;
+        return -1;
+    };
+
+    for (size_t i = 0; i < bindings.size(); ++i)
+    {
+        const int idx = cornerIndex(bindings[i].mapCorner);
+        if (idx >= 0 && !used[idx])
+        {
+            out[i] = kCorners[idx];
+            used[idx] = true;
+        }
+    }
+    for (size_t i = 0; i < bindings.size(); ++i)
+    {
+        if (!out[i].empty())
+            continue;
+        for (int c = 0; c < 4; ++c)
+        {
+            if (used[c])
+                continue;
+            out[i] = kCorners[c];
+            used[c] = true;
+            break;
+        }
+        // No fallback modulo — empty means no exclusive slot (max 4 Use wires).
+    }
+    return out;
+}
+
+std::string SceneMapCanvas::useEndpointAtCorner(
+    const std::string& mapNodeId,
+    const std::string& corner,
+    bool* outAsDestination) const
+{
+    if (outAsDestination)
+        *outAsDestination = false;
+    if (mapNodeId.empty() || corner.empty())
+        return {};
+
+    // Cached Use routes already enforce exclusive corners on both ends.
+    for (const SceneLinkRoute& route : cachedLinkRoutes)
+    {
+        if (!route.isUseLink || route.useBinding.empty())
+            continue;
+        if (route.fromId == mapNodeId && route.direction == corner)
+        {
+            if (outAsDestination)
+                *outAsDestination = false;
+            return route.useBinding;
+        }
+        if (route.toId == mapNodeId && route.toCorner == corner)
+        {
+            if (outAsDestination)
+                *outAsDestination = true;
+            return route.useBinding;
+        }
+    }
+    return {};
+}
+
+std::string SceneMapCanvas::useBindingAtCorner(
+    const std::string& mapNodeId,
+    const std::string& corner) const
+{
+    return useEndpointAtCorner(mapNodeId, corner, nullptr);
+}
+
+std::string SceneMapCanvas::facingUseCorner(Rectangle from, Rectangle to)
+{
+    const float dx = (to.x + to.width * 0.5f) - (from.x + from.width * 0.5f);
+    const float dy = (to.y + to.height * 0.5f) - (from.y + from.height * 0.5f);
+    const bool east = dx >= 0.0f;
+    const bool south = dy >= 0.0f;
+    if (!south && !east)
+        return "nw";
+    if (!south && east)
+        return "ne";
+    if (south && !east)
+        return "sw";
+    return "se";
+}
+
+std::vector<Vector2> SceneMapCanvas::buildUseCornerRoute(
+    Rectangle fromCard,
+    Rectangle toCard,
+    const std::string& fromCorner,
+    const std::string& toCorner) const
+{
+    const Vector2 start = useCornerPortCenter(fromCard, fromCorner);
+    const Vector2 end = useCornerPortCenter(toCard, toCorner);
+    // Mild outward stubs so Use wires don't sit on the plate corners.
+    Vector2 startN = {0, 0};
+    Vector2 endN = {0, 0};
+    if (fromCorner == "nw")
+        startN = {-1.0f, -1.0f};
+    else if (fromCorner == "ne")
+        startN = {1.0f, -1.0f};
+    else if (fromCorner == "sw")
+        startN = {-1.0f, 1.0f};
+    else
+        startN = {1.0f, 1.0f};
+    if (toCorner == "nw")
+        endN = {-1.0f, -1.0f};
+    else if (toCorner == "ne")
+        endN = {1.0f, -1.0f};
+    else if (toCorner == "sw")
+        endN = {-1.0f, 1.0f};
+    else
+        endN = {1.0f, 1.0f};
+    const float inv = 1.0f / std::sqrt(2.0f);
+    startN.x *= inv;
+    startN.y *= inv;
+    endN.x *= inv;
+    endN.y *= inv;
+    const float stub = 18.0f;
+    const Vector2 a = {start.x + startN.x * stub, start.y + startN.y * stub};
+    const Vector2 b = {end.x + endN.x * stub, end.y + endN.y * stub};
+    std::vector<Vector2> path;
+    path.push_back(start);
+    path.push_back(a);
+    path.push_back({b.x, a.y});
+    path.push_back(b);
+    path.push_back(end);
+    return path;
+}
+
 bool SceneMapCanvas::hitTestDirectionPort(
     Vector2 mouse,
     Rectangle canvasBounds,
@@ -897,34 +1350,49 @@ bool SceneMapCanvas::hitTestDirectionPort(
     if (!docs || !docs->scenes.isLoaded())
         return false;
 
+    // Closest port center wins. Adjacent cards' facing ports often overlap; the
+    // old first-match-by-sceneIds() order made only one facing port grabable.
     const char* dirs[] = {"forward", "backward", "left", "right"};
-    const std::vector<std::string> ids = docs->scenes.sceneIds();
+    float bestDistSq = 1.0e12f;
+    bool found = false;
+    const std::vector<std::string> ids = docs->scenes.mapNodeIds();
     for (const std::string& id : ids)
     {
-        if (!docs->scenes.hasMapPlacement(id))
-            continue;
+        if (id.find('#') != std::string::npos)
+            continue; // compass ports only on parent cards
         if (docs->scenes.getLayout(id).level != level)
             continue;
         const Rectangle card = sceneCardBounds(id, canvasBounds);
         for (const char* dir : dirs)
         {
-            if (CheckCollisionPointRec(mouse, directionPortBounds(card, dir)))
+            const Rectangle port = directionPortBounds(card, dir);
+            if (!CheckCollisionPointRec(mouse, port))
+                continue;
+            const float cx = port.x + port.width * 0.5f;
+            const float cy = port.y + port.height * 0.5f;
+            const float dx = mouse.x - cx;
+            const float dy = mouse.y - cy;
+            const float distSq = dx * dx + dy * dy;
+            if (distSq < bestDistSq)
             {
+                bestDistSq = distSq;
                 outSceneId = id;
                 outDirection = dir;
-                return true;
+                found = true;
             }
         }
     }
-    return false;
+    return found;
 }
 
 void SceneMapCanvas::cancelPortDrag()
 {
-    if (dragSource == DragSource::ExitPort)
+    if (dragSource == DragSource::ExitPort || dragSource == DragSource::UsePort)
         dragSource = DragSource::None;
     portDragFromId.clear();
     portDragDirection.clear();
+    portDragUseBinding.clear();
+    portDragMovingExisting = false;
     linkDragHoverTarget.clear();
 }
 
@@ -933,12 +1401,19 @@ void SceneMapCanvas::drawDirectionPorts(Rectangle canvasBounds) const
     if (!docs || !docs->scenes.isLoaded())
         return;
 
+    const Vector2 mouse = GetMousePosition();
+    std::string hoverScene;
+    std::string hoverDir;
+    const bool hoveringPort =
+        dragSource == DragSource::None
+        && hitTestDirectionPort(mouse, canvasBounds, hoverScene, hoverDir);
+
     const char* dirs[] = {"forward", "backward", "left", "right"};
-    const std::vector<std::string> ids = docs->scenes.sceneIds();
+    const std::vector<std::string> ids = docs->scenes.mapNodeIds();
     for (const std::string& id : ids)
     {
-        if (!docs->scenes.hasMapPlacement(id))
-            continue;
+        if (id.find('#') != std::string::npos)
+            continue; // compass ports only on parent cards
         if (docs->scenes.getLayout(id).level != level)
             continue;
         const Rectangle card = sceneCardBounds(id, canvasBounds);
@@ -950,51 +1425,212 @@ void SceneMapCanvas::drawDirectionPorts(Rectangle canvasBounds) const
                 dragSource == DragSource::ExitPort
                 && portDragFromId == id
                 && portDragDirection == dir;
-            Color fill = linked ? Color{168, 138, 72, 220} : Color{70, 64, 82, 220};
+            const bool hovered =
+                hoveringPort && hoverScene == id && hoverDir == dir;
+            // Empty ports used to be nearly invisible (dark on dark) — users only
+            // discovered linked/gold ports or top ports by accident.
+            Color fill = linked ? Color{168, 138, 72, 230} : Color{120, 112, 140, 230};
+            if (hovered)
+                fill = Color{200, 185, 140, 255};
             if (active)
                 fill = Color{220, 190, 100, 255};
+            const float radius = port.width * 0.42f;
             DrawCircleV(
                 {port.x + port.width * 0.5f, port.y + port.height * 0.5f},
-                port.width * 0.35f,
+                radius,
                 fill);
             DrawCircleLines(
                 static_cast<int>(port.x + port.width * 0.5f),
                 static_cast<int>(port.y + port.height * 0.5f),
-                port.width * 0.35f,
-                kPanelBorder);
+                radius,
+                hovered || active ? Color{240, 220, 160, 255} : kPanelBorder);
         }
     }
 }
 
+void SceneMapCanvas::drawUseCornerPorts(Rectangle canvasBounds) const
+{
+    if (!docs || !docs->scenes.isLoaded())
+        return;
+
+    const Vector2 mouse = GetMousePosition();
+    std::string hoverScene;
+    std::string hoverCorner;
+    const bool hovering =
+        dragSource == DragSource::None
+        && hitTestUseCornerPort(mouse, canvasBounds, hoverScene, hoverCorner);
+
+    const char* corners[] = {"nw", "ne", "sw", "se"};
+    const std::vector<std::string> ids = docs->scenes.mapNodeIds();
+    for (const std::string& id : ids)
+    {
+        if (docs->scenes.getLayout(id).level != level)
+            continue;
+        const Rectangle card = sceneCardBounds(id, canvasBounds);
+        for (const char* corner : corners)
+        {
+            const Rectangle port = useCornerPortBounds(card, corner);
+            const bool active =
+                dragSource == DragSource::UsePort
+                && portDragFromId == id
+                && portDragDirection == corner;
+            const bool hovered =
+                hovering && hoverScene == id && hoverCorner == corner;
+            const bool linked = !useEndpointAtCorner(id, corner).empty();
+            Color fill = linked ? Color{170, 178, 192, 235} : Color{110, 118, 132, 220};
+            if (hovered)
+                fill = Color{210, 216, 228, 255};
+            if (active)
+                fill = Color{230, 234, 242, 255};
+            const float radius = port.width * 0.38f;
+            DrawCircleV(
+                {port.x + port.width * 0.5f, port.y + port.height * 0.5f},
+                radius,
+                fill);
+            DrawCircleLines(
+                static_cast<int>(port.x + port.width * 0.5f),
+                static_cast<int>(port.y + port.height * 0.5f),
+                radius,
+                hovered || active ? Color{240, 244, 250, 255} : Color{90, 96, 108, 255});
+        }
+    }
+}
+
+bool SceneMapCanvas::hitTestUseCornerPort(
+    Vector2 mouse,
+    Rectangle canvasBounds,
+    std::string& outSceneId,
+    std::string& outCorner) const
+{
+    outSceneId.clear();
+    outCorner.clear();
+    if (!docs || !docs->scenes.isLoaded())
+        return false;
+
+    const char* corners[] = {"nw", "ne", "sw", "se"};
+    float bestDistSq = 1.0e12f;
+    bool found = false;
+    const std::vector<std::string> ids = docs->scenes.mapNodeIds();
+    for (const std::string& id : ids)
+    {
+        if (docs->scenes.getLayout(id).level != level)
+            continue;
+        const Rectangle card = sceneCardBounds(id, canvasBounds);
+        for (const char* corner : corners)
+        {
+            const Rectangle port = useCornerPortBounds(card, corner);
+            if (!CheckCollisionPointRec(mouse, port))
+                continue;
+            const float cx = port.x + port.width * 0.5f;
+            const float cy = port.y + port.height * 0.5f;
+            const float dx = mouse.x - cx;
+            const float dy = mouse.y - cy;
+            const float distSq = dx * dx + dy * dy;
+            if (distSq < bestDistSq)
+            {
+                bestDistSq = distSq;
+                outSceneId = id;
+                outCorner = corner;
+                found = true;
+            }
+        }
+    }
+    return found;
+}
+
 void SceneMapCanvas::drawPortDragPreview(Rectangle canvasBounds) const
 {
-    if (dragSource != DragSource::ExitPort || portDragFromId.empty() || portDragDirection.empty())
+    const bool isUse = dragSource == DragSource::UsePort;
+    if ((dragSource != DragSource::ExitPort && !isUse)
+        || portDragFromId.empty() || portDragDirection.empty())
         return;
     if (!docs->scenes.hasMapPlacement(portDragFromId))
         return;
 
     const Rectangle fromCard = sceneCardBounds(portDragFromId, canvasBounds);
-    const Rectangle port = directionPortBounds(fromCard, portDragDirection);
+    const Rectangle port = isUse
+        ? useCornerPortBounds(fromCard, portDragDirection)
+        : directionPortBounds(fromCard, portDragDirection);
     const Vector2 start = {port.x + port.width * 0.5f, port.y + port.height * 0.5f};
     const Vector2 mouse = GetMousePosition();
-    const bool valid =
-        !linkDragHoverTarget.empty()
-        && linkDragHoverTarget != portDragFromId
-        && graph
-        && graph->isSameLevelLink(portDragFromId, linkDragHoverTarget);
 
-    DrawLineEx(start, mouse, 2.0f, valid ? Color{220, 190, 100, 255} : Color{160, 80, 80, 200});
-    DrawCircleV(mouse, 5.0f, valid ? Color{220, 190, 100, 255} : Color{160, 80, 80, 200});
-    if (!linkDragHoverTarget.empty())
+    // Hover feedback: prefer ports (reconnect) over whole cards.
+    std::string hoverPortScene;
+    std::string hoverPortDir;
+    const bool hoverCompassPort =
+        !isUse && hitTestDirectionPort(mouse, canvasBounds, hoverPortScene, hoverPortDir);
+    const bool hoverUsePort =
+        isUse && hitTestUseCornerPort(mouse, canvasBounds, hoverPortScene, hoverPortDir);
+
+    const char* invalidReason = nullptr;
+    bool valid = false;
+    const char* hint = nullptr;
+
+    if (portDragMovingExisting && hoverCompassPort
+        && hoverPortScene == portDragFromId && hoverPortDir != portDragDirection)
     {
-        const Rectangle target = sceneCardBounds(linkDragHoverTarget, canvasBounds);
-        DrawRectangleLinesEx(
-            target,
-            2.0f,
-            valid ? Color{220, 190, 100, 255} : Color{160, 80, 80, 200});
+        valid = true;
+        hint = "Drop to move exit to this compass port";
+    }
+    else if (portDragMovingExisting && hoverUsePort
+             && hoverPortScene == portDragFromId && hoverPortDir != portDragDirection)
+    {
+        valid = true;
+        hint = "Drop to move Use wire to this corner";
+    }
+    else if (linkDragHoverTarget.empty() || linkDragHoverTarget == portDragFromId)
+    {
+        invalidReason = portDragMovingExisting
+            ? "Drop on another port or scene"
+            : "Drop on another scene";
+    }
+    else if (!graph || !graph->isSameLevelLink(portDragFromId, linkDragHoverTarget))
+        invalidReason = "Different map level";
+    else if (!isUse
+             && !portDragMovingExisting
+             && graph->exitDirectionAlreadyLeadsTo(
+                 portDragDirection, linkDragHoverTarget, portDragFromId))
+        invalidReason = "That direction already enters target";
+    else
+    {
+        valid = true;
+        if (portDragMovingExisting)
+            hint = isUse ? "Drop to retarget Use transition"
+                         : "Drop to retarget exit destination";
+        else
+            hint = isUse ? "Drop to create Use transition"
+                         : "Drop to create exit (sets reciprocal if free)";
+    }
+
+    const Color ok = isUse ? kUseArrow : Color{220, 190, 100, 255};
+    const Color bad = Color{160, 80, 80, 200};
+    DrawLineEx(start, mouse, 2.0f, valid ? ok : bad);
+    DrawCircleV(mouse, 5.0f, valid ? ok : bad);
+    if (hoverCompassPort || hoverUsePort)
+    {
+        const Rectangle port = isUse
+            ? useCornerPortBounds(
+                  sceneCardBounds(hoverPortScene, canvasBounds), hoverPortDir)
+            : directionPortBounds(
+                  sceneCardBounds(hoverPortScene, canvasBounds), hoverPortDir);
+        DrawRectangleLinesEx(port, 2.0f, valid ? ok : bad);
         DrawTextEx(
             (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
-            valid ? "Drop to create exit" : "Invalid target",
+            valid ? (hint ? hint : "Drop")
+                  : (invalidReason ? invalidReason : "Invalid target"),
+            {port.x, port.y - 18.0f},
+            kFontTiny,
+            1.0f,
+            valid ? kPanelBorder : Color{200, 100, 100, 255});
+    }
+    else if (!linkDragHoverTarget.empty())
+    {
+        const Rectangle target = sceneCardBounds(linkDragHoverTarget, canvasBounds);
+        DrawRectangleLinesEx(target, 2.0f, valid ? ok : bad);
+        DrawTextEx(
+            (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
+            valid ? (hint ? hint : "Drop")
+                  : (invalidReason ? invalidReason : "Invalid target"),
             {target.x, target.y - 18.0f},
             kFontTiny,
             1.0f,
@@ -1024,7 +1660,7 @@ bool SceneMapCanvas::placeSceneListDrop(Vector2 mouse, Rectangle canvasBounds, R
             return false;
         if (thumbnails)
             thumbnails->clear();
-        TraceLog(LOG_INFO, "TIMBERLINE: duplicated scene %s → %s", dragSceneId.c_str(), placeId.c_str());
+        TraceLog(LOG_INFO, "TIMBERLINE: duplicated scene %s -> %s", dragSceneId.c_str(), placeId.c_str());
     }
 
     SceneLayout sceneLayout{};
@@ -1074,7 +1710,7 @@ void SceneMapCanvas::cancelLinkDrag()
 {
     linkDragIndex = -1;
     linkDragHoverTarget.clear();
-    if (dragSource == DragSource::ExitLink)
+    if (dragSource == DragSource::ExitLink || dragSource == DragSource::UseLink)
     {
         dragSource = DragSource::None;
         dragSceneId.clear();
@@ -1181,13 +1817,16 @@ void SceneMapCanvas::drawExitArrows(Rectangle canvasBounds)
         // Skip normal draw for the route currently being dragged (preview draws it).
         if (static_cast<int>(r) == linkDragIndex)
             continue;
+        const Color wireColor =
+            cachedLinkRoutes[r].isUseLink ? kUseArrow : Color{0, 0, 0, 0};
         drawPolyline(
             cachedLinkRoutes[r].points,
             cachedLinkRoutes[r].arrowAtStart,
             cachedLinkRoutes[r].arrowAtEnd,
             cachedLinkRoutes[r].semicircleAtStart,
             cachedLinkRoutes[r].fromSide,
-            hopsPerRoute[r]);
+            hopsPerRoute[r],
+            wireColor);
     }
 
     if (linkDragIndex >= 0)
@@ -1197,47 +1836,103 @@ void SceneMapCanvas::drawExitArrows(Rectangle canvasBounds)
 
 void SceneMapCanvas::drawStairIcons(Rectangle canvasBounds)
 {
-    if (!docs->scenes.isLoaded())
+    cachedStairBadges.clear();
+    if (!docs->scenes.isLoaded() || graph == nullptr)
         return;
 
-    const std::vector<std::string> ids = docs->scenes.sceneIds();
+    const Font font =
+        (uiFontBold.texture.id != 0 ? uiFontBold
+                                   : (uiFont.texture.id != 0 ? uiFont : GetFontDefault()));
+    const float fontSize = 14.0f;
+
+    const std::vector<std::string> ids = docs->scenes.mapNodeIds();
     for (const std::string& id : ids)
     {
-        if (!docs->scenes.hasMapPlacement(id))
-            continue;
         const SceneLayout sceneLayout = docs->scenes.getLayout(id);
         if (sceneLayout.level != level)
             continue;
 
-        const bool hasUp = !graph->getExitTarget(id, "up").empty();
-        const bool hasDown = !graph->getExitTarget(id, "down").empty();
-        if (!hasUp && !hasDown)
+        const std::string upTarget = graph->getExitTarget(id, "up");
+        const std::string downTarget = graph->getExitTarget(id, "down");
+        if (upTarget.empty() && downTarget.empty())
             continue;
 
-        const Rectangle card = sceneCardBounds(id, canvasBounds);
-        const float iconSize = 20.0f;
-        const float iconSlot = 16.0f;
-        const int iconCount = (hasUp ? 1 : 0) + (hasDown ? 1 : 0);
-        const float badgePad = 3.0f;
-        const float badgeW = iconCount * iconSlot + badgePad * 2.0f;
-        const float badgeH = iconSize + badgePad;
-        const Rectangle badge = {
-            card.x + card.width - badgeW - 3.0f,
-            card.y + 2.0f,
-            badgeW,
-            badgeH};
-        DrawRectangleRec(badge, Color{8, 7, 12, 230});
-        DrawRectangleLinesEx(badge, 1.0f, Color{20, 18, 26, 255});
-
-        float iconX = badge.x + badge.width - badgePad - iconSlot;
-        if (hasUp)
+        // Label includes destination floor so "connected below" is unambiguous (#41).
+        // Each direction is its own hit target — there is no cross-floor gold wire.
+        struct Chip
         {
-            DrawTextEx((uiFontBold.texture.id != 0 ? uiFontBold : (uiFont.texture.id != 0 ? uiFont : GetFontDefault())), "^", {iconX, badge.y}, iconSize, 1.0f, kPanelBorder);
-            iconX -= iconSlot;
+            std::string direction;
+            std::string toId;
+            std::string label;
+            bool hasRequirement = false;
+        };
+        std::vector<Chip> chips;
+        if (!upTarget.empty())
+        {
+            Chip c;
+            c.direction = "up";
+            c.toId = upTarget;
+            c.label = TextFormat("^%d", docs->scenes.getLayout(upTarget).level);
+            const nlohmann::json req = graph->readExitRequirement(id, "up");
+            c.hasRequirement = req.is_object() && !req.empty();
+            chips.push_back(c);
         }
-        if (hasDown)
+        if (!downTarget.empty())
         {
-            DrawTextEx((uiFontBold.texture.id != 0 ? uiFontBold : (uiFont.texture.id != 0 ? uiFont : GetFontDefault())), "v", {iconX, badge.y}, iconSize, 1.0f, kPanelBorder);
+            Chip c;
+            c.direction = "down";
+            c.toId = downTarget;
+            c.label = TextFormat("v%d", docs->scenes.getLayout(downTarget).level);
+            const nlohmann::json req = graph->readExitRequirement(id, "down");
+            c.hasRequirement = req.is_object() && !req.empty();
+            chips.push_back(c);
+        }
+
+        const float badgePad = 4.0f;
+        const float chipGap = 4.0f;
+        float totalW = badgePad;
+        for (size_t i = 0; i < chips.size(); ++i)
+        {
+            totalW += MeasureTextEx(font, chips[i].label.c_str(), fontSize, 1.0f).x
+                + badgePad * 2.0f;
+            if (i + 1 < chips.size())
+                totalW += chipGap;
+        }
+        totalW += badgePad;
+        const float badgeH = fontSize + badgePad * 2.0f;
+        const Rectangle card = sceneCardBounds(id, canvasBounds);
+        float chipX = card.x + card.width - totalW - 3.0f + badgePad;
+        const float chipY = card.y + 2.0f;
+
+        for (const Chip& chip : chips)
+        {
+            const float labelW =
+                MeasureTextEx(font, chip.label.c_str(), fontSize, 1.0f).x;
+            const Rectangle chipRect = {
+                chipX, chipY, labelW + badgePad * 2.0f, badgeH};
+            const Color fill = chip.hasRequirement ? Color{42, 34, 18, 235}
+                                                   : Color{8, 7, 12, 230};
+            const Color border = chip.hasRequirement ? Color{200, 170, 90, 255}
+                                                     : Color{140, 120, 70, 220};
+            DrawRectangleRec(chipRect, fill);
+            DrawRectangleLinesEx(chipRect, 1.0f, border);
+            DrawTextEx(
+                font,
+                chip.label.c_str(),
+                {chipRect.x + badgePad, chipRect.y + badgePad - 1.0f},
+                fontSize,
+                1.0f,
+                chip.hasRequirement ? Color{240, 220, 150, 255} : kPanelBorder);
+
+            StairBadgeHit hit;
+            hit.fromId = id;
+            hit.direction = chip.direction;
+            hit.toId = chip.toId;
+            hit.bounds = chipRect;
+            hit.hasRequirement = chip.hasRequirement;
+            cachedStairBadges.push_back(hit);
+
+            chipX += chipRect.width + chipGap;
         }
     }
 }
@@ -1252,19 +1947,7 @@ void SceneMapCanvas::drawLevelChrome(Rectangle canvasBounds)
     const bool canGoUp = docs->scenes.isLoaded() && level < maxLevel;
     const int onLevel = docs->scenes.isLoaded() ? graph->countScenesOnLevel(level) : 0;
 
-    const std::string levelLabel = TextFormat(
-        "Floor level %d  |  range %d to %d  |  %d scene(s) here",
-        level,
-        minLevel,
-        maxLevel,
-        onLevel);
-    DrawTextEx(
-        (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
-        levelLabel.c_str(),
-        {canvasBounds.x + 12.0f, canvasBounds.y + 10.0f},
-        kFontBody,
-        1.0f,
-        kTextPrimary);
+    const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
 
     const Rectangle levelDownBtn = {
         canvasBounds.x + canvasBounds.width - 76.0f,
@@ -1277,28 +1960,88 @@ void SceneMapCanvas::drawLevelChrome(Rectangle canvasBounds)
         30.0f,
         24.0f};
 
+    // "Clean up" sized to the label (+ pad) so it is not ellipsized.
+    const char* cleanLabel = "Clean up";
+    const EditorButtonConfig& btnCfg = editorButtons().config;
+    const float cleanTextW = MeasureTextEx(font, cleanLabel, btnCfg.fontSize, 1.0f).x;
+    const float cleanW = std::clamp(
+        cleanTextW + btnCfg.padX * 2.0f + 8.0f,
+        std::max(btnCfg.minWidth, 96.0f),
+        btnCfg.maxWidth);
+    const float cleanH = std::max(24.0f, btnCfg.minHeight);
+    const Rectangle cleanBtn = {
+        levelDownBtn.x - cleanW - 8.0f,
+        canvasBounds.y + 8.0f,
+        cleanW,
+        cleanH};
+
+    // Floor label must stop before Clean up / floor buttons (#40 illegible chrome).
+    std::string levelLabel = TextFormat(
+        "Floor level %d  |  range %d to %d  |  %d scene(s) here",
+        level,
+        minLevel,
+        maxLevel,
+        onLevel);
+    const float labelMaxW = std::max(40.0f, cleanBtn.x - (canvasBounds.x + 12.0f) - 8.0f);
+    if (MeasureTextEx(font, levelLabel.c_str(), kFontBody, 1.0f).x > labelMaxW)
+    {
+        // Prefer a shorter form before ellipsizing.
+        levelLabel = TextFormat("Floor %d  |  %d–%d  |  %d here", level, minLevel, maxLevel, onLevel);
+    }
+    while (!levelLabel.empty()
+           && MeasureTextEx(font, (levelLabel + "...").c_str(), kFontBody, 1.0f).x > labelMaxW)
+        levelLabel.pop_back();
+    if (MeasureTextEx(font, levelLabel.c_str(), kFontBody, 1.0f).x > labelMaxW)
+        levelLabel += "...";
+    DrawTextEx(
+        font,
+        levelLabel.c_str(),
+        {canvasBounds.x + 12.0f, canvasBounds.y + 10.0f},
+        kFontBody,
+        1.0f,
+        kTextPrimary);
+    const bool canClean =
+        docs->scenes.isLoaded()
+        && onLevel > 0
+        && !graph->stackDialogOpen
+        && !(docs->isConversationsTab())
+        && confirmMode == ConfirmMode::None
+        && contextMenuSource == ContextMenuSource::None
+        && !anyAuthoringModalOpen();
+
+    drawEditorButton(font, cleanBtn, cleanLabel, false, canClean);
     DrawRectangleRec(levelDownBtn, canGoDown ? kPanelAccent : kButtonDisabled);
     DrawRectangleRec(levelUpBtn, canGoUp ? kPanelAccent : kButtonDisabled);
     DrawRectangleLinesEx(levelDownBtn, 1.0f, canGoDown ? kPanelBorder : kTextDisabled);
     DrawRectangleLinesEx(levelUpBtn, 1.0f, canGoUp ? kPanelBorder : kTextDisabled);
     DrawTextEx(
-        (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
+        font,
         "-",
         {levelDownBtn.x + 10.0f, levelDownBtn.y + 3.0f},
         kFontTitle,
         1.0f,
         canGoDown ? kTextPrimary : kTextDisabled);
     DrawTextEx(
-        (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
+        font,
         "+",
         {levelUpBtn.x + 9.0f, levelUpBtn.y + 3.0f},
         kFontTitle,
         1.0f,
         canGoUp ? kTextPrimary : kTextDisabled);
 
-    if (!graph->stackDialogOpen && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    if (!graph->stackDialogOpen && editorMousePressed(MOUSE_BUTTON_LEFT))
     {
         const Vector2 mouse = GetMousePosition();
+        if (canClean && CheckCollisionPointRec(mouse, cleanBtn))
+        {
+            // Port-align linked cards (keep neighborhood; straighten mid-runs).
+            graph->cleanupLayoutLevel(level);
+            cancelLinkDrag();
+            cancelPortDrag();
+            cachedLinkRoutes.clear();
+            exitLinkFeedback = "Map cleaned up";
+            exitLinkFeedbackUntil = GetTime() + 2.0;
+        }
         if (canGoDown && CheckCollisionPointRec(mouse, levelDownBtn))
             level -= 1;
         if (canGoUp && CheckCollisionPointRec(mouse, levelUpBtn))
@@ -1345,6 +2088,99 @@ SceneMapCanvas::CanvasContentBounds SceneMapCanvas::contentBoundsForLevel(int le
     return bounds;
 }
 
+
+void SceneMapCanvas::applyEdgeAutoPanWhileDragging(
+    Rectangle canvasBounds,
+    Rectangle contentView,
+    CanvasContentBounds& content,
+    float speedPxPerSec)
+{
+    if (speedPxPerSec <= 0.0f)
+        return;
+    if (draggingHScroll || draggingVScroll)
+        return;
+    if (!editorMouseDown(MOUSE_BUTTON_LEFT))
+        return;
+
+    const bool sceneDrag =
+        (dragSource == DragSource::Canvas || dragSource == DragSource::SceneList)
+        && !dragSceneId.empty();
+    const bool linkDrag =
+        dragSource == DragSource::ExitLink || dragSource == DragSource::ExitPort
+        || dragSource == DragSource::UseLink || dragSource == DragSource::UsePort;
+    if (!sceneDrag && !linkDrag)
+        return;
+
+    Rectangle ghost{};
+    if (sceneDrag)
+    {
+        const SceneCardMetrics metrics = measureSceneCard(dragSceneId);
+        ghost = {
+            static_cast<float>(GetMouseX()) - dragOffset.x,
+            static_cast<float>(GetMouseY()) - dragOffset.y,
+            metrics.width,
+            metrics.height};
+    }
+    else
+    {
+        // Port/link: probe centered on cursor using half-card margins.
+        const float probeW = std::max(48.0f, kSceneCardWidth * 0.5f);
+        const float probeH = std::max(48.0f, kSceneCardMinHeight * 0.5f);
+        ghost = {
+            static_cast<float>(GetMouseX()) - probeW * 0.5f,
+            static_cast<float>(GetMouseY()) - probeH * 0.5f,
+            probeW,
+            probeH};
+    }
+
+    // Expand layout bounds so clamp allows panning past current content.
+    const float worldLeft = ghost.x - canvasBounds.x - scroll.x;
+    const float worldTop = ghost.y - canvasBounds.y - scroll.y;
+    const float worldRight = worldLeft + ghost.width;
+    const float worldBottom = worldTop + ghost.height;
+    if (!content.valid)
+    {
+        content.minX = worldLeft;
+        content.minY = worldTop;
+        content.maxX = worldRight;
+        content.maxY = worldBottom;
+        content.valid = true;
+    }
+    else
+    {
+        content.minX = std::min(content.minX, worldLeft);
+        content.minY = std::min(content.minY, worldTop);
+        content.maxX = std::max(content.maxX, worldRight);
+        content.maxY = std::max(content.maxY, worldBottom);
+    }
+
+    const float marginX = std::max(24.0f, ghost.width * 0.5f);
+    const float marginY = std::max(24.0f, ghost.height * 0.5f);
+    const float dt = GetFrameTime();
+    const float step = speedPxPerSec * dt;
+
+    // Overlap with edge strips inside contentView (half-card thick).
+    const bool hitLeft =
+        ghost.x < contentView.x + marginX && ghost.x + ghost.width > contentView.x;
+    const bool hitRight =
+        ghost.x + ghost.width > contentView.x + contentView.width - marginX
+        && ghost.x < contentView.x + contentView.width;
+    const bool hitTop =
+        ghost.y < contentView.y + marginY && ghost.y + ghost.height > contentView.y;
+    const bool hitBottom =
+        ghost.y + ghost.height > contentView.y + contentView.height - marginY
+        && ghost.y < contentView.y + contentView.height;
+
+    // scroll↑ moves content right on screen (reveals left). scroll↓ reveals right.
+    if (hitLeft)
+        scroll.x += step;
+    if (hitRight)
+        scroll.x -= step;
+    if (hitTop)
+        scroll.y += step;
+    if (hitBottom)
+        scroll.y -= step;
+}
 
 void SceneMapCanvas::clampCanvasScrollForCanvas(Rectangle canvasBounds, Rectangle contentView, const CanvasContentBounds& content)
 {
@@ -1432,7 +2268,7 @@ void SceneMapCanvas::drawCanvasScrollBars(
 
         if (canDragBar)
         {
-            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, thumb))
+            if (editorMousePressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, thumb))
             {
                 draggingHScroll = true;
                 hScrollGrabOffset = mouse.x - thumb.x;
@@ -1440,7 +2276,7 @@ void SceneMapCanvas::drawCanvasScrollBars(
                 dragSceneId.clear();
                 cancelLinkDrag();
             }
-            else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, track))
+            else if (editorMousePressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, track))
             {
                 const float center = mouse.x - thumbW * 0.5f;
                 const float ratio = (center - track.x) / std::max(1.0f, track.width - thumbW);
@@ -1450,7 +2286,7 @@ void SceneMapCanvas::drawCanvasScrollBars(
             }
         }
 
-        if (draggingHScroll && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        if (draggingHScroll && editorMouseDown(MOUSE_BUTTON_LEFT))
         {
             const float thumbPos = mouse.x - hScrollGrabOffset;
             const float ratio = (thumbPos - track.x) / std::max(1.0f, track.width - thumbW);
@@ -1489,7 +2325,7 @@ void SceneMapCanvas::drawCanvasScrollBars(
 
         if (canDragBar)
         {
-            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, thumb))
+            if (editorMousePressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, thumb))
             {
                 draggingVScroll = true;
                 vScrollGrabOffset = mouse.y - thumb.y;
@@ -1497,7 +2333,7 @@ void SceneMapCanvas::drawCanvasScrollBars(
                 dragSceneId.clear();
                 cancelLinkDrag();
             }
-            else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, track))
+            else if (editorMousePressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, track))
             {
                 const float center = mouse.y - thumbH * 0.5f;
                 const float ratio = (center - track.y) / std::max(1.0f, track.height - thumbH);
@@ -1507,7 +2343,7 @@ void SceneMapCanvas::drawCanvasScrollBars(
             }
         }
 
-        if (draggingVScroll && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        if (draggingVScroll && editorMouseDown(MOUSE_BUTTON_LEFT))
         {
             const float thumbPos = mouse.y - vScrollGrabOffset;
             const float ratio = (thumbPos - track.y) / std::max(1.0f, track.height - thumbH);
@@ -1516,7 +2352,7 @@ void SceneMapCanvas::drawCanvasScrollBars(
         }
     }
 
-    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+    if (editorMouseReleased(MOUSE_BUTTON_LEFT))
     {
         draggingHScroll = false;
         draggingVScroll = false;
@@ -1556,7 +2392,7 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         return;
     }
 
-    const SceneMapCanvas::CanvasContentBounds content = contentBoundsForLevel(level);
+    SceneMapCanvas::CanvasContentBounds content = contentBoundsForLevel(level);
     const float fullViewW = canvasBounds.width;
     const float fullViewH = canvasBounds.height - kCanvasChromeHeight;
     bool showV = content.valid && content.height() > fullViewH + 0.5f;
@@ -1573,6 +2409,16 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         canvasBounds.width - (showV ? kScrollBarSize : 0.0f),
         canvasBounds.height - kCanvasChromeHeight - (showH ? kScrollBarSize : 0.0f)};
 
+    // Edge auto-pan while dragging (prefs: mapDragPanSpeed). Expands the
+    // content AABB so clamp allows panning past currently placed scenes.
+    if (docs != nullptr)
+    {
+        applyEdgeAutoPanWhileDragging(
+            canvasBounds,
+            contentView,
+            content,
+            loadMapDragPanSpeed(docs->resourceDir));
+    }
     clampCanvasScrollForCanvas(canvasBounds, contentView, content);
 
     BeginScissorMode(
@@ -1583,19 +2429,24 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
 
     // Draw cards first, then links on top so arrows are never half-hidden
     // under (*thumbnails).
-    const std::vector<std::string> ids = docs->scenes.sceneIds();
+    const std::vector<std::string> ids = docs->scenes.mapNodeIds();
     for (const std::string& id : ids)
     {
-        if (!docs->scenes.hasMapPlacement(id))
-            continue;
         const SceneLayout sceneLayout = docs->scenes.getLayout(id);
         if (sceneLayout.level != level)
             continue;
 
         const SceneMapCanvas::SceneCardMetrics metrics = measureSceneCard(id);
         const Rectangle card = sceneCardBounds(id, canvasBounds);
-        const bool selected = selectionSceneId && id == (*selectionSceneId);
-        DrawRectangleRec(card, selected ? Color{52, 46, 62, 255} : Color{36, 32, 44, 255});
+        const bool selected = selectionSceneId
+            && (id == (*selectionSceneId)
+                || id.rfind(*selectionSceneId + "#", 0) == 0);
+        // Alternate/focus views: slightly different fill so they read as related plates.
+        const bool isSubView = id.find('#') != std::string::npos;
+        const Color fill = selected
+            ? Color{52, 46, 62, 255}
+            : (isSubView ? Color{42, 38, 56, 255} : Color{36, 32, 44, 255});
+        DrawRectangleRec(card, fill);
         DrawRectangleLinesEx(card, selected ? 2.0f : 1.0f, selected ? kPanelBorder : kPanelAccent);
 
         const ThumbnailEntry& thumb = thumbnails->getOrLoad(id, docs->scenes, docs->assetRoot, docs->resourceDir);
@@ -1617,15 +2468,20 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         }
 
         float titleY = thumbRect.y + thumbRect.height + 4.0f;
+        const bool isAlternateTitle = isSubView && metrics.titleLines.size() >= 2;
         for (size_t lineIndex = 0; lineIndex < metrics.titleLines.size(); ++lineIndex)
         {
+            // Alternate cards: parent id on line 2 is muted so the sub id stays primary.
+            // (No nested scissor — raylib EndScissorMode clears the map content clip.)
+            const Color titleColor =
+                (isAlternateTitle && lineIndex > 0) ? kTextMuted : kTextPrimary;
             DrawTextEx(
                 (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
                 metrics.titleLines[lineIndex].c_str(),
                 {card.x + 6.0f, titleY},
                 kSceneCardTitleFont,
                 1.0f,
-                kTextPrimary);
+                titleColor);
             titleY += kSceneCardTitleLineHeight;
         }
 
@@ -1636,9 +2492,36 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
 
     // Conversations tab: allow selecting scenes on the map so the left tree can
     // rebuild for another scene, but do not drag cards or retarget exit links.
+    // Modals (New Scene, etc.) must block map hit-testing — interaction still
+    // lives in this draw path, so open dialogs would otherwise steal presses
+    // from scrollbar/field drags and move cards underneath.
+    const bool modalOpen =
+        sceneAuthoring.blocksInput()
+        || sceneAssist.blocksInput()
+        || sceneInventory.blocksInput()
+        || sceneInteractions.blocksInput()
+        || sceneStoryEvents.blocksInput()
+        || sceneEffects.blocksInput()
+        || sceneTransition.blocksInput()
+        || sceneExitRequirements.blocksInput()
+        || sceneUseTransition.blocksInput()
+        || sceneFloorConnect.blocksInput()
+        || (preferences && preferences->blocksInput())
+        || (variableEditor && variableEditor->open)
+        || (itemEditor && itemEditor->blocksInput())
+        || confirmMode != ConfirmMode::None;
+    if ((modalOpen || contextMenuSource != ContextMenuSource::None)
+        && dragSource != DragSource::None)
+    {
+        dragSource = DragSource::None;
+        dragSceneId.clear();
+        cancelLinkDrag();
+        cancelPortDrag();
+    }
     const bool inputFree =
         !graph->stackDialogOpen
-        && !(variableEditor && variableEditor->open)
+        && !modalOpen
+        && contextMenuSource == ContextMenuSource::None
         && !(layout && layout->isDraggingDivider())
         && !draggingHScroll
         && !draggingVScroll;
@@ -1649,7 +2532,7 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
     // Start port / exit-link / card drag (ports win over wires; wires over cards).
     if (canEditMapGeometry
         && dragSource == DragSource::None
-        && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        && editorMousePressed(MOUSE_BUTTON_LEFT))
     {
         std::string portScene;
         std::string portDir;
@@ -1657,10 +2540,72 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         {
             portDragFromId = portScene;
             portDragDirection = portDir;
+            portDragUseBinding.clear();
+            portDragMovingExisting =
+                graph && !graph->getExitTarget(portScene, portDir).empty();
             dragSource = DragSource::ExitPort;
             linkDragHoverTarget.clear();
             if (selectSceneForEditor)
                 selectSceneForEditor(portScene);
+        }
+        else if (hitTestUseCornerPort(
+                     GetMousePosition(), canvasBounds, portScene, portDir))
+        {
+            bool asDestination = false;
+            const std::string binding =
+                useEndpointAtCorner(portScene, portDir, &asDestination);
+            // Destination-corner grab must retarget via the owning Use wire.
+            // Treating the destination card as the binding owner used to start a
+            // bogus create/move and made dest endpoints feel undraggable (#26).
+            int destRouteIndex = -1;
+            if (!binding.empty() && asDestination)
+            {
+                for (size_t i = 0; i < cachedLinkRoutes.size(); ++i)
+                {
+                    const SceneLinkRoute& route = cachedLinkRoutes[i];
+                    if (route.isUseLink && route.useBinding == binding
+                        && route.toId == portScene && route.toCorner == portDir)
+                    {
+                        destRouteIndex = static_cast<int>(i);
+                        break;
+                    }
+                }
+            }
+            if (destRouteIndex >= 0)
+            {
+                linkDragIndex = destRouteIndex;
+                dragSource = DragSource::UseLink;
+                linkDragHoverTarget.clear();
+                if (selectSceneForEditor)
+                {
+                    std::string parent;
+                    std::string sub;
+                    timberline_engine::SceneDocument::parseMapNodeId(
+                        cachedLinkRoutes[static_cast<size_t>(destRouteIndex)].fromId,
+                        parent,
+                        sub);
+                    selectSceneForEditor(parent.empty()
+                        ? cachedLinkRoutes[static_cast<size_t>(destRouteIndex)].fromId
+                        : parent);
+                }
+            }
+            else
+            {
+                portDragFromId = portScene;
+                portDragDirection = portDir;
+                portDragUseBinding = binding;
+                portDragMovingExisting = !portDragUseBinding.empty();
+                dragSource = DragSource::UsePort;
+                linkDragHoverTarget.clear();
+                if (selectSceneForEditor)
+                {
+                    std::string parent;
+                    std::string sub;
+                    timberline_engine::SceneDocument::parseMapNodeId(
+                        portScene, parent, sub);
+                    selectSceneForEditor(parent.empty() ? portScene : parent);
+                }
+            }
         }
         else
         {
@@ -1668,16 +2613,78 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
             if (hit >= 0)
             {
                 linkDragIndex = hit;
-                dragSource = DragSource::ExitLink;
+                const bool useLink =
+                    cachedLinkRoutes[static_cast<size_t>(hit)].isUseLink;
+                dragSource = useLink ? DragSource::UseLink : DragSource::ExitLink;
                 linkDragHoverTarget.clear();
             }
         }
     }
 
+    // Right-click map wire / card → context menu (select only; never starts drag).
+    // Only handle when the cursor is over the map — otherwise a list right-click
+    // would open a menu in drawSceneList and then get closed here on miss.
+    // Wires win over cards so edge connectors stay reachable.
+    const bool canOpenMapContext =
+        !graph->stackDialogOpen
+        && !modalOpen
+        && !(layout && layout->isDraggingDivider())
+        && !draggingHScroll
+        && !draggingVScroll
+        && dragSource == DragSource::None;
+    if (canOpenMapContext && editorMousePressed(MOUSE_BUTTON_RIGHT)
+        && CheckCollisionPointRec(GetMousePosition(), contentView))
+    {
+        const Vector2 mouse = GetMousePosition();
+        bool opened = false;
+        // Exit-link menu: delete / transition audio / exit requirements.
+        // Same-level gold/silver wires first; then stair badges (cross-floor).
+        if (!conversationsTab)
+        {
+            const int linkHit = hitTestLinkRoute(mouse);
+            if (linkHit >= 0)
+            {
+                openLinkContextMenu(linkHit, mouse);
+                opened = true;
+            }
+            if (!opened)
+            {
+                const int stairHit = hitTestStairBadge(mouse);
+                if (stairHit >= 0)
+                {
+                    const StairBadgeHit& badge =
+                        cachedStairBadges[static_cast<size_t>(stairHit)];
+                    openFloorExitContextMenu(
+                        badge.fromId, badge.direction, badge.toId, mouse);
+                    opened = true;
+                }
+            }
+        }
+        if (!opened)
+        {
+            for (const std::string& id : ids)
+            {
+                if (!docs->scenes.hasMapPlacement(id))
+                    continue;
+                const SceneLayout sceneLayout = docs->scenes.getLayout(id);
+                if (sceneLayout.level != level)
+                    continue;
+                const Rectangle card = sceneCardBounds(id, canvasBounds);
+                if (!CheckCollisionPointRec(mouse, card))
+                    continue;
+                openContextMenu(ContextMenuSource::Map, id, mouse);
+                opened = true;
+                break;
+            }
+        }
+        if (!opened)
+            closeContextMenu();
+    }
+
     // Card select (all tabs that show the map). Drag only on scenes tab.
     if (canSelectScene
         && dragSource == DragSource::None
-        && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        && editorMousePressed(MOUSE_BUTTON_LEFT))
     {
         for (const std::string& id : ids)
         {
@@ -1690,7 +2697,12 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
             if (!CheckCollisionPointRec(GetMousePosition(), card))
                 continue;
             if (selectSceneForEditor)
-                selectSceneForEditor(id);
+            {
+                std::string parentId;
+                std::string subId;
+                timberline_engine::SceneDocument::parseMapNodeId(id, parentId, subId);
+                selectSceneForEditor(parentId.empty() ? id : parentId);
+            }
             if (canEditMapGeometry)
             {
                 dragSource = DragSource::Canvas;
@@ -1701,48 +2713,394 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         }
     }
 
-    // Update existing-wire retarget drag.
-    if (dragSource == DragSource::ExitLink && linkDragIndex >= 0)
+    // Update existing-wire retarget drag (compass or Use).
+    if ((dragSource == DragSource::ExitLink || dragSource == DragSource::UseLink)
+        && linkDragIndex >= 0)
     {
-        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        if (editorMouseDown(MOUSE_BUTTON_LEFT))
         {
             linkDragHoverTarget = sceneCardAtPoint(GetMousePosition(), canvasBounds);
             if (linkDragHoverTarget == cachedLinkRoutes[static_cast<size_t>(linkDragIndex)].fromId)
                 linkDragHoverTarget.clear();
         }
 
-        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+        if (editorMouseReleased(MOUSE_BUTTON_LEFT))
         {
             const SceneLinkRoute route = cachedLinkRoutes[static_cast<size_t>(linkDragIndex)];
-            const std::string dropId = sceneCardAtPoint(GetMousePosition(), canvasBounds);
-            if (!dropId.empty() && isValidLinkDropTarget(route, dropId))
+            const Vector2 mouse = GetMousePosition();
+            std::string dropPortScene;
+            std::string dropPortDir;
+
+            if (route.isUseLink && !route.useBinding.empty() && graph)
             {
-                graph->retargetExitLink(
-                    route.fromId,
-                    route.direction,
-                    dropId,
-                    route.reciprocal);
+                if (hitTestUseCornerPort(mouse, canvasBounds, dropPortScene, dropPortDir))
+                {
+                    if (dropPortScene == route.fromId && dropPortDir != route.direction)
+                    {
+                        // Move source end — corners are exclusive.
+                        bool otherAsDest = false;
+                        const std::string other = useEndpointAtCorner(
+                            dropPortScene, dropPortDir, &otherAsDest);
+                        if (!other.empty() && other != route.useBinding)
+                        {
+                            if (otherAsDest)
+                            {
+                                for (const SceneLinkRoute& r : cachedLinkRoutes)
+                                {
+                                    if (r.isUseLink && r.useBinding == other
+                                        && r.toId == route.fromId)
+                                    {
+                                        graph->setUseBindingMapToCorner(
+                                            r.fromId, other, route.direction);
+                                        break;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                graph->setUseBindingMapCorner(
+                                    route.fromId, other, route.direction);
+                            }
+                        }
+                        if (graph->setUseBindingMapCorner(
+                                route.fromId, route.useBinding, dropPortDir))
+                            cachedLinkRoutes.clear();
+                    }
+                    else if (dropPortScene == route.toId && dropPortDir != route.toCorner)
+                    {
+                        // Move destination end onto another free/swappable corner.
+                        bool otherAsDest = false;
+                        const std::string other = useEndpointAtCorner(
+                            dropPortScene, dropPortDir, &otherAsDest);
+                        if (!other.empty() && other != route.useBinding)
+                        {
+                            if (otherAsDest)
+                            {
+                                for (const SceneLinkRoute& r : cachedLinkRoutes)
+                                {
+                                    if (r.isUseLink && r.useBinding == other
+                                        && r.toId == route.toId)
+                                    {
+                                        graph->setUseBindingMapToCorner(
+                                            r.fromId, other, route.toCorner);
+                                        break;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                graph->setUseBindingMapCorner(
+                                    route.toId, other, route.toCorner);
+                            }
+                        }
+                        if (graph->setUseBindingMapToCorner(
+                                route.fromId, route.useBinding, dropPortDir))
+                            cachedLinkRoutes.clear();
+                    }
+                    else if (dropPortScene != route.fromId && dropPortScene != route.toId
+                             && graph->isSameLevelLink(route.fromId, dropPortScene))
+                    {
+                        // Retarget to a new card, attaching at the dropped corner.
+                        bool occupiedDest = false;
+                        const std::string occupant = useEndpointAtCorner(
+                            dropPortScene, dropPortDir, &occupiedDest);
+                        if (!occupant.empty())
+                        {
+                            exitLinkFeedback = "Use corner already occupied";
+                            exitLinkFeedbackUntil = GetTime() + 2.5;
+                        }
+                        else if (graph->setUseBindingTarget(
+                                     route.fromId, route.useBinding, dropPortScene))
+                        {
+                            graph->setUseBindingMapToCorner(
+                                route.fromId, route.useBinding, dropPortDir);
+                            cachedLinkRoutes.clear();
+                        }
+                    }
+                }
+                else
+                {
+                    const std::string dropId = sceneCardAtPoint(mouse, canvasBounds);
+                    if (!dropId.empty() && dropId != route.fromId
+                        && graph->isSameLevelLink(route.fromId, dropId))
+                    {
+                        if (graph->setUseBindingTarget(
+                                route.fromId, route.useBinding, dropId))
+                            cachedLinkRoutes.clear();
+                    }
+                }
+            }
+            else if (!route.isUseLink && graph)
+            {
+                if (hitTestDirectionPort(mouse, canvasBounds, dropPortScene, dropPortDir)
+                    && dropPortScene == route.fromId && dropPortDir != route.direction)
+                {
+                    if (graph->reassignExitDirection(
+                            route.fromId, route.direction, dropPortDir, route.reciprocal))
+                        cachedLinkRoutes.clear();
+                }
+                else
+                {
+                    const std::string dropId =
+                        hitTestDirectionPort(mouse, canvasBounds, dropPortScene, dropPortDir)
+                            ? dropPortScene
+                            : sceneCardAtPoint(mouse, canvasBounds);
+                    if (!dropId.empty() && isValidLinkDropTarget(route, dropId))
+                    {
+                        graph->retargetExitLink(
+                            route.fromId,
+                            route.direction,
+                            dropId,
+                            route.reciprocal);
+                    }
+                }
             }
             cancelLinkDrag();
         }
     }
 
-    // Update new-connector port drag.
+    // Update compass port drag (create or move existing exit).
     if (dragSource == DragSource::ExitPort && !portDragFromId.empty())
     {
-        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        if (editorMouseDown(MOUSE_BUTTON_LEFT))
         {
             linkDragHoverTarget = sceneCardAtPoint(GetMousePosition(), canvasBounds);
             if (linkDragHoverTarget == portDragFromId)
                 linkDragHoverTarget.clear();
         }
 
-        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+        if (editorMouseReleased(MOUSE_BUTTON_LEFT))
         {
-            const std::string dropId = sceneCardAtPoint(GetMousePosition(), canvasBounds);
-            if (!dropId.empty() && dropId != portDragFromId && graph)
+            const Vector2 mouse = GetMousePosition();
+            std::string dropPortScene;
+            std::string dropPortDir;
+            const bool dropOnPort =
+                hitTestDirectionPort(mouse, canvasBounds, dropPortScene, dropPortDir);
+
+            if (portDragMovingExisting && graph)
             {
-                graph->createExitLink(portDragFromId, portDragDirection, dropId, true);
+                if (dropOnPort && dropPortScene == portDragFromId
+                    && dropPortDir != portDragDirection)
+                {
+                    if (graph->reassignExitDirection(
+                            portDragFromId, portDragDirection, dropPortDir, true))
+                    {
+                        cachedLinkRoutes.clear();
+                        exitLinkFeedback = "Moved exit to " + dropPortDir;
+                        exitLinkFeedbackUntil = GetTime() + 2.0;
+                    }
+                    else
+                    {
+                        exitLinkFeedback = "Could not move exit to that port";
+                        exitLinkFeedbackUntil = GetTime() + 3.0;
+                    }
+                }
+                else
+                {
+                    const std::string dropId = dropOnPort
+                        ? dropPortScene
+                        : sceneCardAtPoint(mouse, canvasBounds);
+                    if (!dropId.empty() && dropId != portDragFromId
+                        && graph->isSameLevelLink(portDragFromId, dropId))
+                    {
+                        if (graph->retargetExitLink(
+                                portDragFromId,
+                                portDragDirection,
+                                dropId,
+                                true))
+                        {
+                            cachedLinkRoutes.clear();
+                            exitLinkFeedback.clear();
+                        }
+                        else
+                        {
+                            exitLinkFeedback = "Could not retarget exit";
+                            exitLinkFeedbackUntil = GetTime() + 3.0;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                const std::string dropId = dropOnPort
+                    ? dropPortScene
+                    : sceneCardAtPoint(mouse, canvasBounds);
+                if (!dropId.empty() && dropId != portDragFromId && graph)
+                {
+                    if (graph->createExitLink(
+                            portDragFromId, portDragDirection, dropId, true))
+                    {
+                        exitLinkFeedback.clear();
+                        exitLinkFeedbackUntil = 0.0;
+                    }
+                    else
+                    {
+                        if (!graph->isSameLevelLink(portDragFromId, dropId))
+                            exitLinkFeedback =
+                                "Exit not created: scenes are on different levels";
+                        else if (graph->exitDirectionAlreadyLeadsTo(
+                                     portDragDirection, dropId, portDragFromId))
+                            exitLinkFeedback =
+                                "Exit not created: another scene already uses "
+                                + portDragDirection + " into that target";
+                        else
+                            exitLinkFeedback = "Exit not created (invalid link)";
+                        exitLinkFeedbackUntil = GetTime() + 4.0;
+                        TraceLog(
+                            LOG_WARNING,
+                            "TIMBERLINE: createExitLink %s --%s--> %s failed",
+                            portDragFromId.c_str(),
+                            portDragDirection.c_str(),
+                            dropId.c_str());
+                    }
+                }
+            }
+            cancelPortDrag();
+        }
+    }
+
+    // Update Use corner-port drag → move slot, retarget, or create.
+    if (dragSource == DragSource::UsePort && !portDragFromId.empty())
+    {
+        if (editorMouseDown(MOUSE_BUTTON_LEFT))
+        {
+            linkDragHoverTarget = sceneCardAtPoint(GetMousePosition(), canvasBounds);
+            if (linkDragHoverTarget == portDragFromId)
+                linkDragHoverTarget.clear();
+        }
+
+        if (editorMouseReleased(MOUSE_BUTTON_LEFT))
+        {
+            const Vector2 mouse = GetMousePosition();
+            std::string dropPortScene;
+            std::string dropPortDir;
+            const bool dropOnCorner =
+                hitTestUseCornerPort(mouse, canvasBounds, dropPortScene, dropPortDir);
+
+            if (portDragMovingExisting && graph && !portDragUseBinding.empty())
+            {
+                if (dropOnCorner && dropPortScene == portDragFromId
+                    && dropPortDir != portDragDirection)
+                {
+                    bool otherAsDest = false;
+                    const std::string other = useEndpointAtCorner(
+                        portDragFromId, dropPortDir, &otherAsDest);
+                    if (!other.empty() && other != portDragUseBinding)
+                    {
+                        if (otherAsDest)
+                        {
+                            for (const SceneLinkRoute& r : cachedLinkRoutes)
+                            {
+                                if (r.isUseLink && r.useBinding == other
+                                    && r.toId == portDragFromId)
+                                {
+                                    graph->setUseBindingMapToCorner(
+                                        r.fromId, other, portDragDirection);
+                                    break;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            graph->setUseBindingMapCorner(
+                                portDragFromId, other, portDragDirection);
+                        }
+                    }
+                    if (graph->setUseBindingMapCorner(
+                            portDragFromId, portDragUseBinding, dropPortDir))
+                    {
+                        cachedLinkRoutes.clear();
+                        exitLinkFeedback = "Moved Use wire to " + dropPortDir;
+                        exitLinkFeedbackUntil = GetTime() + 2.0;
+                    }
+                }
+                else if (dropOnCorner && dropPortScene != portDragFromId
+                         && graph->isSameLevelLink(portDragFromId, dropPortScene))
+                {
+                    bool occupied = false;
+                    const std::string occupant =
+                        useEndpointAtCorner(dropPortScene, dropPortDir, &occupied);
+                    if (!occupant.empty())
+                    {
+                        exitLinkFeedback = "Use corner already occupied";
+                        exitLinkFeedbackUntil = GetTime() + 2.5;
+                    }
+                    else if (graph->setUseBindingTarget(
+                                 portDragFromId, portDragUseBinding, dropPortScene))
+                    {
+                        graph->setUseBindingMapToCorner(
+                            portDragFromId, portDragUseBinding, dropPortDir);
+                        cachedLinkRoutes.clear();
+                        exitLinkFeedback.clear();
+                    }
+                }
+                else
+                {
+                    const std::string dropId = sceneCardAtPoint(mouse, canvasBounds);
+                    if (!dropId.empty() && dropId != portDragFromId
+                        && graph->isSameLevelLink(portDragFromId, dropId))
+                    {
+                        if (graph->setUseBindingTarget(
+                                portDragFromId, portDragUseBinding, dropId))
+                        {
+                            cachedLinkRoutes.clear();
+                            exitLinkFeedback.clear();
+                        }
+                    }
+                }
+            }
+            else if (!dropOnCorner || dropPortScene != portDragFromId)
+            {
+                const std::string dropId = dropOnCorner
+                    ? dropPortScene
+                    : sceneCardAtPoint(mouse, canvasBounds);
+                if (!dropId.empty() && dropId != portDragFromId && graph
+                    && graph->isSameLevelLink(portDragFromId, dropId))
+                {
+                    if (dropOnCorner
+                        && !useEndpointAtCorner(dropPortScene, dropPortDir).empty())
+                    {
+                        exitLinkFeedback = "Use corner already occupied";
+                        exitLinkFeedbackUntil = GetTime() + 2.5;
+                    }
+                    else
+                    {
+                        sceneUseTransition.docs = docs;
+                        sceneUseTransition.graph = graph;
+                        sceneUseTransition.uiFont = uiFont;
+                        sceneUseTransition.uiFontBold = uiFontBold;
+                        sceneUseTransition.onSaved = [this]() {
+                            cachedLinkRoutes.clear();
+                        };
+                        sceneUseTransition.openForLink(portDragFromId, dropId);
+                        const std::string created = [&]() {
+                            sceneUseTransition.createNewBinding();
+                            return sceneUseTransition.selectedBinding;
+                        }();
+                        // Exclusive source + dest corners.
+                        if (!created.empty()
+                            && useEndpointAtCorner(portDragFromId, portDragDirection)
+                                   .empty())
+                        {
+                            graph->setUseBindingMapCorner(
+                                portDragFromId, created, portDragDirection);
+                        }
+                        if (!created.empty() && dropOnCorner
+                            && useEndpointAtCorner(dropPortScene, dropPortDir).empty())
+                        {
+                            graph->setUseBindingMapToCorner(
+                                portDragFromId, created, dropPortDir);
+                        }
+                        cachedLinkRoutes.clear();
+                        exitLinkFeedback = "Use link created  -  Manage to rebind";
+                        exitLinkFeedbackUntil = GetTime() + 2.5;
+                    }
+                }
+                else if (!dropId.empty() && dropId != portDragFromId)
+                {
+                    exitLinkFeedback = "Use link not created: different map level";
+                    exitLinkFeedbackUntil = GetTime() + 3.0;
+                }
             }
             cancelPortDrag();
         }
@@ -1751,15 +3109,33 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
     drawExitArrows(canvasBounds);
     drawStairIcons(canvasBounds);
     if (canEditMapGeometry)
+    {
         drawDirectionPorts(canvasBounds);
-    if (dragSource == DragSource::ExitPort)
+        drawUseCornerPorts(canvasBounds);
+    }
+    if (dragSource == DragSource::ExitPort || dragSource == DragSource::UsePort)
         drawPortDragPreview(canvasBounds);
+
+    if (!exitLinkFeedback.empty() && GetTime() <= exitLinkFeedbackUntil)
+    {
+        DrawTextEx(
+            (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
+            exitLinkFeedback.c_str(),
+            {contentView.x + 8.0f, contentView.y + contentView.height - 22.0f},
+            kFontTiny,
+            1.0f,
+            Color{220, 120, 100, 255});
+    }
+    else if (GetTime() > exitLinkFeedbackUntil)
+    {
+        exitLinkFeedback.clear();
+    }
 
     // Canvas card move commit (ghost is drawn AFTER EndScissorMode so list→map
     // ghosts are not clipped to the map viewport).
     if (!graph->stackDialogOpen &&
         dragSource == DragSource::Canvas &&
-        IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+        editorMouseReleased(MOUSE_BUTTON_LEFT))
     {
         if (CheckCollisionPointRec(GetMousePosition(), contentView) &&
             docs->scenes.hasScene(dragSceneId))
@@ -1803,21 +3179,23 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
 
     if (!graph->stackDialogOpen &&
         dragSource == DragSource::SceneList &&
-        IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+        editorMouseReleased(MOUSE_BUTTON_LEFT))
     {
         placeSceneListDrop(GetMousePosition(), canvasBounds, contentView);
         dragSource = DragSource::None;
         dragSceneId.clear();
     }
 
-    if (dragSource == DragSource::ExitLink && !IsMouseButtonDown(MOUSE_BUTTON_LEFT)
-        && !IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+    if ((dragSource == DragSource::ExitLink || dragSource == DragSource::UseLink)
+        && !editorMouseDown(MOUSE_BUTTON_LEFT)
+        && !editorMouseReleased(MOUSE_BUTTON_LEFT))
     {
         // Safety: mouse lost while dragging.
         cancelLinkDrag();
     }
-    if (dragSource == DragSource::ExitPort && !IsMouseButtonDown(MOUSE_BUTTON_LEFT)
-        && !IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+    if ((dragSource == DragSource::ExitPort || dragSource == DragSource::UsePort)
+        && !editorMouseDown(MOUSE_BUTTON_LEFT)
+        && !editorMouseReleased(MOUSE_BUTTON_LEFT))
     {
         cancelPortDrag();
     }
@@ -1827,7 +3205,7 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
     // Drag ghost above the scissor so list→map drags stay visible over the UI.
     if (!graph->stackDialogOpen
         && !dragSceneId.empty()
-        && IsMouseButtonDown(MOUSE_BUTTON_LEFT)
+        && editorMouseDown(MOUSE_BUTTON_LEFT)
         && (dragSource == DragSource::Canvas || dragSource == DragSource::SceneList))
     {
         const SceneMapCanvas::SceneCardMetrics dragMetrics = measureSceneCard(dragSceneId);
@@ -1880,7 +3258,25 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
     drawCanvasScrollBars(canvasBounds, contentView, content, showH, showV);
     clampCanvasScrollForCanvas(canvasBounds, contentView, content);
 
-    if (!graph->stackDialogOpen &&
+    const bool modalBlocksMapScroll =
+        graph->stackDialogOpen
+        || sceneAuthoring.blocksInput()
+        || sceneAssist.blocksInput()
+        || sceneInventory.blocksInput()
+        || sceneInteractions.blocksInput()
+        || sceneStoryEvents.blocksInput()
+        || sceneEffects.blocksInput()
+        || sceneTransition.blocksInput()
+        || sceneExitRequirements.blocksInput()
+        || sceneUseTransition.blocksInput()
+        || sceneFloorConnect.blocksInput()
+        || (preferences && preferences->blocksInput())
+        || (variableEditor && variableEditor->open)
+        || (itemEditor && itemEditor->blocksInput())
+        || confirmMode != ConfirmMode::None
+        || contextMenuSource != ContextMenuSource::None;
+
+    if (!modalBlocksMapScroll &&
         !draggingHScroll &&
         !draggingVScroll &&
         dragSource == DragSource::None &&
@@ -1911,6 +3307,886 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
     }
 }
 
+
+bool SceneMapCanvas::anyAuthoringModalOpen() const
+{
+    return sceneAuthoring.blocksInput()
+        || sceneAssist.blocksInput()
+        || sceneInventory.blocksInput()
+        || sceneInteractions.blocksInput()
+        || sceneStoryEvents.blocksInput()
+        || sceneEffects.blocksInput()
+        || sceneTransition.blocksInput()
+        || sceneExitRequirements.blocksInput()
+        || sceneUseTransition.blocksInput()
+        || sceneFloorConnect.blocksInput()
+        || (preferences != nullptr && preferences->blocksInput())
+        || (variableEditor && variableEditor->open)
+        || (itemEditor && itemEditor->blocksInput())
+        || (graph && graph->stackDialogOpen);
+}
+
+bool SceneMapCanvas::blocksInput() const
+{
+    return confirmMode != ConfirmMode::None || anyAuthoringModalOpen();
+}
+
+void SceneMapCanvas::closeContextMenu()
+{
+    contextMenuSource = ContextMenuSource::None;
+    contextMenuSceneId.clear();
+    contextMenuLinkFromId.clear();
+    contextMenuLinkToId.clear();
+    contextMenuLinkDirection.clear();
+    contextMenuLinkReciprocal = false;
+    contextMenuLinkIsUse = false;
+    contextMenuUseBinding.clear();
+    contextMenuBounds = {0.0f, 0.0f, 0.0f, 0.0f};
+    contextMenuAnchor = {0.0f, 0.0f};
+}
+
+void SceneMapCanvas::openContextMenu(
+    ContextMenuSource source,
+    const std::string& sceneId,
+    Vector2 mouse)
+{
+    if (source == ContextMenuSource::None || source == ContextMenuSource::ExitLink
+        || sceneId.empty() || docs == nullptr)
+        return;
+    // sceneId may be parent or parent#sub (map view).
+    if (!docs->scenes.hasMapNode(sceneId) && !docs->scenes.hasScene(sceneId))
+        return;
+    if (blocksInput())
+        return;
+
+    std::string parentId;
+    std::string subId;
+    timberline_engine::SceneDocument::parseMapNodeId(sceneId, parentId, subId);
+    if (parentId.empty())
+        parentId = sceneId;
+
+    // Select without starting a drag.
+    dragSource = DragSource::None;
+    dragSceneId.clear();
+    cancelLinkDrag();
+    cancelPortDrag();
+    if (selectSceneForEditor)
+        selectSceneForEditor(parentId);
+
+    contextMenuSource = source;
+    contextMenuSceneId = sceneId; // keep full map node id for Remove-from-map
+    contextMenuLinkFromId.clear();
+    contextMenuLinkToId.clear();
+    contextMenuLinkDirection.clear();
+    contextMenuLinkReciprocal = false;
+    contextMenuAnchor = mouse;
+    contextMenuBounds = {0.0f, 0.0f, 0.0f, 0.0f};
+}
+
+void SceneMapCanvas::openLinkContextMenu(int routeIndex, Vector2 mouse)
+{
+    if (routeIndex < 0 || routeIndex >= static_cast<int>(cachedLinkRoutes.size()))
+        return;
+    if (docs == nullptr || graph == nullptr)
+        return;
+    if (blocksInput())
+        return;
+
+    const SceneLinkRoute& route = cachedLinkRoutes[static_cast<size_t>(routeIndex)];
+    if (route.fromId.empty() || route.toId.empty() || route.direction.empty())
+        return;
+
+    dragSource = DragSource::None;
+    dragSceneId.clear();
+    cancelLinkDrag();
+    cancelPortDrag();
+
+    contextMenuSource =
+        route.isUseLink ? ContextMenuSource::UseLink : ContextMenuSource::ExitLink;
+    contextMenuSceneId.clear();
+    contextMenuLinkFromId = route.fromId;
+    contextMenuLinkToId = route.toId;
+    contextMenuLinkDirection = route.direction;
+    contextMenuLinkReciprocal = route.reciprocal;
+    contextMenuLinkIsUse = route.isUseLink;
+    contextMenuUseBinding = route.useBinding;
+    contextMenuAnchor = mouse;
+    contextMenuBounds = {0.0f, 0.0f, 0.0f, 0.0f};
+}
+
+int SceneMapCanvas::hitTestStairBadge(Vector2 mouse) const
+{
+    for (int i = static_cast<int>(cachedStairBadges.size()) - 1; i >= 0; --i)
+    {
+        if (CheckCollisionPointRec(mouse, cachedStairBadges[static_cast<size_t>(i)].bounds))
+            return i;
+    }
+    return -1;
+}
+
+void SceneMapCanvas::openFloorExitContextMenu(
+    const std::string& fromId,
+    const std::string& direction,
+    const std::string& toId,
+    Vector2 mouse)
+{
+    if (docs == nullptr || graph == nullptr)
+        return;
+    if (blocksInput())
+        return;
+    if (fromId.empty() || direction.empty() || toId.empty())
+        return;
+
+    dragSource = DragSource::None;
+    dragSceneId.clear();
+    cancelLinkDrag();
+    cancelPortDrag();
+
+    contextMenuSource = ContextMenuSource::ExitLink;
+    contextMenuSceneId.clear();
+    contextMenuLinkFromId = fromId;
+    contextMenuLinkToId = toId;
+    contextMenuLinkDirection = direction;
+    contextMenuLinkReciprocal = true; // floor links are authored as reciprocal up/down
+    contextMenuLinkIsUse = false;
+    contextMenuUseBinding.clear();
+    contextMenuAnchor = mouse;
+    contextMenuBounds = {0.0f, 0.0f, 0.0f, 0.0f};
+}
+
+void SceneMapCanvas::manageContextMenuUseLink()
+{
+    if (contextMenuLinkFromId.empty() || contextMenuLinkToId.empty())
+        return;
+    sceneUseTransition.docs = docs;
+    sceneUseTransition.graph = graph;
+    sceneUseTransition.uiFont = uiFont;
+    sceneUseTransition.uiFontBold = uiFontBold;
+    sceneUseTransition.onSaved = [this]() { cachedLinkRoutes.clear(); };
+    sceneUseTransition.openForLink(
+        contextMenuLinkFromId,
+        contextMenuLinkToId,
+        contextMenuUseBinding);
+}
+
+void SceneMapCanvas::deleteContextMenuLink()
+{
+    if (!graph || contextMenuLinkFromId.empty() || contextMenuLinkDirection.empty())
+        return;
+    graph->deleteExitLink(
+        contextMenuLinkFromId,
+        contextMenuLinkDirection,
+        /*clearReciprocal=*/true);
+    cancelLinkDrag();
+    cachedLinkRoutes.clear();
+}
+
+void SceneMapCanvas::editContextMenuLinkTransition()
+{
+    if (contextMenuLinkFromId.empty() || contextMenuLinkToId.empty())
+        return;
+    sceneTransition.docs = docs;
+    sceneTransition.graph = graph;
+    sceneTransition.uiFont = uiFont;
+    sceneTransition.uiFontBold = uiFontBold;
+    sceneTransition.onSaved = [this]() {
+        // Document already marked dirty by upsert.
+        (void)this;
+    };
+    // Prefer destination (toId) when neither side has constrained SFX yet.
+    sceneTransition.openForLink(
+        contextMenuLinkFromId,
+        contextMenuLinkToId,
+        contextMenuLinkToId);
+}
+
+void SceneMapCanvas::cancelDragsForScene(const std::string& sceneId)
+{
+    if (!sceneId.empty() && dragSceneId == sceneId)
+    {
+        dragSource = DragSource::None;
+        dragSceneId.clear();
+    }
+    if (!portDragFromId.empty() && portDragFromId == sceneId)
+        cancelPortDrag();
+    if (linkDragIndex >= 0 && linkDragIndex < static_cast<int>(cachedLinkRoutes.size()))
+    {
+        const SceneLinkRoute& route = cachedLinkRoutes[static_cast<size_t>(linkDragIndex)];
+        if (route.fromId == sceneId || route.toId == sceneId)
+            cancelLinkDrag();
+    }
+}
+
+void SceneMapCanvas::beginRemoveFromMapConfirm(const std::string& sceneId)
+{
+    closeContextMenu();
+    if (docs == nullptr || sceneId.empty() || !docs->scenes.hasMapNode(sceneId))
+        return;
+    if (!docs->scenes.hasMapPlacement(sceneId))
+        return;
+    confirmMode = ConfirmMode::RemoveFromMap;
+    confirmSceneId = sceneId;
+    pendingPurgePaths.clear();
+    purgeListScroll = 0.0f;
+    confirmWaitMouseRelease = true;
+}
+
+void SceneMapCanvas::beginDeleteSceneConfirm(const std::string& sceneId)
+{
+    closeContextMenu();
+    if (docs == nullptr || sceneId.empty() || !docs->scenes.hasScene(sceneId))
+        return;
+    confirmMode = ConfirmMode::DeleteScene;
+    confirmSceneId = sceneId;
+    // Collect before removal so the confirm dialog can list unique resources.
+    pendingPurgePaths = collectUniqueSceneAssetPaths(*docs, sceneId);
+    purgeListScroll = 0.0f;
+    confirmWaitMouseRelease = true;
+}
+
+void SceneMapCanvas::requestDeleteSelectedScene()
+{
+    if (selectionSceneId == nullptr || selectionSceneId->empty())
+        return;
+    if (blocksInput())
+        return;
+    beginDeleteSceneConfirm(*selectionSceneId);
+}
+
+void SceneMapCanvas::performRemoveFromMap()
+{
+    if (docs == nullptr || confirmSceneId.empty())
+    {
+        confirmMode = ConfirmMode::None;
+        confirmSceneId.clear();
+        confirmWaitMouseRelease = false;
+        return;
+    }
+    const std::string id = confirmSceneId;
+    docs->scenes.clearLayout(id);
+    docs->markDirty();
+    cancelDragsForScene(id);
+    confirmMode = ConfirmMode::None;
+    confirmSceneId.clear();
+    confirmWaitMouseRelease = false;
+}
+
+void SceneMapCanvas::performDeleteScene(bool purgeUniqueAssets)
+{
+    if (docs == nullptr || confirmSceneId.empty() || !docs->scenes.hasScene(confirmSceneId))
+    {
+        confirmMode = ConfirmMode::None;
+        confirmSceneId.clear();
+        pendingPurgePaths.clear();
+        confirmWaitMouseRelease = false;
+        return;
+    }
+
+    const std::string removedId = confirmSceneId;
+    std::vector<std::string> uniquePaths = pendingPurgePaths;
+    if (uniquePaths.empty())
+        uniquePaths = collectUniqueSceneAssetPaths(*docs, removedId);
+
+    if (!docs->scenes.removeScene(removedId))
+    {
+        confirmMode = ConfirmMode::None;
+        confirmSceneId.clear();
+        pendingPurgePaths.clear();
+        confirmWaitMouseRelease = false;
+        return;
+    }
+
+    if (thumbnails)
+        thumbnails->clear();
+    cancelLinkDrag();
+    cancelPortDrag();
+    cancelDragsForScene(removedId);
+    dragSource = DragSource::None;
+    dragSceneId.clear();
+
+    if (selectionSceneId && *selectionSceneId == removedId)
+        selectionSceneId->clear();
+    if (variableEditor)
+        variableEditor->selectedVariableKey.clear();
+    if (variablesScroll)
+        *variablesScroll = 0.0f;
+
+    const std::vector<std::string> remaining = docs->scenes.sceneIds();
+    if (selectionSceneId && selectionSceneId->empty() && !remaining.empty())
+        *selectionSceneId = remaining.front();
+
+    if (docs->isConversationsTab() && conversation)
+    {
+        conversation->selectedKey.clear();
+        conversation->rebuildConversationTree();
+        for (const ConversationTreeNode& root : conversation->roots)
+            conversation->expanded.insert(root.key);
+    }
+
+    docs->markDirty();
+
+    if (purgeUniqueAssets && !uniquePaths.empty())
+        purgeSceneAssetFiles(docs->assetRoot, uniquePaths);
+
+    confirmMode = ConfirmMode::None;
+    confirmSceneId.clear();
+    pendingPurgePaths.clear();
+    purgeListScroll = 0.0f;
+    confirmWaitMouseRelease = false;
+}
+
+bool SceneMapCanvas::handleContextMenuClick(Vector2 mouse)
+{
+    if (contextMenuSource == ContextMenuSource::None)
+        return false;
+    if (contextMenuBounds.width < 1.0f)
+        return false;
+
+    if (!CheckCollisionPointRec(mouse, contextMenuBounds))
+    {
+        closeContextMenu();
+        return true;
+    }
+
+    const float rowH = 22.0f;
+    int i = static_cast<int>((mouse.y - contextMenuBounds.y - 2.0f) / rowH);
+    const std::string sceneId = contextMenuSceneId;
+    const ContextMenuSource source = contextMenuSource;
+    // Snapshot link identity before closeContextMenu() clears it.
+    const std::string linkFrom = contextMenuLinkFromId;
+    const std::string linkTo = contextMenuLinkToId;
+    const std::string linkDir = contextMenuLinkDirection;
+    const std::string linkBinding = contextMenuUseBinding;
+    const bool linkIsUse = contextMenuLinkIsUse;
+
+    if (source == ContextMenuSource::ExitLink || source == ContextMenuSource::UseLink)
+    {
+        closeContextMenu();
+        if (i == 0)
+        {
+            if (graph && !linkFrom.empty())
+            {
+                if (linkIsUse && !linkBinding.empty())
+                    graph->clearUseBinding(linkFrom, linkBinding);
+                else if (!linkIsUse && !linkDir.empty())
+                    graph->deleteExitLink(linkFrom, linkDir, /*clearReciprocal=*/true);
+                cancelLinkDrag();
+                cachedLinkRoutes.clear();
+            }
+            return true;
+        }
+        if (i == 1)
+        {
+            if (linkIsUse)
+            {
+                if (!linkFrom.empty() && !linkTo.empty())
+                {
+                    sceneUseTransition.docs = docs;
+                    sceneUseTransition.graph = graph;
+                    sceneUseTransition.uiFont = uiFont;
+                    sceneUseTransition.uiFontBold = uiFontBold;
+                    sceneUseTransition.onSaved = [this]() { cachedLinkRoutes.clear(); };
+                    sceneUseTransition.openForLink(linkFrom, linkTo, linkBinding);
+                }
+            }
+            else if (!linkFrom.empty() && !linkTo.empty())
+            {
+                sceneTransition.docs = docs;
+                sceneTransition.graph = graph;
+                sceneTransition.uiFont = uiFont;
+                sceneTransition.uiFontBold = uiFontBold;
+                sceneTransition.onSaved = [this]() { (void)this; };
+                sceneTransition.openForLink(linkFrom, linkTo, linkTo);
+            }
+            return true;
+        }
+        if (i == 2 && !linkFrom.empty() && !linkTo.empty())
+        {
+            if (linkIsUse)
+            {
+                // Same constrained enter/exit SFX dialog used on gold compass wires.
+                sceneTransition.docs = docs;
+                sceneTransition.graph = graph;
+                sceneTransition.uiFont = uiFont;
+                sceneTransition.uiFontBold = uiFontBold;
+                sceneTransition.onSaved = [this]() { (void)this; };
+                sceneTransition.openForLink(linkFrom, linkTo, linkTo);
+            }
+            else if (!linkDir.empty())
+            {
+                sceneExitRequirements.docs = docs;
+                sceneExitRequirements.graph = graph;
+                sceneExitRequirements.parchment = parchment;
+                sceneExitRequirements.uiFont = uiFont;
+                sceneExitRequirements.uiFontBold = uiFontBold;
+                sceneExitRequirements.onSaved = [this]() { (void)this; };
+                sceneExitRequirements.openForExit(linkFrom, linkDir, linkTo);
+            }
+            return true;
+        }
+        return true;
+    }
+
+    std::string parentId;
+    std::string subId;
+    timberline_engine::SceneDocument::parseMapNodeId(sceneId, parentId, subId);
+    if (parentId.empty())
+        parentId = sceneId;
+
+    int unplacedSubs = 0;
+    if (source == ContextMenuSource::Map && subId.empty())
+    {
+        for (const std::string& sid : docs->scenes.subSceneIds(parentId))
+        {
+            const std::string node =
+                timberline_engine::SceneDocument::makeMapNodeId(parentId, sid);
+            if (!docs->scenes.hasMapPlacement(node))
+                ++unplacedSubs;
+        }
+    }
+
+    if (i == 0)
+    {
+        closeContextMenu();
+        // Edit the map node (parent#sub for alternate views).
+        sceneAuthoring.openEditDialog(sceneId.empty() ? parentId : sceneId);
+        return true;
+    }
+    if (i == 1)
+    {
+        if (source == ContextMenuSource::Map)
+            beginRemoveFromMapConfirm(sceneId);
+        else
+            beginDeleteSceneConfirm(parentId);
+        return true;
+    }
+
+    // Map parent card menu: Edit, Remove, Connect to floor, [Place alternates].
+    // Map alternate card: Edit, Remove, [Place alternates] (rare).
+    if (i == 2 && source == ContextMenuSource::Map && subId.empty())
+    {
+        closeContextMenu();
+        sceneFloorConnect.docs = docs;
+        sceneFloorConnect.graph = graph;
+        sceneFloorConnect.uiFont = uiFont;
+        sceneFloorConnect.uiFontBold = uiFontBold;
+        sceneFloorConnect.onSaved = [this]() {
+            cachedLinkRoutes.clear();
+            if (thumbnails)
+                thumbnails->clear();
+        };
+        sceneFloorConnect.openForScene(sceneId.empty() ? parentId : sceneId);
+        return true;
+    }
+    if (i == 3 && source == ContextMenuSource::Map && subId.empty() && unplacedSubs > 0)
+    {
+        closeContextMenu();
+        placeUnplacedSubViewsOnMap(parentId);
+        return true;
+    }
+    if (i == 2 && source == ContextMenuSource::Map && !subId.empty() && unplacedSubs > 0)
+    {
+        closeContextMenu();
+        placeUnplacedSubViewsOnMap(parentId);
+        return true;
+    }
+
+    closeContextMenu();
+    return true;
+}
+
+void SceneMapCanvas::placeUnplacedSubViewsOnMap(const std::string& parentId)
+{
+    if (!docs || parentId.empty() || !docs->scenes.hasScene(parentId))
+        return;
+    if (!docs->scenes.hasMapPlacement(parentId))
+        return;
+
+    const SceneLayout parentLayout = docs->scenes.getLayout(parentId);
+    int placed = 0;
+    for (const std::string& sid : docs->scenes.subSceneIds(parentId))
+    {
+        const std::string node =
+            timberline_engine::SceneDocument::makeMapNodeId(parentId, sid);
+        if (docs->scenes.hasMapPlacement(node))
+            continue;
+        SceneLayout layout = parentLayout;
+        layout.x = parentLayout.x
+            + static_cast<float>(placed + 1) * (kSceneCardWidth + 48.0f);
+        layout.y = parentLayout.y + 24.0f;
+        docs->scenes.setLayout(node, layout);
+        ++placed;
+    }
+    if (placed > 0)
+    {
+        docs->markDirty();
+        cachedLinkRoutes.clear();
+        exitLinkFeedback = "Placed " + std::to_string(placed) + " alternate view(s)";
+        exitLinkFeedbackUntil = GetTime() + 2.5;
+    }
+}
+
+void SceneMapCanvas::drawContextMenu()
+{
+    const bool isExitLinkMenu = contextMenuSource == ContextMenuSource::ExitLink;
+    const bool isUseLinkMenu = contextMenuSource == ContextMenuSource::UseLink;
+    const bool isLinkMenu = isExitLinkMenu || isUseLinkMenu;
+    if (contextMenuSource == ContextMenuSource::None
+        || (!isLinkMenu && contextMenuSceneId.empty())
+        || (isLinkMenu && contextMenuLinkFromId.empty()))
+    {
+        contextMenuBounds = {0.0f, 0.0f, 0.0f, 0.0f};
+        return;
+    }
+
+    const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
+    std::string parentId;
+    std::string subId;
+    timberline_engine::SceneDocument::parseMapNodeId(
+        contextMenuSceneId, parentId, subId);
+    if (parentId.empty())
+        parentId = contextMenuSceneId;
+
+    int unplacedSubs = 0;
+    if (!isLinkMenu && contextMenuSource == ContextMenuSource::Map && subId.empty())
+    {
+        for (const std::string& sid : docs->scenes.subSceneIds(parentId))
+        {
+            const std::string node =
+                timberline_engine::SceneDocument::makeMapNodeId(parentId, sid);
+            if (!docs->scenes.hasMapPlacement(node))
+                ++unplacedSubs;
+        }
+    }
+
+    // ASCII "..." — UI fonts often lack U+2026 and draw it as '?'.
+    const bool sceneMenu = !isLinkMenu;
+    const bool mapParentMenu =
+        sceneMenu && contextMenuSource == ContextMenuSource::Map && subId.empty();
+    const char* item0 = isLinkMenu ? "Delete" : "Edit...";
+    const char* item1 = isUseLinkMenu
+        ? "Manage..."
+        : (isExitLinkMenu
+               ? "Edit Transition Audio..."
+               : ((contextMenuSource == ContextMenuSource::Map)
+                      ? "Remove from map"
+                      : "Delete scene..."));
+    // Map parent card: Connect to floor, then optional Place alternate views.
+    // Exit link: Exit Requirements… after transition-audio (SFX) edit.
+    // Use link: Edit Transition Audio… after Manage (narrative / destination).
+    const char* item2 = nullptr;
+    const char* item3 = nullptr;
+    if (isExitLinkMenu)
+    {
+        item2 = "Exit Requirements...";
+    }
+    else if (isUseLinkMenu)
+    {
+        item2 = "Edit Transition Audio...";
+    }
+    else if (mapParentMenu)
+    {
+        item2 = "Connect to floor...";
+        if (unplacedSubs > 0)
+            item3 = "Place alternate views";
+    }
+    else if (
+        !isLinkMenu && contextMenuSource == ContextMenuSource::Map && unplacedSubs > 0)
+    {
+        item2 = "Place alternate views";
+    }
+    const int itemCount = item3 != nullptr ? 4 : (item2 != nullptr ? 3 : 2);
+
+    const float rowH = 22.0f;
+    const float pad = 10.0f;
+    float menuW = 180.0f;
+    const char* itemsPreview[4] = {item0, item1, item2, item3};
+    for (int i = 0; i < itemCount; ++i)
+    {
+        const char* label = itemsPreview[i];
+        if (label == nullptr)
+            continue;
+        menuW = std::max(
+            menuW, MeasureTextEx(font, label, kFontSmall, 1.0f).x + pad * 2.0f);
+    }
+    const float menuH = rowH * static_cast<float>(itemCount) + 4.0f;
+
+    float x = contextMenuAnchor.x;
+    float y = contextMenuAnchor.y;
+    const float screenW = static_cast<float>(GetScreenWidth());
+    const float screenH = static_cast<float>(GetScreenHeight());
+    if (x + menuW > screenW - 4.0f)
+        x = screenW - menuW - 4.0f;
+    if (y + menuH > screenH - 4.0f)
+        y = screenH - menuH - 4.0f;
+    if (x < 4.0f)
+        x = 4.0f;
+    if (y < 4.0f)
+        y = 4.0f;
+
+    contextMenuBounds = {x, y, menuW, menuH};
+    DrawRectangleRec(contextMenuBounds, Color{36, 32, 44, 255});
+    DrawRectangleLinesEx(contextMenuBounds, 1.0f, kPanelBorder);
+
+    const Vector2 mouse = GetMousePosition();
+    float my = contextMenuBounds.y + 2.0f;
+    for (int i = 0; i < itemCount; ++i)
+    {
+        const char* label = itemsPreview[i];
+        if (label == nullptr)
+            continue;
+        const Rectangle row = {
+            contextMenuBounds.x + 2.0f,
+            my,
+            contextMenuBounds.width - 4.0f,
+            rowH - 2.0f};
+        if (CheckCollisionPointRec(mouse, row))
+            DrawRectangleRec(row, Color{60, 54, 72, 220});
+        DrawTextEx(
+            font,
+            label,
+            {row.x + 8.0f, row.y + 3.0f},
+            kFontSmall,
+            1.0f,
+            kTextPrimary);
+        my += rowH;
+    }
+
+    if (editorMousePressed(MOUSE_BUTTON_LEFT))
+        handleContextMenuClick(mouse);
+    if (IsKeyPressed(KEY_ESCAPE))
+        closeContextMenu();
+}
+
+void SceneMapCanvas::drawConfirmDialogs(int screenWidth, int screenHeight)
+{
+    if (confirmMode == ConfirmMode::None)
+        return;
+
+    if (confirmWaitMouseRelease)
+    {
+        if (!editorMouseDown(MOUSE_BUTTON_LEFT))
+            confirmWaitMouseRelease = false;
+    }
+
+    const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
+    const Font bold = (uiFontBold.texture.id != 0 ? uiFontBold : font);
+    DrawRectangle(0, 0, screenWidth, screenHeight, kModalOverlay);
+    const bool canClick =
+        !confirmWaitMouseRelease && editorMousePressed(MOUSE_BUTTON_LEFT);
+
+    if (confirmMode == ConfirmMode::RemoveFromMap)
+    {
+        const float dialogW = 460.0f;
+        const float dialogH = 180.0f;
+        const Rectangle dialog = {
+            (static_cast<float>(screenWidth) - dialogW) * 0.5f,
+            (static_cast<float>(screenHeight) - dialogH) * 0.5f,
+            dialogW,
+            dialogH};
+        DrawRectangleRounded(dialog, 0.04f, 8, kModalFill);
+        DrawRectangleLinesEx(dialog, 2.0f, kPanelBorder);
+
+        DrawTextEx(
+            bold,
+            "Remove from map",
+            {dialog.x + 20.0f, dialog.y + 18.0f},
+            kFontHeading,
+            1.0f,
+            kTextPrimary);
+        drawWrappedText(
+            font,
+            "Remove " + confirmSceneId + " from the map? Scene stays in the list.",
+            {dialog.x + 20.0f, dialog.y + 56.0f},
+            dialogW - 40.0f,
+            kFontBody,
+            4.0f,
+            kTextMuted);
+
+        const float btnW = 120.0f;
+        const float btnH = 34.0f;
+        const float btnY = dialog.y + dialogH - btnH - 18.0f;
+        const Rectangle confirmBtn = {
+            dialog.x + dialogW - btnW * 2.0f - 36.0f, btnY, btnW, btnH};
+        const Rectangle cancelBtn = {
+            dialog.x + dialogW - btnW - 18.0f, btnY, btnW, btnH};
+        drawEditorButton(font, confirmBtn, "Remove", true, true);
+        drawEditorButton(font, cancelBtn, "Cancel", false, true);
+
+        if (canClick)
+        {
+            const Vector2 mouse = GetMousePosition();
+            if (CheckCollisionPointRec(mouse, confirmBtn))
+                performRemoveFromMap();
+            else if (CheckCollisionPointRec(mouse, cancelBtn)
+                || !CheckCollisionPointRec(mouse, dialog))
+            {
+                confirmMode = ConfirmMode::None;
+                confirmSceneId.clear();
+            }
+        }
+        if (IsKeyPressed(KEY_ESCAPE))
+        {
+            confirmMode = ConfirmMode::None;
+            confirmSceneId.clear();
+            confirmWaitMouseRelease = false;
+        }
+        return;
+    }
+
+    // DeleteScene — one dialog with unique resource list + purge/keep/cancel.
+    const bool hasUnique = !pendingPurgePaths.empty();
+    const float dialogW = 560.0f;
+    const float dialogH = hasUnique ? 360.0f : 200.0f;
+    const Rectangle dialog = {
+        (static_cast<float>(screenWidth) - dialogW) * 0.5f,
+        (static_cast<float>(screenHeight) - dialogH) * 0.5f,
+        dialogW,
+        dialogH};
+    DrawRectangleRounded(dialog, 0.04f, 8, kModalFill);
+    DrawRectangleLinesEx(dialog, 2.0f, kPanelBorder);
+
+    DrawTextEx(
+        bold,
+        "Delete scene",
+        {dialog.x + 20.0f, dialog.y + 16.0f},
+        kFontHeading,
+        1.0f,
+        kTextPrimary);
+    drawWrappedText(
+        font,
+        "Delete scene " + confirmSceneId + " permanently from the project?",
+        {dialog.x + 20.0f, dialog.y + 48.0f},
+        dialogW - 40.0f,
+        kFontBody,
+        4.0f,
+        kTextMuted);
+
+    if (hasUnique)
+    {
+        DrawTextEx(
+            font,
+            "These resources are only used by this scene. Delete them too?",
+            {dialog.x + 20.0f, dialog.y + 88.0f},
+            kFontTiny,
+            1.0f,
+            kTextMuted);
+
+        const Rectangle listArea = {
+            dialog.x + 16.0f,
+            dialog.y + 110.0f,
+            dialogW - 32.0f,
+            dialogH - 180.0f};
+        DrawRectangleRec(listArea, Color{18, 16, 24, 255});
+        DrawRectangleLinesEx(listArea, 1.0f, kPanelInnerEdge);
+
+        const float rowH = 18.0f;
+        const float contentH = static_cast<float>(pendingPurgePaths.size()) * rowH;
+        const float maxScroll = std::max(0.0f, contentH - listArea.height + 8.0f);
+        if (CheckCollisionPointRec(GetMousePosition(), listArea))
+            purgeListScroll -= GetMouseWheelMove() * 24.0f;
+        purgeListScroll = std::clamp(purgeListScroll, 0.0f, maxScroll);
+
+        BeginScissorMode(
+            static_cast<int>(listArea.x),
+            static_cast<int>(listArea.y),
+            static_cast<int>(listArea.width),
+            static_cast<int>(listArea.height));
+        float y = listArea.y + 6.0f - purgeListScroll;
+        for (const std::string& path : pendingPurgePaths)
+        {
+            DrawTextEx(
+                font,
+                path.c_str(),
+                {listArea.x + 8.0f, y},
+                kFontTiny,
+                1.0f,
+                kTextPrimary);
+            y += rowH;
+        }
+        EndScissorMode();
+    }
+    else
+    {
+        DrawTextEx(
+            font,
+            "No unique asset files (shared resources will be kept).",
+            {dialog.x + 20.0f, dialog.y + 96.0f},
+            kFontTiny,
+            1.0f,
+            kTextMuted);
+    }
+
+    const float btnH = 34.0f;
+    const float btnY = dialog.y + dialogH - btnH - 16.0f;
+    const float gap = 10.0f;
+    if (hasUnique)
+    {
+        const float purgeW = 150.0f;
+        const float keepW = 150.0f;
+        const float cancelW = 100.0f;
+        const Rectangle purgeBtn = {
+            dialog.x + dialogW - purgeW - keepW - cancelW - gap * 2.0f - 18.0f,
+            btnY,
+            purgeW,
+            btnH};
+        const Rectangle keepBtn = {
+            dialog.x + dialogW - keepW - cancelW - gap - 18.0f, btnY, keepW, btnH};
+        const Rectangle cancelBtn = {
+            dialog.x + dialogW - cancelW - 18.0f, btnY, cancelW, btnH};
+        drawEditorButton(font, purgeBtn, "Delete & purge", true, true);
+        drawEditorButton(font, keepBtn, "Delete, keep files", true, true);
+        drawEditorButton(font, cancelBtn, "Cancel", false, true);
+
+        if (canClick)
+        {
+            const Vector2 mouse = GetMousePosition();
+            if (CheckCollisionPointRec(mouse, purgeBtn))
+                performDeleteScene(true);
+            else if (CheckCollisionPointRec(mouse, keepBtn))
+                performDeleteScene(false);
+            else if (CheckCollisionPointRec(mouse, cancelBtn)
+                || !CheckCollisionPointRec(mouse, dialog))
+            {
+                confirmMode = ConfirmMode::None;
+                confirmSceneId.clear();
+                pendingPurgePaths.clear();
+            }
+        }
+    }
+    else
+    {
+        const float btnW = 120.0f;
+        const Rectangle confirmBtn = {
+            dialog.x + dialogW - btnW * 2.0f - 36.0f, btnY, btnW, btnH};
+        const Rectangle cancelBtn = {
+            dialog.x + dialogW - btnW - 18.0f, btnY, btnW, btnH};
+        drawEditorButton(font, confirmBtn, "Delete", true, true);
+        drawEditorButton(font, cancelBtn, "Cancel", false, true);
+
+        if (canClick)
+        {
+            const Vector2 mouse = GetMousePosition();
+            if (CheckCollisionPointRec(mouse, confirmBtn))
+                performDeleteScene(false);
+            else if (CheckCollisionPointRec(mouse, cancelBtn)
+                || !CheckCollisionPointRec(mouse, dialog))
+            {
+                confirmMode = ConfirmMode::None;
+                confirmSceneId.clear();
+                pendingPurgePaths.clear();
+            }
+        }
+    }
+
+    if (IsKeyPressed(KEY_ESCAPE))
+    {
+        confirmMode = ConfirmMode::None;
+        confirmSceneId.clear();
+        pendingPurgePaths.clear();
+        confirmWaitMouseRelease = false;
+    }
+}
 
 void SceneMapCanvas::drawStackDialog(int screenWidth, int screenHeight)
 {
@@ -1970,7 +4246,7 @@ void SceneMapCanvas::drawStackDialog(int screenWidth, int screenHeight)
     drawEditorButton(stackFont, downBtn, "Down", true, true);
     drawEditorButton(stackFont, cancelBtn, "Cancel", false, true);
 
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    if (editorMousePressed(MOUSE_BUTTON_LEFT))
     {
         const Vector2 mouse = GetMousePosition();
         if (CheckCollisionPointRec(mouse, upBtn))
@@ -2020,9 +4296,18 @@ void SceneMapCanvas::drawSceneList(Rectangle listBounds)
         && !sceneAuthoring.blocksInput()
         && !sceneAssist.blocksInput()
         && !sceneInventory.blocksInput()
-        && !sceneEffects.blocksInput();
+        && !sceneInteractions.blocksInput()
+        && !sceneStoryEvents.blocksInput()
+        && !sceneEffects.blocksInput()
+        && !sceneTransition.blocksInput()
+        && !sceneExitRequirements.blocksInput()
+        && !sceneUseTransition.blocksInput()
+        && !sceneFloorConnect.blocksInput()
+        && !(preferences && preferences->blocksInput())
+        && confirmMode == ConfirmMode::None
+        && contextMenuSource == ContextMenuSource::None;
 
-    // Header: New Scene button
+    // Header: New Scene
     const float headerH = 28.0f;
     const Rectangle newBtn = {
         listBounds.x + listBounds.width - 108.0f,
@@ -2037,7 +4322,7 @@ void SceneMapCanvas::drawSceneList(Rectangle listBounds)
         1.0f,
         kPanelBorder);
     drawEditorButton(font, newBtn, "New Scene", true, canInteract);
-    if (canInteract && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
+    if (canInteract && editorMousePressed(MOUSE_BUTTON_LEFT)
         && CheckCollisionPointRec(mouse, newBtn))
     {
         sceneAuthoring.openDialog();
@@ -2089,27 +4374,76 @@ void SceneMapCanvas::drawSceneList(Rectangle listBounds)
                 WHITE);
         }
 
-        const bool placed = docs->scenes.hasMapPlacement(id);
-        const int sceneLevel = placed ? docs->scenes.getLayout(id).level : 0;
         const float textX = row.x + kListThumbSize + 14.0f;
-        const float textY =
-            row.y + (kListRowHeight - kListNameFont - kListMetaFont - 8.0f) * 0.5f;
+        const float textRightMargin = 10.0f;
+        const float textMaxW = std::max(8.0f, row.x + row.width - textRightMargin - textX);
+        // Keep text block aligned with the thumb (top pad matches thumbRect.y inset).
+        const float textY = row.y + 6.0f;
         DrawTextEx(font, id.c_str(), {textX, textY}, kListNameFont, 1.0f, kTextPrimary);
-        DrawTextEx(
-            font,
-            placed ? TextFormat("L%d", sceneLevel) : "not on map",
-            {textX, textY + kListNameFont + 6.0f},
-            kListMetaFont,
-            1.0f,
-            kTextMuted);
+
+        std::string description;
+        if (const nlohmann::json* scene = docs->scenes.sceneJson(id);
+            scene != nullptr && scene->is_object())
+            description = scene->value("description", "");
+        const std::string preview = fitSceneListDescriptionPreview(
+            font, description, textMaxW, kListMetaFont);
+        if (!preview.empty())
+        {
+            // Dimmer than kTextMuted so the id stays primary.
+            const Color descColor{100, 92, 78, 200};
+            DrawTextEx(
+                font,
+                preview.c_str(),
+                {textX, textY + kListNameFont + 6.0f},
+                kListMetaFont,
+                1.0f,
+                descColor);
+        }
 
         y += kListRowHeight;
     }
 
     EndScissorMode();
 
+    // Right-click list row → context menu (select only; never starts drag).
+    // Menu itself is drawn later from draw() so the list scissor cannot clip it.
+    const bool canOpenContext =
+        !graph->stackDialogOpen
+        && !(variableEditor && variableEditor->open)
+        && !(layout && layout->isDraggingDivider())
+        && !sceneAuthoring.blocksInput()
+        && !sceneAssist.blocksInput()
+        && !sceneInventory.blocksInput()
+        && !sceneInteractions.blocksInput()
+        && !sceneStoryEvents.blocksInput()
+        && !sceneEffects.blocksInput()
+        && !sceneTransition.blocksInput()
+        && !sceneExitRequirements.blocksInput()
+        && !sceneUseTransition.blocksInput()
+        && !sceneFloorConnect.blocksInput()
+        && !(preferences && preferences->blocksInput())
+        && confirmMode == ConfirmMode::None;
+    if (canOpenContext && CheckCollisionPointRec(mouse, treeBounds)
+        && editorMousePressed(MOUSE_BUTTON_RIGHT))
+    {
+        const float localY = (mouse.y - treeBounds.y) + listScroll;
+        if (localY >= 0.0f)
+        {
+            const int index = static_cast<int>(localY / kListRowHeight);
+            if (index >= 0 && index < static_cast<int>(ids.size()))
+                openContextMenu(
+                    ContextMenuSource::List,
+                    ids[static_cast<size_t>(index)],
+                    mouse);
+            else
+                closeContextMenu();
+        }
+        else
+            closeContextMenu();
+    }
+
     if (canInteract && CheckCollisionPointRec(mouse, treeBounds)
-        && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        && editorMousePressed(MOUSE_BUTTON_LEFT))
     {
         const float localY = (mouse.y - treeBounds.y) + listScroll;
         if (localY >= 0.0f)
@@ -2131,7 +4465,9 @@ void SceneMapCanvas::drawSceneList(Rectangle listBounds)
         }
     }
 
-    if (CheckCollisionPointRec(GetMousePosition(), treeBounds))
+    if (CheckCollisionPointRec(GetMousePosition(), treeBounds)
+        && confirmMode == ConfirmMode::None
+        && contextMenuSource == ContextMenuSource::None)
         listScroll -= GetMouseWheelMove() * 24.0f;
     if (listScroll < 0.0f)
         listScroll = 0.0f;
@@ -2234,7 +4570,7 @@ void SceneMapCanvas::drawTabs(Rectangle leftBounds)
             1.0f,
             active ? kTextPrimary : kTextMuted);
 
-        if (CheckCollisionPointRec(GetMousePosition(), tab) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        if (CheckCollisionPointRec(GetMousePosition(), tab) && editorMousePressed(MOUSE_BUTTON_LEFT))
         {
             docs->activeTabIndex = static_cast<int>(i);
             thumbnails->clear();
@@ -2300,12 +4636,8 @@ bool SceneMapCanvas::loadScenePreviewMusic(
     Music& outMusic,
     std::string& outTempFile)
 {
-    if (!previewAudioReady)
-    {
-        if (!IsAudioDeviceReady())
-            InitAudioDevice();
-        previewAudioReady = IsAudioDeviceReady();
-    }
+    // Never InitAudioDevice from map draw/preview load — startup owns init.
+    previewAudioReady = editorAudioDeviceReady();
     if (!previewAudioReady || docs == nullptr || relPath.empty())
         return false;
 
@@ -2453,7 +4785,13 @@ void SceneMapCanvas::syncScenePreviewMedia()
     if (imagePath != previewLargePath)
         loadScenePreviewTexture(imagePath);
 
-    if (musicPath != previewMusicPath)
+    // Reload when the path changes, or when a previous attempt failed (e.g. file
+    // appeared after Generate). Clearing the cached path on failure lets the next
+    // frame retry without waiting for an explicit invalidate.
+    const bool musicNeedsLoad =
+        (musicPath != previewMusicPath)
+        || (!musicPath.empty() && !previewMusicLoaded);
+    if (musicNeedsLoad)
     {
         if (previewMusicLoaded && IsMusicStreamPlaying(previewMusic))
             StopMusicStream(previewMusic);
@@ -2473,9 +4811,14 @@ void SceneMapCanvas::syncScenePreviewMedia()
         if (!musicPath.empty())
             previewMusicLoaded =
                 loadScenePreviewMusic(musicPath, previewMusic, previewMusicTempFile);
+        if (!previewMusicLoaded)
+            previewMusicPath.clear();
     }
 
-    if (ambientPath != previewAmbientPath)
+    const bool ambientNeedsLoad =
+        (ambientPath != previewAmbientPath)
+        || (!ambientPath.empty() && !previewAmbientLoaded);
+    if (ambientNeedsLoad)
     {
         if (previewAmbientLoaded && IsMusicStreamPlaying(previewAmbient))
             StopMusicStream(previewAmbient);
@@ -2495,6 +4838,8 @@ void SceneMapCanvas::syncScenePreviewMedia()
         if (!ambientPath.empty())
             previewAmbientLoaded = loadScenePreviewMusic(
                 ambientPath, previewAmbient, previewAmbientTempFile);
+        if (!previewAmbientLoaded)
+            previewAmbientPath.clear();
     }
 
     if (previewMusicLoaded && previewMusicPlaying)
@@ -2550,7 +4895,15 @@ void SceneMapCanvas::drawScenePreviewPane(Rectangle paneBounds)
         && !sceneAuthoring.blocksInput()
         && !sceneAssist.blocksInput()
         && !sceneInventory.blocksInput()
-        && !sceneEffects.blocksInput();
+        && !sceneInteractions.blocksInput()
+        && !sceneStoryEvents.blocksInput()
+        && !sceneEffects.blocksInput()
+        && !sceneTransition.blocksInput()
+        && !sceneExitRequirements.blocksInput()
+        && !sceneUseTransition.blocksInput()
+        && !sceneFloorConnect.blocksInput()
+        && !(preferences && preferences->blocksInput())
+        && confirmMode == ConfirmMode::None;
 
     auto drawTransportBtn = [&](Rectangle btn, const char* label, bool enabled, bool active) {
         drawEditorButton(font, btn, label, active, enabled);
@@ -2691,7 +5044,7 @@ void SceneMapCanvas::drawScenePreviewPane(Rectangle paneBounds)
             summary.empty() ? kTextMuted : Color{160, 180, 120, 255});
     }
 
-    if (canInteract && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    if (canInteract && editorMousePressed(MOUSE_BUTTON_LEFT))
     {
         if (previewMusicLoaded && CheckCollisionPointRec(mouse, musicBtn))
         {
@@ -2702,6 +5055,10 @@ void SceneMapCanvas::drawScenePreviewPane(Rectangle paneBounds)
             }
             else
             {
+                // Keep music dominant; duck ambient if both are previewed.
+                SetMusicVolume(previewMusic, 0.90f);
+                if (previewAmbientLoaded)
+                    SetMusicVolume(previewAmbient, 0.35f);
                 if (!IsMusicStreamPlaying(previewMusic))
                     PlayMusicStream(previewMusic);
                 else
@@ -2718,6 +5075,8 @@ void SceneMapCanvas::drawScenePreviewPane(Rectangle paneBounds)
             }
             else
             {
+                // Ambient alone a bit quieter than music; avoid harsh full-scale beds.
+                SetMusicVolume(previewAmbient, 0.55f);
                 if (!IsMusicStreamPlaying(previewAmbient))
                     PlayMusicStream(previewAmbient);
                 else
@@ -2798,7 +5157,21 @@ void SceneMapCanvas::drawBottomPane(Rectangle bottomBounds)
         1.5f,
         kDividerGrip);
 
-    variableEditor->drawVariablesPane(variablesBounds);
+    const bool paneInteract = !sceneAuthoring.blocksInput()
+        && !sceneAssist.blocksInput()
+        && !sceneInventory.blocksInput()
+        && !sceneInteractions.blocksInput()
+        && !sceneStoryEvents.blocksInput()
+        && !sceneEffects.blocksInput()
+        && !sceneTransition.blocksInput()
+        && !sceneExitRequirements.blocksInput()
+        && !sceneUseTransition.blocksInput()
+        && !sceneFloorConnect.blocksInput()
+        && !(preferences && preferences->blocksInput())
+        && !(itemEditor && itemEditor->blocksInput())
+        && !(variableEditor && variableEditor->open)
+        && confirmMode == ConfirmMode::None;
+    variableEditor->drawVariablesPane(variablesBounds, paneInteract);
     drawScenePreviewPane(previewBounds);
 }
 
@@ -2812,6 +5185,7 @@ void SceneMapCanvas::drawDividers(int screenWidth, int screenHeight) const
 
 void SceneMapCanvas::drawStatusBar(int screenWidth, int screenHeight)
 {
+    const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
     const std::string status = docs->dirty ? "Modified" : "Saved";
     std::string pathLabel = "Resources: " + docs->resourceDir;
     if (docs->isConversationsTab() && docs->conversationsLoaded)
@@ -2820,11 +5194,82 @@ void SceneMapCanvas::drawStatusBar(int screenWidth, int screenHeight)
         pathLabel = docs->itemsPath;
     else if (docs->scenes.isLoaded())
         pathLabel = docs->scenes.path();
-    DrawTextEx((uiFont.texture.id != 0 ? uiFont : GetFontDefault()), pathLabel.c_str(), {8.0f, static_cast<float>(screenHeight) - 18.0f},
-               kFontTiny, 1.0f, kTextMuted);
-    DrawTextEx((uiFont.texture.id != 0 ? uiFont : GetFontDefault()), status.c_str(),
-               {static_cast<float>(screenWidth) - 70.0f, static_cast<float>(screenHeight) - 18.0f},
-               kFontTiny, 1.0f, docs->dirty ? Color{200, 140, 80, 255} : kTextMuted);
+
+    const float statusX = static_cast<float>(screenWidth) - 70.0f;
+    const float statusY = static_cast<float>(screenHeight) - 18.0f;
+    // Compact gear hit target just left of the Saved/Modified label.
+    const float gearSize = 12.0f;
+    const Rectangle gearBtn = {
+        statusX - gearSize - 10.0f,
+        static_cast<float>(screenHeight) - 17.0f,
+        gearSize,
+        gearSize};
+    const bool canPrefs = !(preferences && preferences->blocksInput())
+        && !(variableEditor && variableEditor->open)
+        && !sceneAuthoring.blocksInput()
+        && !sceneAssist.blocksInput()
+        && !sceneInventory.blocksInput()
+        && !sceneInteractions.blocksInput()
+        && !sceneStoryEvents.blocksInput()
+        && !sceneEffects.blocksInput()
+        && !sceneTransition.blocksInput()
+        && !sceneExitRequirements.blocksInput()
+        && !sceneUseTransition.blocksInput()
+        && !sceneFloorConnect.blocksInput()
+        && confirmMode == ConfirmMode::None;
+
+    DrawTextEx(
+        font,
+        pathLabel.c_str(),
+        {8.0f, statusY},
+        kFontTiny,
+        1.0f,
+        kTextMuted);
+
+    // Procedural gear: round hub + 8 square teeth fused to the rim.
+    {
+        const Vector2 c = {
+            gearBtn.x + gearBtn.width * 0.5f,
+            gearBtn.y + gearBtn.height * 0.5f};
+        const float bodyR = gearSize * 0.32f;
+        const float toothW = gearSize * 0.22f;
+        const float toothH = gearSize * 0.28f; // radial length; overlaps body
+        const bool hover = CheckCollisionPointRec(GetMousePosition(), gearBtn);
+        const Color gearColor = !canPrefs
+            ? kTextDisabled
+            : (hover ? kPanelBorder : kTextMuted);
+
+        DrawCircleV(c, bodyR, gearColor);
+        for (int i = 0; i < 8; ++i)
+        {
+            const float a = static_cast<float>(i) * (3.14159265f * 0.25f);
+            // Center of tooth sits on the rim so it connects to the hub.
+            const float midR = bodyR - 0.5f;
+            const Vector2 mid = {
+                c.x + std::cos(a) * midR,
+                c.y + std::sin(a) * midR};
+            DrawRectanglePro(
+                {mid.x, mid.y, toothW, toothH},
+                {toothW * 0.5f, toothH * 0.15f},
+                a * (180.0f / 3.14159265f) + 90.0f,
+                gearColor);
+        }
+        DrawCircleV(c, bodyR * 0.42f, Color{14, 13, 18, 255});
+    }
+
+    DrawTextEx(
+        font,
+        status.c_str(),
+        {statusX, statusY},
+        kFontTiny,
+        1.0f,
+        docs->dirty ? Color{200, 140, 80, 255} : kTextMuted);
+
+    if (canPrefs && openPreferences && editorMousePressed(MOUSE_BUTTON_LEFT)
+        && CheckCollisionPointRec(GetMousePosition(), gearBtn))
+    {
+        openPreferences();
+    }
 }
 
 
@@ -2910,7 +5355,10 @@ void SceneMapCanvas::draw()
     drawBottomPane(bottom);
     drawDividers(screenWidth, screenHeight);
     drawStatusBar(screenWidth, screenHeight);
+    // Context menu after list/canvas (and their scissors) so it is never clipped.
+    drawContextMenu();
     drawStackDialog(screenWidth, screenHeight);
+    drawConfirmDialogs(screenWidth, screenHeight);
     if (itemEditor)
         itemEditor->drawNewItemDialog(screenWidth, screenHeight);
     if (variableEditor)
@@ -2918,7 +5366,22 @@ void SceneMapCanvas::draw()
     sceneAuthoring.draw(screenWidth, screenHeight);
     sceneAssist.draw(screenWidth, screenHeight);
     sceneInventory.draw(screenWidth, screenHeight);
+    sceneInteractions.draw(screenWidth, screenHeight);
+    sceneStoryEvents.draw(screenWidth, screenHeight);
     sceneEffects.draw(screenWidth, screenHeight);
+    sceneTransition.draw(screenWidth, screenHeight);
+    sceneExitRequirements.draw(screenWidth, screenHeight);
+    sceneUseTransition.draw(screenWidth, screenHeight);
+    sceneFloorConnect.draw(screenWidth, screenHeight);
+    if (preferences)
+        preferences->draw(screenWidth, screenHeight);
+    if (apiKeysDialog)
+        apiKeysDialog->draw(screenWidth, screenHeight);
+
+    // Must draw inside BeginDrawing/EndDrawing — SceneEditorApp::draw runs after
+    // EndDrawing and would never show (while still blocking input).
+    if (parchment != nullptr && parchment->blocksInput())
+        parchment->draw(screenWidth, screenHeight);
 
     EndDrawing();
 }

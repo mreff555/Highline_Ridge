@@ -82,6 +82,10 @@ bool loadGameConfig(const std::string& configPath, GameConfig& outConfig)
         outConfig.display.x = display.value("x", outConfig.display.x);
         outConfig.display.y = display.value("y", outConfig.display.y);
         outConfig.display.monitor = display.value("monitor", outConfig.display.monitor);
+        outConfig.display.aspectPreference =
+            display.value("aspectPreference", outConfig.display.aspectPreference);
+        if (outConfig.display.aspectPreference.empty())
+            outConfig.display.aspectPreference = "auto";
     }
 
     if (config.contains("audio") && config["audio"].is_object())
@@ -108,6 +112,8 @@ bool loadGameConfig(const std::string& configPath, GameConfig& outConfig)
         outConfig.tts.enabled = tts.value("enabled", outConfig.tts.enabled);
         outConfig.tts.voiceId = tts.value("voice", outConfig.tts.voiceId);
         outConfig.tts.bundleDir = tts.value("bundleDir", outConfig.tts.bundleDir);
+        outConfig.tts.silenceRevisitedSceneTts = tts.value(
+            "silenceRevisitedSceneTts", outConfig.tts.silenceRevisitedSceneTts);
     }
 
     if (config.contains("saves") && config["saves"].is_object())
@@ -154,7 +160,9 @@ bool saveGameConfig(const std::string& configPath, const GameConfig& config)
         {"fullscreen", config.display.fullscreen},
         {"x", config.display.x},
         {"y", config.display.y},
-        {"monitor", config.display.monitor}
+        {"monitor", config.display.monitor},
+        {"aspectPreference",
+         config.display.aspectPreference.empty() ? "auto" : config.display.aspectPreference}
     };
     root["audio"] = {
         {"master", config.audio.master},
@@ -165,6 +173,12 @@ bool saveGameConfig(const std::string& configPath, const GameConfig& config)
     root["input"] = {
         {"clickHoldSeconds", config.input.clickHoldSeconds},
         {"skipDropConfirmation", config.input.skipDropConfirmation}
+    };
+    root["tts"] = {
+        {"enabled", config.tts.enabled},
+        {"voice", config.tts.voiceId},
+        {"bundleDir", config.tts.bundleDir},
+        {"silenceRevisitedSceneTts", config.tts.silenceRevisitedSceneTts}
     };
     root["saves"] = {
         {"maxNamedSaves", config.saves.maxNamedSaves}

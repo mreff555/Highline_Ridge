@@ -45,15 +45,37 @@ if(_EDITOR_STANDALONE)
     )
     FetchContent_MakeAvailable(json)
 
+    # Standalone editor build: same Homebrew /opt/homebrew discovery as the game (#35).
+    include("${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/HomebrewPrefix.cmake")
+
     find_package(PkgConfig QUIET)
     if(PkgConfig_FOUND)
         pkg_check_modules(LIBLZMA IMPORTED_TARGET liblzma)
         pkg_check_modules(LIBJPEG IMPORTED_TARGET libjpeg)
+        if(NOT LIBJPEG_FOUND)
+            pkg_check_modules(LIBJPEG IMPORTED_TARGET libturbojpeg)
+        endif()
+        if(NOT LIBJPEG_FOUND)
+            pkg_check_modules(LIBJPEG IMPORTED_TARGET libjpeg-turbo)
+        endif()
+    endif()
+
+    set(_EDITOR_HB_HINTS)
+    if(HIGHLINE_HOMEBREW_PREFIX)
+        list(APPEND _EDITOR_HB_HINTS
+            "${HIGHLINE_HOMEBREW_PREFIX}"
+            "${HIGHLINE_HOMEBREW_PREFIX}/opt/jpeg"
+            "${HIGHLINE_HOMEBREW_PREFIX}/opt/jpeg-turbo"
+            "${HIGHLINE_HOMEBREW_PREFIX}/opt/xz")
     endif()
 
     if(NOT LIBLZMA_FOUND)
-        find_library(LZMA_LIBRARY NAMES lzma)
-        find_path(LZMA_INCLUDE_DIR lzma.h)
+        find_library(LZMA_LIBRARY NAMES lzma
+            HINTS ${_EDITOR_HB_HINTS}
+            PATH_SUFFIXES lib)
+        find_path(LZMA_INCLUDE_DIR lzma.h
+            HINTS ${_EDITOR_HB_HINTS}
+            PATH_SUFFIXES include)
         if(LZMA_LIBRARY AND LZMA_INCLUDE_DIR)
             add_library(LZMA::LZMA UNKNOWN IMPORTED)
             set_target_properties(LZMA::LZMA PROPERTIES
@@ -65,8 +87,12 @@ if(_EDITOR_STANDALONE)
     endif()
 
     if(NOT LIBJPEG_FOUND)
-        find_library(JPEG_LIBRARY NAMES jpeg)
-        find_path(JPEG_INCLUDE_DIR jpeglib.h)
+        find_library(JPEG_LIBRARY NAMES jpeg turbojpeg
+            HINTS ${_EDITOR_HB_HINTS}
+            PATH_SUFFIXES lib)
+        find_path(JPEG_INCLUDE_DIR jpeglib.h
+            HINTS ${_EDITOR_HB_HINTS}
+            PATH_SUFFIXES include)
         if(JPEG_LIBRARY AND JPEG_INCLUDE_DIR)
             add_library(JPEG::JPEG UNKNOWN IMPORTED)
             set_target_properties(JPEG::JPEG PROPERTIES
@@ -89,6 +115,11 @@ endif()
 set(EDITOR_SOURCES
     main.cpp
     EditorPaths.cpp
+    EditorPrefs.cpp
+    EditorAudio.cpp
+    EditorApiKeys.cpp
+    ApiKeysDialog.cpp
+    EditorInput.cpp
     EditorUiDraw.cpp
     EditorButton.cpp
     ConversationHelpers.cpp
@@ -103,20 +134,48 @@ set(EDITOR_SOURCES
     ItemEditorAuthoring.cpp
     SceneAuthoring.cpp
     SceneAuthoringDialog.cpp
+    FullscreenParchmentEditor.cpp
     SceneAssistDialog.cpp
     SceneInventoryDialog.cpp
+    SceneInteractionsDialog.cpp
+    SceneStoryEventsDialog.cpp
     SceneEffectsDialog.cpp
+    SceneTransitionDialog.cpp
+    SceneExitRequirementsDialog.cpp
+    SceneUseTransitionDialog.cpp
+    SceneFloorConnectDialog.cpp
+    EditorPreferencesDialog.cpp
     SceneGraphModel.cpp
     SceneMapCanvas.cpp
     SceneEditorApp.cpp
     ${_ENGINE_SRC}/SceneDocument.cpp
     ${_ENGINE_SRC}/ImageCompression.cpp
+    ${_ENGINE_SRC}/JobSystem.cpp
+    ${_ENGINE_SRC}/SimdUtil.cpp
     ${_ENGINE_SRC}/PlatformPath.cpp
     ${_ENGINE_SRC}/TtsVoiceMarkup.cpp
     ${_ENGINE_SRC}/AssetStore.cpp
 )
 
+if(APPLE)
+    list(APPEND EDITOR_SOURCES
+        macos/EditorNativeMenu.mm
+        macos/EditorInput_macos.mm
+    )
+endif()
+
 add_executable(scene-editor ${EDITOR_SOURCES})
+
+if(APPLE)
+    # Compile as Objective-C++ without requiring project-level OBJCXX language.
+    set_source_files_properties(
+        macos/EditorNativeMenu.mm
+        macos/EditorInput_macos.mm
+        PROPERTIES
+            COMPILE_FLAGS "-x objective-c++ -fobjc-arc"
+            LANGUAGE CXX
+    )
+endif()
 
 target_include_directories(scene-editor PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -139,7 +198,8 @@ elseif(DEFINED LIBJPEG)
     list(APPEND _image_deps ${LIBJPEG})
 endif()
 
-target_link_libraries(scene-editor PRIVATE raylib ${_image_deps})
+find_package(Threads REQUIRED)
+target_link_libraries(scene-editor PRIVATE raylib ${_image_deps} Threads::Threads)
 
 # Nested build: put scene-editor next to Highline Ridge in the top build dir.
 if(NOT _EDITOR_STANDALONE)

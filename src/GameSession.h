@@ -46,8 +46,14 @@
 #include <BlackjackGame.h>
 #include <BlackjackPanel.h>
 #include <ButtonMgr.h>
+#include <JobSystem.h>
 #include <SceneLoader.h>
 #include <SceneOverlayMgr.h>
+
+#include <cstdint>
+#include <map>
+#include <memory>
+#include <set>
 #include <NarrativeNotebook.h>
 #include <ProgressionService.h>
 #include <SaveGameService.h>
@@ -123,6 +129,15 @@ class GameSession
     void syncNarrativeContext();
     void syncFromActiveScene();
     void refreshSceneImage();
+    void refreshSceneImageSync(const std::string& imagePath);
+    void beginAsyncSceneImageLoad(const std::string& imagePath);
+    bool isSceneImageLoadPending() const { return sceneImageLoadPending; }
+    static bool preferSyncSceneImageLoad();
+    /** Decode+upload images for F/B/L/R exit targets (background). */
+    void prefetchNeighborSceneImages();
+    void enqueueSceneImagePrefetch(const std::string& imagePath);
+    bool tryAdoptPrefetchedSceneImage(const std::string& imagePath);
+    void pruneSceneImagePrefetch(const std::set<std::string>& keepPaths);
     SavedGameState captureSaveState() const;
     bool applySaveState(const SavedGameState& state);
     bool quickSaveToDisk();
@@ -146,6 +161,7 @@ class GameSession
     void playDialogAudio(const SpeakResult& result);
     void playInteractionTts(const SceneInteractionDef& interaction, bool includeAfter = false);
     void playSceneNarrativeTts(const ItemTtsDef& tts);
+    void playEnterDescriptionTts();
     void playSceneNarrativeTtsSequence(const std::vector<std::string>& audioPaths);
     void scheduleDelayedSceneNarrativeTts(
         const std::vector<std::string>& audioPaths,
@@ -176,10 +192,11 @@ class GameSession
     void transitionToScene(const std::string& sceneId, const std::string& subSceneId = "");
     void syncActiveSubScene();
     void tryMove(const std::string& direction);
-    bool maybeRevealIceHouseInteriorDeparture(const std::string& direction);
-    bool maybeRevealCottonwoodMeadowDeparture(const std::string& direction);
-    void maybeTriggerVestryMinisterGreeting();
+    bool tryFireStoryEvents(StoryEventWhen when, const std::string& direction = "");
+    bool storyEventGatesPass(const StoryEventDef& event) const;
+    void applyStoryEvent(const StoryEventDef& event);
     void appendBlockedMovementMessage(const std::string& details);
+    void handleBlockedExitClick(const std::string& direction);
     void trimNarrativeBuffer();
     void handleNarrativeScrollInput();
     void handleInventoryExamineScrollInput();
@@ -327,6 +344,21 @@ class GameSession
 
     bool deferInitialRoomAudio = true;
     bool initialFrameComplete = false;
+    /** Bumped on each scene-image request; stale JobSystem completions are ignored. */
+    std::uint64_t sceneImageLoadGeneration = 0;
+    bool sceneImageLoadPending = false;
+    std::string pendingSceneImagePath;
+
+    struct PrefetchedSceneImage
+    {
+        Texture2D texture{};
+        bool ready = false;
+        bool loading = false;
+        bool failed = false;
+    };
+    /** Keyed by resolved image path (resources/images/...). */
+    std::map<std::string, PrefetchedSceneImage> sceneImagePrefetch;
+    std::uint64_t sceneImagePrefetchGeneration = 0;
     bool pendingOpeningHypoxiaSequence = false;
     bool lucidityCollapseSequenceActive = false;
     bool pendingDelayedSceneNarrativeTts = false;

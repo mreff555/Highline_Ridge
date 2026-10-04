@@ -6,7 +6,10 @@
  ******************************************************************************/
 
 #include "ItemEditor.h"
+#include "EditorAudio.h"
+#include "EditorInput.h"
 
+#include "EditorApiKeys.h"
 #include "EditorButton.h"
 #include "EditorTheme.h"
 #include "EditorUiDraw.h"
@@ -138,7 +141,7 @@ std::string truncateLineToWidth(
 {
     if (text.empty() || MeasureTextEx(font, text.c_str(), fontSize, 1.0f).x <= maxWidth)
         return text;
-    const std::string ellipsis = "…";
+    const std::string ellipsis = "...";
     std::string out = text;
     while (!out.empty()
            && MeasureTextEx(font, (out + ellipsis).c_str(), fontSize, 1.0f).x > maxWidth)
@@ -278,7 +281,7 @@ std::string ItemEditor::truncateToWidth(
     if (MeasureTextEx(font, text.c_str(), fontSize, 1.0f).x <= maxWidth)
         return text;
     std::string out = text;
-    const std::string ellipsis = "…";
+    const std::string ellipsis = "...";
     while (!out.empty()
            && MeasureTextEx(font, (out + ellipsis).c_str(), fontSize, 1.0f).x > maxWidth)
         out.pop_back();
@@ -308,53 +311,7 @@ void ItemEditor::drawOnOffSwitch(
     bool canClick,
     bool& outToggled)
 {
-    outToggled = false;
-    DrawRectangleRounded(track, 0.5f, 6, Color{44, 42, 52, 255});
-    DrawRectangleLinesEx(track, 1.0f, kPanelBorder);
-    if (on)
-    {
-        DrawRectangleRec(
-            {track.x + track.width * 0.5f, track.y + 1.0f,
-             track.width * 0.5f - 1.0f, track.height - 2.0f},
-            kPanelAccent);
-    }
-    else
-    {
-        DrawRectangleRec(
-            {track.x + 1.0f, track.y + 1.0f,
-             track.width * 0.5f - 1.0f, track.height - 2.0f},
-            Color{36, 34, 44, 255});
-    }
-    const float knobSize = track.height - 6.0f;
-    const float knobX = on
-        ? (track.x + track.width - knobSize - 3.0f)
-        : (track.x + 3.0f);
-    DrawRectangleRounded(
-        {knobX, track.y + 3.0f, knobSize, knobSize},
-        0.5f,
-        6,
-        kTextPrimary);
-    DrawTextEx(
-        font,
-        on ? "ON" : "OFF",
-        {track.x + track.width + 8.0f,
-         track.y + (track.height - kFontTiny) * 0.5f},
-        kFontTiny,
-        1.0f,
-        kPanelBorder);
-    if (label != nullptr && label[0] != '\0')
-    {
-        DrawTextEx(
-            font,
-            label,
-            {track.x + track.width + 40.0f,
-             track.y + (track.height - kFontSmall) * 0.5f},
-            kFontSmall,
-            1.0f,
-            kTextPrimary);
-    }
-    if (canClick && CheckCollisionPointRec(GetMousePosition(), track))
-        outToggled = true;
+    timberline_editor::drawOnOffSwitch(font, track, on, label, canClick, outToggled);
 }
 
 void ItemEditor::unloadAuthoringPreviews()
@@ -393,10 +350,9 @@ void ItemEditor::unloadAuthoringPreviews()
 
 void ItemEditor::ensureAuthoringAudio()
 {
-    if (authoringAudioReady)
-        return;
-    InitAudioDevice();
-    authoringAudioReady = IsAudioDeviceReady();
+    // Never InitAudioDevice from ItemEditor — startup owns that (EditorAudio).
+    // Do not call editorEnsureAudioDevice() here; Tahoe races if init runs mid-draw.
+    authoringAudioReady = editorAudioDeviceReady();
 }
 
 void ItemEditor::stopAuthoringSounds()
@@ -444,6 +400,9 @@ bool ItemEditor::loadAuthoringSound(const std::string& relPath, Sound& outSound)
 {
     if (docs == nullptr || relPath.empty())
         return false;
+    // Refuse unless the device is already fully ready — never init from here.
+    // LoadSoundFromWave with sampleRate==0 SIGFPEs; InitAudioDevice mid-draw
+    // races CoreAudio on Tahoe (crash_3 / crash_4).
     ensureAuthoringAudio();
     if (!authoringAudioReady)
         return false;
@@ -528,6 +487,8 @@ bool ItemEditor::loadAuthoringSound(const std::string& relPath, Sound& outSound)
 
 void ItemEditor::syncAuthoringPreviews()
 {
+    // Images only during draw. Sound load/play is deferred to Play clicks so we
+    // never touch CoreAudio from the preview pane while AI image jobs run.
     const std::string& img = authoringPayload.imagePath;
     const std::string& icon = authoringPayload.iconPath;
     const std::string& exSfx = authoringPayload.examineSoundPath;
@@ -559,54 +520,59 @@ void ItemEditor::syncAuthoringPreviews()
             authoringPreviewIconLoaded =
                 loadAuthoringTexture(icon, authoringPreviewIcon);
     }
+
+    // Invalidate cached sounds when paths change — do not LoadSound here.
     if (exSfx != authoringPreviewExamineSoundPath)
     {
         if (authoringPreviewExamineSoundLoaded)
         {
-            if (IsSoundPlaying(authoringPreviewExamineSound))
+            if (authoringAudioReady && IsSoundPlaying(authoringPreviewExamineSound))
                 StopSound(authoringPreviewExamineSound);
-            UnloadSound(authoringPreviewExamineSound);
+            if (authoringAudioReady)
+                UnloadSound(authoringPreviewExamineSound);
             authoringPreviewExamineSound = {};
             authoringPreviewExamineSoundLoaded = false;
             if (authoringPlayingSound == 1)
                 authoringPlayingSound = 0;
         }
         authoringPreviewExamineSoundPath = exSfx;
-        if (!exSfx.empty())
-            authoringPreviewExamineSoundLoaded =
-                loadAuthoringSound(exSfx, authoringPreviewExamineSound);
     }
     if (useSfx != authoringPreviewUseSoundPath)
     {
         if (authoringPreviewUseSoundLoaded)
         {
-            if (IsSoundPlaying(authoringPreviewUseSound))
+            if (authoringAudioReady && IsSoundPlaying(authoringPreviewUseSound))
                 StopSound(authoringPreviewUseSound);
-            UnloadSound(authoringPreviewUseSound);
+            if (authoringAudioReady)
+                UnloadSound(authoringPreviewUseSound);
             authoringPreviewUseSound = {};
             authoringPreviewUseSoundLoaded = false;
             if (authoringPlayingSound == 2)
                 authoringPlayingSound = 0;
         }
         authoringPreviewUseSoundPath = useSfx;
-        if (!useSfx.empty())
-            authoringPreviewUseSoundLoaded =
-                loadAuthoringSound(useSfx, authoringPreviewUseSound);
     }
 
-    // Track play state
-    if (authoringPlayingSound == 1
-        && (!authoringPreviewExamineSoundLoaded
-            || !IsSoundPlaying(authoringPreviewExamineSound)))
-        authoringPlayingSound = 0;
-    if (authoringPlayingSound == 2
-        && (!authoringPreviewUseSoundLoaded
-            || !IsSoundPlaying(authoringPreviewUseSound)))
-        authoringPlayingSound = 0;
+    // Track play state without touching audio if device is down.
+    if (authoringPlayingSound == 1)
+    {
+        if (!authoringPreviewExamineSoundLoaded
+            || !authoringAudioReady
+            || !IsSoundPlaying(authoringPreviewExamineSound))
+            authoringPlayingSound = 0;
+    }
+    if (authoringPlayingSound == 2)
+    {
+        if (!authoringPreviewUseSoundLoaded
+            || !authoringAudioReady
+            || !IsSoundPlaying(authoringPreviewUseSound))
+            authoringPlayingSound = 0;
+    }
 }
 
 void ItemEditor::drawAuthoringPreviewPane(Font font, Rectangle pane, bool canClick)
 {
+    ensureAuthoringAudio();
     syncAuthoringPreviews();
 
     DrawRectangleRec(pane, Color{22, 20, 28, 255});
@@ -704,30 +670,33 @@ void ItemEditor::drawAuthoringPreviewPane(Font font, Rectangle pane, bool canCli
 
     const float btnH = 28.0f;
     const float btnW = (innerW - 8.0f) * 0.5f;
-    auto drawPlayRow = [&](const char* label, int channel, bool loaded, float rowY) {
+    auto drawPlayRow = [&](const char* label,
+                           int channel,
+                           const std::string& path,
+                           bool& loadedFlag,
+                           Sound& sound,
+                           float rowY) {
         DrawTextEx(font, label, {pane.x + pad, rowY}, kFontTiny, 1.0f, kTextMuted);
         const float by = rowY + 14.0f;
         const Rectangle playBtn = {pane.x + pad, by, btnW, btnH};
         const Rectangle stopBtn = {pane.x + pad + btnW + 8.0f, by, btnW, btnH};
         const bool playing = authoringPlayingSound == channel;
+        const bool canPlay = !path.empty() && authoringAudioReady;
         drawEditorButton(
-            font, playBtn, playing ? "Playing…" : "Play", playing, loaded);
-        drawEditorButton(font, stopBtn, "Stop", false, loaded && playing);
-        if (canClick && loaded)
+            font, playBtn, playing ? "Playing..." : "Play", playing, canPlay);
+        drawEditorButton(font, stopBtn, "Stop", false, playing);
+        if (canClick && canPlay)
         {
             const Vector2 mouse = GetMousePosition();
             if (CheckCollisionPointRec(mouse, playBtn))
             {
                 stopAuthoringSounds();
-                if (channel == 1)
+                if (!loadedFlag)
+                    loadedFlag = loadAuthoringSound(path, sound);
+                if (loadedFlag)
                 {
-                    PlaySound(authoringPreviewExamineSound);
-                    authoringPlayingSound = 1;
-                }
-                else if (channel == 2)
-                {
-                    PlaySound(authoringPreviewUseSound);
-                    authoringPlayingSound = 2;
+                    PlaySound(sound);
+                    authoringPlayingSound = channel;
                 }
             }
             else if (CheckCollisionPointRec(mouse, stopBtn) && playing)
@@ -741,12 +710,16 @@ void ItemEditor::drawAuthoringPreviewPane(Font font, Rectangle pane, bool canCli
             ? "Examine sound (none)"
             : "Examine sound",
         1,
+        authoringPayload.examineSoundPath,
         authoringPreviewExamineSoundLoaded,
+        authoringPreviewExamineSound,
         y);
     y = drawPlayRow(
         authoringPayload.useSoundPath.empty() ? "Use sound (none)" : "Use sound",
         2,
+        authoringPayload.useSoundPath,
         authoringPreviewUseSoundLoaded,
+        authoringPreviewUseSound,
         y);
 
     if (!authoringAudioReady && (!authoringPayload.examineSoundPath.empty()
@@ -754,7 +727,7 @@ void ItemEditor::drawAuthoringPreviewPane(Font font, Rectangle pane, bool canCli
     {
         DrawTextEx(
             font,
-            "Audio device not ready",
+            "Audio device not ready — SFX preview disabled",
             {pane.x + pad, y},
             kFontTiny,
             1.0f,
@@ -816,7 +789,7 @@ void ItemEditor::closeAuthoringDialog()
     // Wait for any in-flight generation so we don't free paths under the worker.
     if (authoringGenerateBusy.load() || authoringGenerateThread.joinable())
     {
-        TraceLog(LOG_INFO, "TIMBERLINE authoring: closing dialog — joining worker");
+        TraceLog(LOG_INFO, "TIMBERLINE authoring: closing dialog  -  joining worker");
         joinAuthoringGenerateThread();
         authoringGenerateBusy = false;
         authoringGenerateTarget = 0;
@@ -872,7 +845,56 @@ void ItemEditor::pollAuthoringGenerateResult()
     authoringGenerateResultPending = false;
     authoringGenerateBusy = false;
     authoringGenerateTarget = 0;
-    // Reload previews from disk after worker finishes.
+
+    // Apply chat TTS/text results from the jobs file into the open payload (#55).
+    if (docs != nullptr && !authoringPayload.id.empty())
+    {
+        try
+        {
+            const std::string gameRoot =
+                docs->assetRoot.empty() ? "." : docs->assetRoot;
+            const std::string jobsPath = pathJoin(
+                pathJoin(pathJoin(gameRoot, "resources"), ".authoring"),
+                authoringPayload.id + "_ai_jobs.json");
+            std::ifstream in(jobsPath.c_str());
+            if (in)
+            {
+                nlohmann::json root;
+                in >> root;
+                if (root.contains("jobs") && root["jobs"].is_array())
+                {
+                    for (const auto& job : root["jobs"])
+                    {
+                        if (!job.is_object())
+                            continue;
+                        const std::string text = job.value("resultText", "");
+                        if (text.empty())
+                            continue;
+                        const std::string type = job.value("type", "");
+                        if (type == "generate_tts_description")
+                        {
+                            authoringPayload.ttsDescription = text;
+                            authoringPayload.descriptionTtsEnabled = true;
+                        }
+                        else if (type == "generate_tts_construction_description")
+                        {
+                            authoringPayload.recipe.ttsConstructionDescription = text;
+                            authoringPayload.recipe.ttsEnabled = true;
+                        }
+                        else if (type == "generate_construction_description")
+                        {
+                            authoringPayload.recipe.constructionDescription = text;
+                        }
+                    }
+                }
+            }
+        }
+        catch (const nlohmann::json::exception&)
+        {
+        }
+    }
+
+    // Reload image/icon previews from disk after worker finishes.
     authoringPreviewExaminePath.clear();
     authoringPreviewIconPath.clear();
     authoringPreviewExamineSoundPath.clear();
@@ -886,7 +908,7 @@ bool ItemEditor::generateAuthoringAssetsNow(int target)
 {
     if (authoringGenerateBusy.load())
     {
-        lastAuthoringStatus = "Generation already in progress…";
+        lastAuthoringStatus = "Generation already in progress...";
         return false;
     }
     if (docs == nullptr)
@@ -963,18 +985,30 @@ bool ItemEditor::generateAuthoringAssetsNow(int target)
 
     const bool needsImage =
         flags.generateImageFromDescription || flags.generateIconFromDescription;
-    if (needsImage && authoringAiApiKey.empty())
+    const bool needsSfx =
+        flags.generateExamineSound || flags.generateUseSound;
+    if (needsImage && (sessionKeys == nullptr || !sessionKeys->xaiReady()))
     {
         lastAuthoringStatus =
-            "Paste an xAI API key in the AI Assist section (session only), "
+            "Options → Configure API keys — set a valid xAI key, "
             "then press Generate.";
-        authoringLog("Generate blocked: missing session API key for image jobs");
+        authoringLog("Generate blocked: missing/invalid session xAI key for image jobs");
+        return false;
+    }
+    if (needsSfx && (sessionKeys == nullptr || !sessionKeys->elevenLabsReady()))
+    {
+        lastAuthoringStatus =
+            "Options → Configure API keys — set a valid ElevenLabs key "
+            "(Sound Effects scope) for examine/use SFX.";
+        authoringLog(
+            "Generate blocked: missing/invalid session ElevenLabs key for SFX");
         return false;
     }
 
     ItemAuthoringPayload planPayload = authoringPayload;
     planPayload.aiAssist = flags;
-    const ItemAiAssistPlan plan = planItemAiAssist(planPayload);
+    const ItemAiAssistPlan plan = planItemAiAssist(
+        planPayload, docs != nullptr ? docs->resourceDir : std::string{});
     if (plan.empty())
     {
         lastAuthoringStatus =
@@ -995,13 +1029,17 @@ bool ItemEditor::generateAuthoringAssetsNow(int target)
     // dialog stays open while busy; closeAuthoringDialog joins the thread).
     const std::string assetRoot = docs->assetRoot;
     const std::string itemId = authoringPayload.id;
-    const std::string apiKey = authoringAiApiKey;
+    const std::string apiKey =
+        sessionKeys != nullptr ? sessionKeys->xaiKey : std::string{};
+    const std::string elevenLabsKey =
+        sessionKeys != nullptr ? sessionKeys->elevenLabsKey : std::string{};
     const int targetSnap = target == 0 ? 5 : target;
 
     authoringLog(
         "Starting generate target=" + std::to_string(targetSnap)
         + " item=" + itemId + " jobs=" + std::to_string(plan.jobs.size())
-        + " hasKey=" + std::string(apiKey.empty() ? "no" : "yes"));
+        + " hasKey=" + std::string(apiKey.empty() ? "no" : "yes")
+        + " hasEl=" + std::string(elevenLabsKey.empty() ? "no" : "yes"));
     for (const auto& job : plan.jobs)
         authoringLog("  job outPath=" + job.outPath);
 
@@ -1009,20 +1047,20 @@ bool ItemEditor::generateAuthoringAssetsNow(int target)
     authoringGenerateBusy = true;
     authoringGenerateTarget = targetSnap;
     authoringGenerateResultPending = false;
-    lastAuthoringStatus = "Working… generating assets (see console / .authoring log)";
+    lastAuthoringStatus = "Working... generating assets (see console / .authoring log)";
 
     authoringGenerateThread = std::thread(
-        [this, assetRoot, itemId, apiKey]() {
+        [this, assetRoot, itemId, apiKey, elevenLabsKey]() {
             authoringLog("Worker thread started for " + itemId);
             std::string runStatus;
-            const bool ok =
-                runItemAuthoringAiJobs(assetRoot, itemId, runStatus, apiKey);
+            const bool ok = runItemAuthoringAiJobs(
+                assetRoot, itemId, runStatus, apiKey, elevenLabsKey);
             authoringLog(
                 std::string("Worker finished ok=") + (ok ? "true" : "false")
                 + " status=" + runStatus);
             std::lock_guard<std::mutex> lock(authoringGenerateMutex);
             authoringGenerateResultStatus = ok
-                ? ("Generated assets for " + itemId + " — " + runStatus)
+                ? ("Generated assets for " + itemId + "  -  " + runStatus)
                 : ("[AI assets FAILED] " + runStatus);
             authoringGenerateResultPending = true;
             // busy flag cleared on main thread in pollAuthoringGenerateResult
@@ -1064,7 +1102,7 @@ bool ItemEditor::commitAuthoringDialog()
 
     lastAuthoringStatus = (authoringIsModify ? "Updated " : "Created ") + result.itemId;
     if (!result.aiStatus.empty())
-        lastAuthoringStatus += " — " + result.aiStatus;
+        lastAuthoringStatus += "  -  " + result.aiStatus;
 
     // Run image/SFX generation for any AI assist jobs (paths alone are not enough).
     // Also re-run if a jobs file already lists image/sound types (Modify re-create).
@@ -1077,8 +1115,12 @@ bool ItemEditor::commitAuthoringDialog()
     if (wantsAssetJobs && !result.aiPlan.empty())
     {
         std::string runStatus;
+        const std::string apiKey =
+            sessionKeys != nullptr ? sessionKeys->xaiKey : std::string{};
+        const std::string elevenLabsKey =
+            sessionKeys != nullptr ? sessionKeys->elevenLabsKey : std::string{};
         const bool ok = runItemAuthoringAiJobs(
-            docs->assetRoot, result.itemId, runStatus, authoringAiApiKey);
+            docs->assetRoot, result.itemId, runStatus, apiKey, elevenLabsKey);
         lastAuthoringStatus += ok ? ("\n" + runStatus) : ("\n[AI assets FAILED] " + runStatus);
         // Keep the dialog closed but leave a sticky error if images were requested
         // and the runner could not produce them (usually missing API key).
@@ -1088,8 +1130,7 @@ bool ItemEditor::commitAuthoringDialog()
         {
             authoringError =
                 "Item saved, but image generation failed. "
-                "Paste your xAI API key in AI Assist (session only), then "
-                "Edit Item → Save again. "
+                "Options → Configure API keys, then Edit Item → Save again. "
                 + runStatus;
             // Surface via lastAuthoringStatus on the main pane.
         }
@@ -1141,8 +1182,67 @@ bool ItemEditor::commitAuthoringDialog()
 
 // ---------- Sub-edit popup (description / TTS / sounds / paths) ----------
 
+void ItemEditor::openProseParchment(SubEditKind kind)
+{
+    if (parchment == nullptr || docs == nullptr)
+    {
+        openSubEdit(kind);
+        return;
+    }
+
+    std::string* target = nullptr;
+    bool tts = false;
+    const char* label = "Edit";
+    switch (kind)
+    {
+    case SubEditKind::Description:
+        target = &authoringPayload.description;
+        label = "Item description";
+        break;
+    case SubEditKind::TtsDescription:
+        target = &authoringPayload.ttsDescription;
+        tts = true;
+        label = "Item TTS description";
+        break;
+    case SubEditKind::ConstructionDescription:
+        target = &authoringPayload.recipe.constructionDescription;
+        label = "Construction description";
+        break;
+    case SubEditKind::TtsConstructionDescription:
+        target = &authoringPayload.recipe.ttsConstructionDescription;
+        tts = true;
+        label = "TTS construction description";
+        break;
+    default:
+        openSubEdit(kind);
+        return;
+    }
+
+    parchment->openEditor(
+        target, tts, label, docs->resourceDir, docs->assetRoot);
+    parchment->onClosed = [this]() {
+        // Swallow the mouse release so Cancel/outside-click cannot dismiss
+        // the authoring dialog underneath the parchment.
+        authoringWaitMouseRelease = true;
+    };
+    authoringWaitMouseRelease = true;
+    authoringDropdown = 0;
+}
+
 void ItemEditor::openSubEdit(SubEditKind kind)
 {
+    // Prose/TTS description fields prefer the fullscreen parchment desk (#54).
+    if (kind == SubEditKind::Description || kind == SubEditKind::TtsDescription
+        || kind == SubEditKind::ConstructionDescription
+        || kind == SubEditKind::TtsConstructionDescription)
+    {
+        if (parchment != nullptr && docs != nullptr)
+        {
+            openProseParchment(kind);
+            return;
+        }
+    }
+
     subEditKind = kind;
     subEditScrollY = 0.0f;
     subEditIgnoreFrames = 1;
@@ -1752,7 +1852,7 @@ void ItemEditor::handleSubEditInput()
 
     // Mouse selection / click-to-place caret
     const Vector2 mouse = GetMousePosition();
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
+    if (editorMousePressed(MOUSE_BUTTON_LEFT)
         && CheckCollisionPointRec(mouse, subEditFieldRect))
     {
         const float maxW = subEditFieldRect.width - kSubEditPad * 2.0f;
@@ -1786,7 +1886,7 @@ void ItemEditor::handleSubEditInput()
         subEditSetCursor(best, shift);
         subEditMouseSelecting = true;
     }
-    if (subEditMouseSelecting && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+    if (subEditMouseSelecting && editorMouseDown(MOUSE_BUTTON_LEFT))
     {
         if (subEditSelectAnchor < 0)
             subEditSelectAnchor = subEditCursor;
@@ -1819,7 +1919,7 @@ void ItemEditor::handleSubEditInput()
         }
         subEditCursor = best;
     }
-    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+    if (editorMouseReleased(MOUSE_BUTTON_LEFT))
         subEditMouseSelecting = false;
 
     if (CheckCollisionPointRec(mouse, subEditFieldRect))
@@ -1857,8 +1957,8 @@ void ItemEditor::drawSubEditDialog(int screenWidth, int screenHeight)
     DrawTextEx(
         font,
         subEditSyntaxHighlight
-            ? "TTS syntax highlighting  ·  Ctrl/Cmd+Enter apply  ·  Esc cancel"
-            : "Arrows / select / copy-paste  ·  Ctrl/Cmd+Enter apply  ·  Esc cancel",
+            ? "TTS syntax highlighting   |   Ctrl/Cmd+Enter apply   |   Esc cancel"
+            : "Arrows / select / copy-paste   |   Ctrl/Cmd+Enter apply   |   Esc cancel",
         {dialog.x + 18.0f, dialog.y + 40.0f},
         kFontTiny,
         1.0f,
@@ -1943,7 +2043,7 @@ void ItemEditor::drawSubEditDialog(int screenWidth, int screenHeight)
     drawEditorButton(font, saveBtn, "Apply", true, true);
     drawEditorButton(font, cancelBtn, "Cancel", false, true);
 
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !subEditMouseSelecting)
+    if (editorMousePressed(MOUSE_BUTTON_LEFT) && !subEditMouseSelecting)
     {
         const Vector2 mouse = GetMousePosition();
         if (CheckCollisionPointRec(mouse, saveBtn))
@@ -1990,7 +2090,7 @@ void ItemEditor::handleAuthoringDialogInput(int screenWidth, int screenHeight)
     if (IsKeyPressed(KEY_TAB))
     {
         const int dir = (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) ? -1 : 1;
-        authoringFocusField = (authoringFocusField + dir + 3) % 3; // name / weight / API key
+        authoringFocusField = (authoringFocusField + dir + 2) % 2; // name / weight
     }
 
     int codepoint = GetCharPressed();
@@ -2003,8 +2103,6 @@ void ItemEditor::handleAuthoringDialogInput(int screenWidth, int screenHeight)
             if ((codepoint >= '0' && codepoint <= '9') || codepoint == '.' || codepoint == '-')
                 appendUtf8Codepoint(authoringWeightBuffer, codepoint);
         }
-        else if (authoringFocusField == 2 && codepoint >= 32)
-            appendUtf8Codepoint(authoringAiApiKey, codepoint);
         codepoint = GetCharPressed();
     }
     if (IsKeyPressed(KEY_BACKSPACE))
@@ -2013,33 +2111,6 @@ void ItemEditor::handleAuthoringDialogInput(int screenWidth, int screenHeight)
             authoringPayload.name.pop_back();
         else if (authoringFocusField == 1 && !authoringWeightBuffer.empty())
             authoringWeightBuffer.pop_back();
-        else if (authoringFocusField == 2 && !authoringAiApiKey.empty())
-            authoringAiApiKey.pop_back();
-    }
-
-    // Paste into the session API key field (Ctrl/Cmd+V).
-    const bool mod = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)
-        || IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER);
-    if (mod && IsKeyPressed(KEY_V) && authoringFocusField == 2)
-    {
-        const char* clip = GetClipboardText();
-        if (clip != nullptr && clip[0] != '\0')
-        {
-            // Trim whitespace/newlines from pasted keys.
-            std::string pasted = clip;
-            while (!pasted.empty()
-                   && (pasted.back() == '\n' || pasted.back() == '\r'
-                       || pasted.back() == ' ' || pasted.back() == '\t'))
-                pasted.pop_back();
-            size_t start = 0;
-            while (start < pasted.size()
-                   && (pasted[start] == ' ' || pasted[start] == '\t'
-                       || pasted[start] == '\n' || pasted[start] == '\r'))
-                ++start;
-            if (start > 0)
-                pasted = pasted.substr(start);
-            authoringAiApiKey = pasted;
-        }
     }
 
     if ((IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL))
@@ -2054,7 +2125,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
 
     pollAuthoringGenerateResult();
 
-    if (authoringWaitMouseRelease && !IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+    if (authoringWaitMouseRelease && !editorMouseDown(MOUSE_BUTTON_LEFT))
         authoringWaitMouseRelease = false;
 
     const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
@@ -2065,7 +2136,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
         && authoringIgnoreInputFrames <= 0
         && !subEditOpen
         && !generateBusy
-        && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+        && editorMousePressed(MOUSE_BUTTON_LEFT);
 
     auto drawWorkingLabel = [&](Rectangle afterBtn) {
         if (!generateBusy)
@@ -2141,8 +2212,8 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
     DrawTextEx(
         font,
         authoringIsModify
-            ? "Id is fixed  ·  Ctrl+Enter to save"
-            : "Id is derived from name  ·  Ctrl+Enter to create",
+            ? "Id is fixed   |   Ctrl+Enter to save"
+            : "Id is derived from name   |   Ctrl+Enter to create",
         {dialog.x + 20.0f, dialog.y + 42.0f},
         kFontTiny,
         1.0f,
@@ -2190,7 +2261,6 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
             AiAssistIcon,
             AiAssistExamineSound,
             AiAssistUseSound,
-            FocusApiKey,
             GenerateAssetsNow
         } kind;
         Rectangle rect{};
@@ -2210,7 +2280,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
         if (authoringPayload.descriptionTtsEnabled)
             y += 14.0f + 36.0f + 8.0f; // TTS description
         y += 22.0f + 4 * 22.0f + 10.0f; // capabilities
-        y += 22.0f + 14.0f + fieldH + 8.0f; // AI assist header + API key
+        y += 22.0f; // AI assist header
         y += 4 * (14.0f + 36.0f + 8.0f) + 12.0f; // AI assist path rows
         y += 54.0f + 58.0f + 78.0f; // Generate all + hint box + status box
         y += 28.0f; // product recipe switch
@@ -2253,7 +2323,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
         DrawRectangleRec(thumb, kScrollThumb);
         if (canClick && CheckCollisionPointRec(mouse, thumb))
             authoringDraggingScroll = true;
-        if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        if (!editorMouseDown(MOUSE_BUTTON_LEFT))
             authoringDraggingScroll = false;
         if (authoringDraggingScroll)
         {
@@ -2320,7 +2390,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
             field,
             content,
             authoringPayload.description,
-            "(click to edit in dialog)",
+            "(click to edit on parchment)",
             kFontSmall,
             2.0f);
         hits.push_back({Hit::Kind::OpenDescription, field, 0});
@@ -2358,7 +2428,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
             field,
             content,
             authoringPayload.ttsDescription,
-            "(click to edit — TTS syntax highlighting)",
+            "(click to edit on parchment  -  TTS highlighting)",
             kFontSmall,
             2.0f);
         drawEditorButton(font, aiBtn, "AI Assist", false, true);
@@ -2395,57 +2465,14 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
     DrawTextEx(font, "AI assist", {fieldX, virt(layoutY)}, kFontLabel, 1.0f, kTextPrimary);
     layoutY += 22.0f;
 
-    // Session-only API key (never written to disk / items.json).
-    {
-        DrawTextEx(
-            font,
-            "xAI API key (session only — not saved)",
-            {fieldX, virt(layoutY)},
-            kFontTiny,
-            1.0f,
-            kTextMuted);
-        layoutY += 14.0f;
-        const Rectangle keyField = {fieldX, virt(layoutY), fieldW, fieldH};
-        const bool focused = authoringFocusField == 2;
-        DrawRectangleRec(keyField, Color{22, 20, 28, 255});
-        DrawRectangleLinesEx(keyField, 1.0f, focused ? kPanelBorder : kPanelInnerEdge);
-        std::string masked;
-        if (authoringAiApiKey.empty())
-        {
-            masked = focused ? "|" : "(paste key for image generation)";
-        }
-        else
-        {
-            masked.assign(authoringAiApiKey.size(), '*');
-            if (focused)
-                masked.push_back('|');
-        }
-        BeginScissorMode(
-            static_cast<int>(keyField.x + 2),
-            static_cast<int>(keyField.y + 2),
-            static_cast<int>(keyField.width - 4),
-            static_cast<int>(keyField.height - 4));
-        // Re-open content scissor after field scissor (raylib is not nested).
-        DrawTextEx(
-            font,
-            masked.c_str(),
-            {keyField.x + 6.0f, keyField.y + 5.0f},
-            kFontSmall,
-            1.0f,
-            authoringAiApiKey.empty() && !focused ? kTextMuted : kTextPrimary);
-        EndScissorMode();
-        BeginScissorMode(
-            static_cast<int>(content.x),
-            static_cast<int>(content.y),
-            static_cast<int>(content.width),
-            static_cast<int>(content.height));
-        hits.push_back({Hit::Kind::FocusApiKey, keyField, 2});
-        layoutY += fieldH + 8.0f;
-    }
-
     {
         const float aiBtnW = 88.0f;
         const float rowH = 36.0f;
+        const bool xaiOk = sessionKeys != nullptr && sessionKeys->xaiReady();
+        const bool elevenOk =
+            sessionKeys != nullptr && sessionKeys->elevenLabsReady();
+        const Font boldFont =
+            (uiFontBold.texture.id != 0 ? uiFontBold : font);
         struct AiFieldRow
         {
             const char* label;
@@ -2454,32 +2481,42 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
             Hit::Kind assistKind;
             const char* emptyHint;
             int generateTarget; // 1..4
+            ApiKeyProvider provider; // Xai for images; ElevenLabs for SFX
+            bool needsKey;
         };
         const AiFieldRow aiFields[] = {
             {"Examine image path",
              &authoringPayload.imagePath,
              Hit::Kind::OpenImagePath,
              Hit::Kind::AiAssistImage,
-             "(path — click to edit)",
-             1},
+             "(path  -  click to edit)",
+             1,
+             ApiKeyProvider::Xai,
+             true},
             {"Icon path",
              &authoringPayload.iconPath,
              Hit::Kind::OpenIconPath,
              Hit::Kind::AiAssistIcon,
-             "(path — click to edit)",
-             2},
-            {"Examine sound",
+             "(path  -  click to edit)",
+             2,
+             ApiKeyProvider::Xai,
+             true},
+            {"Examine sound (ElevenLabs)",
              &authoringPayload.examineSoundPath,
              Hit::Kind::OpenExamineSound,
              Hit::Kind::AiAssistExamineSound,
-             "(SFX path — click to edit)",
-             3},
-            {"Use sound",
+             "(SFX path  -  click to edit)",
+             3,
+             ApiKeyProvider::ElevenLabs,
+             true},
+            {"Use sound (ElevenLabs)",
              &authoringPayload.useSoundPath,
              Hit::Kind::OpenUseSound,
              Hit::Kind::AiAssistUseSound,
-             "(SFX path — click to edit)",
-             4},
+             "(SFX path  -  click to edit)",
+             4,
+             ApiKeyProvider::ElevenLabs,
+             true},
         };
         // Leave room to the right of Generate for the pulsing "Working" label.
         const float workLabelW = 72.0f;
@@ -2489,33 +2526,53 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
         {
             DrawTextEx(font, row.label, {fieldX, virt(layoutY)}, kFontTiny, 1.0f, kTextMuted);
             layoutY += 14.0f;
-            const Rectangle field = {fieldX, virt(layoutY), rowFieldW, rowH};
+            const Rectangle fieldRow = {fieldX, virt(layoutY), rowFieldW, rowH};
+            Rectangle keyIcon{};
+            const Rectangle field = row.needsKey
+                ? aiFieldWithKeyIcon(fieldRow, &keyIcon)
+                : fieldRow;
             const Rectangle aiBtn = {
                 fieldX + rowFieldW + 8.0f, virt(layoutY) + 4.0f, aiBtnW, 28.0f};
+            if (row.needsKey)
+            {
+                drawApiKeyStatusIcon(
+                    boldFont,
+                    keyIcon,
+                    sessionKeys != nullptr ? sessionKeys->validity(row.provider)
+                                           : ApiKeyValidity::Missing);
+            }
             DrawRectangleRec(field, Color{22, 20, 28, 255});
             DrawRectangleLinesEx(field, 1.0f, kPanelInnerEdge);
             // Show path truncated/wrapped inside the box only.
             const std::string pathShown = isPlausibleResourcePath(*row.value)
                 ? *row.value
                 : std::string();
+            const std::string emptyHint = row.needsKey
+                ? aiPathFieldHint(row.provider, sessionKeys, row.emptyHint)
+                : std::string(row.emptyHint);
             drawClippedFieldPreview(
                 font,
                 field,
                 content,
                 pathShown,
-                row.emptyHint,
+                emptyHint.c_str(),
                 kFontSmall,
                 2.0f);
+            const bool keyOk = row.provider == ApiKeyProvider::ElevenLabs
+                ? elevenOk
+                : xaiOk;
+            const bool canGenRow = !generateBusy && (!row.needsKey || keyOk);
             EditorButton genBtn;
             genBtn.preferred = aiBtn;
             genBtn.label = "Generate";
-            genBtn.accent = true;
-            genBtn.enabled = !generateBusy;
+            genBtn.accent = canGenRow;
+            genBtn.enabled = canGenRow;
             genBtn.expandWidth = true;
             genBtn.layout(font, editorButtons().config);
             // Prefer the laid-out bounds for hit testing later.
             hits.push_back({row.openKind, field, 0});
-            hits.push_back({row.assistKind, genBtn.bounds, 0});
+            if (canGenRow)
+                hits.push_back({row.assistKind, genBtn.bounds, 0});
             // Defer draw until after scroll content? We're inside scissor — draw now.
             genBtn.draw(font, editorButtons().config);
             if (generateBusy
@@ -2532,17 +2589,19 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
                 virt(layoutY),
                 fieldW - workLabelW - 8.0f,
                 genAllH};
+            const bool canGenAll = !generateBusy && xaiOk;
             EditorButton genAll;
             genAll.preferred = genAllSlot;
             genAll.label = "Generate all assets";
-            genAll.accent = true;
-            genAll.enabled = !generateBusy;
+            genAll.accent = canGenAll;
+            genAll.enabled = canGenAll;
             genAll.expandWidth = true;
             genAll.layout(font, editorButtons().config);
             genAll.draw(font, editorButtons().config);
             if (generateBusy && busyTarget == 5)
                 drawWorkingLabel(genAll.bounds);
-            hits.push_back({Hit::Kind::GenerateAssetsNow, genAll.bounds, 0});
+            if (canGenAll)
+                hits.push_back({Hit::Kind::GenerateAssetsNow, genAll.bounds, 0});
             layoutY += genAllH + 10.0f;
         }
 
@@ -2555,8 +2614,8 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
                 font,
                 hintBox,
                 content,
-                "Generate writes PNG/MP3 now (API key required for images). "
-                "Save writes items.json. Paths must stay under resources/.",
+                "Generate writes PNG/MP3 now (Options → Configure API keys for "
+                "images). Save writes items.json. Paths must stay under resources/.",
                 "",
                 kFontTiny,
                 2.0f);
@@ -2609,7 +2668,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
                 1.0f,
                 authoringPayload.recipe.component1.empty() ? kTextMuted : kTextPrimary);
             DrawTextEx(
-                font, "▾", {field.x + field.width - 18.0f, field.y + 4.0f}, kFontSmall, 1.0f, kTextMuted);
+                font, "v", {field.x + field.width - 18.0f, field.y + 4.0f}, kFontSmall, 1.0f, kTextMuted);
             hits.push_back({Hit::Kind::Dropdown1, field, 0});
             authoringDropdown1Rect = field;
             layoutY += fieldH + 8.0f;
@@ -2633,7 +2692,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
                 1.0f,
                 authoringPayload.recipe.component2.empty() ? kTextMuted : kTextPrimary);
             DrawTextEx(
-                font, "▾", {field.x + field.width - 18.0f, field.y + 4.0f}, kFontSmall, 1.0f, kTextMuted);
+                font, "v", {field.x + field.width - 18.0f, field.y + 4.0f}, kFontSmall, 1.0f, kTextMuted);
             hits.push_back({Hit::Kind::Dropdown2, field, 0});
             authoringDropdown2Rect = field;
             layoutY += fieldH + 8.0f;
@@ -2660,7 +2719,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
                 field,
                 content,
                 authoringPayload.recipe.constructionDescription,
-                "(click to edit in dialog)",
+                "(click to edit on parchment)",
                 kFontSmall,
                 2.0f);
             drawEditorButton(font, aiBtn, "AI Assist", false, true);
@@ -2700,7 +2759,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
                 field,
                 content,
                 authoringPayload.recipe.ttsConstructionDescription,
-                "(click to edit — TTS syntax highlighting)",
+                "(click to edit on parchment  -  TTS highlighting)",
                 kFontSmall,
                 2.0f);
             drawEditorButton(font, aiBtn, "AI Assist", false, true);
@@ -2715,7 +2774,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
             drawEditorButton(
                 font,
                 advBtn,
-                authoringRecipeAdvanced ? "Advanced ▾" : "Advanced",
+                authoringRecipeAdvanced ? "Advanced v" : "Advanced",
                 authoringRecipeAdvanced,
                 true);
             hits.push_back({Hit::Kind::RecipeAdvanced, advBtn, 0});
@@ -2724,7 +2783,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
             {
                 DrawTextEx(
                     font,
-                    "Components JSON (advanced — click to edit)",
+                    "Components JSON (advanced  -  click to edit)",
                     {fieldX, virt(layoutY)},
                     kFontTiny,
                     1.0f,
@@ -2876,9 +2935,6 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
                 {
                 case Hit::Kind::FocusField:
                     authoringFocusField = hit.index;
-                    break;
-                case Hit::Kind::FocusApiKey:
-                    authoringFocusField = 2;
                     break;
                 case Hit::Kind::CapToggle:
                     if (hit.index == 0)

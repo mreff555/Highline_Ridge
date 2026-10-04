@@ -31,6 +31,7 @@ set(SOURCES
     src/SubSceneDef.cpp
     src/MovementMappingDef.cpp
     src/MaskEvaluator.cpp
+    src/ConditionMarkup.cpp
     src/MovementResolver.cpp
     src/SceneInventory.cpp
     src/SceneOverlayDef.cpp
@@ -47,6 +48,9 @@ set(SOURCES
     src/SpeakTargetMgr.cpp
     src/ImageCompression.cpp
     src/AssetStore.cpp
+    src/JobSystem.cpp
+    src/SimdUtil.cpp
+    src/DisplayAspect.cpp
     src/PlatformPath.cpp
     src/GameConfig.cpp
     src/AudioManager.cpp
@@ -71,6 +75,9 @@ include(FetchContent)
 # Bundle raylib 5.5 for reliable miniaudio/CoreAudio output.
 # Homebrew raylib 5.0-dev can initialize with backend "Null" (no audible output on macOS).
 option(HIGHLINE_USE_SYSTEM_RAYLIB "Use system raylib instead of bundled 5.5" OFF)
+# 0 = auto (hardware_concurrency - 1). Applies when code uses JobSystem(workerOverride).
+set(HIGHLINE_JOB_WORKERS "0" CACHE STRING "JobSystem worker count (0=auto)")
+option(HIGHLINE_SIMD "Enable NEON/SSE-tuned simdFillBytes (downscale always built)" ON)
 # Dev default: disk resources + scene editor.
 # Release: -DHIGHLINE_RELEASE=ON → embed ON; editor stays OFF unless you pass
 # -DHIGHLINE_BUILD_EDITOR=ON explicitly (RELEASE no longer FORCE-overwrites it).
@@ -172,16 +179,42 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(json)
 
+# Apple Silicon Homebrew lives under /opt/homebrew; make pkg-config / find_* see it
+# even when PATH was never updated (see GitHub #35).
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/HomebrewPrefix.cmake")
+
 find_package(PkgConfig QUIET)
 if(PkgConfig_FOUND)
     pkg_check_modules(LIBLZMA IMPORTED_TARGET liblzma)
     pkg_check_modules(LIBJPEG IMPORTED_TARGET libjpeg)
+    if(NOT LIBJPEG_FOUND)
+        # Homebrew jpeg-turbo often registers as libturbojpeg / libjpeg-turbo.
+        pkg_check_modules(LIBJPEG IMPORTED_TARGET libturbojpeg)
+    endif()
+    if(NOT LIBJPEG_FOUND)
+        pkg_check_modules(LIBJPEG IMPORTED_TARGET libjpeg-turbo)
+    endif()
     pkg_check_modules(OPUSFILE IMPORTED_TARGET opusfile)
 endif()
 
+set(_HIGHLINE_HB_HINTS)
+if(HIGHLINE_HOMEBREW_PREFIX)
+    list(APPEND _HIGHLINE_HB_HINTS
+        "${HIGHLINE_HOMEBREW_PREFIX}"
+        "${HIGHLINE_HOMEBREW_PREFIX}/opt/jpeg"
+        "${HIGHLINE_HOMEBREW_PREFIX}/opt/jpeg-turbo"
+        "${HIGHLINE_HOMEBREW_PREFIX}/opt/xz"
+        "${HIGHLINE_HOMEBREW_PREFIX}/opt/opusfile"
+        "${HIGHLINE_HOMEBREW_PREFIX}/opt/opus")
+endif()
+
 if(NOT LIBLZMA_FOUND)
-    find_library(LZMA_LIBRARY NAMES lzma liblzma lzma.lib)
-    find_path(LZMA_INCLUDE_DIR lzma.h)
+    find_library(LZMA_LIBRARY NAMES lzma liblzma lzma.lib
+        HINTS ${_HIGHLINE_HB_HINTS}
+        PATH_SUFFIXES lib)
+    find_path(LZMA_INCLUDE_DIR lzma.h
+        HINTS ${_HIGHLINE_HB_HINTS}
+        PATH_SUFFIXES include)
     if(LZMA_LIBRARY AND LZMA_INCLUDE_DIR)
         add_library(LZMA::LZMA UNKNOWN IMPORTED)
         set_target_properties(LZMA::LZMA PROPERTIES
@@ -197,8 +230,12 @@ if(NOT LIBLZMA_FOUND AND NOT TARGET LZMA::LZMA)
 endif()
 
 if(NOT LIBJPEG_FOUND)
-    find_library(JPEG_LIBRARY NAMES jpeg jpeg.lib turbojpeg turbojpeg.lib)
-    find_path(JPEG_INCLUDE_DIR jpeglib.h)
+    find_library(JPEG_LIBRARY NAMES jpeg jpeg.lib turbojpeg turbojpeg.lib
+        HINTS ${_HIGHLINE_HB_HINTS}
+        PATH_SUFFIXES lib)
+    find_path(JPEG_INCLUDE_DIR jpeglib.h
+        HINTS ${_HIGHLINE_HB_HINTS}
+        PATH_SUFFIXES include)
     if(JPEG_LIBRARY AND JPEG_INCLUDE_DIR)
         add_library(JPEG::JPEG UNKNOWN IMPORTED)
         set_target_properties(JPEG::JPEG PROPERTIES
@@ -207,14 +244,24 @@ if(NOT LIBJPEG_FOUND)
         )
         set(LIBJPEG JPEG::JPEG)
     else()
-        message(FATAL_ERROR "libjpeg is required for JPEG image assets")
+        message(FATAL_ERROR
+            "libjpeg is required for JPEG image assets. On Apple Silicon Homebrew, "
+            "install with `brew install jpeg` (or jpeg-turbo) under /opt/homebrew. "
+            "CMake searches that prefix automatically (#35); override with "
+            "-DHIGHLINE_HOMEBREW_PREFIX=/opt/homebrew if needed.")
     endif()
 endif()
 
 if(NOT OPUSFILE_FOUND)
-    find_library(OPUSFILE_LIBRARY NAMES opusfile opusfile.lib)
-    find_library(OPUS_LIBRARY NAMES opus opus.lib)
-    find_path(OPUSFILE_INCLUDE_DIR opusfile.h)
+    find_library(OPUSFILE_LIBRARY NAMES opusfile opusfile.lib
+        HINTS ${_HIGHLINE_HB_HINTS}
+        PATH_SUFFIXES lib)
+    find_library(OPUS_LIBRARY NAMES opus opus.lib
+        HINTS ${_HIGHLINE_HB_HINTS}
+        PATH_SUFFIXES lib)
+    find_path(OPUSFILE_INCLUDE_DIR opusfile.h
+        HINTS ${_HIGHLINE_HB_HINTS}
+        PATH_SUFFIXES include include/opus)
     if(OPUSFILE_LIBRARY AND OPUS_LIBRARY AND OPUSFILE_INCLUDE_DIR)
         add_library(OPUSFILE::OPUSFILE UNKNOWN IMPORTED)
         set_target_properties(OPUSFILE::OPUSFILE PROPERTIES
@@ -294,11 +341,16 @@ set(_gen_dir "${CMAKE_BINARY_DIR}/generated")
 file(MAKE_DIRECTORY "${_gen_dir}")
 
 if(NOT HIGHLINE_EMBED_RESOURCES)
+    # Symlink — do NOT copy_directory. The scene editor resolves resources next to
+    # the binary (build/resources). A copy meant editor saves landed in the build
+    # tree and were wiped on the next make/sync, so map links and layout edits
+    # looked like they "reverted." One tree: source resources/ <-> build/resources.
     add_custom_target(sync_resources ALL
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        COMMAND ${CMAKE_COMMAND} -E rm -rf "${CMAKE_BINARY_DIR}/resources"
+        COMMAND ${CMAKE_COMMAND} -E create_symlink
             "${CMAKE_SOURCE_DIR}/resources"
             "${CMAKE_BINARY_DIR}/resources"
-        COMMENT "Syncing resources to build directory"
+        COMMENT "Linking resources/ beside the game binary"
     )
     add_dependencies(${PROJECT_NAME} sync_resources)
 else()
@@ -348,6 +400,9 @@ else()
     message(STATUS "HIGHLINE_BUILD_EDITOR=OFF — skipping scene editor")
 endif()
 
+find_package(Threads REQUIRED)
+target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads)
+
 # 8. Hard-fail the build when TTS policy / markup is invalid (same rules as load/refresh).
 add_executable(validate_tts tools/validate_tts.cpp
     src/TtsVoiceMarkup.cpp
@@ -367,6 +422,10 @@ if(APPLE)
     )
 endif()
 
+add_executable(test_job_system tools/test_job_system.cpp src/JobSystem.cpp)
+target_include_directories(test_job_system PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(test_job_system PRIVATE Threads::Threads)
+
 add_custom_target(check_tts_resources ALL
     COMMAND validate_tts
         "${CMAKE_SOURCE_DIR}/resources/scenes.json"
@@ -378,6 +437,21 @@ add_custom_target(check_tts_resources ALL
     COMMENT "Validating TTS scene/item policies and voice markup"
 )
 add_dependencies(${PROJECT_NAME} check_tts_resources)
+
+# Soft story-events / flag-graph lint (schema errors fail; cross-ref warnings do not).
+add_executable(validate_story_events tools/validate_story_events.cpp)
+target_compile_features(validate_story_events PRIVATE cxx_std_17)
+target_link_libraries(validate_story_events PRIVATE nlohmann_json::nlohmann_json)
+add_custom_target(check_story_events ALL
+    COMMAND validate_story_events
+        --scenes "${CMAKE_SOURCE_DIR}/resources/scenes.json"
+        --conversations "${CMAKE_SOURCE_DIR}/resources/conversations.json"
+        --game-session "${CMAKE_SOURCE_DIR}/src/GameSession.cpp"
+    DEPENDS validate_story_events
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    COMMENT "Linting storyEvents schema and story-flag set/read graph"
+)
+add_dependencies(${PROJECT_NAME} check_story_events)
 if(TARGET sync_resources)
     add_dependencies(${PROJECT_NAME} sync_resources)
 endif()

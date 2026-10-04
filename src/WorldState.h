@@ -46,6 +46,8 @@ class WorldState
     std::string activeSubSceneId;
     std::string previousSceneId;
     std::string previousSubSceneId;
+    /** Rooms entered via Use; Back pops this trail (not compass exits). */
+    std::vector<UseReturnFrame> useReturnStack;
     std::string narrativeText;
     PlayerStats playerStats;
     SceneVisitTracker sceneVisits;

@@ -40,6 +40,8 @@ class ActiveScene
     void loadFromStruct(const std::string& id, const LocationStruct& locationStruct);
     void unloadOwnedImage();
     bool replaceLocationImage(const SceneDatabase& database, const std::string& imagePath);
+    /** Swap in a main-thread texture; unloads the previous owned image. */
+    void adoptOwnedTexture(Texture2D texture, bool underConstruction = false);
 
     private:
     std::string sceneId;

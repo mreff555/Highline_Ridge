@@ -4,6 +4,7 @@
  ******************************************************************************/
 
 #include "SceneInventoryDialog.h"
+#include "EditorInput.h"
 #include "EditorButton.h"
 #include "EditorTheme.h"
 #include "EditorUiDraw.h"
@@ -145,6 +146,9 @@ void SceneInventoryDialog::loadFromScene()
                 row.value("examineText", resolveItemDescription(entry.id));
             entry.requiresExamine = row.value("requiresExamine", true);
             entry.requiresStoryFlag = row.value("requiresStoryFlag", "");
+            entry.requiresInventoryItem = row.value("requiresInventoryItem", "");
+            entry.requiresHeldItem = !entry.requiresInventoryItem.empty()
+                || row.value("requiresHeldItem", false);
             entry.quantity = 1;
             entries.push_back(entry);
         }
@@ -202,6 +206,8 @@ bool SceneInventoryDialog::saveToScene()
         takeable["requiresExamine"] = entry.requiresExamine;
         if (!entry.requiresStoryFlag.empty())
             takeable["requiresStoryFlag"] = entry.requiresStoryFlag;
+        if (entry.requiresHeldItem && !entry.requiresInventoryItem.empty())
+            takeable["requiresInventoryItem"] = entry.requiresInventoryItem;
         takeables.push_back(takeable);
 
         inventory.push_back({
@@ -260,6 +266,8 @@ void SceneInventoryDialog::addItemId(const std::string& itemId)
     entry.iconPath = resolveItemIcon(itemId);
     entry.examineText = resolveItemDescription(itemId);
     entry.requiresExamine = true;
+    entry.requiresHeldItem = false;
+    entry.requiresInventoryItem.clear();
     entry.quantity = 1;
     entries.push_back(entry);
     error.clear();
@@ -292,6 +300,8 @@ void SceneInventoryDialog::closeDialog()
 {
     open = false;
     addPickerOpen = false;
+    mustHaveFocusRow = -1;
+    mustHaveSuggestOpen = false;
     error.clear();
 }
 
@@ -324,6 +334,103 @@ void SceneInventoryDialog::typeIntoFilter()
         backspace(addFilter);
 }
 
+void SceneInventoryDialog::typeIntoMustHaveField()
+{
+    if (addPickerOpen || mustHaveFocusRow < 0
+        || mustHaveFocusRow >= static_cast<int>(entries.size()))
+        return;
+    std::string& target =
+        entries[static_cast<size_t>(mustHaveFocusRow)].requiresInventoryItem;
+
+    if (mustHaveSuggestOpen && IsKeyPressed(KEY_TAB))
+    {
+        const std::vector<std::string> suggestions = mustHaveSuggestions(8);
+        if (!suggestions.empty())
+            applyMustHaveSuggestion(suggestions.front());
+        return;
+    }
+
+    const bool mod = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)
+        || IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER);
+    if (mod && IsKeyPressed(KEY_V))
+    {
+        const char* clip = GetClipboardText();
+        if (clip != nullptr && clip[0] != '\0')
+        {
+            target += clip;
+            mustHaveSuggestOpen = true;
+        }
+        while (GetCharPressed() > 0)
+        {
+        }
+        return;
+    }
+
+    int cp = GetCharPressed();
+    while (cp > 0)
+    {
+        if (cp >= 32 && cp != '\n' && cp != '\r')
+        {
+            insertUtf8(target, cp);
+            mustHaveSuggestOpen = true;
+        }
+        cp = GetCharPressed();
+    }
+    if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE))
+    {
+        backspace(target);
+        mustHaveSuggestOpen = true;
+    }
+}
+
+std::vector<std::string> SceneInventoryDialog::mustHaveSuggestions(int maxCount) const
+{
+    std::vector<std::string> out;
+    if (docs == nullptr || maxCount <= 0 || mustHaveFocusRow < 0
+        || mustHaveFocusRow >= static_cast<int>(entries.size()))
+        return out;
+    if (!docs->itemsLoaded)
+        const_cast<DocumentWorkspace*>(docs)->loadItemsDocument();
+    const std::string prefix =
+        entries[static_cast<size_t>(mustHaveFocusRow)].requiresInventoryItem;
+    const std::string prefixLower = toLowerCopy(prefix);
+    for (const std::string& id : docs->itemIds())
+    {
+        const std::string idLower = toLowerCopy(id);
+        const std::string nameLower = toLowerCopy(resolveItemName(id));
+        if (!prefixLower.empty()
+            && idLower.find(prefixLower) == std::string::npos
+            && nameLower.find(prefixLower) == std::string::npos)
+            continue;
+        out.push_back(id);
+        if (static_cast<int>(out.size()) >= maxCount * 3)
+            break;
+    }
+    std::sort(out.begin(), out.end(), [&](const std::string& a, const std::string& b) {
+        const std::string al = toLowerCopy(a);
+        const std::string bl = toLowerCopy(b);
+        const bool ap = !prefixLower.empty() && al.rfind(prefixLower, 0) == 0;
+        const bool bp = !prefixLower.empty() && bl.rfind(prefixLower, 0) == 0;
+        if (ap != bp)
+            return ap;
+        return al < bl;
+    });
+    if (static_cast<int>(out.size()) > maxCount)
+        out.resize(static_cast<size_t>(maxCount));
+    return out;
+}
+
+void SceneInventoryDialog::applyMustHaveSuggestion(const std::string& itemId)
+{
+    if (mustHaveFocusRow < 0
+        || mustHaveFocusRow >= static_cast<int>(entries.size())
+        || itemId.empty())
+        return;
+    entries[static_cast<size_t>(mustHaveFocusRow)].requiresInventoryItem = itemId;
+    entries[static_cast<size_t>(mustHaveFocusRow)].requiresHeldItem = true;
+    mustHaveSuggestOpen = false;
+}
+
 void SceneInventoryDialog::handleInput(int screenW, int screenH)
 {
     (void)screenW;
@@ -333,7 +440,7 @@ void SceneInventoryDialog::handleInput(int screenW, int screenH)
 
     if (waitMouseRelease)
     {
-        if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        if (!editorMouseDown(MOUSE_BUTTON_LEFT))
             waitMouseRelease = false;
         return;
     }
@@ -343,12 +450,17 @@ void SceneInventoryDialog::handleInput(int screenW, int screenH)
         return;
     }
 
-    typeIntoFilter();
+    if (addPickerOpen)
+        typeIntoFilter();
+    else
+        typeIntoMustHaveField();
 
     if (IsKeyPressed(KEY_ESCAPE))
     {
         if (addPickerOpen)
             addPickerOpen = false;
+        else if (mustHaveSuggestOpen)
+            mustHaveSuggestOpen = false;
         else
             closeDialog();
     }
@@ -364,7 +476,7 @@ void SceneInventoryDialog::draw(int screenW, int screenH)
     const Vector2 mouse = GetMousePosition();
     const bool canClick =
         !waitMouseRelease && ignoreInputFrames <= 0
-        && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+        && editorMousePressed(MOUSE_BUTTON_LEFT);
 
     DrawRectangle(0, 0, screenW, screenH, kModalOverlay);
 
@@ -410,9 +522,14 @@ void SceneInventoryDialog::draw(int screenW, int screenH)
     DrawRectangleRec(content, Color{18, 16, 24, 255});
     DrawRectangleLinesEx(content, 1.0f, kPanelInnerEdge);
 
-    const float rowH = 52.0f;
+    // Title, description, examine slider, must-have slider+field.
+    // Leave bottom strip for the + control (equal side/bottom margins).
+    const float rowH = 108.0f;
+    const float addMargin = 10.0f;
+    const float addSize = 32.0f;
     const float listTop = content.y + 10.0f;
-    const float listH = content.height - 56.0f;
+    const float listH =
+        std::max(40.0f, content.height - (addMargin + addSize + addMargin) - 4.0f);
     const Rectangle listBounds = {content.x + 10.0f, listTop, content.width - 20.0f, listH};
 
     const float contentH = static_cast<float>(entries.size()) * rowH + 8.0f;
@@ -451,47 +568,172 @@ void SceneInventoryDialog::draw(int screenW, int screenH)
             DrawRectangleRec(row, Color{26, 24, 34, 255});
             DrawRectangleLinesEx(row, 1.0f, kPanelInnerEdge);
 
-            const std::string title =
+            // Bold red X — top-right remove (#50).
+            const float xSize = 22.0f;
+            const Rectangle removeHit = {
+                row.x + row.width - xSize - 6.0f, row.y + 6.0f, xSize, xSize};
+            const bool removeHover = CheckCollisionPointRec(mouse, removeHit);
+            DrawTextEx(
+                bold,
+                "X",
+                {removeHit.x + 4.0f, removeHit.y - 1.0f},
+                kFontTitle,
+                1.0f,
+                removeHover ? Color{255, 90, 80, 255} : Color{220, 60, 50, 255});
+
+            const float titleMaxW = std::max(40.0f, removeHit.x - (row.x + 10.0f) - 8.0f);
+            std::string title =
                 entry.name.empty() ? entry.id : (entry.name + "  (" + entry.id + ")");
+            while (!title.empty()
+                   && MeasureTextEx(font, (title + "...").c_str(), kFontSmall, 1.0f).x
+                       > titleMaxW)
+                title.pop_back();
+            if (MeasureTextEx(font, title.c_str(), kFontSmall, 1.0f).x > titleMaxW)
+                title += "...";
             DrawTextEx(
                 font,
                 title.c_str(),
-                {row.x + 10.0f, row.y + 8.0f},
+                {row.x + 10.0f, row.y + 6.0f},
                 kFontSmall,
                 1.0f,
                 kTextPrimary);
 
-            const std::string meta =
-                std::string(entry.requiresExamine ? "Requires examine" : "Take anytime")
-                + (entry.requiresStoryFlag.empty()
-                       ? ""
-                       : (" · flag: " + entry.requiresStoryFlag));
+            // Description under the name (examine text or flag meta).
+            std::string desc = entry.examineText;
+            if (desc.empty() && !entry.requiresStoryFlag.empty())
+                desc = "flag: " + entry.requiresStoryFlag;
+            if (desc.empty())
+                desc = entry.id;
+            while (!desc.empty()
+                   && MeasureTextEx(font, (desc + "...").c_str(), kFontTiny, 1.0f).x
+                       > row.width - 20.0f)
+                desc.pop_back();
+            if (MeasureTextEx(font, desc.c_str(), kFontTiny, 1.0f).x > row.width - 20.0f)
+                desc += "...";
             DrawTextEx(
                 font,
-                meta.c_str(),
-                {row.x + 10.0f, row.y + 28.0f},
+                desc.c_str(),
+                {row.x + 10.0f, row.y + 26.0f},
                 kFontTiny,
                 1.0f,
                 kTextMuted);
 
-            const Rectangle examBtn = {
-                row.x + row.width - 168.0f, row.y + 12.0f, 78.0f, 26.0f};
-            const Rectangle removeBtn = {
-                row.x + row.width - 82.0f, row.y + 12.0f, 70.0f, 26.0f};
-            drawEditorButton(
+            // Exit-Requirements-style row sliders under the description.
+            const float sw = 44.0f;
+            const float sh = 22.0f;
+            const float ksz = 16.0f;
+            auto drawSlider = [&](float rowY, bool on) {
+                const Rectangle track = {row.x + 10.0f, rowY, sw, sh};
+                DrawRectangleRounded(track, 0.5f, 6, Color{28, 26, 36, 255});
+                DrawRectangleRoundedLines(track, 0.5f, 6, kPanelInnerEdge);
+                const float kx =
+                    on ? (track.x + track.width - ksz - 3.0f) : (track.x + 3.0f);
+                DrawRectangleRounded(
+                    {kx, track.y + (sh - ksz) * 0.5f, ksz, ksz},
+                    0.5f,
+                    6,
+                    on ? kPanelAccent : Color{70, 66, 80, 255});
+                return track;
+            };
+
+            const Rectangle examTrack = drawSlider(row.y + 46.0f, entry.requiresExamine);
+            DrawTextEx(
                 font,
-                examBtn,
-                entry.requiresExamine ? "Exam: ON" : "Exam: off",
-                entry.requiresExamine,
-                !addPickerOpen);
-            drawEditorButton(font, removeBtn, "Remove", false, !addPickerOpen);
+                "Must examine scene first",
+                {examTrack.x + sw + 10.0f, examTrack.y + 3.0f},
+                kFontSmall,
+                1.0f,
+                kTextPrimary);
+            const Rectangle examHit = {
+                examTrack.x, examTrack.y, sw + 10.0f + 200.0f, sh};
+
+            // Must-have item gate: slider | autocomplete field | "Must have..."
+            const Rectangle haveTrack =
+                drawSlider(row.y + 74.0f, entry.requiresHeldItem);
+            const float fieldX = haveTrack.x + sw + 10.0f;
+            const float labelW =
+                MeasureTextEx(font, "Must have...", kFontSmall, 1.0f).x;
+            const float fieldW = std::max(
+                80.0f, row.x + row.width - 12.0f - fieldX - labelW - 12.0f);
+            const Rectangle haveField = {fieldX, haveTrack.y - 2.0f, fieldW, 26.0f};
+            const bool haveFocused = mustHaveFocusRow == static_cast<int>(i);
+            DrawRectangleRec(haveField, Color{24, 22, 32, 255});
+            DrawRectangleLinesEx(
+                haveField,
+                haveFocused ? 2.0f : 1.0f,
+                haveFocused ? kPanelBorder : kPanelInnerEdge);
+            const std::string haveText = entry.requiresInventoryItem;
+            BeginScissorMode(
+                (int)haveField.x + 2,
+                (int)haveField.y + 2,
+                (int)haveField.width - 4,
+                (int)haveField.height - 4);
+            DrawTextEx(
+                font,
+                haveText.empty() ? "(item id)" : haveText.c_str(),
+                {haveField.x + 6.0f, haveField.y + 5.0f},
+                kFontSmall,
+                1.0f,
+                haveText.empty() ? kTextMuted : kTextPrimary);
+            EndScissorMode();
+            // Restore list scissor after nested End.
+            BeginScissorMode(
+                (int)listBounds.x,
+                (int)listBounds.y,
+                (int)listBounds.width,
+                (int)listBounds.height);
+            DrawTextEx(
+                font,
+                "Must have...",
+                {haveField.x + haveField.width + 8.0f, haveTrack.y + 3.0f},
+                kFontSmall,
+                1.0f,
+                kTextPrimary);
+            const Rectangle haveSliderHit = {haveTrack.x, haveTrack.y, sw, sh};
+
+            if (haveFocused)
+            {
+                mustHaveFieldRect = haveField;
+            }
 
             if (canClick && !addPickerOpen)
             {
-                if (CheckCollisionPointRec(mouse, examBtn))
-                    entries[i].requiresExamine = !entries[i].requiresExamine;
-                else if (CheckCollisionPointRec(mouse, removeBtn))
+                if (CheckCollisionPointRec(mouse, removeHit))
+                {
                     removeAt(i);
+                    mustHaveFocusRow = -1;
+                    mustHaveSuggestOpen = false;
+                }
+                else if (CheckCollisionPointRec(mouse, examHit))
+                    entries[i].requiresExamine = !entries[i].requiresExamine;
+                else if (CheckCollisionPointRec(mouse, haveSliderHit))
+                {
+                    entries[i].requiresHeldItem = !entries[i].requiresHeldItem;
+                    if (entries[i].requiresHeldItem)
+                    {
+                        mustHaveFocusRow = static_cast<int>(i);
+                        mustHaveSuggestOpen = true;
+                        if (docs != nullptr && !docs->itemsLoaded)
+                            docs->loadItemsDocument();
+                    }
+                    else
+                    {
+                        entries[i].requiresInventoryItem.clear();
+                        if (mustHaveFocusRow == static_cast<int>(i))
+                        {
+                            mustHaveFocusRow = -1;
+                            mustHaveSuggestOpen = false;
+                        }
+                    }
+                }
+                else if (CheckCollisionPointRec(mouse, haveField))
+                {
+                    mustHaveFocusRow = static_cast<int>(i);
+                    mustHaveSuggestOpen = true;
+                    entries[i].requiresHeldItem = true;
+                    if (docs != nullptr && !docs->itemsLoaded)
+                        docs->loadItemsDocument();
+                }
             }
 
             y += rowH;
@@ -499,9 +741,81 @@ void SceneInventoryDialog::draw(int screenW, int screenH)
     }
     EndScissorMode();
 
+    // Must-have autocomplete dropdown (above list scissor).
+    if (mustHaveSuggestOpen && mustHaveFocusRow >= 0
+        && mustHaveFocusRow < static_cast<int>(entries.size())
+        && entries[static_cast<size_t>(mustHaveFocusRow)].requiresHeldItem)
+    {
+        const std::vector<std::string> suggestions = mustHaveSuggestions(8);
+        if (!suggestions.empty())
+        {
+            const float sugRowH = 22.0f;
+            mustHaveSuggestRect = {
+                mustHaveFieldRect.x,
+                mustHaveFieldRect.y + mustHaveFieldRect.height + 2.0f,
+                mustHaveFieldRect.width,
+                sugRowH * static_cast<float>(suggestions.size()) + 6.0f};
+            if (mustHaveSuggestRect.y + mustHaveSuggestRect.height
+                > dialog.y + dialogH - 56.0f)
+                mustHaveSuggestRect.y =
+                    mustHaveFieldRect.y - mustHaveSuggestRect.height - 2.0f;
+            DrawRectangleRec(mustHaveSuggestRect, Color{36, 32, 44, 255});
+            DrawRectangleLinesEx(mustHaveSuggestRect, 1.0f, kPanelBorder);
+            float sy = mustHaveSuggestRect.y + 3.0f;
+            for (const std::string& id : suggestions)
+            {
+                Rectangle srow = {
+                    mustHaveSuggestRect.x + 2.0f,
+                    sy,
+                    mustHaveSuggestRect.width - 4.0f,
+                    sugRowH - 2.0f};
+                if (CheckCollisionPointRec(mouse, srow))
+                {
+                    DrawRectangleRec(srow, Color{60, 54, 72, 220});
+                    if (canClick)
+                        applyMustHaveSuggestion(id);
+                }
+                std::string label = id;
+                const std::string name = resolveItemName(id);
+                if (!name.empty() && name != id)
+                    label = name + "  (" + id + ")";
+                while (!label.empty()
+                       && MeasureTextEx(font, (label + "...").c_str(), kFontSmall, 1.0f).x
+                           > srow.width - 12.0f)
+                    label.pop_back();
+                DrawTextEx(
+                    font,
+                    label.c_str(),
+                    {srow.x + 6.0f, srow.y + 2.0f},
+                    kFontSmall,
+                    1.0f,
+                    kTextPrimary);
+                sy += sugRowH;
+            }
+        }
+        if (canClick && !CheckCollisionPointRec(mouse, mustHaveFieldRect)
+            && !CheckCollisionPointRec(mouse, mustHaveSuggestRect))
+            mustHaveSuggestOpen = false;
+    }
+
+    // Bold white + bottom-left, equal side/bottom margins, no border (#50/#53).
     const Rectangle addBtn = {
-        content.x + 10.0f, content.y + content.height - 40.0f, 120.0f, 30.0f};
-    drawEditorButton(font, addBtn, "Add item…", true, true);
+        content.x + addMargin,
+        content.y + content.height - addMargin - addSize,
+        addSize,
+        addSize};
+    const bool addHover = CheckCollisionPointRec(mouse, addBtn);
+    // Bare glyph only — no fill or border; hover brightens (#53).
+    const float plusFont = kFontHeading + 4.0f;
+    const Vector2 plusMeasure = MeasureTextEx(bold, "+", plusFont, 1.0f);
+    DrawTextEx(
+        bold,
+        "+",
+        {addBtn.x + (addBtn.width - plusMeasure.x) * 0.5f,
+         addBtn.y + (addBtn.height - plusMeasure.y) * 0.5f},
+        plusFont,
+        1.0f,
+        addHover ? Color{255, 255, 255, 255} : Color{230, 230, 235, 255});
     if (canClick && CheckCollisionPointRec(mouse, addBtn))
     {
         addPickerOpen = !addPickerOpen;
@@ -520,10 +834,14 @@ void SceneInventoryDialog::draw(int screenW, int screenH)
     if (canClick && !addPickerOpen)
     {
         if (CheckCollisionPointRec(mouse, saveBtn))
+        {
+            mustHaveFocusRow = -1;
+            mustHaveSuggestOpen = false;
             saveToScene();
+        }
         else if (CheckCollisionPointRec(mouse, closeBtn))
             closeDialog();
-        else if (!CheckCollisionPointRec(mouse, dialog))
+        else if (!CheckCollisionPointRec(mouse, dialog) && !mustHaveSuggestOpen)
             closeDialog();
     }
 
@@ -570,7 +888,7 @@ void SceneInventoryDialog::draw(int screenW, int screenH)
         DrawRectangleLinesEx(filter, 1.0f, kPanelBorder);
         DrawTextEx(
             font,
-            addFilter.empty() ? "Filter…" : addFilter.c_str(),
+            addFilter.empty() ? "Filter..." : addFilter.c_str(),
             {filter.x + 8.0f, filter.y + 6.0f},
             kFontSmall,
             1.0f,

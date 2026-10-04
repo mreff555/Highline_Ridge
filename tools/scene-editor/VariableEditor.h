@@ -22,6 +22,7 @@
 
 #include "DocumentWorkspace.h"
 #include "EditorTypes.h"
+#include "FullscreenParchmentEditor.h"
 
 #include <nlohmann/json.hpp>
 #include <raylib.h>
@@ -93,7 +94,11 @@ struct VariableEditor
     Rectangle fieldRect{0, 0, 0, 0};
     Rectangle saveBtn{0, 0, 0, 0};
     Rectangle cancelBtn{0, 0, 0, 0};
+    Rectangle fullscreenBtn{0, 0, 0, 0};
     Rectangle textTtsToggle{0, 0, 0, 0};
+    /** Right-click "Edit full screen" menu over the text field (#54). */
+    bool fieldContextOpen = false;
+    Rectangle fieldContextRect{0, 0, 0, 0};
     float fontSize = 16.0f;
     float lineHeight = 20.0f;
     float pad = 8.0f;
@@ -111,6 +116,7 @@ struct VariableEditor
     mutable std::vector<EditorVisualLine> visualLinesCache;
 
     DocumentWorkspace* docs = nullptr;
+    FullscreenParchmentEditor* parchment = nullptr;
     std::string* selectionSceneId = nullptr; // app-selected scene for variables pane
     float* variablesScroll = nullptr;
     bool* stackDialogOpen = nullptr;
@@ -121,12 +127,20 @@ struct VariableEditor
     std::function<void()> onAiAssist;
     /** Open Scene Inventory editor for the selected scene. */
     std::function<void()> onSceneInventory;
+    /** Open Scene Interactions / place-item editor for the selected scene. */
+    std::function<void()> onSceneInteractions;
     /** Open Scene Effects (stat deltas) editor for the selected scene. */
     std::function<void()> onSceneEffects;
+    /** Open Story Events editor for the selected scene. */
+    std::function<void()> onSceneStoryEvents;
 
 
 
 void closeVariableEditor();
+
+/** Multiline string fields can open the writing-desk parchment (#54). */
+bool canOpenParchment() const;
+void openParchmentEditor();
 
 static bool splitJsonPointer(
     const std::string& pointer,
@@ -206,7 +220,8 @@ void syncDialogLayout(int screenWidth, int screenHeight);
 
 void drawVariableEditor(int screenWidth, int screenHeight);
 
-void drawVariablesPane(Rectangle paneBounds);
+/** allowInteraction=false when a scene modal (New Scene, Inventory, …) is open. */
+void drawVariablesPane(Rectangle paneBounds, bool allowInteraction = true);
 
 static bool isTtsJsonKey(const std::string& key);
 

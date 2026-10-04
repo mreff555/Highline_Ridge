@@ -20,10 +20,14 @@
 #ifndef TIMBERLINE_SCENE_EDITOR_APP_H
 #define TIMBERLINE_SCENE_EDITOR_APP_H
 
+#include "ApiKeysDialog.h"
 #include "ConversationTree.h"
 #include "DialogWalkthrough.h"
 #include "DocumentWorkspace.h"
+#include "EditorApiKeys.h"
 #include "EditorLayout.h"
+#include "EditorPreferencesDialog.h"
+#include "FullscreenParchmentEditor.h"
 #include "ItemEditor.h"
 #include "SceneGraphModel.h"
 #include "SceneMapCanvas.h"
@@ -49,6 +53,10 @@ struct SceneEditorApp
     ItemEditor itemEditor;
     SceneGraphModel sceneGraph;
     SceneMapCanvas mapCanvas;
+    EditorPreferencesDialog preferences;
+    EditorApiKeys sessionApiKeys;
+    ApiKeysDialog apiKeysDialog;
+    FullscreenParchmentEditor parchmentEditor;
 
     std::string selectedSceneId;
     float variablesScroll = 0.0f;

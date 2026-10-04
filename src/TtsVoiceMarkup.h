@@ -52,6 +52,10 @@ enum class TtsHighlightKind
     VoiceMarkup,
     /** Text between a matched {{open}}…{{/close}} voice pair. */
     VoiceDialog,
+    /** Double-brace condition keywords: {{condition:…}}, {{/condition}} (#42). */
+    ConditionMarkup,
+    /** Text between a matched {{condition}}…{{/condition}} pair (editor gray). */
+    ConditionContent,
     /** Unclosed <… or {{… stretch (and nested content after a broken open). */
     MarkupError
 };
@@ -90,6 +94,7 @@ bool parseVoiceMarkup(
  *  - Allowlisted [command] tags → Command
  *  - <style>…</style> keywords → StyleMarkup; inner text → StyleContent
  *  - {{voice}} keywords → VoiceMarkup; inner text → VoiceDialog
+ *  - {{condition:…}} keywords → ConditionMarkup; inner text → ConditionContent
  *  - Unclosed < or {{ regions → MarkupError from the open through EOF
  */
 void classifyTtsTextHighlight(

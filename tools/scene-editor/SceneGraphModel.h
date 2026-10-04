@@ -52,6 +52,62 @@ void setExitTarget(const std::string& sceneId, const std::string& direction, con
 // Remove exits[direction] and clear movement[direction].
 void clearExitTarget(const std::string& sceneId, const std::string& direction);
 
+/**
+ * Delete fromId --direction--> target. When clearReciprocal is true and the
+ * reverse exit points back, clears that too. Does not touch audio.sfx.
+ */
+bool deleteExitLink(
+    const std::string& fromId,
+    const std::string& direction,
+    bool clearReciprocal = true);
+
+struct TransitionSfxPaths
+{
+    std::string enterPath; // on_enter + from_room=neighbor
+    std::string exitPath;  // on_exit + to_room=neighbor
+};
+
+/** Count constrained enter/exit clips on sceneId that name neighborId. */
+int countConstrainedTransitionSfx(
+    const std::string& sceneId,
+    const std::string& neighborId) const;
+
+/**
+ * Prefer the endpoint that already owns door SFX for this edge; ties / none →
+ * preferDefaultOwner (usually the wire's toId).
+ */
+std::string preferTransitionSfxOwner(
+    const std::string& sceneA,
+    const std::string& sceneB,
+    const std::string& preferDefaultOwner) const;
+
+/** Read enter/exit paths stored on owner for neighbor. */
+TransitionSfxPaths readConstrainedTransitionSfx(
+    const std::string& ownerId,
+    const std::string& neighborId) const;
+
+/**
+ * Upsert/remove constrained enter/exit clips on owner for neighbor.
+ * Empty path removes that matching entry; unrelated sfx are left alone.
+ */
+/** Read/write exitRequirements[direction] on the parent scene JSON. */
+nlohmann::json readExitRequirement(
+    const std::string& sceneId,
+    const std::string& direction) const;
+bool writeExitRequirement(
+    const std::string& sceneId,
+    const std::string& direction,
+    const nlohmann::json& requirement);
+bool clearExitRequirement(
+    const std::string& sceneId,
+    const std::string& direction);
+
+bool upsertConstrainedTransitionSfx(
+    const std::string& ownerId,
+    const std::string& neighborId,
+    const std::string& enterPath,
+    const std::string& exitPath);
+
 // True if some scene other than ignoreFromId already has exits[direction] == targetId.
 bool exitDirectionAlreadyLeadsTo(
     const std::string& direction,
@@ -92,17 +148,114 @@ std::string cellKey(int col, int row) const;
 
 void autoLayoutLevel(int level);
 
+/**
+ * Straighten wires on one floor without reshuffling: align mid-edge ports of
+ * linked F/B/L/R pairs (shared X or Y), then gently separate overlaps.
+ */
+void cleanupLayoutLevel(int level);
+
 void autoLayoutAllLevels();
 
 void ensureDefaultLayouts();
 
 void applyStackLink(bool placeAbove);
 
+/**
+ * Mutually exclusive vertical link: source ↔ target via up/down.
+ * targetIsAbove: target sits above source (source.up=target, target.down=source).
+ * Replaces any prior partner on the claimed up/down slots.
+ */
+bool connectFloorLink(
+    const std::string& sourceId,
+    const std::string& targetId,
+    bool targetIsAbove);
+
 void closeStackDialog();
 
 std::string findStackTarget(const Rectangle& ghost, Rectangle canvasBounds, const std::string& excludeId) const;
 
 std::string oppositeDirection(const std::string& direction) const;
+
+/** One Use-driven leave binding on a map node (parent or parent#sub). */
+struct UseBinding
+{
+    std::string binding; // "useExit" or "interaction:<id>"
+    std::string label;   // UI label
+    std::string target;  // scene or scene#sub
+    std::string details; // useDetails narrative shown on Use
+    std::string sourceMapNode;
+    std::string mapCorner;   // nw/ne/sw/se on source (empty = auto)
+    std::string mapToCorner; // nw/ne/sw/se on destination (empty = auto)
+    bool repeat = true;
+};
+
+/** Enumerate useExit + interactions with exitSceneId for a map node. */
+std::vector<UseBinding> enumerateUseBindings(const std::string& mapNodeId) const;
+
+/**
+ * Set binding target on the JSON for sourceMapNode.
+ * binding "useExit" writes useExit; "interaction:id" writes that interaction's
+ * exitSceneId (creates a stub interaction if missing).
+ * Also ensures repeatable defaults for map-drawn transitions.
+ */
+bool setUseBindingTarget(
+    const std::string& sourceMapNode,
+    const std::string& binding,
+    const std::string& targetMapNode);
+
+/** Read/write the Use narrative (scene useDetails or interaction useDetails). */
+std::string getUseBindingDetails(
+    const std::string& sourceMapNode,
+    const std::string& binding) const;
+bool setUseBindingDetails(
+    const std::string& sourceMapNode,
+    const std::string& binding,
+    const std::string& details);
+
+/**
+ * Ensure map Use exits stay repeatable and have a non-empty description.
+ * Safe to call on every edit of an existing useExit binding.
+ */
+bool ensureUseExitTransitionDefaults(const std::string& sourceMapNode);
+
+/** Persist which Use corner slot a binding uses on the source card. */
+bool setUseBindingMapCorner(
+    const std::string& sourceMapNode,
+    const std::string& binding,
+    const std::string& corner);
+
+/** Persist destination-card Use corner for a binding. */
+bool setUseBindingMapToCorner(
+    const std::string& sourceMapNode,
+    const std::string& binding,
+    const std::string& corner);
+
+/**
+ * Clear useExit, or remove a map-created use_map_* interaction entirely.
+ * Non-map interactions only clear exitSceneId / corner fields.
+ */
+bool clearUseBinding(
+    const std::string& sourceMapNode,
+    const std::string& binding);
+
+/**
+ * Create a new stub interaction on source with exitSceneId=target.
+ * Returns binding key "interaction:<id>", or empty on failure.
+ */
+std::string createUseInteractionBinding(
+    const std::string& sourceMapNode,
+    const std::string& targetMapNode,
+    const std::string& labelHint = {});
+
+/**
+ * Move an existing compass exit from oldDirection to newDirection on fromId.
+ * Updates exits + movement; maintains reciprocal when present.
+ */
+bool reassignExitDirection(
+    const std::string& fromId,
+    const std::string& oldDirection,
+    const std::string& newDirection,
+    bool maintainReciprocal = true);
 };
 
 } // namespace timberline_editor

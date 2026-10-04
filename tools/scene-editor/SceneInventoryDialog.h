@@ -27,6 +27,9 @@ struct SceneInventoryEntry
     std::string examineText;
     bool requiresExamine = true;
     std::string requiresStoryFlag;
+    /** When true, requiresInventoryItem must be held to Take. */
+    bool requiresHeldItem = false;
+    std::string requiresInventoryItem;
     int quantity = 1;
 };
 
@@ -50,6 +53,12 @@ struct SceneInventoryDialog
     float listScroll = 0.0f;
     std::string addFilter;
 
+    /** Must-have item autocomplete (# inventory gate). */
+    int mustHaveFocusRow = -1;
+    bool mustHaveSuggestOpen = false;
+    Rectangle mustHaveFieldRect{0, 0, 0, 0};
+    Rectangle mustHaveSuggestRect{0, 0, 0, 0};
+
     std::function<void()> onSaved;
 
     void openForScene(const std::string& id);
@@ -68,6 +77,9 @@ private:
     std::string resolveItemDescription(const std::string& itemId) const;
     std::string resolveItemIcon(const std::string& itemId) const;
     void typeIntoFilter();
+    void typeIntoMustHaveField();
+    std::vector<std::string> mustHaveSuggestions(int maxCount) const;
+    void applyMustHaveSuggestion(const std::string& itemId);
 };
 
 } // namespace timberline_editor

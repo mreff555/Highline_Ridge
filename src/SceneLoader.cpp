@@ -27,6 +27,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <mutex>
 #include <nlohmann/json.hpp>
 #include <raylib.h>
 #include <vector>
@@ -36,6 +37,8 @@ namespace timberline_engine
 
 namespace
 {
+
+bool parseNarrativeTts(const nlohmann::json& node, ItemTtsDef& out);
 
 Font loadGameFont(const std::string& assetRoot, const std::string& fontPath)
 {
@@ -821,12 +824,56 @@ bool parseExitRequirement(const nlohmann::json& requirement, ExitRequirementDef&
     out.blockedDetails = requirement.value(
         "blockedDetails",
         requirement.value("blocked_details", ""));
+    if (!parseNarrativeTts(
+            requirement.value("blockedTts", requirement.value("blocked_tts", nlohmann::json::object())),
+            out.blockedTts))
+        return false;
+
+    const std::string badgeRaw = requirement.value(
+        "blockBadge",
+        requirement.value("block_badge", requirement.value("badge", "auto")));
+    if (badgeRaw == "light")
+        out.blockBadge = ExitBlockBadge::Light;
+    else if (badgeRaw == "lock")
+        out.blockBadge = ExitBlockBadge::Lock;
+    else if (badgeRaw == "gear")
+        out.blockBadge = ExitBlockBadge::Gear;
+    else
+        out.blockBadge = ExitBlockBadge::Auto;
+
+    out.blockedVariants.clear();
+    const nlohmann::json variants = requirement.value(
+        "blockedVariants",
+        requirement.value("blocked_variants", nlohmann::json::array()));
+    if (variants.is_array())
+    {
+        for (const nlohmann::json& entry : variants)
+        {
+            if (!entry.is_object())
+                return false;
+            ExitBlockedVariantDef variant;
+            variant.when = entry.value("when", "");
+            variant.details = entry.value("details", entry.value("blockedDetails", ""));
+            if (!parseNarrativeTts(entry.value("tts", entry.value("blockedTts", nlohmann::json::object())), variant.tts))
+                return false;
+            if (variant.when.empty() && variant.details.empty() && !variant.tts.enabled
+                && variant.tts.audio.empty() && variant.tts.text.empty())
+                continue;
+            out.blockedVariants.push_back(std::move(variant));
+        }
+    }
+
     return out.requiresLightSource
         || out.requiresRoomPurchasedToday
         || !out.requiresInventoryItem.empty()
         || !out.requiresInventoryItems.empty()
         || !out.requiresStoryFlag.empty()
-        || !out.blockedDetails.empty();
+        || !out.blockedDetails.empty()
+        || out.blockedTts.enabled
+        || !out.blockedTts.audio.empty()
+        || !out.blockedTts.text.empty()
+        || out.blockBadge != ExitBlockBadge::Auto
+        || !out.blockedVariants.empty();
 }
 
 bool parseExitRequirements(
@@ -860,6 +907,7 @@ bool parseTakeableItem(const nlohmann::json& item, TakeableItemDef& out)
     out.examineText = item.value("examineText", "");
     out.requiresExamine = item.value("requiresExamine", true);
     out.requiresStoryFlag = item.value("requiresStoryFlag", "");
+    out.requiresInventoryItem = item.value("requiresInventoryItem", "");
 
     return !out.id.empty();
 }
@@ -878,6 +926,98 @@ bool parseTakeables(const nlohmann::json& takeables, std::vector<TakeableItemDef
         out.push_back(parsed);
     }
 
+    return true;
+}
+
+bool parseStringArrayField(const nlohmann::json& node, const char* key, std::vector<std::string>& out)
+{
+    out.clear();
+    const nlohmann::json arr = node.value(key, nlohmann::json::array());
+    if (!arr.is_array())
+        return true;
+    for (const nlohmann::json& entry : arr)
+    {
+        if (!entry.is_string())
+            return false;
+        out.push_back(entry.get<std::string>());
+    }
+    return true;
+}
+
+bool parseStoryEventWhen(const std::string& raw, StoryEventWhen& out)
+{
+    if (raw == "enter")
+    {
+        out = StoryEventWhen::Enter;
+        return true;
+    }
+    if (raw == "exit")
+    {
+        out = StoryEventWhen::Exit;
+        return true;
+    }
+    if (raw == "examine")
+    {
+        out = StoryEventWhen::Examine;
+        return true;
+    }
+    return false;
+}
+
+bool parseStoryEvent(const nlohmann::json& node, StoryEventDef& out)
+{
+    if (!node.is_object())
+        return false;
+
+    out = StoryEventDef{};
+    out.id = node.value("id", "");
+    if (out.id.empty())
+        return false;
+
+    const std::string whenRaw = node.value("when", "");
+    if (!parseStoryEventWhen(whenRaw, out.when))
+        return false;
+
+    out.direction = node.value("direction", "");
+    if (out.when == StoryEventWhen::Exit && out.direction.empty())
+        return false;
+
+    out.requiresExamined = node.value("requiresExamined", false);
+    if (!parseStringArrayField(node, "requiresFlags", out.requiresFlags))
+        return false;
+    if (!parseStringArrayField(node, "unlessFlags", out.unlessFlags))
+        return false;
+    if (!parseStringArrayField(node, "setsFlags", out.setsFlags))
+        return false;
+    if (!parseStringArrayField(node, "clearsFlags", out.clearsFlags))
+        return false;
+    if (!parseStringArrayField(node, "requiresConsumedStatus", out.requiresConsumedStatus))
+        return false;
+
+    out.narrativeHeader = node.value("narrativeHeader", "");
+    out.narrative = node.value("narrative", "");
+    if (!parseNarrativeTts(node.value("narrativeTts", nlohmann::json::object()), out.narrativeTts))
+        return false;
+
+    out.blockMovement = node.value("blockMovement", false);
+    out.refreshTakeables = node.value("refreshTakeables", false);
+    out.once = node.value("once", true);
+    return true;
+}
+
+bool parseStoryEvents(const nlohmann::json& events, std::vector<StoryEventDef>& out)
+{
+    out.clear();
+    if (!events.is_array())
+        return true;
+
+    for (const nlohmann::json& entry : events)
+    {
+        StoryEventDef parsed;
+        if (!parseStoryEvent(entry, parsed))
+            return false;
+        out.push_back(std::move(parsed));
+    }
     return true;
 }
 
@@ -1429,13 +1569,14 @@ bool sameMovementTarget(const MovementTarget& left, const MovementTarget& right)
     return left.sceneId == right.sceneId && left.subSceneId == right.subSceneId;
 }
 
-bool hasUnmaskedMappingToTarget(
+bool hasMappingToTarget(
     const std::vector<MovementMappingDef>& mappings,
     const MovementTarget& target)
 {
     for (const MovementMappingDef& mapping : mappings)
     {
-        if (!mapping.defaultMasked && sameMovementTarget(mapping.target, target))
+        // Masked or not — avoid duplicating the same legacy exit on recompile.
+        if (sameMovementTarget(mapping.target, target))
             return true;
     }
 
@@ -1450,7 +1591,7 @@ void buildMovementExitsFromLegacyExits(SceneData& scene)
     {
         const MovementTarget legacyTarget = parseMovementTarget(it->second);
         const std::vector<MovementMappingDef>& existing = scene.movementExits[it->first];
-        if (hasUnmaskedMappingToTarget(existing, legacyTarget))
+        if (hasMappingToTarget(existing, legacyTarget))
             continue;
 
         MovementMappingDef mapping;
@@ -1475,6 +1616,21 @@ void buildMovementExitsFromLegacyExits(SceneData& scene)
                 lightCondition.type = MaskConditionType::PlayerHasItemFlag;
                 lightCondition.value = "light_source";
                 mapping.unmaskWhen = lightCondition;
+            }
+            else if (!requirement.requiresInventoryItems.empty())
+            {
+                // All listed items required (e.g. mining_pick + crampons).
+                mapping.defaultMasked = true;
+                MaskCondition allItems;
+                allItems.type = MaskConditionType::All;
+                for (const std::string& itemId : requirement.requiresInventoryItems)
+                {
+                    MaskCondition itemCondition;
+                    itemCondition.type = MaskConditionType::PlayerHasItem;
+                    itemCondition.value = itemId;
+                    allItems.children.push_back(itemCondition);
+                }
+                mapping.unmaskWhen = allItems;
             }
             else if (!requirement.requiresInventoryItem.empty())
             {
@@ -1582,6 +1738,27 @@ bool parseScene(const std::string& id, const nlohmann::json& sceneJson, SceneDat
     out.isStart = sceneJson.value("start", false);
     out.highAltitude = sceneJson.value("highAltitude", sceneJson.value("high_altitude", false));
     out.imagePath = sceneJson.value("image", "");
+    out.imageVariants.clear();
+    if (sceneJson.contains("imageVariants") && sceneJson["imageVariants"].is_object())
+    {
+        for (auto it = sceneJson["imageVariants"].begin();
+             it != sceneJson["imageVariants"].end();
+             ++it)
+        {
+            if (!it.value().is_string())
+                continue;
+            const std::string path = it.value().get<std::string>();
+            if (!path.empty())
+                out.imageVariants[it.key()] = path;
+        }
+    }
+    // If only a 16x9 variant exists and image is empty, treat it as canonical.
+    if (out.imagePath.empty())
+    {
+        auto v16 = out.imageVariants.find("16x9");
+        if (v16 != out.imageVariants.end())
+            out.imagePath = v16->second;
+    }
     out.alternateImagePath = sceneJson.value("alternateImage", "");
     out.alternateImageFlag = sceneJson.value("alternateImageFlag", "");
     out.alternateImageUntilPhase = sceneJson.value("alternateImageUntilPhase", "");
@@ -1651,6 +1828,9 @@ bool parseScene(const std::string& id, const nlohmann::json& sceneJson, SceneDat
     if (!parseTakeables(sceneJson.value("takeables", nlohmann::json::array()), out.takeables))
         return false;
 
+    if (!parseStoryEvents(sceneJson.value("storyEvents", nlohmann::json::array()), out.storyEvents))
+        return false;
+
     if (!parseInteractions(sceneJson.value("interactions", nlohmann::json::array()), out.interactions))
         return false;
 
@@ -1677,69 +1857,73 @@ bool parseScene(const std::string& id, const nlohmann::json& sceneJson, SceneDat
 
 }
 
-bool loadResourceTexture(
+namespace
+{
+std::mutex gResourceImageDecodeMutex;
+} // namespace
+
+bool loadResourceImage(
     const std::string& assetRoot,
     const std::string& relativePath,
-    Texture2D& outTexture)
+    Image& outImage)
 {
+    if (relativePath.empty())
+        return false;
+
+    // raylib stb is compiled with STBI_NO_THREAD_LOCALS — serialize decodes.
+    std::lock_guard<std::mutex> lock(gResourceImageDecodeMutex);
+
+    outImage = Image{};
     {
         AssetBytes bytes;
         if (assets().readBytes(relativePath, bytes) && !bytes.data.empty())
         {
             const std::string ext =
                 bytes.logicalExt.empty() ? ".png" : bytes.logicalExt;
-            Image image = LoadImageFromMemory(
+            outImage = LoadImageFromMemory(
                 ext.c_str(),
                 bytes.data.data(),
                 static_cast<int>(bytes.data.size()));
-            if (image.data != nullptr)
-            {
-                outTexture = LoadTextureFromImage(image);
-                UnloadImage(image);
-                if (outTexture.id != 0)
-                {
-                    TraceLog(
-                        LOG_INFO,
-                        "Loaded resource texture from assets: %s",
-                        relativePath.c_str());
-                    return true;
-                }
-            }
+            if (outImage.data != nullptr)
+                return true;
         }
     }
 
     const std::vector<std::string> paths = buildAssetSearchPaths(assetRoot, relativePath);
-
     for (const std::string& path : paths)
     {
         const std::string compressedPath = compressedAssetPath(path);
-        if (FileExists(compressedPath.c_str()) &&
-            loadTextureFromAssetFile(compressedPath, outTexture))
-        {
-            TraceLog(LOG_INFO, "Loaded compressed resource texture: %s", compressedPath.c_str());
+        if (FileExists(compressedPath.c_str())
+            && loadImageFromAssetFile(compressedPath, outImage))
             return true;
-        }
 
-        if (FileExists(path.c_str()))
-        {
-            Texture2D texture = LoadTexture(path.c_str());
-            if (texture.id != 0)
-            {
-                outTexture = texture;
-                TraceLog(LOG_INFO, "Loaded resource texture: %s", path.c_str());
-                return true;
-            }
-
-            if (loadTextureFromAssetFile(path, outTexture))
-            {
-                TraceLog(LOG_INFO, "Loaded resource texture: %s", path.c_str());
-                return true;
-            }
-        }
+        if (FileExists(path.c_str()) && loadImageFromAssetFile(path, outImage))
+            return true;
     }
 
-    TraceLog(LOG_ERROR, "Failed to load resource texture: %s", relativePath.c_str());
+    TraceLog(LOG_ERROR, "Failed to decode resource image: %s", relativePath.c_str());
     return false;
+}
+
+bool loadResourceTexture(
+    const std::string& assetRoot,
+    const std::string& relativePath,
+    Texture2D& outTexture)
+{
+    Image image{};
+    if (!loadResourceImage(assetRoot, relativePath, image))
+        return false;
+
+    outTexture = LoadTextureFromImage(image);
+    UnloadImage(image);
+    if (outTexture.id == 0)
+    {
+        TraceLog(LOG_ERROR, "Failed to upload resource texture: %s", relativePath.c_str());
+        return false;
+    }
+
+    TraceLog(LOG_INFO, "Loaded resource texture: %s", relativePath.c_str());
+    return true;
 }
 
 SceneDatabase::SceneDatabase()
@@ -1863,8 +2047,9 @@ bool SceneDatabase::load(const std::string& configPath, const std::string& asset
         scenes[scene.id] = scene;
     }
 
-    for (std::map<std::string, SceneData>::iterator it = scenes.begin(); it != scenes.end(); ++it)
-        compileSceneData(it->second);
+    // parseScene() already runs compileSceneData (legacy exits, sub-scenes, etc.).
+    // Do not compile again here — that used to duplicate masked movementExits and
+    // spam "Movement mask ambiguity" once those masks unmasked at runtime.
 
     if (config.contains("conversations"))
     {
@@ -2023,7 +2208,8 @@ Texture2D SceneDatabase::createOwnedPlaceholderTexture() const
 bool SceneDatabase::buildLocationStruct(
     const SceneData& scene,
     const std::string& subSceneId,
-    LocationStruct& outLocation) const
+    LocationStruct& outLocation,
+    bool loadTexture) const
 {
     const SubSceneDef* subScene = getSubScene(scene.id, subSceneId);
     if (subScene == nullptr)
@@ -2066,17 +2252,26 @@ bool SceneDatabase::buildLocationStruct(
     outLocation.actionFilter = actionStructIsEmpty(subScene->actions)
         ? scene.actions
         : subScene->actions;
-    outLocation.ownsLocationImage = true;
+    outLocation.ownsLocationImage = false;
+    outLocation.locationImage = Texture2D{};
     outLocation.isUnderConstruction = false;
 
     const std::string imagePath = !subScene->imagePath.empty()
         ? subScene->imagePath
         : scene.imagePath;
 
+    if (!loadTexture)
+    {
+        // Async path: ActiveScene keeps the previous texture until upload.
+        outLocation.isUnderConstruction = imagePath.empty();
+        return true;
+    }
+
     Texture2D sceneTexture{};
     if (tryLoadSceneImage(imagePath, sceneTexture))
     {
         outLocation.locationImage = sceneTexture;
+        outLocation.ownsLocationImage = true;
         return true;
     }
 
@@ -2105,25 +2300,35 @@ bool SceneDatabase::loadStartScene(LocationStruct& outLocation, std::string& out
     return false;
 }
 
-bool SceneDatabase::loadScene(const std::string& sceneId, LocationStruct& outLocation) const
+bool SceneDatabase::loadScene(
+    const std::string& sceneId,
+    LocationStruct& outLocation,
+    bool loadTexture) const
 {
     std::map<std::string, SceneData>::const_iterator it = scenes.find(sceneId);
     if (it == scenes.end())
         return false;
 
-    return buildLocationStruct(it->second, it->second.defaultSubSceneId, outLocation);
+    return buildLocationStruct(
+        it->second, it->second.defaultSubSceneId, outLocation, loadTexture);
 }
 
 bool SceneDatabase::loadScene(
     const std::string& sceneId,
     const std::string& subSceneId,
-    LocationStruct& outLocation) const
+    LocationStruct& outLocation,
+    bool loadTexture) const
 {
     std::map<std::string, SceneData>::const_iterator it = scenes.find(sceneId);
     if (it == scenes.end())
         return false;
 
-    return buildLocationStruct(it->second, subSceneId, outLocation);
+    return buildLocationStruct(it->second, subSceneId, outLocation, loadTexture);
+}
+
+bool SceneDatabase::decodeSceneImage(const std::string& imagePath, Image& outImage) const
+{
+    return loadResourceImage(assetRoot, imagePath, outImage);
 }
 
 const SceneSpeakConfig& SceneDatabase::getSpeakConfig(const std::string& sceneId) const
@@ -2200,6 +2405,16 @@ const std::vector<TakeableItemDef>& SceneDatabase::getTakeables(const std::strin
         return kEmptyTakeables;
 
     return it->second.takeables;
+}
+
+const std::vector<StoryEventDef>& SceneDatabase::getStoryEvents(const std::string& sceneId) const
+{
+    static const std::vector<StoryEventDef> kEmptyStoryEvents;
+    std::map<std::string, SceneData>::const_iterator it = scenes.find(sceneId);
+    if (it == scenes.end())
+        return kEmptyStoryEvents;
+
+    return it->second.storyEvents;
 }
 
 const std::vector<SceneInteractionDef>& SceneDatabase::getInteractions(const std::string& sceneId) const
@@ -2384,6 +2599,24 @@ std::string SceneDatabase::resolveSceneImagePath(
     return scene.imagePath;
 }
 
+std::string SceneDatabase::resolveSceneImagePathForAspect(
+    const SceneData& scene,
+    const std::string& subSceneId,
+    const std::set<std::string>& storyFlags,
+    const std::function<bool(const std::string& phaseId)>& isPhaseComplete,
+    DisplayAspectBucket aspectBucket) const
+{
+    const std::string storyPath =
+        resolveSceneImagePath(scene, subSceneId, storyFlags, isPhaseComplete);
+
+    // Aspect variants apply only to the canonical main plate (not story alternates /
+    // focus subscene overrides).
+    if (storyPath != scene.imagePath && !storyPath.empty())
+        return storyPath;
+
+    return pickAspectImagePath(scene.imageVariants, aspectBucket, storyPath);
+}
+
 std::vector<std::string> SceneDatabase::collectSceneImagePaths(const SceneData& scene) const
 {
     std::vector<std::string> paths;
@@ -2403,6 +2636,14 @@ std::vector<std::string> SceneDatabase::collectSceneImagePaths(const SceneData& 
         && std::find(paths.begin(), paths.end(), scene.imagePath) == paths.end())
     {
         paths.push_back(scene.imagePath);
+    }
+
+    for (const auto& variant : scene.imageVariants)
+    {
+        if (variant.second.empty())
+            continue;
+        if (std::find(paths.begin(), paths.end(), variant.second) == paths.end())
+            paths.push_back(variant.second);
     }
 
     for (const AlternateImageDef& alternate : scene.alternateImages)

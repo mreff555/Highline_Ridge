@@ -46,6 +46,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -65,9 +66,24 @@ namespace timberline_editor
 #include "SceneMapCanvas.h"
 
 
+namespace
+{
+
+/** Compass exits are authored on the parent scene (not on map-only #sub views). */
+std::string parentSceneIdForExits(const std::string& mapNodeId)
+{
+    std::string parent;
+    std::string sub;
+    timberline_engine::SceneDocument::parseMapNodeId(mapNodeId, parent, sub);
+    return parent;
+}
+
+} // namespace
+
 std::string SceneGraphModel::getExitTarget(const std::string& sceneId, const std::string& direction) const
 {
-    const nlohmann::json* scene = docs->scenes.sceneJson(sceneId);
+    const std::string parentId = parentSceneIdForExits(sceneId);
+    const nlohmann::json* scene = docs->scenes.sceneJson(parentId);
     if (scene == nullptr || !scene->contains("exits") || !(*scene)["exits"].is_object())
         return "";
     if (!(*scene)["exits"].contains(direction) || !(*scene)["exits"][direction].is_string())
@@ -78,7 +94,8 @@ std::string SceneGraphModel::getExitTarget(const std::string& sceneId, const std
 
 void SceneGraphModel::setExitTarget(const std::string& sceneId, const std::string& direction, const std::string& targetId)
 {
-    nlohmann::json* scene = docs->scenes.sceneJson(sceneId);
+    const std::string parentId = parentSceneIdForExits(sceneId);
+    nlohmann::json* scene = docs->scenes.sceneJson(parentId);
     if (scene == nullptr)
         return;
 
@@ -94,7 +111,8 @@ void SceneGraphModel::setExitTarget(const std::string& sceneId, const std::strin
 
 void SceneGraphModel::clearExitTarget(const std::string& sceneId, const std::string& direction)
 {
-    nlohmann::json* scene = docs->scenes.sceneJson(sceneId);
+    const std::string parentId = parentSceneIdForExits(sceneId);
+    nlohmann::json* scene = docs->scenes.sceneJson(parentId);
     if (scene == nullptr)
         return;
 
@@ -107,6 +125,266 @@ void SceneGraphModel::clearExitTarget(const std::string& sceneId, const std::str
     // Direction-scoped requirements no longer apply without an exit.
     if (scene->contains("exitRequirements") && (*scene)["exitRequirements"].is_object())
         (*scene)["exitRequirements"].erase(direction);
+}
+
+nlohmann::json SceneGraphModel::readExitRequirement(
+    const std::string& sceneId,
+    const std::string& direction) const
+{
+    const std::string parentId = parentSceneIdForExits(sceneId);
+    const nlohmann::json* scene = docs->scenes.sceneJson(parentId);
+    if (scene == nullptr || direction.empty())
+        return nlohmann::json::object();
+    if (scene->contains("exitRequirements") && (*scene)["exitRequirements"].is_object()
+        && (*scene)["exitRequirements"].contains(direction)
+        && (*scene)["exitRequirements"][direction].is_object())
+        return (*scene)["exitRequirements"][direction];
+    if (scene->contains("exit_requirements") && (*scene)["exit_requirements"].is_object()
+        && (*scene)["exit_requirements"].contains(direction)
+        && (*scene)["exit_requirements"][direction].is_object())
+        return (*scene)["exit_requirements"][direction];
+    return nlohmann::json::object();
+}
+
+bool SceneGraphModel::writeExitRequirement(
+    const std::string& sceneId,
+    const std::string& direction,
+    const nlohmann::json& requirement)
+{
+    const std::string parentId = parentSceneIdForExits(sceneId);
+    nlohmann::json* scene = docs->scenes.sceneJson(parentId);
+    if (scene == nullptr || direction.empty())
+        return false;
+    if (!scene->contains("exitRequirements") || !(*scene)["exitRequirements"].is_object())
+        (*scene)["exitRequirements"] = nlohmann::json::object();
+    if (requirement.is_object() && !requirement.empty())
+        (*scene)["exitRequirements"][direction] = requirement;
+    else
+        (*scene)["exitRequirements"].erase(direction);
+    // Drop empty map.
+    if ((*scene)["exitRequirements"].empty())
+        scene->erase("exitRequirements");
+    docs->markDirty();
+    return true;
+}
+
+bool SceneGraphModel::clearExitRequirement(
+    const std::string& sceneId,
+    const std::string& direction)
+{
+    return writeExitRequirement(sceneId, direction, nlohmann::json::object());
+}
+
+
+bool SceneGraphModel::deleteExitLink(
+    const std::string& fromId,
+    const std::string& direction,
+    bool clearReciprocal)
+{
+    if (!docs || !docs->scenes.isLoaded())
+        return false;
+    if (fromId.empty() || direction.empty() || !docs->scenes.hasScene(fromId))
+        return false;
+
+    const std::string toId = getExitTarget(fromId, direction);
+    if (toId.empty())
+        return false;
+
+    const std::string reverseDir = oppositeDirection(direction);
+    const bool hadReciprocal =
+        clearReciprocal
+        && !reverseDir.empty()
+        && getExitTarget(toId, reverseDir) == fromId;
+
+    clearExitTarget(fromId, direction);
+    if (hadReciprocal)
+        clearExitTarget(toId, reverseDir);
+
+    docs->markDirty();
+    return true;
+}
+
+
+namespace
+{
+
+std::string sfxClipPath(const nlohmann::json& entry)
+{
+    if (entry.contains("path") && entry["path"].is_string())
+        return entry["path"].get<std::string>();
+    if (entry.contains("file") && entry["file"].is_string())
+        return entry["file"].get<std::string>();
+    return {};
+}
+
+std::string sfxClipTrigger(const nlohmann::json& entry)
+{
+    if (entry.contains("trigger") && entry["trigger"].is_string())
+        return entry["trigger"].get<std::string>();
+    return "on_enter";
+}
+
+bool isConstrainedEnter(const nlohmann::json& entry, const std::string& neighborId)
+{
+    if (sfxClipTrigger(entry) != "on_enter")
+        return false;
+    if (!entry.contains("from_room") || !entry["from_room"].is_string())
+        return false;
+    return entry["from_room"].get<std::string>() == neighborId;
+}
+
+bool isConstrainedExit(const nlohmann::json& entry, const std::string& neighborId)
+{
+    if (sfxClipTrigger(entry) != "on_exit")
+        return false;
+    if (!entry.contains("to_room") || !entry["to_room"].is_string())
+        return false;
+    return entry["to_room"].get<std::string>() == neighborId;
+}
+
+nlohmann::json* ensureSfxArray(nlohmann::json& scene)
+{
+    if (!scene.contains("audio") || !scene["audio"].is_object())
+        scene["audio"] = nlohmann::json::object();
+    nlohmann::json& audio = scene["audio"];
+    if (!audio.contains("sfx") || !audio["sfx"].is_array())
+        audio["sfx"] = nlohmann::json::array();
+    return &audio["sfx"];
+}
+
+} // namespace
+
+
+int SceneGraphModel::countConstrainedTransitionSfx(
+    const std::string& sceneId,
+    const std::string& neighborId) const
+{
+    const nlohmann::json* scene = docs ? docs->scenes.sceneJson(sceneId) : nullptr;
+    if (scene == nullptr || neighborId.empty())
+        return 0;
+    if (!scene->contains("audio") || !(*scene)["audio"].is_object())
+        return 0;
+    const auto& audio = (*scene)["audio"];
+    if (!audio.contains("sfx") || !audio["sfx"].is_array())
+        return 0;
+    int count = 0;
+    for (const auto& entry : audio["sfx"])
+    {
+        if (!entry.is_object())
+            continue;
+        if (isConstrainedEnter(entry, neighborId) || isConstrainedExit(entry, neighborId))
+            ++count;
+    }
+    return count;
+}
+
+
+std::string SceneGraphModel::preferTransitionSfxOwner(
+    const std::string& sceneA,
+    const std::string& sceneB,
+    const std::string& preferDefaultOwner) const
+{
+    const int countA = countConstrainedTransitionSfx(sceneA, sceneB);
+    const int countB = countConstrainedTransitionSfx(sceneB, sceneA);
+    if (countA > countB)
+        return sceneA;
+    if (countB > countA)
+        return sceneB;
+    if (!preferDefaultOwner.empty()
+        && (preferDefaultOwner == sceneA || preferDefaultOwner == sceneB))
+        return preferDefaultOwner;
+    return sceneB.empty() ? sceneA : sceneB;
+}
+
+
+SceneGraphModel::TransitionSfxPaths SceneGraphModel::readConstrainedTransitionSfx(
+    const std::string& ownerId,
+    const std::string& neighborId) const
+{
+    TransitionSfxPaths out;
+    const nlohmann::json* scene = docs ? docs->scenes.sceneJson(ownerId) : nullptr;
+    if (scene == nullptr || neighborId.empty())
+        return out;
+    if (!scene->contains("audio") || !(*scene)["audio"].is_object())
+        return out;
+    const auto& audio = (*scene)["audio"];
+    if (!audio.contains("sfx") || !audio["sfx"].is_array())
+        return out;
+    for (const auto& entry : audio["sfx"])
+    {
+        if (!entry.is_object())
+            continue;
+        if (out.enterPath.empty() && isConstrainedEnter(entry, neighborId))
+            out.enterPath = sfxClipPath(entry);
+        if (out.exitPath.empty() && isConstrainedExit(entry, neighborId))
+            out.exitPath = sfxClipPath(entry);
+    }
+    return out;
+}
+
+
+bool SceneGraphModel::upsertConstrainedTransitionSfx(
+    const std::string& ownerId,
+    const std::string& neighborId,
+    const std::string& enterPath,
+    const std::string& exitPath)
+{
+    if (!docs || !docs->scenes.isLoaded())
+        return false;
+    nlohmann::json* scene = docs->scenes.sceneJson(ownerId);
+    if (scene == nullptr || neighborId.empty() || ownerId == neighborId)
+        return false;
+
+    nlohmann::json* sfx = ensureSfxArray(*scene);
+    if (sfx == nullptr)
+        return false;
+
+    auto upsertOne = [&](bool isEnter, const std::string& path) {
+        const char* roomKey = isEnter ? "from_room" : "to_room";
+        const char* trigger = isEnter ? "on_enter" : "on_exit";
+        int found = -1;
+        for (int i = 0; i < static_cast<int>(sfx->size()); ++i)
+        {
+            const auto& entry = (*sfx)[static_cast<size_t>(i)];
+            if (!entry.is_object())
+                continue;
+            if (isEnter ? isConstrainedEnter(entry, neighborId)
+                        : isConstrainedExit(entry, neighborId))
+            {
+                found = i;
+                break;
+            }
+        }
+
+        if (path.empty())
+        {
+            if (found >= 0)
+                sfx->erase(sfx->begin() + found);
+            return;
+        }
+
+        if (found >= 0)
+        {
+            (*sfx)[static_cast<size_t>(found)]["path"] = path;
+            (*sfx)[static_cast<size_t>(found)]["trigger"] = trigger;
+            (*sfx)[static_cast<size_t>(found)][roomKey] = neighborId;
+            if (!(*sfx)[static_cast<size_t>(found)].contains("volume"))
+                (*sfx)[static_cast<size_t>(found)]["volume"] = 0.85f;
+            return;
+        }
+
+        nlohmann::json clip = nlohmann::json::object();
+        clip["path"] = path;
+        clip["trigger"] = trigger;
+        clip[roomKey] = neighborId;
+        clip["volume"] = 0.85f;
+        sfx->push_back(clip);
+    };
+
+    upsertOne(true, enterPath);
+    upsertOne(false, exitPath);
+    docs->markDirty();
+    return true;
 }
 
 
@@ -140,7 +418,9 @@ bool SceneGraphModel::retargetExitLink(
         return false;
     if (fromId.empty() || direction.empty() || newToId.empty())
         return false;
-    if (fromId == newToId || !docs->scenes.hasScene(fromId) || !docs->scenes.hasScene(newToId))
+    if (fromId == newToId || fromId.find('#') != std::string::npos)
+        return false;
+    if (!docs->scenes.hasScene(fromId) || !docs->scenes.hasMapNode(newToId))
         return false;
     if (!isSameLevelLink(fromId, newToId))
         return false;
@@ -192,7 +472,10 @@ bool SceneGraphModel::createExitLink(
         return false;
     if (fromId.empty() || direction.empty() || toId.empty())
         return false;
-    if (fromId == toId || !docs->scenes.hasScene(fromId) || !docs->scenes.hasScene(toId))
+    // Compass links start from a parent card; destination may be parent or parent#sub.
+    if (fromId == toId || fromId.find('#') != std::string::npos)
+        return false;
+    if (!docs->scenes.hasScene(fromId) || !docs->scenes.hasMapNode(toId))
         return false;
     if (!docs->scenes.hasMapPlacement(fromId) || !docs->scenes.hasMapPlacement(toId))
         return false;
@@ -412,11 +695,9 @@ void SceneGraphModel::getLevelRange(int& outMin, int& outMax) const
 int SceneGraphModel::countScenesOnLevel(int level) const
 {
     int count = 0;
-    const std::vector<std::string> ids = docs->scenes.sceneIds();
+    const std::vector<std::string> ids = docs->scenes.mapNodeIds();
     for (const std::string& id : ids)
     {
-        if (!docs->scenes.hasMapPlacement(id))
-            continue;
         if (docs->scenes.getLayout(id).level == level)
             ++count;
     }
@@ -427,11 +708,9 @@ int SceneGraphModel::countScenesOnLevel(int level) const
 std::vector<std::string> SceneGraphModel::scenesOnLevel(int level) const
 {
     std::vector<std::string> out;
-    const std::vector<std::string> ids = docs->scenes.sceneIds();
+    const std::vector<std::string> ids = docs->scenes.mapNodeIds();
     for (const std::string& id : ids)
     {
-        if (!docs->scenes.hasMapPlacement(id))
-            continue;
         if (docs->scenes.getLayout(id).level == level)
             out.push_back(id);
     }
@@ -441,7 +720,7 @@ std::vector<std::string> SceneGraphModel::scenesOnLevel(int level) const
 
 bool SceneGraphModel::isSameLevelLink(const std::string& fromId, const std::string& toId) const
 {
-    if (!docs->scenes.hasScene(fromId) || !docs->scenes.hasScene(toId))
+    if (!docs->scenes.hasMapPlacement(fromId) || !docs->scenes.hasMapPlacement(toId))
         return false;
     return docs->scenes.getLayout(fromId).level == docs->scenes.getLayout(toId).level;
 }
@@ -481,6 +760,204 @@ bool SceneGraphModel::directionDelta(const std::string& direction, int& outDCol,
 std::string SceneGraphModel::cellKey(int col, int row) const
 {
     return std::to_string(col) + "," + std::to_string(row);
+}
+
+
+void SceneGraphModel::cleanupLayoutLevel(int level)
+{
+    if (!docs || !docs->scenes.isLoaded())
+        return;
+
+    const std::vector<std::string> levelIds = scenesOnLevel(level);
+    if (levelIds.empty())
+        return;
+
+    // Continuous positions — do not re-grid / reshuffle the floor.
+    std::map<std::string, Vector2> pos;
+    std::map<std::string, float> height;
+    for (const std::string& id : levelIds)
+    {
+        const SceneLayout layout = docs->scenes.getLayout(id);
+        pos[id] = {layout.x, layout.y};
+        float h = kSceneCardMinHeight;
+        if (canvas != nullptr)
+            h = canvas->measureSceneCard(id).height;
+        height[id] = h;
+    }
+
+    const float cardW = kSceneCardWidth;
+    auto midX = [&](const std::string& id) {
+        return pos[id].x + cardW * 0.5f;
+    };
+    auto midY = [&](const std::string& id) {
+        return pos[id].y + height[id] * 0.5f;
+    };
+
+    struct Link
+    {
+        std::string from;
+        std::string to;
+        std::string dir;
+        int dCol = 0;
+        int dRow = 0;
+    };
+    std::vector<Link> links;
+    const char* dirs[] = {"forward", "backward", "left", "right"};
+    for (const std::string& id : levelIds)
+    {
+        for (const char* dir : dirs)
+        {
+            const std::string target = getExitTarget(id, dir);
+            if (target.empty() || pos.count(target) == 0)
+                continue;
+            if (!isSameLevelLink(id, target))
+                continue;
+            Link link;
+            link.from = id;
+            link.to = target;
+            link.dir = dir;
+            if (!directionDelta(dir, link.dCol, link.dRow))
+                continue;
+            links.push_back(link);
+        }
+    }
+
+    // Align ports on linked pairs so orthogonal stubs share an axis (straight mid-run).
+    // L/R → match mid-Y; F/B → match mid-X. Preserve neighborhood; average both cards.
+    for (int iter = 0; iter < 8; ++iter)
+    {
+        bool changed = false;
+        for (const Link& link : links)
+        {
+            if (link.dCol != 0)
+            {
+                // Horizontal exit: align vertical centers.
+                const float a = midY(link.from);
+                const float b = midY(link.to);
+                const float avg = 0.5f * (a + b);
+                const float newFromY = avg - height[link.from] * 0.5f;
+                const float newToY = avg - height[link.to] * 0.5f;
+                if (std::fabs(newFromY - pos[link.from].y) > 0.25f
+                    || std::fabs(newToY - pos[link.to].y) > 0.25f)
+                {
+                    pos[link.from].y = newFromY;
+                    pos[link.to].y = newToY;
+                    changed = true;
+                }
+            }
+            else if (link.dRow != 0)
+            {
+                // Vertical exit: align horizontal centers (width is uniform).
+                const float a = midX(link.from);
+                const float b = midX(link.to);
+                const float avg = 0.5f * (a + b);
+                const float newFromX = avg - cardW * 0.5f;
+                const float newToX = avg - cardW * 0.5f;
+                if (std::fabs(newFromX - pos[link.from].x) > 0.25f
+                    || std::fabs(newToX - pos[link.to].x) > 0.25f)
+                {
+                    pos[link.from].x = newFromX;
+                    pos[link.to].x = newToX;
+                    changed = true;
+                }
+            }
+        }
+        if (!changed)
+            break;
+    }
+
+    // Minimal overlap separation so cards do not stack after alignment.
+    const float gapX = kLayoutGapX * 0.35f;
+    const float gapY = kLayoutGapY * 0.35f;
+    for (int iter = 0; iter < 16; ++iter)
+    {
+        bool moved = false;
+        for (size_t i = 0; i < levelIds.size(); ++i)
+        {
+            for (size_t j = i + 1; j < levelIds.size(); ++j)
+            {
+                const std::string& a = levelIds[i];
+                const std::string& b = levelIds[j];
+                const float ax0 = pos[a].x;
+                const float ay0 = pos[a].y;
+                const float ax1 = ax0 + cardW;
+                const float ay1 = ay0 + height[a];
+                const float bx0 = pos[b].x;
+                const float by0 = pos[b].y;
+                const float bx1 = bx0 + cardW;
+                const float by1 = by0 + height[b];
+
+                const float overlapX = std::min(ax1, bx1) - std::max(ax0, bx0);
+                const float overlapY = std::min(ay1, by1) - std::max(ay0, by0);
+                if (overlapX <= 0.0f || overlapY <= 0.0f)
+                    continue;
+
+                // Push apart along the shallower penetration, plus a small gap.
+                if (overlapX < overlapY)
+                {
+                    const float push = (overlapX + gapX) * 0.5f;
+                    if (ax0 + cardW * 0.5f <= bx0 + cardW * 0.5f)
+                    {
+                        pos[a].x -= push;
+                        pos[b].x += push;
+                    }
+                    else
+                    {
+                        pos[a].x += push;
+                        pos[b].x -= push;
+                    }
+                }
+                else
+                {
+                    const float push = (overlapY + gapY) * 0.5f;
+                    if (ay0 + height[a] * 0.5f <= by0 + height[b] * 0.5f)
+                    {
+                        pos[a].y -= push;
+                        pos[b].y += push;
+                    }
+                    else
+                    {
+                        pos[a].y += push;
+                        pos[b].y -= push;
+                    }
+                }
+                moved = true;
+            }
+        }
+        if (!moved)
+            break;
+    }
+
+    // Re-run a couple of port-align passes after separation (separation can skew mids).
+    for (int iter = 0; iter < 4; ++iter)
+    {
+        for (const Link& link : links)
+        {
+            if (link.dCol != 0)
+            {
+                const float avg = 0.5f * (midY(link.from) + midY(link.to));
+                pos[link.from].y = avg - height[link.from] * 0.5f;
+                pos[link.to].y = avg - height[link.to] * 0.5f;
+            }
+            else if (link.dRow != 0)
+            {
+                const float avg = 0.5f * (midX(link.from) + midX(link.to));
+                pos[link.from].x = avg - cardW * 0.5f;
+                pos[link.to].x = avg - cardW * 0.5f;
+            }
+        }
+    }
+
+    for (const std::string& id : levelIds)
+    {
+        SceneLayout layout = docs->scenes.getLayout(id);
+        layout.x = pos[id].x;
+        layout.y = pos[id].y;
+        layout.level = level;
+        docs->scenes.setLayout(id, layout);
+    }
+
+    docs->markDirty();
 }
 
 
@@ -1016,11 +1493,21 @@ void SceneGraphModel::autoLayoutLevel(int level)
          ++it)
     {
         SceneLayout sceneLayout = docs->scenes.getLayout(it->first);
+        // Card width is uniform; vertically center shorter cards in the row cell
+        // so left/right mid-edge ports share a Y and wires can run straight.
+        float cardH = kSceneCardMinHeight;
+        if (canvas != nullptr)
+            cardH = canvas->measureSceneCard(it->first).height;
+        const float yPad = std::max(0.0f, (cellHeight - cardH) * 0.5f);
         sceneLayout.x = kLayoutOriginX + static_cast<float>(it->second.first - minCol) * pitchX;
-        sceneLayout.y = kLayoutOriginY + static_cast<float>(it->second.second - minRow) * pitchY;
+        sceneLayout.y = kLayoutOriginY
+            + static_cast<float>(it->second.second - minRow) * pitchY
+            + yPad;
         sceneLayout.level = level;
         docs->scenes.setLayout(it->first, sceneLayout);
     }
+
+    docs->markDirty();
 }
 
 
@@ -1059,22 +1546,59 @@ void SceneGraphModel::applyStackLink(bool placeAbove)
     if (!docs->scenes.hasScene(stackSourceId) || !docs->scenes.hasScene(stackTargetId))
         return;
 
-    if (placeAbove)
-    {
-        setExitTarget(stackTargetId, "up", stackSourceId);
-        setExitTarget(stackSourceId, "down", stackTargetId);
-    }
-    else
-    {
-        setExitTarget(stackTargetId, "down", stackSourceId);
-        setExitTarget(stackSourceId, "up", stackTargetId);
-    }
+    // Legacy stack dialog: placeAbove means stackSource sits above stackTarget
+    // → targetIsAbove=false from stackTarget's perspective... from stackSource:
+    // source=stackSource above target=stackTarget → targetIsAbove=false.
+    connectFloorLink(stackSourceId, stackTargetId, /*targetIsAbove=*/!placeAbove);
+
+    if (selectionSceneId)
+        (*selectionSceneId) = stackSourceId;
+}
+
+
+bool SceneGraphModel::connectFloorLink(
+    const std::string& sourceId,
+    const std::string& targetId,
+    bool targetIsAbove)
+{
+    if (!docs || !docs->scenes.isLoaded())
+        return false;
+    if (sourceId.empty() || targetId.empty() || sourceId == targetId)
+        return false;
+    if (sourceId.find('#') != std::string::npos || targetId.find('#') != std::string::npos)
+        return false;
+    if (!docs->scenes.hasScene(sourceId) || !docs->scenes.hasScene(targetId))
+        return false;
+    if (!docs->scenes.hasMapPlacement(sourceId) || !docs->scenes.hasMapPlacement(targetId))
+        return false;
+
+    // targetIsAbove: source.up=target, target.down=source
+    // !targetIsAbove: source.down=target, target.up=source
+    const std::string& upper = targetIsAbove ? targetId : sourceId;
+    const std::string& lower = targetIsAbove ? sourceId : targetId;
+
+    auto clearVerticalSlot = [&](const std::string& sceneId, const std::string& dir) {
+        const std::string old = getExitTarget(sceneId, dir);
+        if (old.empty())
+            return;
+        const std::string reverse = (dir == "up") ? "down" : "up";
+        if (getExitTarget(old, reverse) == sceneId)
+            clearExitTarget(old, reverse);
+        clearExitTarget(sceneId, dir);
+    };
+
+    clearVerticalSlot(upper, "down");
+    clearVerticalSlot(lower, "up");
+
+    setExitTarget(upper, "down", lower);
+    setExitTarget(lower, "up", upper);
 
     recomputeLevelsFromExits();
     autoLayoutAllLevels();
-    (*canvasLevel) = docs->scenes.getLayout(stackSourceId).level;
-    (*selectionSceneId) = stackSourceId;
+    if (canvasLevel)
+        (*canvasLevel) = docs->scenes.getLayout(sourceId).level;
     docs->markDirty();
+    return true;
 }
 
 
@@ -1114,6 +1638,558 @@ std::string SceneGraphModel::oppositeDirection(const std::string& direction) con
         return "backward";
     if (direction == "backward")
         return "forward";
+    if (direction == "up")
+        return "down";
+    if (direction == "down")
+        return "up";
     return "";
+}
+
+namespace
+{
+
+nlohmann::json* useBindingJsonNode(
+    DocumentWorkspace* docs,
+    const std::string& mapNodeId,
+    std::string& outParentId,
+    std::string& outSubId)
+{
+    outParentId.clear();
+    outSubId.clear();
+    if (docs == nullptr || !docs->scenes.isLoaded())
+        return nullptr;
+    timberline_engine::SceneDocument::parseMapNodeId(mapNodeId, outParentId, outSubId);
+    if (outParentId.empty())
+        outParentId = mapNodeId;
+    nlohmann::json* parent = docs->scenes.sceneJson(outParentId);
+    if (parent == nullptr || !parent->is_object())
+        return nullptr;
+    if (outSubId.empty())
+        return parent;
+    if (!parent->contains("subScenes") || !(*parent)["subScenes"].is_object())
+        (*parent)["subScenes"] = nlohmann::json::object();
+    nlohmann::json& sub = (*parent)["subScenes"][outSubId];
+    if (!sub.is_object())
+        sub = nlohmann::json::object();
+    return &sub;
+}
+
+const nlohmann::json* useBindingJsonNodeConst(
+    const DocumentWorkspace* docs,
+    const std::string& mapNodeId)
+{
+    if (docs == nullptr || !docs->scenes.isLoaded())
+        return nullptr;
+    std::string parentId;
+    std::string subId;
+    timberline_engine::SceneDocument::parseMapNodeId(mapNodeId, parentId, subId);
+    if (parentId.empty())
+        parentId = mapNodeId;
+    const nlohmann::json* parent = docs->scenes.sceneJson(parentId);
+    if (parent == nullptr || !parent->is_object())
+        return nullptr;
+    if (subId.empty())
+        return parent;
+    if (!parent->contains("subScenes") || !(*parent)["subScenes"].is_object())
+        return nullptr;
+    if (!(*parent)["subScenes"].contains(subId) || !(*parent)["subScenes"][subId].is_object())
+        return nullptr;
+    return &(*parent)["subScenes"][subId];
+}
+
+} // namespace
+
+std::vector<SceneGraphModel::UseBinding> SceneGraphModel::enumerateUseBindings(
+    const std::string& mapNodeId) const
+{
+    std::vector<UseBinding> out;
+    if (!docs || mapNodeId.empty())
+        return out;
+    const nlohmann::json* node = useBindingJsonNodeConst(docs, mapNodeId);
+    if (node == nullptr)
+        return out;
+
+    const std::string useExit = node->value("useExit", "");
+    if (!useExit.empty())
+    {
+        UseBinding row;
+        row.binding = "useExit";
+        row.label = "Direct Use";
+        row.target = useExit;
+        row.details = node->value("useDetails", "");
+        row.repeat = node->value("useRepeatStatus", false);
+        row.sourceMapNode = mapNodeId;
+        row.mapCorner = node->value("useExitMapCorner", "");
+        row.mapToCorner = node->value("useExitMapToCorner", "");
+        out.push_back(row);
+    }
+
+    if (node->contains("interactions") && (*node)["interactions"].is_array())
+    {
+        for (const nlohmann::json& interaction : (*node)["interactions"])
+        {
+            if (!interaction.is_object())
+                continue;
+            const std::string exitId = interaction.value("exitSceneId", "");
+            if (exitId.empty())
+                continue;
+            const std::string id = interaction.value("id", "");
+            if (id.empty())
+                continue;
+            UseBinding row;
+            row.binding = "interaction:" + id;
+            const std::string label = interaction.value("label", id);
+            row.label = label.empty() ? id : label;
+            row.target = exitId;
+            row.details = interaction.value("useDetails", "");
+            row.repeat = interaction.value("repeat", false);
+            row.sourceMapNode = mapNodeId;
+            row.mapCorner = interaction.value("exitMapCorner", "");
+            row.mapToCorner = interaction.value("exitMapToCorner", "");
+            out.push_back(row);
+        }
+    }
+    return out;
+}
+
+bool SceneGraphModel::ensureUseExitTransitionDefaults(const std::string& sourceMapNode)
+{
+    if (!docs || sourceMapNode.empty())
+        return false;
+    std::string parentId;
+    std::string subId;
+    nlohmann::json* node = useBindingJsonNode(docs, sourceMapNode, parentId, subId);
+    if (node == nullptr || node->value("useExit", "").empty())
+        return false;
+
+    bool changed = false;
+    if (!node->value("useRepeatStatus", false))
+    {
+        (*node)["useRepeatStatus"] = true;
+        changed = true;
+    }
+    if (node->value("useDetails", "").empty())
+    {
+        (*node)["useDetails"] = "You make your way through.";
+        changed = true;
+    }
+    if (changed)
+        docs->markDirty();
+    return true;
+}
+
+std::string SceneGraphModel::getUseBindingDetails(
+    const std::string& sourceMapNode,
+    const std::string& binding) const
+{
+    if (!docs || sourceMapNode.empty() || binding.empty())
+        return {};
+    const nlohmann::json* node = useBindingJsonNodeConst(docs, sourceMapNode);
+    if (node == nullptr)
+        return {};
+
+    if (binding == "useExit")
+        return node->value("useDetails", "");
+
+    const std::string prefix = "interaction:";
+    if (binding.rfind(prefix, 0) != 0)
+        return {};
+    const std::string interactionId = binding.substr(prefix.size());
+    if (!node->contains("interactions") || !(*node)["interactions"].is_array())
+        return {};
+    for (const nlohmann::json& interaction : (*node)["interactions"])
+    {
+        if (!interaction.is_object())
+            continue;
+        if (interaction.value("id", "") != interactionId)
+            continue;
+        return interaction.value("useDetails", "");
+    }
+    return {};
+}
+
+bool SceneGraphModel::setUseBindingDetails(
+    const std::string& sourceMapNode,
+    const std::string& binding,
+    const std::string& details)
+{
+    if (!docs || sourceMapNode.empty() || binding.empty())
+        return false;
+    std::string parentId;
+    std::string subId;
+    nlohmann::json* node = useBindingJsonNode(docs, sourceMapNode, parentId, subId);
+    if (node == nullptr)
+        return false;
+
+    if (binding == "useExit")
+    {
+        if (node->value("useExit", "").empty())
+            return false;
+        (*node)["useDetails"] = details;
+        ensureUseExitTransitionDefaults(sourceMapNode);
+        docs->markDirty();
+        return true;
+    }
+
+    const std::string prefix = "interaction:";
+    if (binding.rfind(prefix, 0) != 0)
+        return false;
+    const std::string interactionId = binding.substr(prefix.size());
+    if (!node->contains("interactions") || !(*node)["interactions"].is_array())
+        return false;
+    for (nlohmann::json& interaction : (*node)["interactions"])
+    {
+        if (!interaction.is_object())
+            continue;
+        if (interaction.value("id", "") != interactionId)
+            continue;
+        interaction["useDetails"] = details;
+        if (!interaction.value("repeat", false))
+            interaction["repeat"] = true;
+        docs->markDirty();
+        return true;
+    }
+    return false;
+}
+
+bool SceneGraphModel::setUseBindingTarget(
+    const std::string& sourceMapNode,
+    const std::string& binding,
+    const std::string& targetMapNode)
+{
+    if (!docs || sourceMapNode.empty() || binding.empty() || targetMapNode.empty())
+        return false;
+    std::string parentId;
+    std::string subId;
+    nlohmann::json* node = useBindingJsonNode(docs, sourceMapNode, parentId, subId);
+    if (node == nullptr)
+        return false;
+
+    if (binding == "useExit")
+    {
+        (*node)["useExit"] = targetMapNode;
+        // Map-drawn Use exits should remain usable as transitions (not one-shot).
+        (*node)["useRepeatStatus"] = true;
+        if (node->value("useDetails", "").empty())
+            (*node)["useDetails"] = "You make your way through.";
+        docs->markDirty();
+        return true;
+    }
+
+    const std::string prefix = "interaction:";
+    if (binding.rfind(prefix, 0) != 0)
+        return false;
+    const std::string interactionId = binding.substr(prefix.size());
+    if (interactionId.empty())
+        return false;
+
+    if (!node->contains("interactions") || !(*node)["interactions"].is_array())
+        (*node)["interactions"] = nlohmann::json::array();
+    nlohmann::json& interactions = (*node)["interactions"];
+    for (nlohmann::json& interaction : interactions)
+    {
+        if (!interaction.is_object())
+            continue;
+        if (interaction.value("id", "") != interactionId)
+            continue;
+        interaction["exitSceneId"] = targetMapNode;
+        interaction["repeat"] = true;
+        if (interaction.value("useDetails", "").empty())
+            interaction["useDetails"] = "You make your way through.";
+        docs->markDirty();
+        return true;
+    }
+
+    // Missing interaction - create stub.
+    nlohmann::json stub = nlohmann::json::object();
+    stub["id"] = interactionId;
+    stub["label"] = "Use -> " + targetMapNode;
+    stub["exitSceneId"] = targetMapNode;
+    stub["repeat"] = true;
+    stub["useDetails"] = "You make your way through.";
+    interactions.push_back(stub);
+    docs->markDirty();
+    return true;
+}
+
+bool SceneGraphModel::clearUseBinding(
+    const std::string& sourceMapNode,
+    const std::string& binding)
+{
+    if (!docs || sourceMapNode.empty() || binding.empty())
+        return false;
+    std::string parentId;
+    std::string subId;
+    nlohmann::json* node = useBindingJsonNode(docs, sourceMapNode, parentId, subId);
+    if (node == nullptr)
+        return false;
+
+    if (binding == "useExit")
+    {
+        node->erase("useExit");
+        node->erase("useExitMapCorner");
+        node->erase("useExitMapToCorner");
+        docs->markDirty();
+        return true;
+    }
+
+    const std::string prefix = "interaction:";
+    if (binding.rfind(prefix, 0) != 0)
+        return false;
+    const std::string interactionId = binding.substr(prefix.size());
+    if (!node->contains("interactions") || !(*node)["interactions"].is_array())
+        return false;
+    nlohmann::json& interactions = (*node)["interactions"];
+    for (auto it = interactions.begin(); it != interactions.end(); ++it)
+    {
+        if (!it->is_object())
+            continue;
+        if (it->value("id", "") != interactionId)
+            continue;
+        // Map-created stubs: remove entirely so they cannot intercept Use with
+        // an empty exitSceneId (that forced a second Use click in-game).
+        if (interactionId.rfind("use_map_", 0) == 0)
+            interactions.erase(it);
+        else
+        {
+            it->erase("exitSceneId");
+            it->erase("exitMapCorner");
+            it->erase("exitMapToCorner");
+        }
+        docs->markDirty();
+        return true;
+    }
+    return false;
+}
+
+std::string SceneGraphModel::createUseInteractionBinding(
+    const std::string& sourceMapNode,
+    const std::string& targetMapNode,
+    const std::string& labelHint)
+{
+    if (!docs || sourceMapNode.empty() || targetMapNode.empty())
+        return {};
+    std::string parentId;
+    std::string subId;
+    nlohmann::json* node = useBindingJsonNode(docs, sourceMapNode, parentId, subId);
+    if (node == nullptr)
+        return {};
+
+    if (!node->contains("interactions") || !(*node)["interactions"].is_array())
+        (*node)["interactions"] = nlohmann::json::array();
+    nlohmann::json& interactions = (*node)["interactions"];
+
+    // Allocate use_map_N id.
+    int next = 1;
+    for (const nlohmann::json& interaction : interactions)
+    {
+        if (!interaction.is_object())
+            continue;
+        const std::string id = interaction.value("id", "");
+        if (id.rfind("use_map_", 0) == 0)
+        {
+            try
+            {
+                next = std::max(next, std::stoi(id.substr(8)) + 1);
+            }
+            catch (...)
+            {
+            }
+        }
+    }
+    const std::string newId = "use_map_" + std::to_string(next);
+    nlohmann::json stub = nlohmann::json::object();
+    stub["id"] = newId;
+    stub["label"] = labelHint.empty() ? ("Use -> " + targetMapNode) : labelHint;
+    stub["exitSceneId"] = targetMapNode;
+    // Map-drawn Use links are meant to stay available as room transitions.
+    stub["repeat"] = true;
+    if (!labelHint.empty())
+        stub["useDetails"] = labelHint;
+    else
+        stub["useDetails"] = "You make your way through.";
+    interactions.push_back(stub);
+    docs->markDirty();
+    return "interaction:" + newId;
+}
+
+namespace
+{
+
+bool isValidUseCorner(const std::string& corner)
+{
+    return corner == "nw" || corner == "ne" || corner == "sw" || corner == "se";
+}
+
+bool isCompassDirection(const std::string& direction)
+{
+    return direction == "forward" || direction == "backward" || direction == "left"
+        || direction == "right";
+}
+
+} // namespace
+
+bool SceneGraphModel::setUseBindingMapCorner(
+    const std::string& sourceMapNode,
+    const std::string& binding,
+    const std::string& corner)
+{
+    if (!docs || sourceMapNode.empty() || binding.empty() || !isValidUseCorner(corner))
+        return false;
+    std::string parentId;
+    std::string subId;
+    nlohmann::json* node = useBindingJsonNode(docs, sourceMapNode, parentId, subId);
+    if (node == nullptr)
+        return false;
+
+    if (binding == "useExit")
+    {
+        if (node->value("useExit", "").empty())
+            return false;
+        (*node)["useExitMapCorner"] = corner;
+        ensureUseExitTransitionDefaults(sourceMapNode);
+        docs->markDirty();
+        return true;
+    }
+
+    const std::string prefix = "interaction:";
+    if (binding.rfind(prefix, 0) != 0)
+        return false;
+    const std::string interactionId = binding.substr(prefix.size());
+    if (!node->contains("interactions") || !(*node)["interactions"].is_array())
+        return false;
+    for (nlohmann::json& interaction : (*node)["interactions"])
+    {
+        if (!interaction.is_object())
+            continue;
+        if (interaction.value("id", "") != interactionId)
+            continue;
+        if (interaction.value("exitSceneId", "").empty())
+            return false;
+        interaction["exitMapCorner"] = corner;
+        if (!interaction.value("repeat", false))
+            interaction["repeat"] = true;
+        docs->markDirty();
+        return true;
+    }
+    return false;
+}
+
+bool SceneGraphModel::setUseBindingMapToCorner(
+    const std::string& sourceMapNode,
+    const std::string& binding,
+    const std::string& corner)
+{
+    if (!docs || sourceMapNode.empty() || binding.empty() || !isValidUseCorner(corner))
+        return false;
+    std::string parentId;
+    std::string subId;
+    nlohmann::json* node = useBindingJsonNode(docs, sourceMapNode, parentId, subId);
+    if (node == nullptr)
+        return false;
+
+    if (binding == "useExit")
+    {
+        if (node->value("useExit", "").empty())
+            return false;
+        (*node)["useExitMapToCorner"] = corner;
+        ensureUseExitTransitionDefaults(sourceMapNode);
+        docs->markDirty();
+        return true;
+    }
+
+    const std::string prefix = "interaction:";
+    if (binding.rfind(prefix, 0) != 0)
+        return false;
+    const std::string interactionId = binding.substr(prefix.size());
+    if (!node->contains("interactions") || !(*node)["interactions"].is_array())
+        return false;
+    for (nlohmann::json& interaction : (*node)["interactions"])
+    {
+        if (!interaction.is_object())
+            continue;
+        if (interaction.value("id", "") != interactionId)
+            continue;
+        if (interaction.value("exitSceneId", "").empty())
+            return false;
+        interaction["exitMapToCorner"] = corner;
+        if (!interaction.value("repeat", false))
+            interaction["repeat"] = true;
+        docs->markDirty();
+        return true;
+    }
+    return false;
+}
+
+bool SceneGraphModel::reassignExitDirection(
+    const std::string& fromId,
+    const std::string& oldDirection,
+    const std::string& newDirection,
+    bool maintainReciprocal)
+{
+    if (!docs || !docs->scenes.isLoaded())
+        return false;
+    if (fromId.empty() || fromId.find('#') != std::string::npos)
+        return false;
+    if (!isCompassDirection(oldDirection) || !isCompassDirection(newDirection))
+        return false;
+    if (oldDirection == newDirection)
+        return true;
+    if (!docs->scenes.hasScene(fromId))
+        return false;
+
+    const std::string toId = getExitTarget(fromId, oldDirection);
+    if (toId.empty())
+        return false;
+
+    const std::string occupying = getExitTarget(fromId, newDirection);
+    if (!occupying.empty() && occupying != toId)
+        return false;
+
+    if (exitDirectionAlreadyLeadsTo(newDirection, toId, fromId))
+        return false;
+
+    const std::string oldReverse = oppositeDirection(oldDirection);
+    const std::string newReverse = oppositeDirection(newDirection);
+    const bool hadReciprocal =
+        maintainReciprocal
+        && !oldReverse.empty()
+        && getExitTarget(toId, oldReverse) == fromId;
+
+    if (hadReciprocal && !newReverse.empty())
+    {
+        const std::string existingNewReverse = getExitTarget(toId, newReverse);
+        if (!existingNewReverse.empty() && existingNewReverse != fromId)
+            return false;
+    }
+
+    nlohmann::json* scene = docs->scenes.sceneJson(fromId);
+    nlohmann::json movedRequirement = nlohmann::json();
+    bool hadRequirement = false;
+    if (scene != nullptr && scene->contains("exitRequirements")
+        && (*scene)["exitRequirements"].is_object()
+        && (*scene)["exitRequirements"].contains(oldDirection))
+    {
+        movedRequirement = (*scene)["exitRequirements"][oldDirection];
+        hadRequirement = true;
+    }
+
+    clearExitTarget(fromId, oldDirection);
+    if (hadReciprocal)
+        clearExitTarget(toId, oldReverse);
+
+    setExitTarget(fromId, newDirection, toId);
+    if (hadReciprocal && !newReverse.empty())
+        setExitTarget(toId, newReverse, fromId);
+
+    if (hadRequirement && scene != nullptr)
+    {
+        if (!scene->contains("exitRequirements") || !(*scene)["exitRequirements"].is_object())
+            (*scene)["exitRequirements"] = nlohmann::json::object();
+        (*scene)["exitRequirements"][newDirection] = movedRequirement;
+    }
+
+    docs->markDirty();
+    return true;
 }
 } // namespace timberline_editor

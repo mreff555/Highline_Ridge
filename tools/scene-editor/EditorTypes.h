@@ -32,7 +32,9 @@ enum class DragSource
     SceneList,
     Canvas,
     ExitLink,
-    ExitPort // new connector from a card direction port
+    ExitPort, // new connector from a card direction port (compass)
+    UsePort,  // new connector from a card corner Use port
+    UseLink   // retarget existing Use wire
 };
 enum class ConversationNodeKind
 {
@@ -78,6 +80,11 @@ struct ThumbnailEntry
     Texture2D texture{};
     bool loaded = false;
     bool missing = false;
+    /** True while a JobSystem decode is in flight (not yet uploaded). */
+    bool loading = false;
+    /** Disk mtime of the decoded asset; used to refresh when images change (#43). */
+    long sourceModTime = 0;
+    std::string sourcePath;
 };
 const float kTreeRowHeight = 24.0f;
 const float kTreeIndent = 18.0f;

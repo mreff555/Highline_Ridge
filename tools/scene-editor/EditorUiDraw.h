@@ -99,9 +99,11 @@ struct TtsSyntaxThemeColors
     Color command{70, 190, 100, 255};        // green — [pause]
     Color styleMarkup{230, 140, 50, 255};    // orange — <whisper>
     Color styleContent{50, 80, 170, 255};    // dark blue — angle content
-    Color voiceMarkup{235, 210, 70, 255};    // yellow — {{voice:eve}}
-    Color voiceDialog{140, 195, 235, 255};   // light blue — brace content
-    Color markupError{220, 55, 55, 255};     // red — unclosed
+    Color voiceMarkup{235, 210, 70, 255};    // yellow - {{voice:eve}}
+    Color voiceDialog{70, 190, 100, 255};    // green - spoken span inside voice (incl. [pause])
+    Color conditionMarkup{235, 210, 70, 255}; // yellow - {{condition:…}}
+    Color conditionContent{150, 150, 155, 255}; // gray - condition body
+    Color markupError{220, 55, 55, 255};     // red - unclosed
 };
 
 /**
@@ -128,6 +130,26 @@ int moveCursorVertical(
     int direction,
     float fontSize,
     float& preferredX);
+
+/** True while the blinking caret should be drawn (hz from editor_ui_config). */
+bool caretBlinkVisible(float hz);
+
+/** UTF-8-aware caret steps within buffer (byte indices). */
+int utf8PrevIndex(const std::string& buffer, int cursor);
+int utf8NextIndex(const std::string& buffer, int cursor);
+
+/**
+ * Rounded ON/OFF slider (Item / New Scene TTS style).
+ * If canClick and the track is clicked, outToggled is set true (caller flips state).
+ * Optional label is drawn after the ON/OFF caption; pass nullptr / "" to omit.
+ */
+void drawOnOffSwitch(
+    Font font,
+    Rectangle track,
+    bool on,
+    const char* label,
+    bool canClick,
+    bool& outToggled);
 
 } // namespace timberline_editor
 

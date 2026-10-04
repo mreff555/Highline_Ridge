@@ -18,6 +18,7 @@
  ******************************************************************************/
 
 #include "ConversationTree.h"
+#include "EditorInput.h"
 
 #include "ConversationHelpers.h"
 #include "DialogWalkthrough.h"
@@ -86,7 +87,7 @@ ConversationTreeNode ConversationTree::makeNarrativeFieldNode(
     else if (value.is_null())
         node.detail = "(null)";
     else
-        node.detail = "{…}";
+        node.detail = "{...}";
     return node;
 }
 
@@ -516,7 +517,7 @@ void ConversationTree::handleConversationTreeInput(Rectangle listBounds)
     const float headerToggleY = listBounds.y + (20.0f - kTreeToggleSize) * 0.5f;
     const Rectangle headerToggle = {
         headerToggleX, headerToggleY, kTreeToggleSize, kTreeToggleSize};
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
+    if (editorMousePressed(MOUSE_BUTTON_LEFT)
         && CheckCollisionPointRec(mouse, headerToggle))
     {
         toggleExpandAllSceneRoots();
@@ -535,7 +536,7 @@ void ConversationTree::handleConversationTreeInput(Rectangle listBounds)
         listBounds.width,
         listBounds.height - 20.0f};
 
-    if (CheckCollisionPointRec(mouse, treeBounds) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    if (CheckCollisionPointRec(mouse, treeBounds) && editorMousePressed(MOUSE_BUTTON_LEFT))
     {
         const float localY = (mouse.y - treeBounds.y - 4.0f) + (*leftScroll);
         if (localY >= 0.0f)
@@ -734,7 +735,7 @@ void ConversationTree::drawConversationTree(Rectangle listBounds)
     const std::string headerLabel =
         "Scenes (" + std::to_string(roots.size()) + ")"
         + (selectionSceneId != nullptr && !selectionSceneId->empty()
-               ? ("  ·  " + truncateForTree(*selectionSceneId, 22))
+               ? ("   |   " + truncateForTree(*selectionSceneId, 22))
                : "");
     DrawTextEx(
         (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
@@ -998,6 +999,6 @@ std::string ConversationTree::truncateForTree(const std::string& text, size_t ma
     }
     if (compact.size() <= maxLen)
         return compact;
-    return compact.substr(0, maxLen - 1) + "…";
+    return compact.substr(0, maxLen - 1) + "...";
 }
 } // namespace timberline_editor

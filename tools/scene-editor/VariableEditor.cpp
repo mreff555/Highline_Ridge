@@ -18,11 +18,13 @@
  ******************************************************************************/
 
 #include "VariableEditor.h"
+#include "EditorInput.h"
 
 #include "ConversationHelpers.h"
 #include "DocumentWorkspace.h"
 #include "EditorButton.h"
 #include "EditorPaths.h"
+#include "EditorPrefs.h"
 #include "EditorTheme.h"
 #include "EditorTypes.h"
 #include "EditorUiDraw.h"
@@ -94,9 +96,55 @@ void VariableEditor::closeVariableEditor()
     keyRepeatKey = 0;
     keyRepeatTimer = 0.0f;
     textTtsToggle = {0, 0, 0, 0};
+    fullscreenBtn = {0, 0, 0, 0};
+    fieldContextOpen = false;
+    fieldContextRect = {0, 0, 0, 0};
     voiceDropdownOpen = false;
     voiceDropdownBtn = {0, 0, 0, 0};
     voiceDropdownMenu = {0, 0, 0, 0};
+}
+
+bool VariableEditor::canOpenParchment() const
+{
+    return open && parchment != nullptr && docs != nullptr && multiline
+        && kind == VariableKindString;
+}
+
+void VariableEditor::openParchmentEditor()
+{
+    if (!canOpenParchment())
+        return;
+
+    const bool ttsHighlight = showTts && textTtsEnabled;
+    std::string label = editorKey.empty() ? "Edit" : editorKey;
+    if (docTarget == ConversationEditDoc::Items && !editorItemId.empty())
+        label = "Item " + editorKey;
+    else if (!editorSceneId.empty())
+        label = editorKey;
+
+    parchment->openEditor(
+        &buffer,
+        ttsHighlight,
+        label,
+        docs->resourceDir,
+        docs->assetRoot);
+    parchment->onClosed = [this]() {
+        // Confirm already wrote draft → buffer; stash so Text/TTS dual-side
+        // Save still sees the parchment result.
+        if (textTtsEnabled)
+            stashActiveBufferToSide();
+        cursor = static_cast<int>(buffer.size());
+        selectAnchor = -1;
+        mouseSelecting = false;
+        fieldContextOpen = false;
+        // Swallow the click that dismissed parchment so Save/Cancel/outside
+        // cannot fire underneath.
+        ignoreInputFrames = 2;
+    };
+    fieldContextOpen = false;
+    voiceDropdownOpen = false;
+    mouseSelecting = false;
+    ignoreInputFrames = 1;
 }
 
 
@@ -690,7 +738,9 @@ const std::vector<EditorVisualLine>& VariableEditor::buildEditorVisualLines(floa
     {
         if (buffer[static_cast<size_t>(i)] == '\n')
         {
-            // Empty visual line for a hard newline; caret sits on this row.
+            // Blank row only for consecutive newlines. A single \n after content
+            // is consumed with that content line (see below) so EOL caret does
+            // not sit on a phantom line under the text (#18).
             pushLine(i, i);
             ++i;
             continue;
@@ -741,6 +791,8 @@ const std::vector<EditorVisualLine>& VariableEditor::buildEditorVisualLines(floa
             if (i >= n || buffer[static_cast<size_t>(i)] == '\n')
             {
                 pushLine(lineStart, i);
+                if (i < n && buffer[static_cast<size_t>(i)] == '\n')
+                    ++i;
                 break;
             }
         }
@@ -761,6 +813,15 @@ int VariableEditor::editorLineIndexForCursor(const std::vector<EditorVisualLine>
 {
     if (lines.empty())
         return 0;
+
+    // Prefer end of earlier line over start of next at a shared boundary (#18).
+    for (size_t i = 0; i + 1 < lines.size(); ++i)
+    {
+        if (cursor == lines[i].end && cursor == lines[i + 1].start
+            && lines[i].end > lines[i].start)
+            return static_cast<int>(i);
+    }
+
     for (size_t i = 0; i < lines.size(); ++i)
     {
         const int nextStart = (i + 1 < lines.size())
@@ -958,6 +1019,19 @@ void VariableEditor::syncDialogLayout(int screenWidth, int screenHeight)
         btnY - (dialogY + 44.0f) - 14.0f};
     saveBtn = {dialogX + dialogW - btnW * 2.0f - 28.0f, btnY, btnW, btnH};
     cancelBtn = {dialogX + dialogW - btnW - 18.0f, btnY, btnW, btnH};
+    if (canOpenParchment())
+    {
+        const float fullW = 120.0f;
+        fullscreenBtn = {
+            dialogX + dialogW - btnW * 2.0f - 28.0f - fullW - 10.0f,
+            btnY,
+            fullW,
+            btnH};
+    }
+    else
+    {
+        fullscreenBtn = {0, 0, 0, 0};
+    }
 
     if (textTtsEnabled)
     {
@@ -1009,16 +1083,40 @@ void VariableEditor::handleVariableEditorTextInput()
         IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER);
     const Vector2 mouse = GetMousePosition();
 
-    // Buttons take priority over the text field (handled here in update).
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    // Right-click field → "Edit full screen" (same affordance as Edit Scene).
+    if (canOpenParchment() && editorMousePressed(MOUSE_BUTTON_RIGHT)
+        && CheckCollisionPointRec(mouse, field))
     {
+        fieldContextOpen = true;
+        fieldContextRect = {mouse.x, mouse.y, 160.0f, 28.0f};
+        if (fieldContextRect.x + fieldContextRect.width > GetScreenWidth())
+            fieldContextRect.x = GetScreenWidth() - fieldContextRect.width - 4.0f;
+        if (fieldContextRect.y + fieldContextRect.height > GetScreenHeight())
+            fieldContextRect.y = GetScreenHeight() - fieldContextRect.height - 4.0f;
+        mouseSelecting = false;
+        return;
+    }
+
+    // Buttons take priority over the text field (handled here in update).
+    if (editorMousePressed(MOUSE_BUTTON_LEFT))
+    {
+        if (fieldContextOpen)
+        {
+            if (CheckCollisionPointRec(mouse, fieldContextRect))
+            {
+                mouseSelecting = false;
+                openParchmentEditor();
+                return;
+            }
+            fieldContextOpen = false;
+        }
         if (CheckCollisionPointRec(mouse, saveBtn))
         {
             mouseSelecting = false;
             if (!saveVariableEditor())
             {
                 if (error.empty())
-                    error = "Could not parse value — check type and try again";
+                    error = "Could not parse value  -  check type and try again";
             }
             return;
         }
@@ -1026,6 +1124,12 @@ void VariableEditor::handleVariableEditorTextInput()
         {
             mouseSelecting = false;
             closeVariableEditor();
+            return;
+        }
+        if (fullscreenBtn.width > 1.0f && CheckCollisionPointRec(mouse, fullscreenBtn))
+        {
+            mouseSelecting = false;
+            openParchmentEditor();
             return;
         }
         if (textTtsEnabled &&
@@ -1080,7 +1184,7 @@ void VariableEditor::handleVariableEditorTextInput()
         return;
 
     // Click to place caret; double-click selects word; drag extends selection.
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, field))
+    if (editorMousePressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, field))
     {
         const int pos = editorCursorFromClick(
             lines(), field, pad, fontSize, lineHeight, mouse);
@@ -1115,7 +1219,7 @@ void VariableEditor::handleVariableEditorTextInput()
             fontSize);
         ensureCursorVisible(lines(), field.height, localPad, localLineHeight);
     }
-    else if (mouseSelecting && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+    else if (mouseSelecting && editorMouseDown(MOUSE_BUTTON_LEFT))
     {
         // Only extend selection while the pointer is over the field.
         if (CheckCollisionPointRec(mouse, field))
@@ -1133,7 +1237,7 @@ void VariableEditor::handleVariableEditorTextInput()
             ensureCursorVisible(lines(), field.height, localPad, localLineHeight);
         }
     }
-    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+    if (editorMouseReleased(MOUSE_BUTTON_LEFT))
         mouseSelecting = false;
 
     // Copy / cut / paste / select-all
@@ -1394,13 +1498,13 @@ void VariableEditor::drawVariableEditor(int screenWidth, int screenHeight)
     // Title only — mode is already shown by the lower-left text/TTS switch.
     std::string title = "Edit \"" + editorKey + "\"";
     if (docTarget == ConversationEditDoc::Conversations)
-        title = "Edit conversation  —  " + editorKey;
+        title = "Edit conversation   -   " + editorKey;
     else if (docTarget == ConversationEditDoc::Scenes)
-        title = "Edit narrative  —  " + editorKey + "  (" + editorSceneId + ")";
+        title = "Edit narrative   -   " + editorKey + "  (" + editorSceneId + ")";
     else if (docTarget == ConversationEditDoc::Items)
-        title = "Edit item  —  " + editorKey + "  (" + editorItemId + ")";
+        title = "Edit item   -   " + editorKey + "  (" + editorItemId + ")";
     else if (!editorSceneId.empty())
-        title = "Edit \"" + editorKey + "\"  —  scene: " + editorSceneId;
+        title = "Edit \"" + editorKey + "\"   -   scene: " + editorSceneId;
 
     const float titleMaxW = std::max(40.0f, voiceClusterLeft - (dialog.x + 18.0f) - 8.0f);
     while (title.size() > 4
@@ -1525,10 +1629,21 @@ void VariableEditor::drawVariableEditor(int screenWidth, int screenHeight)
 
     const Rectangle localSaveBtn = {dialog.x + dialogW - btnW * 2.0f - 28.0f, btnY, btnW, btnH};
     const Rectangle localCancelBtn = {dialog.x + dialogW - btnW - 18.0f, btnY, btnW, btnH};
+    Rectangle localFullscreenBtn{0, 0, 0, 0};
+    if (canOpenParchment())
+    {
+        const float fullW = 120.0f;
+        localFullscreenBtn = {
+            dialog.x + dialogW - btnW * 2.0f - 28.0f - fullW - 10.0f,
+            btnY,
+            fullW,
+            btnH};
+    }
 
     // Keep rects identical to update() hit-testing.
     saveBtn = localSaveBtn;
     cancelBtn = localCancelBtn;
+    fullscreenBtn = localFullscreenBtn;
 
     // Lower-left text/TTS switch (conversation dialog editors only).
     if (textTtsEnabled)
@@ -1595,6 +1710,8 @@ void VariableEditor::drawVariableEditor(int screenWidth, int screenHeight)
 
     {
         const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
+        if (localFullscreenBtn.width > 1.0f)
+            drawEditorButton(font, localFullscreenBtn, "Fullscreen", false, true);
         drawEditorButton(font, localSaveBtn, "Save", true, true);
         drawEditorButton(font, localCancelBtn, "Cancel", false, true);
     }
@@ -1639,18 +1756,32 @@ void VariableEditor::drawVariableEditor(int screenWidth, int screenHeight)
         }
     }
 
+    if (fieldContextOpen)
+    {
+        const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
+        DrawRectangleRec(fieldContextRect, Color{32, 28, 40, 245});
+        DrawRectangleLinesEx(fieldContextRect, 1.0f, kPanelBorder);
+        DrawTextEx(
+            font,
+            "Edit full screen",
+            {fieldContextRect.x + 10.0f, fieldContextRect.y + 6.0f},
+            kFontSmall,
+            1.0f,
+            kTextPrimary);
+    }
+
     // Enter saves single-line fields; multiline uses Enter for newlines.
     if (ignoreInputFrames <= 0 &&
         !multiline &&
         (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)))
     {
         if (!saveVariableEditor() && error.empty())
-            error = "Could not parse value — check type and try again";
+            error = "Could not parse value  -  check type and try again";
     }
 }
 
 
-void VariableEditor::drawVariablesPane(Rectangle paneBounds)
+void VariableEditor::drawVariablesPane(Rectangle paneBounds, bool allowInteraction)
 {
     // Capture once so list + editor always use the same scene for this frame.
     const std::string sceneId = (*selectionSceneId);
@@ -1670,8 +1801,18 @@ void VariableEditor::drawVariablesPane(Rectangle paneBounds)
         paneBounds.y + 6.0f,
         88.0f,
         20.0f};
+    const Rectangle interactionsBtn = {
+        inventoryBtn.x - 100.0f,
+        paneBounds.y + 6.0f,
+        92.0f,
+        20.0f};
+    const Rectangle eventsBtn = {
+        interactionsBtn.x - 80.0f,
+        paneBounds.y + 6.0f,
+        72.0f,
+        20.0f};
     const Rectangle effectsBtn = {
-        inventoryBtn.x - 80.0f,
+        eventsBtn.x - 80.0f,
         paneBounds.y + 6.0f,
         72.0f,
         20.0f};
@@ -1724,6 +1865,26 @@ void VariableEditor::drawVariablesPane(Rectangle paneBounds)
         1.0f,
         kTextPrimary);
 
+    DrawRectangleRec(eventsBtn, kPanelAccent);
+    DrawRectangleLinesEx(eventsBtn, 1.0f, kPanelBorder);
+    DrawTextEx(
+        font,
+        "Events",
+        {eventsBtn.x + 14.0f, eventsBtn.y + 3.0f},
+        kFontTiny,
+        1.0f,
+        kTextPrimary);
+
+    DrawRectangleRec(interactionsBtn, kPanelAccent);
+    DrawRectangleLinesEx(interactionsBtn, 1.0f, kPanelBorder);
+    DrawTextEx(
+        font,
+        "Interactions",
+        {interactionsBtn.x + 6.0f, interactionsBtn.y + 3.0f},
+        kFontTiny,
+        1.0f,
+        kTextPrimary);
+
     DrawRectangleRec(inventoryBtn, kPanelAccent);
     DrawRectangleLinesEx(inventoryBtn, 1.0f, kPanelBorder);
     DrawTextEx(
@@ -1763,11 +1924,16 @@ void VariableEditor::drawVariablesPane(Rectangle paneBounds)
                    kFontBody, 1.0f, kTextMuted);
         // Still allow AI Assist when the scene has no variable rows.
         const Vector2 mouseEmpty = GetMousePosition();
-        const bool canInteractEmpty = !open && !(*stackDialogOpen);
-        if (canInteractEmpty && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        const bool canInteractEmpty =
+            allowInteraction && !open && !(*stackDialogOpen);
+        if (canInteractEmpty && editorMousePressed(MOUSE_BUTTON_LEFT))
         {
             if (CheckCollisionPointRec(mouseEmpty, effectsBtn) && onSceneEffects)
                 onSceneEffects();
+            else if (CheckCollisionPointRec(mouseEmpty, eventsBtn) && onSceneStoryEvents)
+                onSceneStoryEvents();
+            else if (CheckCollisionPointRec(mouseEmpty, interactionsBtn) && onSceneInteractions)
+                onSceneInteractions();
             else if (CheckCollisionPointRec(mouseEmpty, inventoryBtn) && onSceneInventory)
                 onSceneInventory();
             else if (CheckCollisionPointRec(mouseEmpty, aiAssistBtn) && onAiAssist)
@@ -1793,13 +1959,21 @@ void VariableEditor::drawVariablesPane(Rectangle paneBounds)
 
     const Rectangle listBounds = {paneBounds.x, listTop, paneBounds.width, listHeight};
     const Vector2 mouse = GetMousePosition();
-    const bool canInteract = !open && !(*stackDialogOpen);
+    const bool canInteract = allowInteraction && !open && !(*stackDialogOpen);
 
-    if (canInteract && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    if (canInteract && editorMousePressed(MOUSE_BUTTON_LEFT))
     {
         if (CheckCollisionPointRec(mouse, effectsBtn) && onSceneEffects)
         {
             onSceneEffects();
+        }
+        else if (CheckCollisionPointRec(mouse, eventsBtn) && onSceneStoryEvents)
+        {
+            onSceneStoryEvents();
+        }
+        else if (CheckCollisionPointRec(mouse, interactionsBtn) && onSceneInteractions)
+        {
+            onSceneInteractions();
         }
         else if (CheckCollisionPointRec(mouse, inventoryBtn) && onSceneInventory)
         {
@@ -1828,9 +2002,15 @@ void VariableEditor::drawVariablesPane(Rectangle paneBounds)
         }
     }
 
-    if (canInteract &&
-        !selectedVariableKey.empty() &&
-        (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER) || IsKeyPressed(KEY_F2)))
+    // Enter opens the selected variable editor — but on the Conversations tab the
+    // walkthrough uses Enter for newlines. IsKeyPressed stays true for the whole
+    // frame, so handling Enter here stole keystrokes from dialog typing and often
+    // opened the scene "actions" (or other) field editor by surprise.
+    const bool conversationsTab = docs != nullptr && docs->isConversationsTab();
+    const bool openOnEnter = !conversationsTab
+        && (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER));
+    if (canInteract && !selectedVariableKey.empty()
+        && (openOnEnter || IsKeyPressed(KEY_F2)))
     {
         openVariableEditor(sceneId, selectedVariableKey);
     }
@@ -1946,27 +2126,10 @@ void VariableEditor::ensureGlobalDefaultVoiceLoaded()
     if (globalDefaultVoiceLoaded)
         return;
     globalDefaultVoiceLoaded = true;
-    globalDefaultVoice = "leo";
-
-    const std::string configPath = pathJoin(docs->resourceDir, "game_config.json");
-    std::ifstream file(configPath.c_str());
-    if (!file.is_open())
-        return;
-
-    try
-    {
-        nlohmann::json config;
-        file >> config;
-        if (config.is_object() && config.contains("tts") && config["tts"].is_object())
-        {
-            const std::string voice = config["tts"].value("voice", globalDefaultVoice);
-            if (!voice.empty())
-                globalDefaultVoice = voice;
-        }
-    }
-    catch (const nlohmann::json::exception&)
-    {
-    }
+    if (docs != nullptr && !docs->resourceDir.empty())
+        globalDefaultVoice = preferredTtsDefaultVoice(docs->resourceDir);
+    else
+        globalDefaultVoice = "leo";
 }
 
 
@@ -2069,6 +2232,8 @@ bool VariableEditor::applyOwnerTtsPolicySelection(const std::string& selection)
         }
         (*owner)["ttsEnabled"] = true;
         (*owner)["ttsDefaultVoice"] = voice;
+        if (!docs->resourceDir.empty())
+            rememberTtsDefaultVoice(docs->resourceDir, voice);
     }
 
     docs->markDirty();
@@ -2604,8 +2769,8 @@ std::string VariableEditor::truncateForTree(const std::string& text, size_t maxL
     if (maxLen == 0)
         return "";
     if (maxLen == 1)
-        return "…";
-    return compact.substr(0, maxLen - 1) + "…";
+        return "...";
+    return compact.substr(0, maxLen - 1) + "...";
 }
 
 } // namespace timberline_editor

@@ -20,11 +20,30 @@
 #ifndef EXIT_REQUIREMENT_DEF_H
 #define EXIT_REQUIREMENT_DEF_H
 
+#include <ItemDef.h>
+
 #include <string>
 #include <vector>
 
 namespace timberline_engine
 {
+
+/** Explicit MOVE badge when the exit is blocked (#42). */
+enum class ExitBlockBadge
+{
+    Auto,  // infer from requirements (legacy)
+    Light, // light bulb
+    Lock,  // padlock (keys / story unlock)
+    Gear   // gear/equipment
+};
+
+struct ExitBlockedVariantDef
+{
+    /** Condition string, e.g. item:padlock_key:in_inventory (evaluated in later phases). */
+    std::string when;
+    std::string details;
+    ItemTtsDef tts;
+};
 
 struct ExitRequirementDef
 {
@@ -34,6 +53,9 @@ struct ExitRequirementDef
     std::vector<std::string> requiresInventoryItems;
     std::string requiresStoryFlag;
     std::string blockedDetails;
+    ItemTtsDef blockedTts;
+    ExitBlockBadge blockBadge = ExitBlockBadge::Auto;
+    std::vector<ExitBlockedVariantDef> blockedVariants;
 };
 
 }

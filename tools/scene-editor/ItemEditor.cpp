@@ -18,6 +18,7 @@
  ******************************************************************************/
 
 #include "ItemEditor.h"
+#include "EditorInput.h"
 
 #include "EditorButton.h"
 #include "EditorTheme.h"
@@ -65,11 +66,11 @@ ConversationTreeNode makeItemFieldNode(
     else if (value.is_null())
         node.detail = "(null)";
     else if (value.is_object())
-        node.detail = "{…}";
+        node.detail = "{...}";
     else if (value.is_array())
-        node.detail = "[…]";
+        node.detail = "[...]";
     else
-        node.detail = "…";
+        node.detail = "...";
     return node;
 }
 
@@ -395,7 +396,7 @@ void ItemEditor::handleInput(Rectangle listBounds)
     if (listScroll < 0.0f)
         listScroll = 0.0f;
 
-    if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    if (!editorMousePressed(MOUSE_BUTTON_LEFT))
         return;
 
     // Header expand/collapse-all control (same style as row toggles).
@@ -645,7 +646,7 @@ void ItemEditor::draw(Rectangle listBounds)
         const float textX = toggleX + kTreeToggleSize + kTreeTogglePad + 2.0f;
         std::string line = node.label;
         if (!node.detail.empty())
-            line += "  —  " + node.detail;
+            line += "   -   " + node.detail;
         DrawTextEx(
             (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
             truncateForTree(line, 48).c_str(),
@@ -681,7 +682,7 @@ std::string ItemEditor::truncateForTree(const std::string& text, size_t maxLen)
     }
     if (compact.size() <= maxLen)
         return compact;
-    return compact.substr(0, maxLen - 1) + "…";
+    return compact.substr(0, maxLen - 1) + "...";
 }
 
 } // namespace timberline_editor

@@ -1,100 +1,265 @@
-# Highline Ridge
+# Highline Ridge & Timberline
 
-**Highline Ridge** is a point-and-click mystery game built on the **Timberline** engine.
+**Highline Ridge** is a late-19th-century point-and-click mystery. It ships as the showcase title for **Timberline**, a fixed-image narrative engine built for data-driven scenes, dialog, inventory, and xAI-backed TTS.
 
-Storyboarding is still in progress; development focus is currently on Timberline as a reusable fixed-image narrative platform. A finished short game will showcase the engine. Contributions are welcome.
+Storyboarding is still in progress. Engineering focus is Timberline as a reusable platform; a finished short game will demonstrate it.
 
-## Build instructions
+---
 
-The main third-party dependency is raylib (fetched by CMake). You need a C/C++ compiler. Builds have been tested on macOS (Intel). See [BUILD.md](BUILD.md) for platform details.
+## Abstract
+
+**Timberline** is a C++/Raylib storytelling engine for *old-school fixed images*: rooms are authored as images + JSON (exits, flags, interactions, takeables, story events), not as a 3D world. A small team—or one human with AI-assisted art and dialog—can ship scene-driven adventures without a full production pipeline.
+
+**Highline Ridge** is the bundled game: Appalachia, ~1891. You wake injured and amnesiac above a mountain town. People seem to know you. They are not giving straight answers. You explore, examine, take, use, speak, craft, and follow story flags and milestones while managing body and mind stats.
+
+| Piece | Role |
+|-------|------|
+| **Timberline** | Engine: scenes, conversations, inventory, stats, audio/TTS, saves, resource editor |
+| **Highline Ridge** | Showcase mystery content under `resources/` |
+| **scene-editor** | Map, Variables, Conversations, Items, Use wires, story events |
+
+---
+
+## AI co-developed
+
+This project is **mostly AI-developed** in partnership with a human director.
+
+- **Human:** Dan Feerst (`feerstd@gmail.com`) — design direction, playtesting, art/TTS approvals, release decisions  
+- **Agent:** **c0d3B0t555** — implementation, tooling, docs, issue triage, and iterative authoring alongside Dan  
+
+Timberline is designed to work with **[xAI](https://x.ai)** / **Grok**:
+
+- Dialog and scene TTS via Grok voices (`ara`, `eve`, `helios`, `leo`, `rex`, `rigel`, `sal`)
+- Inline voice markup and realism tags (see [docs/tts.md](docs/tts.md))
+- Refresh workflows that call the xAI API from **dev** builds (`--key`, `--refresh-voices`)
+
+Art, narrative beats, and engine features are co-evolved in the loop: human taste + agent throughput.
+
+---
+
+## Contributing
+
+Human and AI contributions are welcome — especially **Windows** support, storyboarding, scene/TTS generation, UI, and docs.
+
+See **[CONTRIBUTING.md](CONTRIBUTING.md)** for contact (`feerstd@gmail.com`), branch/PR rules, and the current needs list. Work from the latest release-candidate branch (currently `v0.3.0.0_RC`).
+
+---
+
+## Game stats and mechanics
+
+### Play loop
+
+- Explore **fixed-image scenes** with compass exits (and gates: inventory, flags, darkness)
+- **Examine**, **Take**, **Use**, **Speak** from the action panel
+- Manage **inventory** (weight, craft/combine, light sources)
+- Advance via **milestones**, **story flags**, **conversations**, and **story events** (enter/exit/examine beats)
+
+### Player stats
+
+| Stat | Meaning |
+|------|---------|
+| **Health** | At 0%, you die. Sleep restores it. |
+| **Energy** | Stamina for hard work. Sleep restores it. |
+| **Resolve** | Grit for demanding tasks; stimulants/booze can help. |
+| **Lucidity** | Grip on reality; sleep helps; gates conversation/intellect. At **0%**, the game transitions back to waking in the cave. |
+| **Charisma** | Improves odds in conversation. |
+
+Status effects can be one-shot or repeatable (`repeat` / `useRepeatStatus`). Scene **Effects** and interaction status deltas author these in the editor.
+
+### Movement and Use
+
+- **Compass exits** — gold mid-edge wires on the map  
+- **Floor up/down** — Connect to floor; stair badges (`^N` / `vN`) for audio/gates  
+- **Use → another scene** — silver corner wires (`useExit` or interaction `exitSceneId`)  
+- **Same-room Use** (narrative only) — no map wire; still appears in-game  
+- **Gated MOVE** — Exit Requirements (light / item / flag + blocked VO)  
+
+Details: [docs/scene-map-exits.md](docs/scene-map-exits.md) (also covers place-item vs Inventory and folds #16 special cases).
+
+### Saves
+
+Release builds do **not** write beside the binary:
+
+| Platform | User data |
+|----------|-----------|
+| Linux | `~/.highline_ridge/` |
+| macOS | `~/Library/Application Support/Highline Ridge/` |
+| Windows | `%AppData%\Highline Ridge\` |
+
+Override with `HIGHLINE_DATA_DIR`.
+
+---
+
+## Multi-platform build
+
+**Dependencies:** CMake, C++17, Raylib (fetched), **liblzma**, **libjpeg**, **libopusfile** / **libopus**.
+
+Full platform steps (macOS Homebrew/`/opt/homebrew`, Linux apt, Windows vcpkg): **[BUILD.md](BUILD.md)**.
+
+### Dev (disk `resources/` + editor)
 
 ```bash
-mkdir build
-cd build
+mkdir -p build && cd build
 cmake ..
-make
-cd ../tools/scene-editor
-mkdir build
-cd build
-cmake ..
-make
+cmake --build . -j$(sysctl -n hw.ncpu 2>/dev/null || nproc)
+./Highline\ Ridge
+./scene-editor
 ```
 
-## Timberline engine
-Timberline is a rich storytelling engine that uses old-school fixed images so a small team (or one developer, with AI-assisted art) can ship scene-driven adventures without a full 3D pipeline.
+### Release (embedded HLAP pak)
 
-- **Fixed-image scenes** with JSON configuration for exits, movement, sub-scenes, and interactions
-- **Conversation system** with phases, nested dialog choices, milestones, and requirements
-- **TTS** via Grok/xAI voices: default voice per line, markup to switch narrator and actor voices mid-line (`{{voice:eve}}…{{/voice}}`), SHA-based regeneration so unchanged dialog is skipped
-- **Data-driven resources** under `resources/` (images, audio, conversations, scenes); binaries may be xz-compressed
-- **Timberline Resource Editor** (`tools/scene-editor`) for scene maps, variables, and conversation editing (beta)
-- **Player stats** that change through play:
-  - **Health** — at 0%, you die; increases with sleep
-  - **Energy** — stamina for hard work; increases with sleep
-  - **Resolve** — grit for demanding tasks; stimulants or booze can help
-  - **Lucidity** — grip on reality; sleep helps; matters for conversation and intellect
-  - **Charisma** — improves odds in conversation
+```bash
+./build-release.sh
+cd build-release
+./Highline\ Ridge
+```
 
-For voice generation, supply an xAI API key and run `./Highline\ Ridge --help`.
+| Mode | Embed | Scene editor | Dev tools / TTS refresh CLI |
+|------|-------|--------------|------------------------------|
+| Dev (default) | OFF | ON | ON |
+| `./build-release.sh` | ON | OFF | OFF |
+| + `--with-scene-editor` | ON | ON | OFF |
+| + `--with-dev-tools` | ON | — | ON |
 
-### Architecture
-main.cpp  
-   └─ SceneEditorApp          (shell: wire, fonts, selection, update/draw)  
-         ├─ DocumentWorkspace   (scenes/conversations JSON, tabs, dirty)  
-         ├─ EditorLayout        (panes / dividers)  
-         ├─ ThumbnailCache  
-         ├─ VariableEditor      (modal + TTS + text metrics)  
-         ├─ ConversationTree    (tree model + view)  
-         ├─ SceneGraphModel     (exits, levels, auto-layout, stack state)  
-         └─ SceneMapCanvas      (list/map/chrome draw + interaction)  
+---
 
-### TTS (text to speech)
-Audio is enabled for some dialogs. Voices must be generated if you want TTS playback; see `--help` on the game binary.  as a general overview you will need to go to:
-```https://console/x/ai```
-You will need to purchase credits to generate the TTS.  The cost should be minimal to regenerate voices.
+## Development
 
-*Inline tags:*
-Grok's text to speach includes bracket and angle bracket enclosed inline tags to improve realism in TTS dialogs.  Additionally the Timberline Engine also implements brace enclosed inline tags to switch voices at any point in the conversation.
-- [pause]        - Standard pause for natural conversation breams
-- [pause:Xms]    - Precise control ex. [pause:500ms]
-- [long-pause]   - Extends a break for dramatic timing or to let a thought land
-- [laugh]        -
-- [chuckle]      -
-- [giggle]       -
-- [sigh]         -
-- [cry]          -
-- [hum-tune]     -
-- [tsk]          -
-- [tounge-click] -
-- [lip-smack]    -
-- [breath]       -
-- [inhale]       -
-- [exhale]       -
+### Scene editor tutorial
 
-*Style and tone wrappings* ex. <whisper>text</whisper>
-<soft>
-<whisper>
-<loud>
-<build-intensity>
-<decrease-intensity>
-<higher-pitch>
-<lower-pitch>
-<slow>
-<fast>
-<sing-song>
-<singing>
-<emphasis>
+See **[docs/scene-editor-tutorial.md](docs/scene-editor-tutorial.md)** — map, Variables, Conversations, Use wires, Events, Inventory/Effects, and screenshot placeholders under `docs/images/`.
 
-*Voice substitution* ex. {{voice:eve}}Hello,[pause] I am Eve{{/voice}}
-Note that while Timberline engine is designed to incorperate all Grok TTS voices, more are always being added.  The current list of valid voices are:
-- ara
-- eve
-- helios
-- leo
-- rex
-- rigel
-- sal
+### TTS syntax and usage
 
-### The game
+See **[docs/tts.md](docs/tts.md)** — voices, `[pause]` / style tags, `{{voice:…}}`, refresh CLI, and release packaging.
 
-The year is roughly 1891. You wake up in a cave, injured and with total memory loss, high in the mountains of Appalachia, a couple thousand feet above a small mountain town known as **Highline Ridge**. As you move around town and talk to people, you get the sense that some of them know you — but they are not giving straight answers.
+Scene ambient beds and period music generation: **[docs/scene-audio.md](docs/scene-audio.md)**.
+
+Dialog **world tokens** like `{tab_amount}` (not TTS): [docs/dialog-tokens.md](docs/dialog-tokens.md).
+
+### Dev vs release package
+
+See **[docs/dev-vs-release.md](docs/dev-vs-release.md)** — what players get vs what authors need.
+
+### Architecture diagrams
+
+#### Game (release)
+
+```mermaid
+flowchart TB
+  subgraph Ship["Release ship"]
+    BIN["Highline Ridge"]
+    PAK["Embedded HLAP pak"]
+  end
+
+  subgraph Boot["Boot"]
+    MAIN["main"]
+    APP["GameApplication"]
+    STORE["PakAssetStore"]
+    UDATA["User data dir\nsaves / user_config"]
+  end
+
+  subgraph Data["Packed content"]
+    SC["scenes.json"]
+    IT["items.json"]
+    CV["conversations.json"]
+    MS["milestones.json"]
+    MED["images / audio / UI"]
+  end
+
+  subgraph Session["GameSession"]
+    SCCTL["SceneController"]
+    MOVE["MovementResolver"]
+    INV["InventoryMgr"]
+    AUD["AudioManager"]
+    UI["UiCoordinator / ButtonMgr"]
+    CONV["ConversationManager"]
+    EV["StoryEventRunner hooks"]
+    SAVE["SaveGameService"]
+    WS["WorldState"]
+  end
+
+  MAIN --> APP
+  BIN --- PAK
+  APP --> STORE
+  PAK --> STORE
+  APP --> UDATA
+  STORE --> SC & IT & CV & MS & MED
+  APP --> Session
+  SCCTL --> MOVE
+  SCCTL --> WS
+  EV --> WS
+  CONV --> WS
+  INV --> WS
+  SAVE --> UDATA
+  UI --> INV
+  AUD --> CONV
+```
+
+#### Scene editor
+
+```mermaid
+flowchart TB
+  MAIN["scene-editor main"] --> APP["SceneEditorApp"]
+  APP --> DOCS["DocumentWorkspace\nscenes / conversations / items"]
+  APP --> LAY["EditorLayout"]
+  APP --> VAR["VariableEditor"]
+  APP --> CTREE["ConversationTree"]
+  APP --> WALK["DialogWalkthrough"]
+  APP --> GRAPH["SceneGraphModel"]
+  APP --> MAP["SceneMapCanvas"]
+
+  MAP --> AUTH["SceneAuthoringDialog"]
+  MAP --> USE["SceneUseTransitionDialog"]
+  MAP --> EV["SceneStoryEventsDialog"]
+  MAP --> INV["SceneInventoryDialog"]
+  MAP --> FX["SceneEffectsDialog"]
+  MAP --> FLOOR["SceneFloorConnectDialog"]
+
+  VAR --> DOCS
+  WALK --> DOCS
+  GRAPH --> DOCS
+  AUTH --> DOCS
+  USE --> GRAPH
+  EV --> DOCS
+```
+
+#### Content → runtime (authoring loop)
+
+```mermaid
+flowchart LR
+  ED["scene-editor +\nresources/*.json"] --> DEV["Dev build\ndisk resources/"]
+  DEV --> TTS["TTS refresh\n--key --refresh-voices"]
+  TTS --> DEV
+  DEV --> REL["build-release.sh\npack HLAP + embed"]
+  REL --> PLAY["Player binary\nno loose resources/"]
+```
+
+### In-game developer tools
+
+When `HIGHLINE_DEV_TOOLS=ON` (dev default):
+
+| Input | Action |
+|-------|--------|
+| **Ctrl+Shift+S** | Scene debug overlay |
+| **\`** / **~** | Developer console (`give-item`, …) |
+
+### Related docs
+
+| Doc | Topic |
+|-----|-------|
+| [BUILD.md](BUILD.md) | Platform builds, flags, Homebrew `/opt/homebrew` |
+| [docs/scene-editor-tutorial.md](docs/scene-editor-tutorial.md) | Editor walkthrough |
+| [docs/tts.md](docs/tts.md) | TTS markup and refresh |
+| [docs/scene-audio.md](docs/scene-audio.md) | Ambient beds + period music (ElevenLabs) |
+| [docs/dev-vs-release.md](docs/dev-vs-release.md) | Dev vs player package |
+| [docs/scene-map-exits.md](docs/scene-map-exits.md) | Compass, floors, Use, gates, place-item |
+| [docs/dialog-tokens.md](docs/dialog-tokens.md) | `{tab_amount}`-style tokens |
+| [docs/display-aspect.md](docs/display-aspect.md) | Display aspect preferences |
+| [docs/platform-parallelism.md](docs/platform-parallelism.md) | JobSystem / parallelism notes |
+
+---
+
+## License
+
+See [LICENSE](LICENSE).

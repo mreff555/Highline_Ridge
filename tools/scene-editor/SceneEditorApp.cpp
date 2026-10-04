@@ -18,9 +18,14 @@
  ******************************************************************************/
 
 #include "SceneEditorApp.h"
+#include "EditorInput.h"
 #include "EditorPaths.h"
 
 #include "EditorTheme.h"
+
+#if defined(__APPLE__)
+#include "macos/EditorNativeMenu.h"
+#endif
 
 #include <raylib.h>
 
@@ -38,6 +43,7 @@ SceneEditorApp::SceneEditorApp()
 void SceneEditorApp::wireModules()
 {
     variableEditor.docs = &document;
+    variableEditor.parchment = &parchmentEditor;
     variableEditor.selectionSceneId = &selectedSceneId;
     variableEditor.variablesScroll = &variablesScroll;
     variableEditor.stackDialogOpen = &sceneGraph.stackDialogOpen;
@@ -60,6 +66,7 @@ void SceneEditorApp::wireModules()
     };
 
     dialogWalkthrough.docs = &document;
+    dialogWalkthrough.parchment = &parchmentEditor;
     dialogWalkthrough.selectionSceneId = &selectedSceneId;
     dialogWalkthrough.conversationSelectedKey = &conversation.selectedKey;
     dialogWalkthrough.onDirty = [this]() { document.markDirty(); };
@@ -74,6 +81,7 @@ void SceneEditorApp::wireModules()
 
     itemEditor.docs = &document;
     itemEditor.text = &variableEditor;
+    itemEditor.parchment = &parchmentEditor;
     itemEditor.stackDialogOpen = &sceneGraph.stackDialogOpen;
     itemEditor.draggingDivider = [this]() { return layout.isDraggingDivider(); };
 
@@ -100,6 +108,13 @@ void SceneEditorApp::wireModules()
     mapCanvas.sceneAuthoring.onCreated = [this](const std::string& id)
     {
         thumbnails.clear();
+        // selectSceneForEditor is a no-op when id is already selected, so always
+        // invalidate bottom-pane media. Otherwise a prior failed load (files not
+        // on disk yet) keeps Play disabled after Generate/Confirm writes them.
+        mapCanvas.previewMusicPath.clear();
+        mapCanvas.previewAmbientPath.clear();
+        mapCanvas.previewLargePath.clear();
+        mapCanvas.previewBoundSceneId.clear();
         selectSceneForEditor(id);
     };
 
@@ -129,6 +144,17 @@ void SceneEditorApp::wireModules()
         if (!selectedSceneId.empty())
             mapCanvas.sceneInventory.openForScene(selectedSceneId);
     };
+    mapCanvas.sceneInteractions.docs = &document;
+    mapCanvas.sceneInteractions.onSaved = [this]()
+    {
+        mapCanvas.cachedLinkRoutes.clear();
+        (void)this;
+    };
+    variableEditor.onSceneInteractions = [this]()
+    {
+        if (!selectedSceneId.empty())
+            mapCanvas.sceneInteractions.openForScene(selectedSceneId);
+    };
     mapCanvas.sceneEffects.docs = &document;
     mapCanvas.sceneEffects.onSaved = [this]() { (void)this; };
     variableEditor.onSceneEffects = [this]()
@@ -136,6 +162,35 @@ void SceneEditorApp::wireModules()
         if (!selectedSceneId.empty())
             mapCanvas.sceneEffects.openForScene(selectedSceneId);
     };
+    mapCanvas.sceneStoryEvents.docs = &document;
+    mapCanvas.sceneStoryEvents.onSaved = [this]() { (void)this; };
+    variableEditor.onSceneStoryEvents = [this]()
+    {
+        if (!selectedSceneId.empty())
+            mapCanvas.sceneStoryEvents.openForScene(selectedSceneId);
+    };
+    mapCanvas.sceneTransition.docs = &document;
+    mapCanvas.sceneTransition.graph = &sceneGraph;
+    mapCanvas.sceneUseTransition.docs = &document;
+    mapCanvas.sceneUseTransition.graph = &sceneGraph;
+    mapCanvas.sceneFloorConnect.docs = &document;
+    mapCanvas.sceneFloorConnect.graph = &sceneGraph;
+
+    mapCanvas.preferences = &preferences;
+    mapCanvas.openPreferences = [this]()
+    {
+        preferences.openDialog(document.resourceDir, document.assetRoot);
+    };
+
+    apiKeysDialog.keys = &sessionApiKeys;
+    mapCanvas.apiKeysDialog = &apiKeysDialog;
+    mapCanvas.sceneAuthoring.sessionKeys = &sessionApiKeys;
+    mapCanvas.sceneAssist.sessionKeys = &sessionApiKeys;
+    mapCanvas.sceneExitRequirements.sessionKeys = &sessionApiKeys;
+    itemEditor.sessionKeys = &sessionApiKeys;
+
+    // Temporary: seed session from env / ~/.config/highline-ridge/*_api_key.
+    sessionApiKeys.bootstrapFromEnvAndFiles();
 }
 
 void SceneEditorApp::syncModuleFonts()
@@ -150,14 +205,35 @@ void SceneEditorApp::syncModuleFonts()
     itemEditor.uiFontBold = uiFontBold;
     mapCanvas.uiFont = uiFont;
     mapCanvas.uiFontBold = uiFontBold;
+    mapCanvas.parchment = &parchmentEditor;
+    mapCanvas.sceneAuthoring.parchment = &parchmentEditor;
     mapCanvas.sceneAuthoring.uiFont = uiFont;
     mapCanvas.sceneAuthoring.uiFontBold = uiFontBold;
+    apiKeysDialog.uiFont = uiFont;
+    apiKeysDialog.uiFontBold = uiFontBold;
     mapCanvas.sceneAssist.uiFont = uiFont;
     mapCanvas.sceneAssist.uiFontBold = uiFontBold;
     mapCanvas.sceneInventory.uiFont = uiFont;
     mapCanvas.sceneInventory.uiFontBold = uiFontBold;
+    mapCanvas.sceneInteractions.uiFont = uiFont;
+    mapCanvas.sceneInteractions.uiFontBold = uiFontBold;
+    mapCanvas.sceneStoryEvents.uiFont = uiFont;
+    mapCanvas.sceneStoryEvents.uiFontBold = uiFontBold;
     mapCanvas.sceneEffects.uiFont = uiFont;
     mapCanvas.sceneEffects.uiFontBold = uiFontBold;
+    mapCanvas.sceneTransition.uiFont = uiFont;
+    mapCanvas.sceneTransition.uiFontBold = uiFontBold;
+    mapCanvas.sceneExitRequirements.docs = &document;
+    mapCanvas.sceneExitRequirements.graph = &sceneGraph;
+    mapCanvas.sceneExitRequirements.parchment = &parchmentEditor;
+    mapCanvas.sceneExitRequirements.uiFont = uiFont;
+    mapCanvas.sceneExitRequirements.uiFontBold = uiFontBold;
+    mapCanvas.sceneUseTransition.uiFont = uiFont;
+    mapCanvas.sceneUseTransition.uiFontBold = uiFontBold;
+    mapCanvas.sceneFloorConnect.uiFont = uiFont;
+    mapCanvas.sceneFloorConnect.uiFontBold = uiFontBold;
+    preferences.uiFont = uiFont;
+    preferences.uiFontBold = uiFontBold;
 }
 
 Font SceneEditorApp::textFont() const
@@ -221,6 +297,7 @@ void SceneEditorApp::loadUiFont()
 
 void SceneEditorApp::unloadUiFont()
 {
+    parchmentEditor.unloadAssets();
     if (uiFont.texture.id != 0)
         UnloadFont(uiFont);
     if (uiFontBold.texture.id != 0 && uiFontBold.texture.id != uiFont.texture.id)
@@ -367,60 +444,61 @@ bool SceneEditorApp::loadActiveDocument()
 
 bool SceneEditorApp::deleteSelectedScene()
 {
-    if (variableEditor.open || sceneGraph.stackDialogOpen || itemEditor.blocksInput())
+    // Opens the shared confirm (+ optional purge) flow on the map canvas.
+    // Do not delete scenes while editing Conversations/Items text (Delete key).
+    if (document.isConversationsTab() || document.isItemsTab())
+        return false;
+    if (preferences.blocksInput() || apiKeysDialog.blocksInput() || variableEditor.open
+        || sceneGraph.stackDialogOpen || itemEditor.blocksInput()
+        || mapCanvas.blocksInput()
+        || mapCanvas.contextMenuSource != SceneMapCanvas::ContextMenuSource::None)
         return false;
     if (selectedSceneId.empty() || !document.scenes.hasScene(selectedSceneId))
         return false;
-
-    const std::string removedId = selectedSceneId;
-    if (!document.scenes.removeScene(removedId))
-        return false;
-
-    // Drop cached art for the removed id (and any stale entries).
-    thumbnails.clear();
-    mapCanvas.cancelLinkDrag();
-    mapCanvas.cancelPortDrag();
-    mapCanvas.dragSource = DragSource::None;
-    mapCanvas.dragSceneId.clear();
-
-    selectedSceneId.clear();
-    variableEditor.selectedVariableKey.clear();
-    variablesScroll = 0.0f;
-
-    const std::vector<std::string> remaining = document.scenes.sceneIds();
-    if (!remaining.empty())
-        selectedSceneId = remaining.front();
-
-    if (document.isConversationsTab())
-    {
-        conversation.selectedKey.clear();
-        conversation.rebuildConversationTree();
-        for (const ConversationTreeNode& root : conversation.roots)
-            conversation.expanded.insert(root.key);
-    }
-
-    document.markDirty();
+    mapCanvas.requestDeleteSelectedScene();
     return true;
 }
 
 void SceneEditorApp::handleShortcuts()
 {
-    if (variableEditor.open || sceneGraph.stackDialogOpen || itemEditor.blocksInput()
+    if (parchmentEditor.blocksInput() || preferences.blocksInput()
+        || apiKeysDialog.blocksInput() || variableEditor.open
+        || sceneGraph.stackDialogOpen || itemEditor.blocksInput()
         || mapCanvas.sceneAuthoring.blocksInput()
         || mapCanvas.sceneAssist.blocksInput()
         || mapCanvas.sceneInventory.blocksInput()
-        || mapCanvas.sceneEffects.blocksInput())
+        || mapCanvas.sceneInteractions.blocksInput()
+        || mapCanvas.sceneStoryEvents.blocksInput()
+        || mapCanvas.sceneEffects.blocksInput()
+        || mapCanvas.sceneTransition.blocksInput()
+        || mapCanvas.sceneExitRequirements.blocksInput()
+        || mapCanvas.sceneUseTransition.blocksInput()
+        || mapCanvas.sceneFloorConnect.blocksInput()
+        || mapCanvas.confirmMode != SceneMapCanvas::ConfirmMode::None
+        || mapCanvas.contextMenuSource != SceneMapCanvas::ContextMenuSource::None)
         return;
 
-    if (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL))
+    const bool ctrl = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
+    const bool super = IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER);
+    if (ctrl || super)
     {
+        // Ctrl+S / Cmd+S — Save (macOS also has File → Save in the menu bar).
         if (IsKeyPressed(KEY_S))
             saveDocument();
+        // Ctrl+, / Cmd+, — Preferences (macOS also has a native menu item).
+        if (IsKeyPressed(KEY_COMMA))
+            preferences.openDialog(document.resourceDir, document.assetRoot);
     }
 
-    // Delete / Forward-Delete removes the selected scene from the map and JSON.
+    // Delete must not steal from text editing (Conversations walkthrough, etc.).
+    // Scene delete remains available from the list/map context menus.
     if (IsKeyPressed(KEY_DELETE))
+    {
+        if (document.isConversationsTab() || document.isItemsTab()
+            || dialogWalkthrough.textFieldFocused || variableEditor.open)
+            return;
         deleteSelectedScene();
+    }
 }
 
 void SceneEditorApp::update()
@@ -430,16 +508,77 @@ void SceneEditorApp::update()
     layout.syncToWindow(screenWidth, screenHeight);
     syncModuleFonts();
 
+    sessionApiKeys.poll();
+
+#if defined(__APPLE__)
+    // Native File → Save (⌘S) from the Cocoa menu bar.
+    if (gEditorSaveMenuRequested.exchange(false))
+        saveDocument();
+
+    // Native Preferences… menu (⌘,) sets this flag from Cocoa.
+    if (gEditorPreferencesMenuRequested.exchange(false))
+    {
+        if (!preferences.blocksInput() && !apiKeysDialog.blocksInput()
+            && !variableEditor.open && !itemEditor.blocksInput()
+            && !mapCanvas.sceneAuthoring.blocksInput()
+            && !mapCanvas.sceneAssist.blocksInput()
+            && !mapCanvas.sceneInventory.blocksInput()
+            && !mapCanvas.sceneInteractions.blocksInput()
+            && !mapCanvas.sceneStoryEvents.blocksInput()
+            && !mapCanvas.sceneEffects.blocksInput()
+            && !mapCanvas.sceneTransition.blocksInput()
+            && !mapCanvas.sceneExitRequirements.blocksInput()
+            && !mapCanvas.sceneUseTransition.blocksInput()
+            && !mapCanvas.sceneFloorConnect.blocksInput()
+            && mapCanvas.confirmMode == SceneMapCanvas::ConfirmMode::None)
+        {
+            preferences.openDialog(document.resourceDir, document.assetRoot);
+        }
+    }
+
+    // Options → Configure API keys… (#56).
+    if (gEditorApiKeysMenuRequested.exchange(false))
+    {
+        if (!preferences.blocksInput() && !apiKeysDialog.blocksInput()
+            && !variableEditor.open && !itemEditor.blocksInput()
+            && mapCanvas.confirmMode == SceneMapCanvas::ConfirmMode::None)
+        {
+            apiKeysDialog.openDialog();
+        }
+    }
+#endif
+
     handleShortcuts();
 
-    if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+    if (apiKeysDialog.blocksInput())
+    {
+        apiKeysDialog.handleInput(screenWidth, screenHeight);
+        return;
+    }
+
+    if (parchmentEditor.blocksInput())
+    {
+        parchmentEditor.handleInput(screenWidth, screenHeight);
+        return;
+    }
+
+    if (!editorMouseDown(MOUSE_BUTTON_LEFT))
         layout.cancelDividerDrag();
 
-    if (!variableEditor.open && !sceneGraph.stackDialogOpen && !itemEditor.blocksInput()
+    if (!preferences.blocksInput() && !variableEditor.open && !sceneGraph.stackDialogOpen
+        && !itemEditor.blocksInput()
         && !mapCanvas.sceneAuthoring.blocksInput()
         && !mapCanvas.sceneAssist.blocksInput()
         && !mapCanvas.sceneInventory.blocksInput()
-        && !mapCanvas.sceneEffects.blocksInput())
+        && !mapCanvas.sceneInteractions.blocksInput()
+        && !mapCanvas.sceneStoryEvents.blocksInput()
+        && !mapCanvas.sceneEffects.blocksInput()
+        && !mapCanvas.sceneTransition.blocksInput()
+        && !mapCanvas.sceneExitRequirements.blocksInput()
+        && !mapCanvas.sceneUseTransition.blocksInput()
+        && !mapCanvas.sceneFloorConnect.blocksInput()
+        && mapCanvas.confirmMode == SceneMapCanvas::ConfirmMode::None
+        && mapCanvas.contextMenuSource == SceneMapCanvas::ContextMenuSource::None)
     {
         const Rectangle left = layout.leftPaneBounds(screenWidth);
         const Rectangle listBounds = {
@@ -451,6 +590,13 @@ void SceneEditorApp::update()
             conversation.handleConversationTreeInput(listBounds);
         else if (document.isItemsTab())
             itemEditor.handleInput(listBounds);
+    }
+
+    // Preferences is topmost when open.
+    if (preferences.blocksInput())
+    {
+        preferences.handleInput(screenWidth, screenHeight);
+        return;
     }
 
     if (variableEditor.open)
@@ -471,15 +617,47 @@ void SceneEditorApp::update()
         return;
     }
 
-    if (mapCanvas.sceneAuthoring.blocksInput())
+    // Topmost modal wins input (draw order: authoring → assist → inventory →
+    // effects → transition → use transition → prefs).
+    if (mapCanvas.sceneFloorConnect.blocksInput())
     {
-        mapCanvas.sceneAuthoring.handleInput(screenWidth, screenHeight);
+        mapCanvas.sceneFloorConnect.handleInput(screenWidth, screenHeight);
         return;
     }
 
-    if (mapCanvas.sceneAssist.blocksInput())
+    if (mapCanvas.sceneUseTransition.blocksInput())
     {
-        mapCanvas.sceneAssist.handleInput(screenWidth, screenHeight);
+        mapCanvas.sceneUseTransition.handleInput(screenWidth, screenHeight);
+        return;
+    }
+
+    if (mapCanvas.sceneTransition.blocksInput())
+    {
+        mapCanvas.sceneTransition.handleInput(screenWidth, screenHeight);
+        return;
+    }
+
+    if (mapCanvas.sceneExitRequirements.blocksInput())
+    {
+        mapCanvas.sceneExitRequirements.handleInput(screenWidth, screenHeight);
+        return;
+    }
+
+    if (mapCanvas.sceneEffects.blocksInput())
+    {
+        mapCanvas.sceneEffects.handleInput(screenWidth, screenHeight);
+        return;
+    }
+
+    if (mapCanvas.sceneStoryEvents.blocksInput())
+    {
+        mapCanvas.sceneStoryEvents.handleInput(screenWidth, screenHeight);
+        return;
+    }
+
+    if (mapCanvas.sceneInteractions.blocksInput())
+    {
+        mapCanvas.sceneInteractions.handleInput(screenWidth, screenHeight);
         return;
     }
 
@@ -489,11 +667,21 @@ void SceneEditorApp::update()
         return;
     }
 
-    if (mapCanvas.sceneEffects.blocksInput())
+    if (mapCanvas.sceneAssist.blocksInput())
     {
-        mapCanvas.sceneEffects.handleInput(screenWidth, screenHeight);
+        mapCanvas.sceneAssist.handleInput(screenWidth, screenHeight);
         return;
     }
+
+    if (mapCanvas.sceneAuthoring.blocksInput())
+    {
+        mapCanvas.sceneAuthoring.handleInput(screenWidth, screenHeight);
+        return;
+    }
+
+    if (mapCanvas.confirmMode != SceneMapCanvas::ConfirmMode::None
+        || mapCanvas.contextMenuSource != SceneMapCanvas::ContextMenuSource::None)
+        return;
 
     if (sceneGraph.stackDialogOpen)
         return;
@@ -521,6 +709,7 @@ void SceneEditorApp::update()
 
 void SceneEditorApp::draw()
 {
+    // Parchment is drawn inside mapCanvas.draw() before EndDrawing().
     mapCanvas.draw();
 }
 

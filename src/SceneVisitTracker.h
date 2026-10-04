@@ -32,6 +32,8 @@ struct SceneVisitTracker
     bool hasUsedInCurrentScene = false;
     std::set<std::string> examinedSceneIds;
     std::set<std::string> usedSceneIds;
+    /** Rooms whose enter/description TTS has already played this playthrough. */
+    std::set<std::string> heardEnterTtsSceneIds;
 
     void resetForNewScene();
     bool hasExaminedScene(const std::string& sceneId) const;

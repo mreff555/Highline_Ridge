@@ -42,6 +42,11 @@ struct DisplayConfig
     int x = -1;
     int y = -1;
     int monitor = -1;
+    /**
+     * Scene plate aspect preference: "auto" | "16x9" | "16x10" | "21x9".
+     * v1 UI stays on auto (match window); forced modes are ready for later.
+     */
+    std::string aspectPreference = "auto";
 };
 
 struct InputConfig
@@ -55,6 +60,11 @@ struct TtsConfig
     bool enabled = true;
     std::string voiceId = "leo";
     std::string bundleDir = "resources/audio/tts";
+    /**
+     * When true, skip enter/examine scene TTS after that scene (or examine)
+     * has already been heard this playthrough. Default off (#39).
+     */
+    bool silenceRevisitedSceneTts = false;
 };
 
 struct SaveConfig

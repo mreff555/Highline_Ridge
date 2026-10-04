@@ -32,8 +32,15 @@
 #include "ItemEditor.h"
 #include "SceneAuthoringDialog.h"
 #include "SceneAssistDialog.h"
+#include "FullscreenParchmentEditor.h"
+#include "SceneExitRequirementsDialog.h"
 #include "SceneInventoryDialog.h"
+#include "SceneInteractionsDialog.h"
+#include "SceneStoryEventsDialog.h"
 #include "SceneEffectsDialog.h"
+#include "SceneTransitionDialog.h"
+#include "SceneUseTransitionDialog.h"
+#include "SceneFloorConnectDialog.h"
 
 #include <functional>
 #include <string>
@@ -42,6 +49,9 @@
 
 namespace timberline_editor
 {
+
+struct ApiKeysDialog;
+struct EditorPreferencesDialog;
 
 using timberline_engine::SceneLayout;
 
@@ -96,7 +106,7 @@ struct SceneMapCanvas
     std::string previewLargePath;
     std::string previewLargeTempFile;
 
-    // Same-level exit links drawn on the map (cached for hit-testing / drag).
+    // Same-level exit / Use links drawn on the map (cached for hit-testing / drag).
     struct SceneLinkRoute
     {
         std::vector<Vector2> points;
@@ -106,18 +116,45 @@ struct SceneMapCanvas
         std::string fromSide;
         std::string fromId;
         std::string toId;
-        std::string direction;
+        std::string direction; // compass: forward/… ; Use: nw/ne/sw/se
         bool reciprocal = false;
+        bool isUseLink = false;
+        std::string useBinding; // useExit | interaction:<id>
+        std::string toCorner;   // Use dest corner nw/ne/sw/se
     };
     std::vector<SceneLinkRoute> cachedLinkRoutes;
     int linkDragIndex = -1; // index into cachedLinkRoutes while dragging
     std::string linkDragHoverTarget;
-    static constexpr float kLinkHitSlop = 10.0f;
+    static constexpr float kLinkHitSlop = 12.0f;
 
-    // New connector drag from a card direction port (F/B/L/R).
+    /**
+     * Cross-floor up/down exits are not drawn as wires (destination is on another
+     * map level). Stair badges (^N / vN) stand in for those links and are
+     * right-clickable for the same ExitLink menu (audio / requirements / delete).
+     */
+    struct StairBadgeHit
+    {
+        std::string fromId;
+        std::string direction; // up | down
+        std::string toId;
+        Rectangle bounds{0, 0, 0, 0};
+        bool hasRequirement = false;
+    };
+    std::vector<StairBadgeHit> cachedStairBadges;
+
+    // New connector drag from a card direction port (F/B/L/R) or Use corner.
     std::string portDragFromId;
     std::string portDragDirection;
-    static constexpr float kPortHitSize = 14.0f;
+    std::string portDragUseBinding; // set when dragging an existing Use binding
+    /** True when the drag started on an occupied port (reconnect / re-slot). */
+    bool portDragMovingExisting = false;
+    /** Hit/visual size for F/B/L/R ports. Keep large — empty ports have no wire
+     *  to grab, and adjacent cards' facing ports often nearly overlap. */
+    static constexpr float kPortHitSize = 26.0f;
+    static constexpr float kUsePortHitSize = 20.0f;
+    /** Brief HUD after a failed exit drop (cleared on next successful action). */
+    std::string exitLinkFeedback;
+    double exitLinkFeedbackUntil = 0.0;
 
     DocumentWorkspace* docs = nullptr;
     SceneGraphModel* graph = nullptr;
@@ -128,9 +165,21 @@ struct SceneMapCanvas
     DialogWalkthrough* dialogWalkthrough = nullptr;
     ItemEditor* itemEditor = nullptr;
     SceneAuthoringDialog sceneAuthoring;
+    FullscreenParchmentEditor* parchment = nullptr;
     SceneAssistDialog sceneAssist;
     SceneInventoryDialog sceneInventory;
+    SceneInteractionsDialog sceneInteractions;
+    SceneStoryEventsDialog sceneStoryEvents;
     SceneEffectsDialog sceneEffects;
+    SceneTransitionDialog sceneTransition;
+    SceneExitRequirementsDialog sceneExitRequirements;
+    SceneUseTransitionDialog sceneUseTransition;
+    SceneFloorConnectDialog sceneFloorConnect;
+    /** Optional topmost preferences modal (owned by SceneEditorApp). */
+    EditorPreferencesDialog* preferences = nullptr;
+    /** Options → Configure API keys (#56). */
+    ApiKeysDialog* apiKeysDialog = nullptr;
+    std::function<void()> openPreferences;
     std::string* selectionSceneId = nullptr;
     float* variablesScroll = nullptr;
     std::function<void()> requestReload;
@@ -138,6 +187,70 @@ struct SceneMapCanvas
     std::function<bool()> saveDocument;
     Font uiFont{};
     Font uiFontBold{};
+
+    // Right-click scene / exit-link context menu (drawn late so list scissor
+    // cannot clip it).
+    enum class ContextMenuSource
+    {
+        None,
+        List,
+        Map,
+        ExitLink,
+        UseLink
+    };
+    ContextMenuSource contextMenuSource = ContextMenuSource::None;
+    std::string contextMenuSceneId;
+    std::string contextMenuLinkFromId;
+    std::string contextMenuLinkToId;
+    std::string contextMenuLinkDirection;
+    bool contextMenuLinkReciprocal = false;
+    bool contextMenuLinkIsUse = false;
+    std::string contextMenuUseBinding;
+    Rectangle contextMenuBounds{0.0f, 0.0f, 0.0f, 0.0f};
+    Vector2 contextMenuAnchor{0.0f, 0.0f};
+
+    // Confirm / purge overlays (hosted like the stack dialog).
+    enum class ConfirmMode
+    {
+        None,
+        RemoveFromMap,
+        DeleteScene
+    };
+    ConfirmMode confirmMode = ConfirmMode::None;
+    std::string confirmSceneId;
+    std::vector<std::string> pendingPurgePaths;
+    float purgeListScroll = 0.0f;
+    bool confirmWaitMouseRelease = false;
+
+    bool blocksInput() const;
+    bool anyAuthoringModalOpen() const;
+    void closeContextMenu();
+    void openContextMenu(
+        ContextMenuSource source,
+        const std::string& sceneId,
+        Vector2 mouse);
+    void openLinkContextMenu(int routeIndex, Vector2 mouse);
+    void openFloorExitContextMenu(
+        const std::string& fromId,
+        const std::string& direction,
+        const std::string& toId,
+        Vector2 mouse);
+    int hitTestStairBadge(Vector2 mouse) const;
+    void deleteContextMenuLink();
+    void editContextMenuLinkTransition();
+    void manageContextMenuUseLink();
+    /** Place all unplaced subScenes of parent near its map card. */
+    void placeUnplacedSubViewsOnMap(const std::string& parentId);
+    void beginRemoveFromMapConfirm(const std::string& sceneId);
+    void beginDeleteSceneConfirm(const std::string& sceneId);
+    void requestDeleteSelectedScene();
+    void cancelDragsForScene(const std::string& sceneId);
+    void performRemoveFromMap();
+    /** purgeUniqueAssets: delete unique files after removing the scene JSON. */
+    void performDeleteScene(bool purgeUniqueAssets);
+    void drawContextMenu();
+    void drawConfirmDialogs(int screenWidth, int screenHeight);
+    bool handleContextMenuClick(Vector2 mouse);
 
 
 Vector2 sceneCardScreenPos(const SceneLayout& sceneLayout, Rectangle canvasBounds) const;
@@ -224,14 +337,43 @@ void cancelLinkDrag();
 void cancelPortDrag();
 
 Rectangle directionPortBounds(Rectangle card, const std::string& direction) const;
+Rectangle useCornerPortBounds(Rectangle card, const std::string& corner) const;
+Vector2 useCornerPortCenter(Rectangle card, const std::string& corner) const;
 bool hitTestDirectionPort(
     Vector2 mouse,
     Rectangle canvasBounds,
     std::string& outSceneId,
     std::string& outDirection) const;
+bool hitTestUseCornerPort(
+    Vector2 mouse,
+    Rectangle canvasBounds,
+    std::string& outSceneId,
+    std::string& outCorner) const;
 void drawDirectionPorts(Rectangle canvasBounds) const;
+void drawUseCornerPorts(Rectangle canvasBounds) const;
 void drawPortDragPreview(Rectangle canvasBounds) const;
 bool placeSceneListDrop(Vector2 mouse, Rectangle canvasBounds, Rectangle contentView);
+std::vector<Vector2> buildUseCornerRoute(
+    Rectangle fromCard,
+    Rectangle toCard,
+    const std::string& fromCorner,
+    const std::string& toCorner) const;
+static const char* useCornerForIndex(int index);
+static std::string facingUseCorner(Rectangle from, Rectangle to);
+/** Resolve exclusive nw/ne/sw/se for each Use binding on one source card. */
+std::vector<std::string> resolveUseCornersForBindings(
+    const std::vector<SceneGraphModel::UseBinding>& bindings) const;
+/**
+ * Binding that owns this corner on mapNodeId as a Use endpoint (source or dest).
+ * Empty if free. outAsDestination set when the wire arrives here.
+ */
+std::string useEndpointAtCorner(
+    const std::string& mapNodeId,
+    const std::string& corner,
+    bool* outAsDestination = nullptr) const;
+std::string useBindingAtCorner(
+    const std::string& mapNodeId,
+    const std::string& corner) const;
 
 void drawStairIcons(Rectangle canvasBounds);
 
@@ -240,6 +382,16 @@ void drawLevelChrome(Rectangle canvasBounds);
 CanvasContentBounds contentBoundsForLevel(int level) const;
 
 void clampCanvasScrollForCanvas(Rectangle canvasBounds, Rectangle contentView, const CanvasContentBounds& content);
+
+/**
+ * While dragging near a viewport edge, pan the map. Expands clamp bounds so
+ * the ghost can pull the view past current content. speedPxPerSec from prefs.
+ */
+void applyEdgeAutoPanWhileDragging(
+    Rectangle canvasBounds,
+    Rectangle contentView,
+    CanvasContentBounds& content,
+    float speedPxPerSec);
 
 void drawCanvasScrollBars(
     Rectangle canvasBounds,

@@ -4,6 +4,8 @@
  ******************************************************************************/
 
 #include "SceneAssistDialog.h"
+#include "EditorAudio.h"
+#include "EditorInput.h"
 #include "EditorButton.h"
 #include "EditorPaths.h"
 #include "EditorTheme.h"
@@ -14,7 +16,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
-#include <cstdlib>
 #include <fstream>
 #include <vector>
 
@@ -29,52 +30,6 @@ namespace timberline_editor
 
 namespace
 {
-
-void insertUtf8(std::string& buffer, int codepoint)
-{
-    if (codepoint <= 0)
-        return;
-    char bytes[5] = {};
-    int size = 0;
-    if (codepoint < 0x80)
-    {
-        bytes[0] = static_cast<char>(codepoint);
-        size = 1;
-    }
-    else if (codepoint <= 0x7FF)
-    {
-        bytes[0] = static_cast<char>(0xC0 | ((codepoint >> 6) & 0x1F));
-        bytes[1] = static_cast<char>(0x80 | (codepoint & 0x3F));
-        size = 2;
-    }
-    else if (codepoint <= 0xFFFF)
-    {
-        bytes[0] = static_cast<char>(0xE0 | ((codepoint >> 12) & 0x0F));
-        bytes[1] = static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
-        bytes[2] = static_cast<char>(0x80 | (codepoint & 0x3F));
-        size = 3;
-    }
-    else
-    {
-        bytes[0] = static_cast<char>(0xF0 | ((codepoint >> 18) & 0x07));
-        bytes[1] = static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F));
-        bytes[2] = static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
-        bytes[3] = static_cast<char>(0x80 | (codepoint & 0x3F));
-        size = 4;
-    }
-    buffer.append(bytes, bytes + size);
-}
-
-void backspace(std::string& buffer)
-{
-    if (buffer.empty())
-        return;
-    int i = static_cast<int>(buffer.size()) - 1;
-    while (i > 0
-           && (static_cast<unsigned char>(buffer[static_cast<size_t>(i)]) & 0xC0) == 0x80)
-        --i;
-    buffer.erase(static_cast<size_t>(i));
-}
 
 void drawFieldBox(Rectangle r, bool focused)
 {
@@ -91,11 +46,8 @@ void drawLabel(Font font, const char* text, float x, float y)
 
 void SceneAssistDialog::ensureAudio()
 {
-    if (audioDeviceReady)
-        return;
-    if (!IsAudioDeviceReady())
-        InitAudioDevice();
-    audioDeviceReady = IsAudioDeviceReady();
+    // Do not InitAudioDevice from dialog draw — startup owns init.
+    audioDeviceReady = editorAudioDeviceReady();
 }
 
 void SceneAssistDialog::stopPreviewMusic()
@@ -142,7 +94,6 @@ void SceneAssistDialog::openForScene(const std::string& sceneId)
     generateTarget = 0;
     error.clear();
     status.clear();
-    focusField = 0;
 
     if (!fillPayloadFromScene(*docs, sceneId, payload))
     {
@@ -344,7 +295,7 @@ void SceneAssistDialog::pollGenerateResult()
         if (!loadPreviewTexture(previewRelPath))
             error = "Generated, but could not load preview image.";
         else
-            status = "Preview ready — Accept to keep, or Revert.";
+            status = "Preview ready  -  Accept to keep, or Revert.";
     }
     else if (previewTarget == 2 || previewTarget == 3)
     {
@@ -352,7 +303,7 @@ void SceneAssistDialog::pollGenerateResult()
             error = "Generated, but could not load preview audio.";
         else
         {
-            status = "Preview ready — Play below, then Accept or Revert.";
+            status = "Preview ready  -  Play below, then Accept or Revert.";
             PlayMusicStream(previewMusic);
             previewMusicPlaying = true;
         }
@@ -375,34 +326,26 @@ void SceneAssistDialog::startGenerate(int target)
     error.clear();
     if (payload.description.empty())
     {
-        error = "Scene description is empty — AI needs it as context. "
+        error = "Scene description is empty  -  AI needs it as context. "
                 "Edit the description first.";
         return;
     }
-    if (target == 1 && sessionApiKey.empty())
+    if (target == 2 || target == 3)
     {
-        // Images require a key. Check common on-disk / env sources before failing.
-        bool haveFallback = false;
-        if (const char* env = std::getenv("XAI_API_KEY");
-            env != nullptr && env[0] != '\0')
-            haveFallback = true;
-        if (!haveFallback && docs != nullptr)
+        if (sessionKeys == nullptr || !sessionKeys->elevenLabsReady())
         {
-            using timberline_engine::pathJoin;
-            const std::string root = docs->assetRoot.empty() ? "." : docs->assetRoot;
-            const std::string a = pathJoin(pathJoin(root, "resources"), "xai_api_key");
-            const std::string b = pathJoin(root, "xai_api_key");
-            if (FileExists(a.c_str()) || FileExists(b.c_str()))
-                haveFallback = true;
-        }
-        if (!haveFallback)
-        {
-            error =
-                "Paste an xAI API key into the key field (Cmd/Ctrl+V), then try again.";
+            error = "Options → Configure API keys — set a valid ElevenLabs key "
+                    "before generating ambient / music.";
             status.clear();
             return;
         }
-        status = "No session key — using XAI_API_KEY / resources/xai_api_key.";
+    }
+    else if (sessionKeys == nullptr || !sessionKeys->xaiReady())
+    {
+        error = "Options → Configure API keys — set a valid xAI key "
+                "before generating.";
+        status.clear();
+        return;
     }
 
     const std::string jobsPath = writeSceneAiPreviewJobsFile(
@@ -416,19 +359,28 @@ void SceneAssistDialog::startGenerate(int target)
     generateBusy = true;
     generateTarget = target;
     generateResultPending = false;
-    status = "Generating…";
-    const std::string keySnap = sessionApiKey;
+    status = "Generating...";
+    const std::string keySnap =
+        sessionKeys != nullptr ? sessionKeys->xaiKey : std::string{};
+    const std::string elevenSnap =
+        sessionKeys != nullptr ? sessionKeys->elevenLabsKey : std::string{};
     const std::string assetRoot = docs->assetRoot;
     const std::string resourceDir = docs->resourceDir;
     if (generateThread.joinable())
         generateThread.join();
-    generateThread = std::thread([this, keySnap, jobsPath, assetRoot, resourceDir]() {
-        const std::string msg =
-            runSceneAuthoringAiJobsFile(assetRoot, resourceDir, jobsPath, keySnap);
-        std::lock_guard<std::mutex> lock(generateMutex);
-        generateResultStatus = msg;
-        generateResultPending = true;
-    });
+    generateThread = std::thread(
+        [this, keySnap, elevenSnap, jobsPath, assetRoot, resourceDir]() {
+            const std::string msg = runSceneAuthoringAiJobsFile(
+                assetRoot,
+                resourceDir,
+                jobsPath,
+                keySnap,
+                nullptr,
+                elevenSnap);
+            std::lock_guard<std::mutex> lock(generateMutex);
+            generateResultStatus = msg;
+            generateResultPending = true;
+        });
 }
 
 void SceneAssistDialog::acceptPreview()
@@ -457,7 +409,7 @@ void SceneAssistDialog::acceptPreview()
     previewTarget = 0;
     previewRelPath.clear();
     liveRelPath.clear();
-    status = "Accepted — scene assets updated.";
+    status = "Accepted  -  scene assets updated.";
     error.clear();
 
     if (onAccepted)
@@ -480,66 +432,11 @@ void SceneAssistDialog::revertPreview()
     previewTarget = 0;
     previewRelPath.clear();
     liveRelPath.clear();
-    status = "Reverted — kept previous assets.";
+    status = "Reverted  -  kept previous assets.";
     error.clear();
 
     if (onAccepted)
         onAccepted();
-}
-
-void SceneAssistDialog::typeIntoFocusedField()
-{
-    if (focusField != 0)
-        return;
-    std::string* target = &sessionApiKey;
-
-    // Cmd/Ctrl+V paste (same pattern as item editor AI Assist key field).
-    const bool mod = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)
-        || IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER);
-    if (mod && IsKeyPressed(KEY_V))
-    {
-        const char* clip = GetClipboardText();
-        if (clip != nullptr && clip[0] != '\0')
-        {
-            std::string pasted = clip;
-            while (!pasted.empty()
-                   && (pasted.back() == '\n' || pasted.back() == '\r'
-                       || pasted.back() == ' ' || pasted.back() == '\t'))
-                pasted.pop_back();
-            size_t start = 0;
-            while (start < pasted.size()
-                   && (pasted[start] == ' ' || pasted[start] == '\t'
-                       || pasted[start] == '\n' || pasted[start] == '\r'))
-                ++start;
-            if (start > 0)
-                pasted = pasted.substr(start);
-            // Strip interior newlines (keys are single-line).
-            pasted.erase(
-                std::remove_if(
-                    pasted.begin(),
-                    pasted.end(),
-                    [](unsigned char ch) { return ch == '\n' || ch == '\r'; }),
-                pasted.end());
-            *target = pasted;
-            status = "API key pasted (session only).";
-            error.clear();
-        }
-        // Drain any leftover char events from the paste chord.
-        while (GetCharPressed() > 0)
-        {
-        }
-        return;
-    }
-
-    int cp = GetCharPressed();
-    while (cp > 0)
-    {
-        if (cp >= 32 && cp != '\n')
-            insertUtf8(*target, cp);
-        cp = GetCharPressed();
-    }
-    if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE))
-        backspace(*target);
 }
 
 void SceneAssistDialog::updateAudio()
@@ -559,7 +456,7 @@ void SceneAssistDialog::handleInput(int screenW, int screenH)
 
     if (waitMouseRelease)
     {
-        if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        if (!editorMouseDown(MOUSE_BUTTON_LEFT))
             waitMouseRelease = false;
         return;
     }
@@ -568,9 +465,6 @@ void SceneAssistDialog::handleInput(int screenW, int screenH)
         --ignoreInputFrames;
         return;
     }
-
-    if (!generateBusy.load())
-        typeIntoFocusedField();
 
     if (IsKeyPressed(KEY_ESCAPE) && !generateBusy.load())
     {
@@ -594,7 +488,7 @@ void SceneAssistDialog::draw(int screenW, int screenH)
     const bool busy = generateBusy.load();
     const bool canClick =
         !waitMouseRelease && ignoreInputFrames <= 0 && !busy
-        && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+        && editorMousePressed(MOUSE_BUTTON_LEFT);
 
     DrawRectangle(0, 0, screenW, screenH, kModalOverlay);
 
@@ -646,21 +540,18 @@ void SceneAssistDialog::draw(int screenW, int screenH)
     const float fieldX = content.x + innerPad;
     const float fieldW = content.width - innerPad * 2.0f;
 
-    // Fixed blocks: API key (+ optional preview chrome). Description fills the rest.
-    const float keyBlockH = 16.0f + 32.0f; // label + field
+    // Description fills available space; optional preview chrome below.
     const float previewReserve =
         previewPending ? (previewTarget == 1 ? 180.0f : 70.0f) : 0.0f;
-    const float gapAfterDesc = 14.0f;
-    const float gapAfterKey = previewPending ? 14.0f : 0.0f;
+    const float gapAfterDesc = previewPending ? 14.0f : 0.0f;
 
     float y = content.y + innerPad;
-    drawLabel(font, "Description (AI context — edit via Scene Variables)", labelX, y);
+    drawLabel(font, "Description (AI context  -  edit via Scene Variables)", labelX, y);
     y += 18.0f;
 
     const float descBoxH = std::max(
         96.0f,
-        content.height - innerPad * 2.0f - 18.0f - keyBlockH - gapAfterDesc
-            - previewReserve - gapAfterKey);
+        content.height - innerPad * 2.0f - 18.0f - gapAfterDesc - previewReserve);
     const Rectangle descBox = {fieldX, y, fieldW, descBoxH};
     drawFieldBox(descBox, false);
 
@@ -721,28 +612,6 @@ void SceneAssistDialog::draw(int screenW, int screenH)
     }
 
     y = descBox.y + descBox.height + gapAfterDesc;
-
-    drawLabel(
-        font,
-        "Session xAI API key (Cmd/Ctrl+V to paste; not saved to disk)",
-        labelX,
-        y);
-    y += 16.0f;
-    const Rectangle keyField = {fieldX, y, fieldW, 32.0f};
-    drawFieldBox(keyField, focusField == 0 && !previewPending);
-    const std::string keyShow = sessionApiKey.empty()
-        ? "(optional if XAI_API_KEY is set)"
-        : std::string(std::min<size_t>(sessionApiKey.size(), 28), '*');
-    DrawTextEx(
-        font,
-        keyShow.c_str(),
-        {keyField.x + 8.0f, keyField.y + 8.0f},
-        kFontSmall,
-        1.0f,
-        sessionApiKey.empty() ? kTextMuted : kTextPrimary);
-    if (canClick && CheckCollisionPointRec(mouse, keyField) && !previewPending)
-        focusField = 0;
-    y = keyField.y + keyField.height + gapAfterKey;
 
     if (previewPending)
     {
@@ -841,34 +710,50 @@ void SceneAssistDialog::draw(int screenW, int screenH)
     }
     else
     {
-        const bool actionsEnabled = !busy;
+        const bool xaiOk = sessionKeys != nullptr && sessionKeys->xaiReady();
+        const bool elevenOk =
+            sessionKeys != nullptr && sessionKeys->elevenLabsReady();
+        const bool hasDesc = !payload.description.empty();
         const float gap = 10.0f;
-        const float regenW = (dialogW - pad * 2.0f - gap * 2.0f) / 3.0f;
+        const float iconSlot = kApiKeyIconSize + kApiKeyIconGap;
+        const float regenW =
+            (dialogW - pad * 2.0f - gap * 2.0f - iconSlot * 3.0f) / 3.0f;
         struct GenRow
         {
             const char* label;
             int target;
+            ApiKeyProvider provider;
         };
         const GenRow rows[] = {
-            {"Regenerate image", 1},
-            {"Regenerate ambient", 2},
-            {"Regenerate music", 3},
+            {"Regenerate image", 1, ApiKeyProvider::Xai},
+            {"Regenerate ambient", 2, ApiKeyProvider::ElevenLabs},
+            {"Regenerate music", 3, ApiKeyProvider::ElevenLabs},
         };
         for (int i = 0; i < 3; ++i)
         {
-            const Rectangle btn = {
-                dialog.x + pad + static_cast<float>(i) * (regenW + gap),
-                btnY,
-                regenW,
-                actionBtnH};
-            drawEditorButton(font, btn, rows[i].label, true, actionsEnabled);
-            if (canClick && actionsEnabled && CheckCollisionPointRec(mouse, btn))
+            const float x =
+                dialog.x + pad
+                + static_cast<float>(i) * (regenW + iconSlot + gap);
+            Rectangle icon{};
+            const Rectangle slot = {x, btnY, regenW + iconSlot, actionBtnH};
+            const Rectangle btn = aiFieldWithKeyIcon(slot, &icon);
+            const bool keyOk = rows[i].provider == ApiKeyProvider::ElevenLabs
+                ? elevenOk
+                : xaiOk;
+            const bool canGen = !busy && keyOk && hasDesc;
+            drawApiKeyStatusIcon(
+                bold,
+                icon,
+                sessionKeys != nullptr ? sessionKeys->validity(rows[i].provider)
+                                       : ApiKeyValidity::Missing);
+            drawEditorButton(font, btn, rows[i].label, canGen, canGen);
+            if (canClick && canGen && CheckCollisionPointRec(mouse, btn))
                 startGenerate(rows[i].target);
             if (busy && generateTarget == rows[i].target)
             {
                 DrawTextEx(
                     font,
-                    "…",
+                    "...",
                     {btn.x + btn.width * 0.5f - 4.0f, btn.y + 8.0f},
                     kFontTiny,
                     1.0f,
@@ -913,7 +798,7 @@ void SceneAssistDialog::draw(int screenW, int screenH)
             0.45f + 0.55f * (0.5f + 0.5f * std::sin(static_cast<float>(GetTime()) * 5.0f));
         DrawTextEx(
             font,
-            "Working…",
+            "Working...",
             {dialog.x + dialogW * 0.5f - 40.0f, dialog.y + 16.0f},
             kFontSmall,
             1.0f,

@@ -87,3 +87,25 @@ fi
 if [[ "${WITH_DEV_TOOLS}" -eq 1 ]]; then
     echo "  Dev tools: Ctrl+Shift+S (overlay), ~ (command console, give-item)"
 fi
+
+# -----------------------------------------------------------------------------
+# Runtime debug (not a CMake flag): HIGHLINE_SYNC_SCENE_LOAD
+#
+# By default the game decodes scene images (xz decompress + PNG/JPEG) on a
+# background JobSystem worker, keeps drawing the previous room, then uploads
+# the new texture on the main/GL thread when ready. That cuts transition
+# hitches. Movement is blocked briefly while the load is pending.
+#
+# Set this environment variable to exactly "1" to force the old synchronous
+# path (decode + GPU upload on the main thread before the next frame). Useful
+# when debugging wrong/blank scene art, JobSystem issues, or comparing hitch
+# timing. Unset / any other value keeps async loading.
+#
+# Example (from build-release/):
+#   HIGHLINE_SYNC_SCENE_LOAD=1 ./Highline\ Ridge
+#
+# export HIGHLINE_SYNC_SCENE_LOAD=1
+#
+# Audio beds currently always load synchronously (file /tmp extract path).
+# Async JobSystem audio is disabled until onRoomEnter races are fully fixed.
+# -----------------------------------------------------------------------------

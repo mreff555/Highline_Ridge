@@ -20,7 +20,9 @@
 #include "EditorPaths.h"
 #include "PlatformPath.h"
 #include <raylib.h>
+#include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <string>
 namespace fs=std::filesystem;
 using timberline_engine::pathJoin;
@@ -159,6 +161,47 @@ bool ensureValidResourcePaths(std::string& resourceDir, std::string& assetRoot)
     }
 
     return resolveEditorPaths(resourceDir, assetRoot);
+}
+
+std::string resolveXaiApiKeyFile(const std::string& resourceDir)
+{
+    auto existsNonEmpty = [](const std::string& path) -> bool {
+        if (path.empty() || !FileExists(path.c_str()))
+            return false;
+        std::ifstream in(path.c_str());
+        if (!in)
+            return false;
+        std::string line;
+        std::getline(in, line);
+        // trim
+        size_t a = 0;
+        while (a < line.size()
+               && (line[a] == ' ' || line[a] == '\t' || line[a] == '\r' || line[a] == '\n'))
+            ++a;
+        return a < line.size();
+    };
+
+    // Preferred: user config (not in the resources tree / packs).
+    const char* home = std::getenv("HOME");
+    if (home != nullptr && home[0] != '\0')
+    {
+        const std::string userKey =
+            pathJoin(pathJoin(pathJoin(home, ".config"), "highline-ridge"), "xai_api_key");
+        if (existsNonEmpty(userKey))
+            return userKey;
+    }
+
+    // Legacy fallbacks — still read, but do not write here (#45).
+    if (!resourceDir.empty())
+    {
+        const std::string inResources = pathJoin(resourceDir, "xai_api_key");
+        if (existsNonEmpty(inResources))
+            return inResources;
+        const std::string beside = pathJoin(parentDirectory(resourceDir), "xai_api_key");
+        if (existsNonEmpty(beside))
+            return beside;
+    }
+    return {};
 }
 
 } // namespace timberline_editor
