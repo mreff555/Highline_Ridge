@@ -40,6 +40,10 @@
         "icon": "resources/icons/box_of_nails_icon.png"
       },
       "name": "Box of Nails",
+      "sfx": {
+        "examine": "resources/audio/sfx/box_of_nails_examine.mp3",
+        "use": "resources/audio/sfx/box_of_nails_use.mp3"
+      },
       "visuals": {
         "image": "resources/images/box_of_nails_examine.png"
       },

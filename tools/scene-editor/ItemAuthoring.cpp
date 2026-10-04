@@ -612,8 +612,11 @@ ItemAiAssistPlan planItemAiAssist(
             ? defaultItemExamineSoundPath(payload.id)
             : payload.examineSoundPath;
         job.prompt =
-            "Generate examine SFX for item \"" + payload.name
-            + "\" from: " + desc;
+            "Short game Foley examine sound for inventory item \"" + payload.name
+            + "\". Period 1890s Colorado frontier. Soft pickup / handle / rustle "
+              "appropriate to the object. No music, no dialogue, no UI beeps. "
+              "Object: "
+            + desc;
         plan.jobs.push_back(job);
     }
     if (payload.aiAssist.generateUseSound)
@@ -625,7 +628,12 @@ ItemAiAssistPlan planItemAiAssist(
             ? defaultItemUseSoundPath(payload.id)
             : payload.useSoundPath;
         job.prompt =
-            "Generate use SFX for item \"" + payload.name + "\" from: " + desc;
+            "Short game Foley use/activate sound for inventory item \""
+            + payload.name
+            + "\". Period 1890s Colorado frontier. One-shot interaction "
+              "(click, pour, strike, open) matching the object. No music, no "
+              "dialogue, no UI beeps. Object: "
+            + desc;
         plan.jobs.push_back(job);
     }
     if (payload.aiAssist.assistConstructionDescription)
@@ -908,7 +916,8 @@ bool runItemAuthoringAiJobs(
     const std::string& assetRoot,
     const std::string& itemId,
     std::string& statusOut,
-    const std::string& apiKey)
+    const std::string& apiKey,
+    const std::string& elevenLabsKey)
 {
     if (itemId.empty())
     {
@@ -947,21 +956,26 @@ bool runItemAuthoringAiJobs(
                    << "jobsFile: " << jobsFile << "\n"
                    << "script: " << script << "\n"
                    << "hasSessionKey: " << (apiKey.empty() ? "no" : "yes") << "\n"
+                   << "hasElevenLabsKey: "
+                   << (elevenLabsKey.empty() ? "no" : "yes") << "\n"
                    << "--- python output follows ---\n";
         }
         std::cerr << "TIMBERLINE authoring: launching runner item=" << itemId
                   << " root=" << gameRoot
-                  << " key=" << (apiKey.empty() ? "no" : "yes") << "\n";
+                  << " key=" << (apiKey.empty() ? "no" : "yes")
+                  << " el=" << (elevenLabsKey.empty() ? "no" : "yes") << "\n";
     }
 
     // Redirect runner output (append) to the log the UI can surface.
-    // Session API key is passed only via CLI --key (not written to disk).
+    // Keys also persist under ~/.config/highline-ridge/ when Confirm'd.
     auto runWith = [&](const char* pythonBin) -> int {
         std::ostringstream command;
         command << pythonBin << " \"" << script << "\" --asset-root \"" << gameRoot
                 << "\" --jobs-file \"" << jobsFile << "\"";
         if (!apiKey.empty())
             command << " --key " << shellSingleQuote(apiKey);
+        if (!elevenLabsKey.empty())
+            command << " --elevenlabs-key " << shellSingleQuote(elevenLabsKey);
         command << " >> \"" << logFile << "\" 2>&1";
         std::cerr << "TIMBERLINE authoring: exec " << pythonBin << "\n";
         return std::system(command.str().c_str());

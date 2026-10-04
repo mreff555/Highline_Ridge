@@ -63,9 +63,10 @@ Click **Music style (1890s)** under the music path to cycle:
 | `cabin_hearth` | Sparse intimate piano |
 | `mining_camp` | Harmonica / spare guitar |
 | `tension` | Low period underscore |
-| `title_hymn` | Menu / title acoustic |
+| `title_hymn` | Hopeful menu / title acoustic |
+| `scarlet_whispers` | Tragic violin + chamber orchestra (“Scarlet Whispers at Dawn”) — strong title / mournful scene bed |
 
-Default length ~24s loopable bed.
+Default length ~24s loopable bed. Title screen (`resources/audio/music/title_theme.mp3`) prefers `scarlet_whispers`.
 
 ## Runtime
 

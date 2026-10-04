@@ -419,17 +419,17 @@ std::vector<SceneAiJob> buildSceneAiJobs(
         job.type = SceneAiJobType::GenerateAmbient;
         job.action = "ambient";
         job.outPath = paths.ambientPath;
-        // Overview-only context: examine notes often mention humming / speech /
-        // music and steer Imagine Video into strange non-ambient audio.
+        // ElevenLabs looping SFX — overview only. Do NOT append image/world
+        // casting styleBlock (painterly light / clothing / UI text poison beds).
         job.prompt =
             std::string(
-                "Diegetic ambient soundscape for a Timberline adventure-game room bed. "
-                "Hard rules: no dialogue, no whispering, no humming, no singing, "
-                "no narrator, no melodic music score, no UI beeps  -  only "
-                "environmental audio that could loop under gameplay. "
-                "Capture activity, room tone, and distant bleed that fits the place.\n")
-            + styleBlock + "Scene overview:\n" + overview;
-        job.imagePath = paths.imagePath; // Imagine Video image-to-video when present
+                "Seamless looping environmental ambient for a Timberline adventure-game "
+                "room bed. Hard rules: no dialogue, no whispering, no humming, no singing, "
+                "no narrator, no melodic music, no instruments as lead, no UI beeps — "
+                "only environmental audio that can loop under gameplay.\n"
+                "Scene overview:\n")
+            + overview;
+        job.imagePath = paths.imagePath; // legacy xai_video path only
         jobs.push_back(job);
     }
     if (want(3))
@@ -441,8 +441,11 @@ std::vector<SceneAiJob> buildSceneAiJobs(
         job.musicStylePreset = payload.musicStylePreset.empty()
             ? "cabin_hearth"
             : payload.musicStylePreset;
-        job.prompt = std::string("Loopable period instrumental underscore.\n")
-            + styleBlock + "Scene overview:\n" + overview;
+        // Do NOT append image/world casting styleBlock — "painterly light",
+        // "no UI text", clothing, etc. confuse ElevenLabs Music into harsh
+        // non-musical / SFX-like beds. Mood comes from overview only.
+        job.prompt = std::string("Scene mood (music only — ignore visual art direction):\n")
+            + overview;
         jobs.push_back(job);
     }
     if (want(4))
@@ -453,7 +456,11 @@ std::vector<SceneAiJob> buildSceneAiJobs(
         job.outPath = payload.enterSfxPath.empty()
             ? ("resources/audio/sfx/" + payload.id + "_enter.mp3")
             : payload.enterSfxPath;
-        job.prompt = "Door enter SFX for: " + ctx;
+        job.prompt =
+            "Short game Foley door enter / room enter sound. Period 1890s "
+            "Colorado frontier wood door or threshold. Soft latch and hinge, "
+            "one-shot, no music, no dialogue. Scene: "
+            + ctx;
         jobs.push_back(job);
     }
     if (want(5))
@@ -464,7 +471,11 @@ std::vector<SceneAiJob> buildSceneAiJobs(
         job.outPath = payload.exitSfxPath.empty()
             ? ("resources/audio/sfx/" + payload.id + "_exit.mp3")
             : payload.exitSfxPath;
-        job.prompt = "Door exit SFX for: " + ctx;
+        job.prompt =
+            "Short game Foley door exit / leave room sound. Period 1890s "
+            "Colorado frontier wood door close or footsteps away. One-shot, "
+            "no music, no dialogue. Scene: "
+            + ctx;
         jobs.push_back(job);
     }
 

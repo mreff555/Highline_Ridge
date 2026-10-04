@@ -35,7 +35,8 @@ struct SceneAuthoringPayload
     std::string musicPath;
     /**
      * Period music preset for Generate music (ElevenLabs).
-     * One of: saloon_piano, trail_folk, cabin_hearth, mining_camp, tension, title_hymn.
+     * One of: saloon_piano, trail_folk, cabin_hearth, mining_camp, tension,
+     * title_hymn, scarlet_whispers.
      */
     std::string musicStylePreset = "cabin_hearth";
     /** Enter/exit one-shots. Empty by default — do not stamp shared door SFX

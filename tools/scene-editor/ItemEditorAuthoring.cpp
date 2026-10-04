@@ -985,12 +985,23 @@ bool ItemEditor::generateAuthoringAssetsNow(int target)
 
     const bool needsImage =
         flags.generateImageFromDescription || flags.generateIconFromDescription;
-    if (needsImage && (sessionKeys == nullptr || !sessionKeys->xaiValid()))
+    const bool needsSfx =
+        flags.generateExamineSound || flags.generateUseSound;
+    if (needsImage && (sessionKeys == nullptr || !sessionKeys->xaiReady()))
     {
         lastAuthoringStatus =
             "Options → Configure API keys — set a valid xAI key, "
             "then press Generate.";
         authoringLog("Generate blocked: missing/invalid session xAI key for image jobs");
+        return false;
+    }
+    if (needsSfx && (sessionKeys == nullptr || !sessionKeys->elevenLabsReady()))
+    {
+        lastAuthoringStatus =
+            "Options → Configure API keys — set a valid ElevenLabs key "
+            "(Sound Effects scope) for examine/use SFX.";
+        authoringLog(
+            "Generate blocked: missing/invalid session ElevenLabs key for SFX");
         return false;
     }
 
@@ -1020,12 +1031,15 @@ bool ItemEditor::generateAuthoringAssetsNow(int target)
     const std::string itemId = authoringPayload.id;
     const std::string apiKey =
         sessionKeys != nullptr ? sessionKeys->xaiKey : std::string{};
+    const std::string elevenLabsKey =
+        sessionKeys != nullptr ? sessionKeys->elevenLabsKey : std::string{};
     const int targetSnap = target == 0 ? 5 : target;
 
     authoringLog(
         "Starting generate target=" + std::to_string(targetSnap)
         + " item=" + itemId + " jobs=" + std::to_string(plan.jobs.size())
-        + " hasKey=" + std::string(apiKey.empty() ? "no" : "yes"));
+        + " hasKey=" + std::string(apiKey.empty() ? "no" : "yes")
+        + " hasEl=" + std::string(elevenLabsKey.empty() ? "no" : "yes"));
     for (const auto& job : plan.jobs)
         authoringLog("  job outPath=" + job.outPath);
 
@@ -1036,11 +1050,11 @@ bool ItemEditor::generateAuthoringAssetsNow(int target)
     lastAuthoringStatus = "Working... generating assets (see console / .authoring log)";
 
     authoringGenerateThread = std::thread(
-        [this, assetRoot, itemId, apiKey]() {
+        [this, assetRoot, itemId, apiKey, elevenLabsKey]() {
             authoringLog("Worker thread started for " + itemId);
             std::string runStatus;
-            const bool ok =
-                runItemAuthoringAiJobs(assetRoot, itemId, runStatus, apiKey);
+            const bool ok = runItemAuthoringAiJobs(
+                assetRoot, itemId, runStatus, apiKey, elevenLabsKey);
             authoringLog(
                 std::string("Worker finished ok=") + (ok ? "true" : "false")
                 + " status=" + runStatus);
@@ -1103,8 +1117,10 @@ bool ItemEditor::commitAuthoringDialog()
         std::string runStatus;
         const std::string apiKey =
             sessionKeys != nullptr ? sessionKeys->xaiKey : std::string{};
+        const std::string elevenLabsKey =
+            sessionKeys != nullptr ? sessionKeys->elevenLabsKey : std::string{};
         const bool ok = runItemAuthoringAiJobs(
-            docs->assetRoot, result.itemId, runStatus, apiKey);
+            docs->assetRoot, result.itemId, runStatus, apiKey, elevenLabsKey);
         lastAuthoringStatus += ok ? ("\n" + runStatus) : ("\n[AI assets FAILED] " + runStatus);
         // Keep the dialog closed but leave a sticky error if images were requested
         // and the runner could not produce them (usually missing API key).
@@ -2452,7 +2468,9 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
     {
         const float aiBtnW = 88.0f;
         const float rowH = 36.0f;
-        const bool xaiOk = sessionKeys != nullptr && sessionKeys->xaiValid();
+        const bool xaiOk = sessionKeys != nullptr && sessionKeys->xaiReady();
+        const bool elevenOk =
+            sessionKeys != nullptr && sessionKeys->elevenLabsReady();
         const Font boldFont =
             (uiFontBold.texture.id != 0 ? uiFontBold : font);
         struct AiFieldRow
@@ -2463,7 +2481,8 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
             Hit::Kind assistKind;
             const char* emptyHint;
             int generateTarget; // 1..4
-            bool needsXai;
+            ApiKeyProvider provider; // Xai for images; ElevenLabs for SFX
+            bool needsKey;
         };
         const AiFieldRow aiFields[] = {
             {"Examine image path",
@@ -2472,6 +2491,7 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
              Hit::Kind::AiAssistImage,
              "(path  -  click to edit)",
              1,
+             ApiKeyProvider::Xai,
              true},
             {"Icon path",
              &authoringPayload.iconPath,
@@ -2479,21 +2499,24 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
              Hit::Kind::AiAssistIcon,
              "(path  -  click to edit)",
              2,
+             ApiKeyProvider::Xai,
              true},
-            {"Examine sound",
+            {"Examine sound (ElevenLabs)",
              &authoringPayload.examineSoundPath,
              Hit::Kind::OpenExamineSound,
              Hit::Kind::AiAssistExamineSound,
              "(SFX path  -  click to edit)",
              3,
-             false},
-            {"Use sound",
+             ApiKeyProvider::ElevenLabs,
+             true},
+            {"Use sound (ElevenLabs)",
              &authoringPayload.useSoundPath,
              Hit::Kind::OpenUseSound,
              Hit::Kind::AiAssistUseSound,
              "(SFX path  -  click to edit)",
              4,
-             false},
+             ApiKeyProvider::ElevenLabs,
+             true},
         };
         // Leave room to the right of Generate for the pulsing "Working" label.
         const float workLabelW = 72.0f;
@@ -2505,17 +2528,17 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
             layoutY += 14.0f;
             const Rectangle fieldRow = {fieldX, virt(layoutY), rowFieldW, rowH};
             Rectangle keyIcon{};
-            const Rectangle field = row.needsXai
+            const Rectangle field = row.needsKey
                 ? aiFieldWithKeyIcon(fieldRow, &keyIcon)
                 : fieldRow;
             const Rectangle aiBtn = {
                 fieldX + rowFieldW + 8.0f, virt(layoutY) + 4.0f, aiBtnW, 28.0f};
-            if (row.needsXai)
+            if (row.needsKey)
             {
                 drawApiKeyStatusIcon(
                     boldFont,
                     keyIcon,
-                    sessionKeys != nullptr ? sessionKeys->xaiValidity
+                    sessionKeys != nullptr ? sessionKeys->validity(row.provider)
                                            : ApiKeyValidity::Missing);
             }
             DrawRectangleRec(field, Color{22, 20, 28, 255});
@@ -2524,9 +2547,8 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
             const std::string pathShown = isPlausibleResourcePath(*row.value)
                 ? *row.value
                 : std::string();
-            const std::string emptyHint = row.needsXai
-                ? aiPathFieldHint(
-                      ApiKeyProvider::Xai, sessionKeys, row.emptyHint)
+            const std::string emptyHint = row.needsKey
+                ? aiPathFieldHint(row.provider, sessionKeys, row.emptyHint)
                 : std::string(row.emptyHint);
             drawClippedFieldPreview(
                 font,
@@ -2536,8 +2558,10 @@ void ItemEditor::drawAuthoringDialog(int screenWidth, int screenHeight)
                 emptyHint.c_str(),
                 kFontSmall,
                 2.0f);
-            const bool canGenRow =
-                !generateBusy && (!row.needsXai || xaiOk);
+            const bool keyOk = row.provider == ApiKeyProvider::ElevenLabs
+                ? elevenOk
+                : xaiOk;
+            const bool canGenRow = !generateBusy && (!row.needsKey || keyOk);
             EditorButton genBtn;
             genBtn.preferred = aiBtn;
             genBtn.label = "Generate";

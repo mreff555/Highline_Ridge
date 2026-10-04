@@ -20,11 +20,13 @@ namespace timberline_editor
 namespace
 {
 
-std::string maskKey(const std::string& key)
+std::string maskKeyDisplay(const std::string& key)
 {
     if (key.empty())
         return {};
-    return std::string(std::min<size_t>(key.size(), 40), '*');
+    if (key.size() <= 4)
+        return std::string(key.size(), '*');
+    return std::string(std::min<size_t>(key.size() - 4, 36), '*') + key.substr(key.size() - 4);
 }
 
 void appendUtf8Codepoint(std::string& buffer, int codepoint)
@@ -70,10 +72,17 @@ void ApiKeysDialog::openDialog()
     ignoreInputFrames = 1;
     waitMouseRelease = true;
     error.clear();
-    status = "Keys stay in memory for this editor session only.";
+    status = "Confirm writes ~/.config/highline-ridge/{xai,elevenlabs}_api_key (overwrite).";
     draftXai = keys != nullptr ? keys->xaiKey : "";
     draftElevenLabs = keys != nullptr ? keys->elevenLabsKey : "";
-    focusField = 0;
+    // Prefer focusing an empty slot so a bootstrapped filled key isn't a trap.
+    if (draftXai.empty() && !draftElevenLabs.empty())
+        focusField = 0;
+    else if (!draftXai.empty() && draftElevenLabs.empty())
+        focusField = 1;
+    else
+        focusField = 0; // both empty or both filled — start on xAI; click/Tab to switch
+    replaceOnNextEdit = focusField == 0 ? !draftXai.empty() : !draftElevenLabs.empty();
 }
 
 void ApiKeysDialog::closeDialog(bool apply)
@@ -81,18 +90,17 @@ void ApiKeysDialog::closeDialog(bool apply)
     if (apply && keys != nullptr)
     {
         keys->applySessionKeys(draftXai, draftElevenLabs);
-        status = "API keys updated (session only).";
+        status = "API keys saved to ~/.config/highline-ridge/.";
     }
     open = false;
     waitMouseRelease = true;
     focusField = 0;
+    replaceOnNextEdit = false;
 }
 
 void ApiKeysDialog::typeIntoFocused()
 {
     std::string* target = focusField == 1 ? &draftElevenLabs : &draftXai;
-    if (target == nullptr)
-        return;
 
     const bool mod = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)
         || IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER);
@@ -112,29 +120,98 @@ void ApiKeysDialog::typeIntoFocused()
                        || pasted[start] == '\n' || pasted[start] == '\r'))
                 ++start;
             *target = pasted.substr(start);
+            replaceOnNextEdit = false;
             error.clear();
-            status = "Pasted (session draft — Confirm to apply).";
+            status = focusField == 1
+                ? "ElevenLabs draft updated — Confirm to apply."
+                : "xAI draft updated — Confirm to apply.";
         }
+        return;
+    }
+    if (mod && IsKeyPressed(KEY_A))
+    {
+        // Select-all → clear so the next paste/type replaces cleanly.
+        target->clear();
+        replaceOnNextEdit = false;
+        status = "Field cleared — paste a new key.";
         return;
     }
 
     int codepoint = GetCharPressed();
+    bool typed = false;
     while (codepoint > 0)
     {
         if (codepoint >= 32 && codepoint != 127)
+        {
+            if (replaceOnNextEdit)
+            {
+                target->clear();
+                replaceOnNextEdit = false;
+            }
             appendUtf8Codepoint(*target, codepoint);
+            typed = true;
+        }
         codepoint = GetCharPressed();
     }
-    if (IsKeyPressed(KEY_BACKSPACE) && !target->empty())
-        target->pop_back();
+    if (typed)
+    {
+        status = focusField == 1
+            ? "Editing ElevenLabs draft — Confirm to apply."
+            : "Editing xAI draft — Confirm to apply.";
+    }
+    if (IsKeyPressed(KEY_BACKSPACE))
+    {
+        if (replaceOnNextEdit)
+        {
+            target->clear();
+            replaceOnNextEdit = false;
+            status = "Field cleared — paste a new key.";
+        }
+        else if (!target->empty())
+        {
+            target->pop_back();
+        }
+    }
+}
+
+void ApiKeysDialog::layout(int screenW, int screenH)
+{
+    const float dialogW = std::min(560.0f, screenW - 40.0f);
+    const float dialogH = 340.0f;
+    dialogRect = {
+        (screenW - dialogW) * 0.5f,
+        (screenH - dialogH) * 0.5f,
+        dialogW,
+        dialogH};
+
+    const float fieldX = dialogRect.x + 20.0f;
+    const float clearW = 64.0f;
+    const float gap = 8.0f;
+    const float fieldW = dialogW - 40.0f - clearW - gap;
+
+    float y = dialogRect.y + 78.0f;
+    y += 16.0f; // label
+    xaiFieldRect = {fieldX, y, fieldW, 32.0f};
+    xaiClearRect = {fieldX + fieldW + gap, y, clearW, 32.0f};
+    y += 40.0f;
+    y += 16.0f;
+    elevenFieldRect = {fieldX, y, fieldW, 32.0f};
+    elevenClearRect = {fieldX + fieldW + gap, y, clearW, 32.0f};
+
+    const float btnW = 120.0f;
+    const float btnH = 34.0f;
+    const float btnY = dialogRect.y + dialogH - btnH - 16.0f;
+    confirmBtnRect = {
+        dialogRect.x + dialogW - btnW * 2.0f - 28.0f, btnY, btnW, btnH};
+    cancelBtnRect = {dialogRect.x + dialogW - btnW - 16.0f, btnY, btnW, btnH};
 }
 
 void ApiKeysDialog::handleInput(int screenW, int screenH)
 {
     if (!open)
         return;
-    (void)screenW;
-    (void)screenH;
+
+    layout(screenW, screenH);
 
     if (waitMouseRelease)
     {
@@ -160,7 +237,73 @@ void ApiKeysDialog::handleInput(int screenW, int screenH)
         return;
     }
     if (IsKeyPressed(KEY_TAB))
+    {
         focusField = focusField == 0 ? 1 : 0;
+        replaceOnNextEdit =
+            focusField == 0 ? !draftXai.empty() : !draftElevenLabs.empty();
+        status = focusField == 1 ? "Editing ElevenLabs key." : "Editing xAI key.";
+    }
+    if ((IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)
+         || IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER))
+        && IsKeyPressed(KEY_ENTER))
+    {
+        closeDialog(true);
+        return;
+    }
+
+    const Vector2 mouse = GetMousePosition();
+    if (editorMousePressed(MOUSE_BUTTON_LEFT))
+    {
+        if (CheckCollisionPointRec(mouse, confirmBtnRect))
+        {
+            closeDialog(true);
+            return;
+        }
+        if (CheckCollisionPointRec(mouse, cancelBtnRect))
+        {
+            closeDialog(false);
+            return;
+        }
+        if (CheckCollisionPointRec(mouse, xaiClearRect))
+        {
+            draftXai.clear();
+            focusField = 0;
+            replaceOnNextEdit = false;
+            status = "xAI draft cleared.";
+            return;
+        }
+        if (CheckCollisionPointRec(mouse, elevenClearRect))
+        {
+            draftElevenLabs.clear();
+            focusField = 1;
+            replaceOnNextEdit = false;
+            status = "ElevenLabs draft cleared.";
+            return;
+        }
+        if (CheckCollisionPointRec(mouse, xaiFieldRect))
+        {
+            focusField = 0;
+            replaceOnNextEdit = !draftXai.empty();
+            status = draftXai.empty()
+                ? "xAI field focused — Cmd/Ctrl+V pastes."
+                : "xAI focused — type/paste replaces; Clear empties.";
+            return;
+        }
+        if (CheckCollisionPointRec(mouse, elevenFieldRect))
+        {
+            focusField = 1;
+            replaceOnNextEdit = !draftElevenLabs.empty();
+            status = draftElevenLabs.empty()
+                ? "ElevenLabs field focused — Cmd/Ctrl+V pastes."
+                : "ElevenLabs focused — type/paste replaces; Clear empties.";
+            return;
+        }
+        if (!CheckCollisionPointRec(mouse, dialogRect))
+        {
+            closeDialog(false);
+            return;
+        }
+    }
 
     typeIntoFocused();
 }
@@ -170,60 +313,53 @@ void ApiKeysDialog::draw(int screenW, int screenH)
     if (!open)
         return;
 
+    layout(screenW, screenH);
+
     const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
     const Font bold = (uiFontBold.texture.id != 0 ? uiFontBold : font);
-    const Vector2 mouse = GetMousePosition();
-    const bool canClick =
-        !waitMouseRelease && ignoreInputFrames <= 0
-        && editorMousePressed(MOUSE_BUTTON_LEFT);
 
     DrawRectangle(0, 0, screenW, screenH, kModalOverlay);
-
-    const float dialogW = std::min(560.0f, screenW - 40.0f);
-    const float dialogH = 320.0f;
-    const Rectangle dialog = {
-        (screenW - dialogW) * 0.5f,
-        (screenH - dialogH) * 0.5f,
-        dialogW,
-        dialogH};
-    DrawRectangleRounded(dialog, 0.03f, 8, kModalFill);
-    DrawRectangleLinesEx(dialog, 2.0f, kPanelBorder);
+    DrawRectangleRounded(dialogRect, 0.03f, 8, kModalFill);
+    DrawRectangleLinesEx(dialogRect, 2.0f, kPanelBorder);
 
     DrawTextEx(
         bold,
         "Configure API keys",
-        {dialog.x + 20.0f, dialog.y + 16.0f},
+        {dialogRect.x + 20.0f, dialogRect.y + 16.0f},
         kFontHeading,
         1.0f,
         kTextPrimary);
     DrawTextEx(
         font,
-        "Session only — not written to disk. Paste with Cmd/Ctrl+V.",
-        {dialog.x + 20.0f, dialog.y + 44.0f},
+        "Saved under ~/.config/highline-ridge/. Tab switches fields.",
+        {dialogRect.x + 20.0f, dialogRect.y + 44.0f},
         kFontTiny,
         1.0f,
         kTextMuted);
 
-    const float fieldX = dialog.x + 20.0f;
-    const float fieldW = dialogW - 40.0f;
-    float y = dialog.y + 78.0f;
-
     auto drawKeyRow = [&](const char* label,
                           const std::string& draft,
                           int fieldId,
+                          Rectangle field,
+                          Rectangle clearBtn,
                           ApiKeyValidity liveValidity)
     {
-        DrawTextEx(font, label, {fieldX, y}, kFontTiny, 1.0f, kTextMuted);
-        y += 16.0f;
-        const Rectangle field = {fieldX, y, fieldW, 32.0f};
+        DrawTextEx(
+            font,
+            label,
+            {field.x, field.y - 16.0f},
+            kFontTiny,
+            1.0f,
+            kTextMuted);
         const bool focused = focusField == fieldId;
         DrawRectangleRec(field, Color{18, 16, 24, 255});
         DrawRectangleLinesEx(
-            field, 1.0f, focused ? kPanelBorder : kPanelInnerEdge);
-        const std::string show = draft.empty() ? std::string() : maskKey(draft);
+            field, focused ? 2.0f : 1.0f, focused ? kPanelBorder : kPanelInnerEdge);
+
+        const std::string show = maskKeyDisplay(draft);
         const char* hint = fieldId == 0
-            ? "xAI key — console.x.ai"
-            : "ElevenLabs key — elevenlabs.io/app/settings/api-keys";
+            ? "Click, then Cmd/Ctrl+V — console.x.ai"
+            : "Click, then Cmd/Ctrl+V — elevenlabs.io/app/settings/api-keys";
         DrawTextEx(
             font,
             show.empty() ? hint : show.c_str(),
@@ -234,41 +370,45 @@ void ApiKeysDialog::draw(int screenW, int screenH)
 
         Rectangle icon = {
             field.x + field.width - 28.0f, field.y + 5.0f, 22.0f, 22.0f};
-        // Live validity for applied keys; drafts show Missing until Confirm.
         ApiKeyValidity iconV = ApiKeyValidity::Missing;
         if (!draft.empty())
         {
-            if (keys != nullptr && draft == keys->key(
-                    fieldId == 0 ? ApiKeyProvider::Xai
-                                 : ApiKeyProvider::ElevenLabs))
+            if (keys != nullptr
+                && draft
+                    == keys->key(
+                        fieldId == 0 ? ApiKeyProvider::Xai
+                                     : ApiKeyProvider::ElevenLabs))
                 iconV = liveValidity;
             else
                 iconV = ApiKeyValidity::Unknown;
         }
         drawApiKeyStatusIcon(bold, icon, iconV);
 
-        if (canClick && CheckCollisionPointRec(mouse, field))
-            focusField = fieldId;
-        y += 40.0f;
+        drawEditorButton(font, clearBtn, "Clear", false, true);
     };
 
     drawKeyRow(
         "xAI (images, ambient, TTS)",
         draftXai,
         0,
+        xaiFieldRect,
+        xaiClearRect,
         keys != nullptr ? keys->xaiValidity : ApiKeyValidity::Missing);
     drawKeyRow(
         "ElevenLabs (period music)",
         draftElevenLabs,
         1,
+        elevenFieldRect,
+        elevenClearRect,
         keys != nullptr ? keys->elevenLabsValidity : ApiKeyValidity::Missing);
 
+    const float msgY = elevenFieldRect.y + 40.0f;
     if (!error.empty())
     {
         DrawTextEx(
             font,
             error.c_str(),
-            {fieldX, y},
+            {dialogRect.x + 20.0f, msgY},
             kFontTiny,
             1.0f,
             Color{220, 120, 100, 255});
@@ -276,26 +416,16 @@ void ApiKeysDialog::draw(int screenW, int screenH)
     else if (!status.empty())
     {
         DrawTextEx(
-            font, status.c_str(), {fieldX, y}, kFontTiny, 1.0f, kTextMuted);
+            font,
+            status.c_str(),
+            {dialogRect.x + 20.0f, msgY},
+            kFontTiny,
+            1.0f,
+            kTextMuted);
     }
 
-    const float btnW = 120.0f;
-    const float btnH = 34.0f;
-    const float btnY = dialog.y + dialogH - btnH - 16.0f;
-    const Rectangle confirmBtn = {dialog.x + dialogW - btnW * 2.0f - 28.0f, btnY, btnW, btnH};
-    const Rectangle cancelBtn = {dialog.x + dialogW - btnW - 16.0f, btnY, btnW, btnH};
-    drawEditorButton(font, confirmBtn, "Confirm", true, true);
-    drawEditorButton(font, cancelBtn, "Cancel", false, true);
-
-    if (canClick)
-    {
-        if (CheckCollisionPointRec(mouse, confirmBtn))
-            closeDialog(true);
-        else if (CheckCollisionPointRec(mouse, cancelBtn))
-            closeDialog(false);
-        else if (!CheckCollisionPointRec(mouse, dialog))
-            closeDialog(false);
-    }
+    drawEditorButton(font, confirmBtnRect, "Confirm", true, true);
+    drawEditorButton(font, cancelBtnRect, "Cancel", false, true);
 }
 
 } // namespace timberline_editor

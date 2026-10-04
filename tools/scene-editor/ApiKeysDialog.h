@@ -31,6 +31,17 @@ struct ApiKeysDialog
     std::string draftXai;
     std::string draftElevenLabs;
     int focusField = 0; // 0=xAI, 1=ElevenLabs
+    /** When true, the next typed character / paste replaces the focused draft
+     *  (password-field style) so a bootstrapped masked key isn't append-only. */
+    bool replaceOnNextEdit = false;
+
+    Rectangle xaiFieldRect{0, 0, 0, 0};
+    Rectangle elevenFieldRect{0, 0, 0, 0};
+    Rectangle xaiClearRect{0, 0, 0, 0};
+    Rectangle elevenClearRect{0, 0, 0, 0};
+    Rectangle confirmBtnRect{0, 0, 0, 0};
+    Rectangle cancelBtnRect{0, 0, 0, 0};
+    Rectangle dialogRect{0, 0, 0, 0};
 
     std::string status;
     std::string error;
@@ -44,6 +55,7 @@ struct ApiKeysDialog
 
 private:
     void typeIntoFocused();
+    void layout(int screenW, int screenH);
 };
 
 } // namespace timberline_editor

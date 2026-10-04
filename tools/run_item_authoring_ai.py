@@ -4,7 +4,7 @@ Execute item authoring AI jobs written by the scene-editor.
 
 Reads resources/.authoring/<itemId>_ai_jobs.json and generates:
   - generate_image / generate_icon  → PNG via xAI Grok Imagine API, then .xz
-  - generate_examine_sound / generate_use_sound → short MP3 SFX (procedural), then .xz
+  - generate_examine_sound / generate_use_sound / enter / exit → ElevenLabs SFX MP3, then .xz
 
 API key resolution (first match):
   1. --key=
@@ -21,6 +21,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import array
 import json
 import lzma
 import math
@@ -205,29 +206,208 @@ AMBIENT_LAYER_CATALOG = [
     "crowd_muffled",
 ]
 
-MUSIC_STYLE_PRESETS = {
-    "saloon_piano": (
-        "saloon parlor upright piano, early ragtime or waltz fragments, "
-        "warm wooden room, modest tempo"
-    ),
-    "trail_folk": (
-        "mountain trail folk underscore, sparse fiddle and acoustic guitar, "
-        "open-air high country"
-    ),
-    "cabin_hearth": (
-        "cabin hearth sparse piano, intimate and quiet, soft pedaled notes"
-    ),
-    "mining_camp": (
-        "mining camp spare harmonica and acoustic guitar, dusty and restrained"
-    ),
-    "tension": (
-        "period tension underscore, low piano and muted strings, still 1890s, "
-        "no trailer braams"
-    ),
-    "title_hymn": (
-        "title or menu hymn-like acoustic guitar and soft piano, hopeful but "
-        "frontier-worn"
-    ),
+# Positive / negative styles for ElevenLabs Music composition plans (v2 / v2.5).
+# Keep these musical — never pass image/world casting constraints into music.
+MUSIC_STYLE_PRESETS: dict[str, dict] = {
+    "saloon_piano": {
+        "label": "saloon parlor upright piano",
+        "cue": "{upright piano playing soft early ragtime waltz fragments}",
+        "bpm": "96 BPM",
+        "positive": [
+            "1890s American frontier saloon underscore",
+            "solo upright piano",
+            "early ragtime and waltz fragments",
+            "warm wooden parlor acoustics",
+            "modest tempo",
+            "instrumental only",
+            "melodic but restrained game bed",
+        ],
+        "negative": [
+            "vocals",
+            "choir",
+            "synth",
+            "electronic",
+            "EDM",
+            "drums",
+            "electric guitar",
+            "noir jazz saxophone",
+            "trailer braams",
+            "sound effects",
+            "high-pitched sine tones",
+            "glitch noise",
+            "distortion",
+        ],
+    },
+    "trail_folk": {
+        "label": "mountain trail folk fiddle",
+        "cue": "{sparse fiddle melody with soft acoustic guitar accompaniment}",
+        "bpm": "84 BPM",
+        "positive": [
+            "1890s American frontier folk underscore",
+            "Colorado high country trail mood",
+            "sparse acoustic fiddle lead",
+            "soft fingerpicked acoustic guitar",
+            "warm woody natural tone",
+            "gentle walking tempo",
+            "intimate and restrained",
+            "instrumental only",
+            "seamless loopable game bed",
+        ],
+        "negative": [
+            "vocals",
+            "choir",
+            "humming",
+            "synth",
+            "electronic pads",
+            "EDM",
+            "modern drums",
+            "electric guitar",
+            "trailer music",
+            "noir jazz",
+            "sound effects",
+            "wind noise bed",
+            "bird calls as lead",
+            "harsh screeching",
+            "high-pitched electronic tones",
+            "glitch",
+            "distortion",
+            "white noise",
+        ],
+    },
+    "cabin_hearth": {
+        "label": "cabin hearth sparse piano",
+        "cue": "{soft pedaled piano near a quiet cabin hearth}",
+        "bpm": "72 BPM",
+        "positive": [
+            "1890s frontier cabin underscore",
+            "sparse intimate piano",
+            "soft pedaled notes",
+            "quiet and warm",
+            "instrumental only",
+            "loopable game bed",
+        ],
+        "negative": [
+            "vocals",
+            "synth",
+            "electronic",
+            "drums",
+            "trailer braams",
+            "sound effects",
+            "high-pitched sine tones",
+            "glitch noise",
+        ],
+    },
+    "mining_camp": {
+        "label": "mining camp harmonica",
+        "cue": "{spare harmonica with quiet acoustic guitar}",
+        "bpm": "88 BPM",
+        "positive": [
+            "1890s mining camp underscore",
+            "spare harmonica",
+            "quiet acoustic guitar",
+            "dusty and restrained",
+            "instrumental only",
+            "loopable game bed",
+        ],
+        "negative": [
+            "vocals",
+            "synth",
+            "electronic",
+            "EDM",
+            "trailer braams",
+            "sound effects",
+            "high-pitched electronic tones",
+            "glitch noise",
+        ],
+    },
+    "tension": {
+        "label": "period tension underscore",
+        "cue": "{low piano and muted strings, held tension}",
+        "bpm": "66 BPM",
+        "positive": [
+            "1890s period tension underscore",
+            "low piano",
+            "muted acoustic strings",
+            "still and restrained",
+            "instrumental only",
+            "loopable game bed",
+        ],
+        "negative": [
+            "vocals",
+            "synth",
+            "electronic",
+            "trailer braams",
+            "horror stingers",
+            "modern percussion",
+            "sound effects",
+            "high-pitched sine tones",
+            "glitch noise",
+        ],
+    },
+    "title_hymn": {
+        "label": "title hymn acoustic",
+        "cue": "{hopeful hymn-like acoustic guitar and soft piano}",
+        "bpm": "76 BPM",
+        "positive": [
+            "1890s frontier title theme",
+            "hymn-like acoustic guitar",
+            "soft piano",
+            "hopeful but worn",
+            "instrumental only",
+            "loopable menu bed",
+        ],
+        "negative": [
+            "vocals",
+            "choir lyrics",
+            "synth",
+            "electronic",
+            "EDM",
+            "trailer braams",
+            "sound effects",
+            "high-pitched electronic tones",
+        ],
+    },
+    "scarlet_whispers": {
+        "label": "Scarlet Whispers tragic violin orchestra",
+        "cue": (
+            "{solo tragic violin over soft chamber orchestra at dawn, "
+            "melancholy sustained strings, restrained dynamics}"
+        ),
+        "bpm": "68 BPM",
+        "positive": [
+            "Scarlet Whispers at Dawn mood",
+            "tragic romantic violin lead",
+            "small chamber orchestra underscore",
+            "warm acoustic strings and soft woodwinds",
+            "melancholy dawn atmosphere",
+            "1890s period cinematic but restrained",
+            "intimate and mournful",
+            "instrumental only",
+            "seamless loopable game bed",
+            "moderate dynamics no sudden hits",
+        ],
+        "negative": [
+            "vocals",
+            "choir lyrics",
+            "humming",
+            "synth",
+            "electronic pads",
+            "EDM",
+            "modern drums",
+            "electric guitar",
+            "trailer braams",
+            "horror stingers",
+            "jump scares",
+            "harsh screeching violin",
+            "atonal noise",
+            "sound effects",
+            "wind noise bed",
+            "high-pitched electronic tones",
+            "glitch",
+            "distortion",
+            "white noise",
+        ],
+    },
 }
 
 
@@ -564,6 +744,167 @@ def validate_audio_mp3(path: Path, *, min_bytes: int = 4000, label: str = "audio
         )
 
 
+def decode_mp3_to_wav(mp3_path: Path, wav_path: Path) -> None:
+    """Decode MP3 → WAV using afconvert (macOS) or lame --decode."""
+    wav_path.parent.mkdir(parents=True, exist_ok=True)
+    if shutil_which("afconvert"):
+        result = subprocess.run(
+            [
+                "afconvert",
+                "-f",
+                "WAVE",
+                "-d",
+                "LEI16@44100",
+                str(mp3_path),
+                str(wav_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0 and wav_path.is_file():
+            return
+    if shutil_which("lame"):
+        result = subprocess.run(
+            ["lame", "--decode", str(mp3_path), str(wav_path)],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0 and wav_path.is_file():
+            return
+    if shutil_which("ffmpeg"):
+        result = subprocess.run(
+            ["ffmpeg", "-y", "-i", str(mp3_path), str(wav_path)],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0 and wav_path.is_file():
+            return
+    raise RuntimeError(
+        f"Could not decode {mp3_path.name} to WAV (need afconvert, lame, or ffmpeg)"
+    )
+
+
+def measure_wav_peak(wav_path: Path) -> float:
+    """Return peak amplitude 0..1 for a 16-bit WAV."""
+    with wave.open(str(wav_path), "rb") as wf:
+        if wf.getsampwidth() != 2:
+            return 0.0
+        raw = wf.readframes(wf.getnframes())
+    samples = array.array("h")
+    samples.frombytes(raw)
+    if not samples:
+        return 0.0
+    return max(abs(int(v)) for v in samples) / 32767.0
+
+
+def _apply_one_pole_lowpass_inplace(
+    samples: "array.array[int]", nch: int, fr: int, cutoff_hz: float
+) -> None:
+    """Gentle HF roll-off to tame hiss when boosting quiet beds."""
+    cutoff_hz = max(200.0, min(float(fr) * 0.45, float(cutoff_hz)))
+    # y[n] = y[n-1] + alpha * (x[n] - y[n-1])
+    rc = 1.0 / (2.0 * math.pi * cutoff_hz)
+    dt = 1.0 / float(fr)
+    alpha = dt / (rc + dt)
+    prev = [0.0] * max(1, nch)
+    for i, v in enumerate(samples):
+        ch = i % nch
+        x = float(v)
+        y = prev[ch] + alpha * (x - prev[ch])
+        prev[ch] = y
+        nv = int(y)
+        if nv > 32767:
+            nv = 32767
+        elif nv < -32768:
+            nv = -32768
+        samples[i] = nv
+
+
+def normalize_mp3_peak(
+    mp3_path: Path,
+    *,
+    target_peak: float = 0.70,
+    min_peak: float = 0.08,
+    max_gain: float = 12.0,
+    hiss_cut_hz: float | None = None,
+    label: str = "audio",
+) -> float:
+    """
+    Peak-normalize an MP3 in place when it is too quiet.
+
+    Returns the applied linear gain (1.0 = unchanged).
+    Large boosts apply a low-pass (hiss_cut_hz) so we don't turn the noise
+    floor into harsh treble — that was the “weird audio” in the scene editor.
+    """
+    target_peak = max(0.1, min(0.99, float(target_peak)))
+    min_peak = max(0.01, min(target_peak, float(min_peak)))
+    max_gain = max(1.0, min(20.0, float(max_gain)))
+
+    with tempfile.TemporaryDirectory() as tmp:
+        wav_in = Path(tmp) / "in.wav"
+        wav_out = Path(tmp) / "out.wav"
+        decode_mp3_to_wav(mp3_path, wav_in)
+        with wave.open(str(wav_in), "rb") as wf:
+            nch = wf.getnchannels()
+            sw = wf.getsampwidth()
+            fr = wf.getframerate()
+            nframes = wf.getnframes()
+            raw = wf.readframes(nframes)
+        if sw != 2:
+            raise RuntimeError(f"{label}: expected 16-bit WAV for normalize")
+        samples = array.array("h")
+        samples.frombytes(raw)
+        if not samples:
+            raise RuntimeError(f"{label}: empty WAV after decode")
+        peak = max(abs(int(v)) for v in samples)
+        peak_f = peak / 32767.0
+        if peak_f >= min_peak:
+            print(
+                f"  [{label}-loudness] peak={peak_f:.3f} (ok, no boost)",
+                flush=True,
+            )
+            return 1.0
+        if peak <= 0:
+            raise RuntimeError(f"{label}: decoded audio is pure silence")
+        needed = (target_peak * 32767.0) / float(peak)
+        if needed > max_gain:
+            raise RuntimeError(
+                f"{label}: peak only {peak_f:.4f} full-scale — would need "
+                f"×{needed:.0f} boost (cap ×{max_gain:.0f}). Refusing; "
+                f"regenerate instead."
+            )
+        gain = needed
+        # Cut hiss before/with boost when the bed was extremely quiet.
+        cut = hiss_cut_hz
+        if cut is None and gain >= 4.0:
+            cut = 5500.0
+        if cut is not None and cut > 0:
+            _apply_one_pole_lowpass_inplace(samples, nch, fr, cut)
+            # Recompute peak after filter (may drop).
+            peak = max(abs(int(v)) for v in samples) or peak
+            gain = min(max_gain, (target_peak * 32767.0) / float(peak))
+        for i, v in enumerate(samples):
+            nv = int(v * gain)
+            if nv > 32767:
+                nv = 32767
+            elif nv < -32768:
+                nv = -32768
+            samples[i] = nv
+        with wave.open(str(wav_out), "wb") as wf:
+            wf.setnchannels(nch)
+            wf.setsampwidth(2)
+            wf.setframerate(fr)
+            wf.writeframes(samples.tobytes())
+        wav_to_mp3(wav_out, mp3_path)
+        print(
+            f"  [{label}-loudness] peak was {peak_f:.4f}; "
+            f"boosted ×{gain:.1f} → target {target_peak:.2f}"
+            + (f" (lpf {cut:.0f} Hz)" if cut else ""),
+            flush=True,
+        )
+        return gain
+
+
 def extract_audio_mp3_from_video(video_path: Path, out_mp3: Path) -> None:
     """Pull the audio stream from an mp4 into a loop-friendly mono/stereo MP3."""
     ffmpeg = resolve_ffmpeg_exe()
@@ -674,44 +1015,130 @@ def render_ambient_local_layers(api_key: str, prompt: str, out_path: Path) -> st
     return backend
 
 
-def build_period_music_prompt(job: dict) -> str:
-    """Compose an ElevenLabs instrumental prompt from job fields + preset."""
+def resolve_music_preset_key(job: dict) -> str:
     preset_key = str(job.get("musicStylePreset") or job.get("stylePreset") or "").strip()
-    if not preset_key:
-        # Infer lightly from outPath / itemId when UI omitted the preset.
-        hint = (
-            str(job.get("outPath") or "")
-            + " "
-            + str(job.get("itemId") or "")
-            + " "
-            + str(job.get("prompt") or "")
-        ).lower()
-        if "saloon" in hint or "pub" in hint or "blackjack" in hint:
-            preset_key = "saloon_piano"
-        elif "trail" in hint or "alpine" in hint or "wind" in hint:
-            preset_key = "trail_folk"
-        elif "cabin" in hint or "bedroom" in hint:
-            preset_key = "cabin_hearth"
-        elif "mine" in hint or "camp" in hint:
-            preset_key = "mining_camp"
-        elif "title" in hint:
-            preset_key = "title_hymn"
-        else:
-            preset_key = "cabin_hearth"
+    if preset_key in MUSIC_STYLE_PRESETS:
+        return preset_key
+    hint = (
+        str(job.get("outPath") or "")
+        + " "
+        + str(job.get("itemId") or "")
+        + " "
+        + str(job.get("prompt") or "")
+    ).lower()
+    if "saloon" in hint or "pub" in hint or "blackjack" in hint:
+        return "saloon_piano"
+    if "trail" in hint or "alpine" in hint or "ridge" in hint:
+        return "trail_folk"
+    if "cabin" in hint or "bedroom" in hint:
+        return "cabin_hearth"
+    if "mine" in hint or "camp" in hint:
+        return "mining_camp"
+    if "title" in hint or "menu" in hint:
+        return "scarlet_whispers"
+    if "tragic" in hint or "violin" in hint or "scarlet" in hint or "mourn" in hint:
+        return "scarlet_whispers"
+    return "cabin_hearth"
+
+
+def _strip_visual_prompt_noise(scene_bits: str) -> str:
+    """Drop image/world casting blocks that poison music generation."""
+    text = (scene_bits or "").strip()
+    if not text:
+        return ""
+    # Cut at known visual constraint headers from the editor.
+    for marker in (
+        "World / casting / tone constraints",
+        "painterly realistic light",
+        "no UI text",
+        "period-accurate clothing",
+    ):
+        idx = text.find(marker)
+        if idx > 0 and marker.startswith("World"):
+            text = text[:idx].strip()
+        elif marker.startswith("World") and idx == 0:
+            # Whole prompt is constraints — try to keep only Scene overview tail.
+            so = text.find("Scene overview:")
+            if so >= 0:
+                text = text[so:]
+            else:
+                text = ""
+            break
+    # Prefer "Scene overview" / "Scene mood" sections when present.
+    for header in ("Scene mood", "Scene overview:", "Scene overview"):
+        idx = text.find(header)
+        if idx >= 0:
+            text = text[idx:]
+            break
+    # Drop leftover bullet art-direction lines.
+    lines = []
+    for line in text.splitlines():
+        low = line.strip().lower()
+        if not low:
+            continue
+        if low.startswith("- ") and any(
+            bad in low
+            for bad in (
+                "clothing",
+                "painterly",
+                "ui text",
+                "modern objects",
+                "casting",
+                "tools",
+            )
+        ):
+            continue
+        lines.append(line.strip())
+    text = " ".join(lines)
+    if len(text) > 400:
+        text = text[:400].rsplit(" ", 1)[0] + "…"
+    return text.strip()
+
+
+def build_period_music_prompt(job: dict) -> str:
+    """Fallback text prompt when composition_plan is unavailable."""
+    preset_key = resolve_music_preset_key(job)
     style = MUSIC_STYLE_PRESETS.get(preset_key, MUSIC_STYLE_PRESETS["cabin_hearth"])
-    scene_bits = str(job.get("prompt") or "").strip()
-    # Keep ElevenLabs prompt bounded; drop long examine dumps if present.
-    if len(scene_bits) > 700:
-        scene_bits = scene_bits[:700].rsplit(" ", 1)[0] + "…"
+    scene_bits = _strip_visual_prompt_noise(str(job.get("prompt") or ""))
+    pos = ", ".join(style["positive"][:6])
+    neg = ", ".join(style["negative"][:8])
+    mood = f"\nScene mood: {scene_bits}" if scene_bits else ""
     return (
-        "Instrumental only game underscore bed. No vocals, no lyrics, no choir, "
-        "no humming.\n"
-        "Setting: late-1890s Colorado high-country frontier detective adventure.\n"
-        f"Style: {style}.\n"
-        "Seamless loopable bed, moderate dynamics, acoustic period instruments only. "
-        "No modern drums, synths, electric guitars, EDM, noir jazz, or trailer braams.\n"
-        f"Scene mood context:\n{scene_bits}"
+        f"Instrumental only {style['label']} game underscore bed. "
+        f"No vocals, no lyrics, no choir, no humming.\n"
+        f"Setting: late-1890s Colorado high-country frontier detective adventure.\n"
+        f"Style: {pos}. Tempo about {style['bpm']}.\n"
+        f"Avoid: {neg}.\n"
+        f"Seamless loopable acoustic period bed, moderate dynamics.{mood}"
     )
+
+
+def build_music_composition_plan(job: dict, length_ms: int) -> dict:
+    """ElevenLabs v2/v2.5 composition plan — stronger style control than free prompt."""
+    preset_key = resolve_music_preset_key(job)
+    style = MUSIC_STYLE_PRESETS.get(preset_key, MUSIC_STYLE_PRESETS["cabin_hearth"])
+    scene_bits = _strip_visual_prompt_noise(str(job.get("prompt") or ""))
+    length_ms = max(10000, min(60000, int(length_ms)))
+    # Single loopable bed chunk. force_instrumental is prompt-mode only; encode
+    # instrumental intent in styles + section cue instead.
+    positive = list(style["positive"])
+    if style["bpm"] not in positive:
+        positive.append(style["bpm"])
+    if scene_bits:
+        # Short mood tag only — keep styles English and musical.
+        positive.append(f"mood: {scene_bits[:120]}")
+    text = f"[Instrumental Bed]\n{style['cue']}"
+    return {
+        "chunks": [
+            {
+                "text": text,
+                "duration_ms": length_ms,
+                "positive_styles": positive[:50],
+                "negative_styles": list(style["negative"])[:50],
+                "context_adherence": "high",
+            }
+        ]
+    }
 
 
 def render_music_via_elevenlabs(
@@ -721,10 +1148,12 @@ def render_music_via_elevenlabs(
     *,
     length_ms: int = 24000,
     model_id: str = "music_v2_5",
+    job: dict | None = None,
 ) -> str:
     """
     ElevenLabs Music compose → MP3 bed.
-    Requires a real ELEVENLABS_API_KEY; never falls back to procedural pads.
+    Prefers a composition_plan (v2.5) for period presets; falls back to prompt
+    + force_instrumental. Never falls back to procedural pads.
     """
     if not api_key:
         raise RuntimeError(
@@ -733,29 +1162,93 @@ def render_music_via_elevenlabs(
             "~/.config/highline-ridge/elevenlabs_api_key."
         )
     length_ms = max(8000, min(60000, int(length_ms)))
-    payload = {
-        "prompt": prompt,
-        "music_length_ms": length_ms,
-        "model_id": model_id,
-        "force_instrumental": True,
-    }
-    req = urllib.request.Request(
-        "https://api.elevenlabs.io/v1/music?output_format=mp3_44100_128",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "xi-api-key": api_key,
-            "Content-Type": "application/json",
-            "Accept": "audio/mpeg",
-        },
-        method="POST",
-    )
-    try:
+    # v2.5 defaults to 48 kHz in auto mode; request that explicitly for quality.
+    output_format = "mp3_48000_192"
+
+    def _post(payload: dict) -> tuple[bytes, str]:
+        req = urllib.request.Request(
+            f"https://api.elevenlabs.io/v1/music?output_format={output_format}",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "xi-api-key": api_key,
+                "Content-Type": "application/json",
+                "Accept": "audio/mpeg",
+            },
+            method="POST",
+        )
         with urllib.request.urlopen(req, timeout=300) as resp:
-            audio = resp.read()
-            content_type = (resp.headers.get("Content-Type") or "").lower()
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"ElevenLabs music HTTP {exc.code}: {detail[:1200]}") from exc
+            return resp.read(), (resp.headers.get("Content-Type") or "").lower()
+
+    audio = b""
+    content_type = ""
+    mode = ""
+    if job is not None:
+        plan = build_music_composition_plan(job, length_ms)
+        print(
+            f"  [music-plan] preset={resolve_music_preset_key(job)} "
+            f"chunks={len(plan.get('chunks') or [])} "
+            f"dur_ms={length_ms}",
+            flush=True,
+        )
+        try:
+            audio, content_type = _post(
+                {"composition_plan": plan, "model_id": model_id}
+            )
+            mode = "composition_plan"
+        except urllib.error.HTTPError as plan_exc:
+            detail = plan_exc.read().decode("utf-8", errors="replace")
+            try:
+                err_obj = json.loads(detail)
+            except json.JSONDecodeError:
+                err_obj = {}
+            detail_obj = err_obj.get("detail")
+            suggestion = err_obj.get("composition_plan_suggestion")
+            if suggestion is None and isinstance(detail_obj, dict):
+                suggestion = detail_obj.get("composition_plan_suggestion")
+            if suggestion:
+                print("  [music-plan] retrying with API suggestion", flush=True)
+                try:
+                    audio, content_type = _post(
+                        {"composition_plan": suggestion, "model_id": model_id}
+                    )
+                    mode = "composition_plan_suggested"
+                except urllib.error.HTTPError as sug_exc:
+                    sug_detail = sug_exc.read().decode("utf-8", errors="replace")
+                    print(
+                        f"  [music-plan] suggestion failed HTTP {sug_exc.code}; "
+                        f"falling back to prompt ({sug_detail[:160]})",
+                        flush=True,
+                    )
+            else:
+                print(
+                    f"  [music-plan] plan failed HTTP {plan_exc.code}; "
+                    f"falling back to prompt ({detail[:180]})",
+                    flush=True,
+                )
+
+    if not audio:
+        if job is not None:
+            prompt = build_period_music_prompt(job)
+        print(
+            f"  [music-prompt] {prompt[:220].replace(chr(10), ' / ')}…",
+            flush=True,
+        )
+        try:
+            audio, content_type = _post(
+                {
+                    "prompt": prompt,
+                    "music_length_ms": length_ms,
+                    "model_id": model_id,
+                    "force_instrumental": True,
+                }
+            )
+            mode = "prompt"
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            raise RuntimeError(
+                f"ElevenLabs music HTTP {exc.code}: {detail[:1200]}"
+            ) from exc
+
     if not audio or len(audio) < 4000:
         raise RuntimeError(
             f"ElevenLabs music returned empty/tiny body ({len(audio) if audio else 0} bytes)"
@@ -767,7 +1260,7 @@ def render_music_via_elevenlabs(
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_bytes(audio)
     validate_audio_mp3(out_path, min_bytes=4000, label="elevenlabs music")
-    return f"elevenlabs_{model_id}"
+    return f"elevenlabs_{model_id}_{mode}"
 
 
 def resolve_ambient_image_path(asset_root: Path, out_path: Path, job: dict | None = None) -> Path | None:
@@ -786,31 +1279,237 @@ def resolve_ambient_image_path(asset_root: Path, out_path: Path, job: dict | Non
     return None
 
 
+def build_ambient_sfx_prompt(job: dict | None, prompt: str) -> str:
+    """ElevenLabs looping ambient prompt — max 450 chars (API hard limit)."""
+    raw = _strip_visual_prompt_noise(str((job or {}).get("prompt") or prompt or ""))
+    for header in ("Scene overview:", "Scene overview", "Scene mood"):
+        idx = raw.find(header)
+        if idx >= 0:
+            raw = raw[idx + len(header) :].lstrip(" :\n")
+            break
+    # Drop leftover rule lines from the C++ job wrapper.
+    keep = []
+    for line in raw.splitlines():
+        low = line.strip().lower()
+        if not low:
+            continue
+        if low.startswith("hard rules") or low.startswith("seamless looping"):
+            continue
+        if low.startswith("diegetic ambient"):
+            continue
+        keep.append(line.strip())
+    place = " ".join(keep) if keep else raw
+    place = " ".join(place.split())
+    # Prefer concrete sonic language; visual scene prose yields thin/noisy beds.
+    sonic = _ambient_sonic_from_place(place)
+    text = (
+        f"Looping outdoor ambient soundscape, clearly audible moderate level. "
+        f"{sonic} Continuous even bed, no sudden events. No music, melody, "
+        f"instruments, speech, footsteps, or UI beeps."
+    )
+    return text[:450]
+
+
+def _ambient_sonic_from_place(place: str) -> str:
+    """Map scene overview text to concrete Foley-style ambient descriptors."""
+    low = (place or "").lower()
+    if any(k in low for k in ("kitchen", "stove", "pantry")):
+        return (
+            "Quiet wooden kitchen room tone, soft distant pot clinks, gentle "
+            "steam hiss, muffled voices far away."
+        )
+    if any(k in low for k in ("saloon", "bar", "pub", "crowd")):
+        return (
+            "Muffled saloon room tone, distant low murmur of patrons, soft "
+            "wood creaks, no piano lead."
+        )
+    if any(k in low for k in ("cabin", "hearth", "bedroom", "interior")):
+        return (
+            "Quiet wooden cabin interior room tone, soft fire crackle far "
+            "away, gentle wind against walls."
+        )
+    if any(k in low for k in ("mine", "camp", "shaft")):
+        return (
+            "Open mining camp ambience, soft wind, distant quiet activity, "
+            "dry dusty air tone."
+        )
+    if any(k in low for k in ("trail", "alpine", "ridge", "forest", "mountain", "wind")):
+        return (
+            "High-country mountain trail ambience: soft steady wind through "
+            "pine trees, distant forest hush, open air."
+        )
+    if place:
+        clipped = place[:160].rsplit(" ", 1)[0] if len(place) > 160 else place
+        return f"Environmental ambience for: {clipped}."
+    return "Soft outdoor nature ambience, gentle wind, distant forest."
+
+
+def _elevenlabs_sound_post(
+    api_key: str,
+    text: str,
+    *,
+    duration_seconds: float,
+    loop: bool,
+    prompt_influence: float,
+) -> bytes:
+    payload = {
+        "text": text[:450],
+        "duration_seconds": duration_seconds,
+        "loop": loop,
+        "prompt_influence": prompt_influence,
+        "model_id": "eleven_text_to_sound_v2",
+    }
+    req = urllib.request.Request(
+        "https://api.elevenlabs.io/v1/sound-generation?output_format=mp3_44100_128",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "xi-api-key": api_key,
+            "Content-Type": "application/json",
+            "Accept": "audio/mpeg",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=180) as resp:
+        audio = resp.read()
+        content_type = (resp.headers.get("Content-Type") or "").lower()
+    if not audio or len(audio) < 2000:
+        raise RuntimeError(
+            f"ElevenLabs ambient returned empty/tiny body "
+            f"({len(audio) if audio else 0} bytes)"
+        )
+    if "json" in content_type or audio[:1] == b"{":
+        raise RuntimeError(
+            f"ElevenLabs ambient returned non-audio payload: {audio[:400]!r}"
+        )
+    return audio
+
+
+def render_ambient_via_elevenlabs(
+    api_key: str,
+    prompt: str,
+    out_path: Path,
+    *,
+    duration_seconds: float = 16.0,
+) -> str:
+    """
+    ElevenLabs Text-to-Sound Effects with loop=true → seamless ambient MP3 bed.
+    Retries once with a louder concrete prompt if the first take is too quiet
+    to normalize safely (avoids ×40 hiss boosts).
+    """
+    if not api_key:
+        raise RuntimeError(
+            "Missing ELEVENLABS_API_KEY for ambient. "
+            "Write ~/.config/highline-ridge/elevenlabs_api_key "
+            "(Sound Effects scope required)."
+        )
+    duration_seconds = max(4.0, min(30.0, float(duration_seconds)))
+    out_path = out_path if out_path.suffix.lower() == ".mp3" else out_path.with_suffix(".mp3")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # loop=True often returns near-silent beds from ElevenLabs; non-loop takes
+    # are usually louder and the game already loops MusicStream playback.
+    loud_prompt = (
+        "Loud clear outdoor mountain wind through pine trees, strong continuous "
+        "breeze, forest ambience, full level nature bed, no music no speech "
+        "no footsteps no birds as melody."
+    )
+    attempts: list[tuple[str, float, bool]] = [
+        (prompt, 0.6, True),
+        (prompt, 0.75, False),
+        (loud_prompt, 0.8, False),
+    ]
+    last_err: Exception | None = None
+    for i, (text, influence, do_loop) in enumerate(attempts):
+        try:
+            print(
+                f"  [ambient-try {i + 1}/{len(attempts)}] "
+                f"loop={do_loop} influence={influence} "
+                f"text={text[:100].replace(chr(10), ' ')}…",
+                flush=True,
+            )
+            audio = _elevenlabs_sound_post(
+                api_key,
+                text,
+                duration_seconds=duration_seconds,
+                loop=do_loop,
+                prompt_influence=influence,
+            )
+            out_path.write_bytes(audio)
+            validate_audio_mp3(out_path, min_bytes=2000, label="elevenlabs ambient")
+            normalize_mp3_peak(
+                out_path,
+                target_peak=0.55,
+                min_peak=0.10,
+                max_gain=18.0,
+                hiss_cut_hz=5000.0,
+                label="elevenlabs ambient",
+            )
+            return (
+                "elevenlabs_sound_loop_v2"
+                if do_loop
+                else "elevenlabs_sound_v2_editor_loop"
+            )
+        except Exception as exc:  # noqa: BLE001
+            last_err = exc
+            print(f"  [ambient-try {i + 1}] failed: {exc}", flush=True)
+    raise RuntimeError(f"ElevenLabs ambient failed after retries: {last_err}")
+
+
 def render_ambient_backend(
     api_key: str,
     prompt: str,
     out_path: Path,
     *,
     image_path: Path | None = None,
+    elevenlabs_key: str | None = None,
+    job: dict | None = None,
 ) -> str:
     """
     AmbientAudioBackend entry point.
 
     TIMBERLINE_AUDIO_BACKEND:
-      auto      — try xAI Imagine Video extract, else local layers (default)
-      xai_video — require Imagine Video extract
-      local     — procedural layered synth only
+      auto       — ElevenLabs looping SFX, else local layers (default)
+      elevenlabs — require ElevenLabs looping SFX
+      xai_video  — legacy Imagine Video extract (needs working ffmpeg)
+      local      — procedural layered synth only
     """
     mode = os.environ.get("TIMBERLINE_AUDIO_BACKEND", "auto").strip().lower() or "auto"
-    if mode not in {"auto", "xai_video", "local"}:
+    if mode not in {"auto", "elevenlabs", "xai_video", "local"}:
         print(f"  [ambient] unknown TIMBERLINE_AUDIO_BACKEND={mode!r}; using auto")
         mode = "auto"
 
-    if mode in {"auto", "xai_video"} and api_key:
+    el_key = (elevenlabs_key or "").strip() or None
+    if not el_key and job is not None:
+        el_key = str(job.get("elevenLabsApiKey") or "").strip() or None
+
+    if mode in {"auto", "elevenlabs"} and el_key:
+        amb_prompt = build_ambient_sfx_prompt(job, prompt)
+        print(
+            f"  [ambient-prompt] {amb_prompt[:220].replace(chr(10), ' / ')}…",
+            flush=True,
+        )
+        # With an ElevenLabs key, do NOT silently fall back to procedural
+        # local layers (those sound like garbage). Fail loud instead.
+        return render_ambient_via_elevenlabs(el_key, amb_prompt, out_path)
+
+    if mode == "elevenlabs" and not el_key:
+        raise RuntimeError(
+            "TIMBERLINE_AUDIO_BACKEND=elevenlabs (or auto) needs "
+            "ELEVENLABS_API_KEY / ~/.config/highline-ridge/elevenlabs_api_key "
+            "with Sound Effects scope."
+        )
+
+    if mode == "xai_video" or (mode == "auto" and api_key and not el_key):
+        # Legacy path: only when explicitly requested, or auto with no EL key.
         try:
             print(
                 f"  [ambient] trying xai_video"
-                + (f" with image {image_path.name}" if image_path else " (text-to-video)")
+                + (
+                    f" with image {image_path.name}"
+                    if image_path
+                    else " (text-to-video)"
+                ),
+                flush=True,
             )
             return render_ambient_via_xai_video(
                 api_key,
@@ -822,9 +1521,15 @@ def render_ambient_backend(
         except Exception as exc:  # noqa: BLE001
             if mode == "xai_video":
                 raise
-            print(f"  [ambient] xai_video failed ({exc}); falling back to local layers")
+            print(
+                f"  [ambient] xai_video failed ({exc}); falling back to local layers",
+                flush=True,
+            )
 
-    return render_ambient_local_layers(api_key, prompt, out_path)
+    if mode == "local" or mode == "auto":
+        return render_ambient_local_layers(api_key or "", prompt, out_path)
+
+    return render_ambient_local_layers(api_key or "", prompt, out_path)
 
 
 
@@ -1186,7 +1891,7 @@ def shutil_which(name: str) -> str | None:
 
 
 def generate_sound(out_path: Path, action: str) -> None:
-    """Generate examine/use SFX as MP3 under out_path."""
+    """Legacy procedural SFX (beeps). Prefer render_sfx_via_elevenlabs."""
     out_path = out_path.with_suffix(".mp3") if out_path.suffix.lower() == ".opus" else out_path
     if out_path.suffix.lower() != ".mp3":
         out_path = out_path.with_suffix(".mp3")
@@ -1198,6 +1903,119 @@ def generate_sound(out_path: Path, action: str) -> None:
         wav_to_mp3(wav, generate_target)
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_bytes(generate_target.read_bytes())
+
+
+def build_sfx_prompt(job: dict, action: str) -> str:
+    """Tighten job prompt into an ElevenLabs sound-generation text."""
+    raw = str(job.get("prompt") or "").strip()
+    raw = " ".join(raw.split())
+    if len(raw) > 420:
+        raw = raw[:420].rsplit(" ", 1)[0] + "…"
+    action = (action or "examine").lower()
+    if raw and ("foley" in raw.lower() or "sound" in raw.lower() or "sfx" in raw.lower()):
+        base = raw
+    elif action == "examine":
+        base = (
+            "Short soft Foley examine / pickup sound for a period adventure game item. "
+            + (raw or "small wooden or metal object handled carefully")
+        )
+    elif action == "use":
+        base = (
+            "Short Foley use / activate interaction sound for a period adventure game item. "
+            + (raw or "mechanical click or soft impact")
+        )
+    elif action == "enter":
+        base = (
+            "Short Foley wood door open / enter room sound, 1890s frontier cabin or saloon. "
+            + (raw or "soft latch and hinge")
+        )
+    elif action == "exit":
+        base = (
+            "Short Foley wood door close / leave room sound, 1890s frontier. "
+            + (raw or "soft latch click")
+        )
+    else:
+        base = raw or "Short soft period game Foley one-shot sound effect"
+    return (
+        f"{base}. One-shot sound effect only. No music, no melody, no dialogue, "
+        "no narrator, no UI beep, no modern electronics."
+    )
+
+
+def sfx_duration_seconds(action: str) -> float:
+    action = (action or "").lower()
+    if action in ("enter", "exit"):
+        return 1.2
+    if action == "use":
+        return 0.9
+    return 0.7  # examine
+
+
+def render_sfx_via_elevenlabs(
+    api_key: str,
+    prompt: str,
+    out_path: Path,
+    *,
+    action: str = "examine",
+    duration_seconds: float | None = None,
+) -> str:
+    """
+    ElevenLabs Text-to-Sound Effects → MP3.
+    POST /v1/sound-generation  (model eleven_text_to_sound_v2)
+    """
+    if not api_key:
+        raise RuntimeError(
+            "Missing ELEVENLABS_API_KEY for SFX. "
+            "Export ELEVENLABS_API_KEY or place it in "
+            "~/.config/highline-ridge/elevenlabs_api_key."
+        )
+    dur = duration_seconds if duration_seconds is not None else sfx_duration_seconds(action)
+    dur = max(0.5, min(5.0, float(dur)))
+    payload = {
+        "text": prompt,
+        "duration_seconds": dur,
+        "prompt_influence": 0.45,
+        "model_id": "eleven_text_to_sound_v2",
+    }
+    req = urllib.request.Request(
+        "https://api.elevenlabs.io/v1/sound-generation?output_format=mp3_44100_128",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "xi-api-key": api_key,
+            "Content-Type": "application/json",
+            "Accept": "audio/mpeg",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            audio = resp.read()
+            content_type = (resp.headers.get("Content-Type") or "").lower()
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(
+            f"ElevenLabs sound-generation HTTP {exc.code}: {detail[:1200]}"
+        ) from exc
+    if not audio or len(audio) < 800:
+        raise RuntimeError(
+            f"ElevenLabs SFX returned empty/tiny body ({len(audio) if audio else 0} bytes)"
+        )
+    if "json" in content_type or audio[:1] == b"{":
+        raise RuntimeError(
+            f"ElevenLabs SFX returned non-audio payload: {audio[:400]!r}"
+        )
+    out_path = out_path if out_path.suffix.lower() == ".mp3" else out_path.with_suffix(".mp3")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_bytes(audio)
+    validate_audio_mp3(out_path, min_bytes=800, label="elevenlabs sfx")
+    normalize_mp3_peak(
+        out_path,
+        target_peak=0.85,
+        min_peak=0.12,
+        max_gain=8.0,
+        label="elevenlabs sfx",
+    )
+    return "elevenlabs_text_to_sound_v2"
 
 
 def process_job(
@@ -1299,14 +2117,24 @@ def process_job(
         print(f"  [sound] {out_path.relative_to(asset_root)} ({action}) …")
         if jtype == "generate_ambient_sound":
             image_path = resolve_ambient_image_path(asset_root, out_path, job)
+            el_key = resolve_elevenlabs_api_key(
+                asset_root,
+                (elevenlabs_key or str(job.get("elevenLabsApiKey") or "") or None),
+            )
             backend = render_ambient_backend(
-                api_key, prompt, out_path, image_path=image_path
+                api_key,
+                prompt,
+                out_path,
+                image_path=image_path,
+                elevenlabs_key=el_key,
+                job=job,
             )
             print(f"  [ambient-backend] {backend}", flush=True)
             if backend.startswith("local_layers"):
                 print(
-                    "  [ambient-note] local procedural fallback — prefer fixing "
-                    "ffmpeg / Imagine Video if this sounds thin",
+                    "  [ambient-note] local procedural fallback — set "
+                    "ElevenLabs key (Sound Effects) or TIMBERLINE_AUDIO_BACKEND="
+                    "elevenlabs after fixing permissions",
                     flush=True,
                 )
         elif jtype == "generate_music":
@@ -1317,11 +2145,42 @@ def process_job(
             music_prompt = build_period_music_prompt(job)
             length_ms = int(job.get("musicLengthMs") or job.get("lengthMs") or 24000)
             backend = render_music_via_elevenlabs(
-                el_key, music_prompt, out_path, length_ms=length_ms
+                el_key,
+                music_prompt,
+                out_path,
+                length_ms=length_ms,
+                job=job,
             )
             print(f"  [music-backend] {backend}", flush=True)
         else:
-            generate_sound(out_path, action)
+            # examine / use / enter / exit — ElevenLabs sound-generation.
+            # TIMBERLINE_SFX_BACKEND=procedural forces the old beep fallback.
+            sfx_backend = (os.environ.get("TIMBERLINE_SFX_BACKEND") or "elevenlabs").strip().lower()
+            if sfx_backend in ("procedural", "local", "beep"):
+                print("  [sfx-backend] procedural (TIMBERLINE_SFX_BACKEND)", flush=True)
+                generate_sound(out_path, action)
+            else:
+                el_key = resolve_elevenlabs_api_key(
+                    asset_root,
+                    (elevenlabs_key or str(job.get("elevenLabsApiKey") or "") or None),
+                )
+                if not el_key:
+                    raise RuntimeError(
+                        "Missing ELEVENLABS_API_KEY for SFX generation. "
+                        "Options → Configure API keys, or write "
+                        "~/.config/highline-ridge/elevenlabs_api_key "
+                        "(Sound Effects + Music scopes). "
+                        "Set TIMBERLINE_SFX_BACKEND=procedural only as emergency fallback."
+                    )
+                sfx_prompt = build_sfx_prompt(job, action)
+                print(
+                    f"  [sfx-prompt] {sfx_prompt[:200].replace(chr(10), ' / ')}…",
+                    flush=True,
+                )
+                backend = render_sfx_via_elevenlabs(
+                    el_key, sfx_prompt, out_path, action=action
+                )
+                print(f"  [sfx-backend] {backend}", flush=True)
         xz = xz_compress(out_path, remove_source=False)
         print(f"  [ok] wrote {out_path.name} + {xz.name}")
         return str(out_path.relative_to(asset_root))

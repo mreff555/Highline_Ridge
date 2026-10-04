@@ -592,8 +592,9 @@ float SceneAuthoringDialog::estimateFormContentHeight() const
     h += 16.0f + 32.0f + 36.0f; // image path + soften compliance switch
     if (!payload.alternateMode)
     {
-        h += 16.0f + 32.0f + 12.0f; // ambient
-        h += 16.0f + 32.0f + 16.0f + 28.0f + 12.0f; // music + style preset
+        // ambient / music rows (+ optional disable-reason line under each)
+        h += 16.0f + 32.0f + 14.0f + 12.0f;
+        h += 16.0f + 32.0f + 14.0f + 16.0f + 28.0f + 12.0f; // music + style preset
     }
     h += 16.0f + 26.0f + 12.0f; // Alternate switch
     h += 16.0f + 26.0f + 12.0f; // TTS switch (+ label)
@@ -1362,16 +1363,20 @@ void SceneAuthoringDialog::startGenerate(int aiTarget)
         return;
     }
 
-    const bool needsElevenLabs = (aiTarget == 3);
-    const bool needsXai = (aiTarget != 3);
+    // 1=image → xAI; 2=ambient, 3=music, 4=enter, 5=exit → ElevenLabs;
+    // 6/7=TTS text → xAI; 0=all → both.
+    const bool needsElevenLabs = aiTarget == 0 || aiTarget == 2 || aiTarget == 3
+        || aiTarget == 4 || aiTarget == 5;
+    const bool needsXai =
+        aiTarget == 0 || aiTarget == 1 || aiTarget == 6 || aiTarget == 7;
     if (needsElevenLabs
-        && (sessionKeys == nullptr || !sessionKeys->elevenLabsValid()))
+        && (sessionKeys == nullptr || !sessionKeys->elevenLabsReady()))
     {
         error = "Options → Configure API keys — set a valid ElevenLabs key "
-                "before generating music.";
+                "before generating ambient / music / SFX.";
         return;
     }
-    if (needsXai && (sessionKeys == nullptr || !sessionKeys->xaiValid()))
+    if (needsXai && (sessionKeys == nullptr || !sessionKeys->xaiReady()))
     {
         error = "Options → Configure API keys — set a valid xAI key "
                 "before generating.";
@@ -2063,9 +2068,9 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
         !waitMouseRelease && ignoreInputFrames <= 0 && !generateBusy.load()
         && editorMousePressed(MOUSE_BUTTON_LEFT);
     const bool busy = generateBusy.load();
-    const bool xaiValid = sessionKeys != nullptr && sessionKeys->xaiValid();
+    const bool xaiValid = sessionKeys != nullptr && sessionKeys->xaiReady();
     const bool elevenLabsValid =
-        sessionKeys != nullptr && sessionKeys->elevenLabsValid();
+        sessionKeys != nullptr && sessionKeys->elevenLabsReady();
     const bool keyValid = xaiValid;
 
     DrawRectangle(0, 0, screenW, screenH, kModalOverlay);
@@ -2306,21 +2311,21 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
         ApiKeyProvider provider;
     };
     PathRow rows[] = {
-        {"Image path",
+        {"Image path (xAI)",
          &payload.imagePath,
          &imageEdit,
          4,
          1,
          "Generate image",
          ApiKeyProvider::Xai},
-        {"Ambient path",
+        {"Ambient path (ElevenLabs loop)",
          &payload.ambientPath,
          &ambientEdit,
          5,
          2,
          "Generate ambient",
-         ApiKeyProvider::Xai},
-        {"Music path",
+         ApiKeyProvider::ElevenLabs},
+        {"Music path (ElevenLabs)",
          &payload.musicPath,
          &musicEdit,
          6,
@@ -2370,10 +2375,26 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
             DrawTextEx(
                 font,
                 "Working",
-                {genBtn.x + genBtn.width + 8.0f, genBtn.y + 8.0f},
+                {genBtn.x + 8.0f, genBtn.y + genBtn.height + 2.0f},
                 kFontTiny,
                 1.0f,
                 Color{220, 80, 70, 255});
+        }
+        else if (!canGenRow && !busy)
+        {
+            const char* why = !rowKeyOk
+                ? (row.provider == ApiKeyProvider::ElevenLabs
+                       ? "Needs ElevenLabs key (Options → Configure API keys)"
+                       : "Needs xAI key (Options → Configure API keys)")
+                : "Needs a description (or existing path)";
+            DrawTextEx(
+                font,
+                why,
+                {fieldX, y + 34.0f},
+                kFontTiny,
+                1.0f,
+                Color{200, 140, 90, 255});
+            y += 14.0f; // room for the disable reason
         }
         y += 40.0f;
 
@@ -2402,14 +2423,16 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
                 "cabin_hearth",
                 "mining_camp",
                 "tension",
-                "title_hymn"};
+                "title_hymn",
+                "scarlet_whispers"};
             static const char* kMusicPresetLabels[] = {
                 "Saloon piano / ragtime",
                 "Trail folk (fiddle)",
                 "Cabin hearth piano",
                 "Mining camp harmonica",
                 "Tension underscore",
-                "Title / menu hymn"};
+                "Title / menu hymn",
+                "Scarlet Whispers (tragic violin)"};
             const int presetCount =
                 static_cast<int>(sizeof(kMusicPresets) / sizeof(kMusicPresets[0]));
             int presetIndex = 2; // cabin_hearth default
@@ -2738,7 +2761,7 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
     Rectangle genAllBtn = {dialog.x + 20.0f, btnY, 180.0f, btnH};
 
     const bool canGenAll =
-        !busy && xaiValid
+        !busy && xaiValid && elevenLabsValid
         && (!payload.description.empty() || !payload.imagePath.empty()
             || !payload.ambientPath.empty() || !payload.musicPath.empty());
     drawEditorButton(font, genAllBtn, "Generate all assets", canGenAll, canGenAll);

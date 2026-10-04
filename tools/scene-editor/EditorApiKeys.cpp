@@ -13,11 +13,18 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <thread>
 
+#if !defined(_WIN32)
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
+
 using timberline_engine::pathJoin;
+namespace fs = std::filesystem;
 
 namespace timberline_editor
 {
@@ -39,6 +46,7 @@ std::string shellSingleQuote(const std::string& value)
     return out;
 }
 
+/** Run a shell command; return first line as int (atoi), or 0 on failure. */
 int curlHttpCode(const std::string& cmd)
 {
 #if !defined(_WIN32)
@@ -57,12 +65,62 @@ int curlHttpCode(const std::string& cmd)
 #endif
 }
 
+std::string readFileBytes(const std::string& path)
+{
+    std::ifstream in(path.c_str(), std::ios::binary);
+    if (!in)
+        return {};
+    std::ostringstream ss;
+    ss << in.rdbuf();
+    return ss.str();
+}
+
+std::string makeTempPath(const char* prefix)
+{
+#if !defined(_WIN32)
+    char tmpl[256];
+    std::snprintf(tmpl, sizeof(tmpl), "/tmp/%sXXXXXX", prefix);
+    const int fd = mkstemp(tmpl);
+    if (fd >= 0)
+    {
+        close(fd);
+        return std::string(tmpl);
+    }
+#endif
+    // Fallback unique-ish path.
+    std::ostringstream ss;
+    ss << "/tmp/" << prefix << "_" << std::this_thread::get_id() << "_"
+       << std::chrono::steady_clock::now().time_since_epoch().count();
+    return ss.str();
+}
+
+/**
+ * ElevenLabs: music-only keys often 401 with missing_permissions on /v1/user.
+ * Treat 200 as valid; 401 invalid_api_key as invalid; any other 401 as valid
+ * (restricted but live). Network/curl failure → -1 (caller may retry).
+ */
+int classifyElevenLabsUserResponse(int httpCode, const std::string& body)
+{
+    if (httpCode == 200)
+        return 1;
+    if (httpCode == 401)
+    {
+        if (body.find("invalid_api_key") != std::string::npos)
+            return 0;
+        // missing_permissions / unauthorized / etc. — key is real.
+        return 1;
+    }
+    if (httpCode <= 0)
+        return -1; // curl/network failure — retry
+    return 0;
+}
+
 } // namespace
 
 const char* apiKeyRequiredHint(ApiKeyProvider provider)
 {
     if (provider == ApiKeyProvider::ElevenLabs)
-        return "ElevenLabs key required — go to elevenlabs.io/app/settings/api-keys";
+        return "ElevenLabs key required — Music + Sound Effects scopes";
     return "XAI key required — go to console.x.ai";
 }
 
@@ -71,9 +129,13 @@ std::string aiPathFieldHint(
     const EditorApiKeys* keys,
     const char* fallbackWhenKeyOk)
 {
-    // Missing / unknown / invalid → ask for Options keys.
-    if (keys == nullptr || keys->validity(provider) != ApiKeyValidity::Valid)
+    if (keys == nullptr || keys->key(provider).empty())
         return apiKeyRequiredHint(provider);
+    const ApiKeyValidity v = keys->validity(provider);
+    if (v == ApiKeyValidity::Invalid)
+        return apiKeyRequiredHint(provider);
+    if (v == ApiKeyValidity::Unknown)
+        return "Checking API key…";
     return fallbackWhenKeyOk != nullptr ? fallbackWhenKeyOk : "";
 }
 
@@ -99,24 +161,30 @@ void drawApiKeyStatusIcon(Font boldFont, Rectangle iconRect, ApiKeyValidity vali
     DrawRectangleRec(iconRect, Color{22, 20, 28, 255});
     DrawRectangleLinesEx(iconRect, 1.0f, border);
 
-    const char* glyph = "–";
+    // ASCII only — CourierPrime (and many UI fonts) lack ✓ / … codepoints,
+    // which raylib then draws as '?' .
+    const char* glyph = "-";
     Color color = kTextMuted;
     if (validity == ApiKeyValidity::Valid)
     {
-        glyph = "✓";
+        glyph = "OK";
         color = Color{80, 200, 110, 255};
     }
+    else if (validity == ApiKeyValidity::Unknown)
+    {
+        glyph = "..";
+        color = Color{220, 180, 80, 255};
+    }
     else if (
-        validity == ApiKeyValidity::Invalid || validity == ApiKeyValidity::Missing
-        || validity == ApiKeyValidity::Unknown)
+        validity == ApiKeyValidity::Invalid || validity == ApiKeyValidity::Missing)
     {
         glyph = "X";
         color = Color{220, 70, 70, 255};
-        if (validity == ApiKeyValidity::Unknown)
-            color = Color{220, 160, 70, 255}; // checking
     }
 
-    const float fontSize = kFontBody;
+    // "OK" / ".." need a slightly smaller size to fit the 22px icon square.
+    const float fontSize =
+        (glyph[0] != '\0' && glyph[1] != '\0') ? kFontTiny : kFontBody;
     const Vector2 size = MeasureTextEx(boldFont, glyph, fontSize, 1.0f);
     DrawTextEx(
         boldFont,
@@ -127,6 +195,90 @@ void drawApiKeyStatusIcon(Font boldFont, Rectangle iconRect, ApiKeyValidity vali
         1.0f,
         color);
 }
+
+std::string EditorApiKeys::xaiKeyFilePath()
+{
+    const char* home = std::getenv("HOME");
+    if (home == nullptr || home[0] == '\0')
+        return {};
+    return pathJoin(
+        pathJoin(pathJoin(home, ".config"), "highline-ridge"), "xai_api_key");
+}
+
+std::string EditorApiKeys::elevenLabsKeyFilePath()
+{
+    const char* home = std::getenv("HOME");
+    if (home == nullptr || home[0] == '\0')
+        return {};
+    return pathJoin(
+        pathJoin(pathJoin(home, ".config"), "highline-ridge"),
+        "elevenlabs_api_key");
+}
+
+namespace
+{
+
+bool writeKeyFileAtomic(const std::string& path, const std::string& value)
+{
+    if (path.empty())
+        return false;
+    try
+    {
+        fs::create_directories(fs::path(path).parent_path());
+    }
+    catch (...)
+    {
+        return false;
+    }
+
+    if (value.empty())
+    {
+        std::error_code ec;
+        fs::remove(path, ec);
+        return true;
+    }
+
+    const std::string tmp = path + ".tmp";
+    {
+        std::ofstream out(tmp.c_str(), std::ios::binary | std::ios::trunc);
+        if (!out)
+            return false;
+        out << value;
+        if (!value.empty() && value.back() != '\n')
+            out << '\n';
+        if (!out.good())
+            return false;
+    }
+#if !defined(_WIN32)
+    ::chmod(tmp.c_str(), 0600);
+#endif
+    std::error_code ec;
+    fs::rename(tmp, path, ec);
+    if (ec)
+    {
+        // Fallback copy+remove if rename across volumes fails.
+        try
+        {
+            fs::copy_file(tmp, path, fs::copy_options::overwrite_existing);
+            fs::remove(tmp);
+#if !defined(_WIN32)
+            ::chmod(path.c_str(), 0600);
+#endif
+            return true;
+        }
+        catch (...)
+        {
+            fs::remove(tmp, ec);
+            return false;
+        }
+    }
+#if !defined(_WIN32)
+    ::chmod(path.c_str(), 0600);
+#endif
+    return true;
+}
+
+} // namespace
 
 void EditorApiKeys::applySessionKeys(
     const std::string& xai, const std::string& elevenLabs)
@@ -140,6 +292,10 @@ void EditorApiKeys::applySessionKeys(
         elevenLabsKey.empty() ? ApiKeyValidity::Missing : ApiKeyValidity::Unknown;
     xaiNextCheckTime = 0.0;
     elevenLabsNextCheckTime = 0.0;
+
+    // Persist so the next launch (and CLI runners) pick up Confirm'd keys.
+    (void)writeKeyFileAtomic(xaiKeyFilePath(), xaiKey);
+    (void)writeKeyFileAtomic(elevenLabsKeyFilePath(), elevenLabsKey);
 }
 
 namespace
@@ -237,8 +393,6 @@ void EditorApiKeys::bootstrapFromEnvAndFiles()
     const char* home = std::getenv("HOME");
     if (home != nullptr && home[0] != '\0')
     {
-        const std::string cfg =
-            pathJoin(pathJoin(pathJoin(home, ".config"), "highline-ridge"), "");
         if (xai.empty())
         {
             xai = readKeyFile(
@@ -257,7 +411,6 @@ void EditorApiKeys::bootstrapFromEnvAndFiles()
                 elEnvNames,
                 3);
         }
-        (void)cfg;
     }
 
     if ((!xai.empty() && xai != xaiKey) || (!el.empty() && el != elevenLabsKey))
@@ -276,11 +429,17 @@ void EditorApiKeys::scheduleXaiCheck(const std::string& key)
     }
     xaiThread = std::thread([this, key]() {
         std::ostringstream safe;
-        safe << "curl -sS -o /dev/null -w \"%{http_code}\" --max-time 8 "
+        safe << "/usr/bin/curl -sS -o /dev/null -w \"%{http_code}\" --max-time 8 "
              << "-H " << shellSingleQuote("Authorization: Bearer " + key) << " "
              << "https://api.x.ai/v1/models 2>/dev/null";
         const int code = curlHttpCode(safe.str());
-        xaiCheckResult.store(code == 200 ? 1 : 0);
+        // 200 valid; 0/empty → network fail (-1 retry); else invalid
+        if (code == 200)
+            xaiCheckResult.store(1);
+        else if (code <= 0)
+            xaiCheckResult.store(-2); // soft fail / retry
+        else
+            xaiCheckResult.store(0);
     });
 }
 
@@ -294,25 +453,24 @@ void EditorApiKeys::scheduleElevenLabsCheck(const std::string& key)
         elevenLabsCheckFingerprint = key;
     }
     elevenLabsThread = std::thread([this, key]() {
-        // Prefer /v1/user when the key has user_read. Restricted music-only keys
-        // often return 401 missing_permissions instead of invalid_api_key — that
-        // still means the key is real and can compose music.
+        // Prefer /usr/bin/curl + body file so we parse JSON in C++ (no fragile
+        // multi-line shell). Music-only keys 401 with missing_permissions.
+        const std::string bodyPath = makeTempPath("tl_el_key");
         std::ostringstream safe;
-        safe << "RESP=$(curl -sS -w \"\\n%{http_code}\" --max-time 8 "
+        safe << "/usr/bin/curl -sS -o " << shellSingleQuote(bodyPath)
+             << " -w \"%{http_code}\" --max-time 8 "
              << "-H " << shellSingleQuote("xi-api-key: " + key) << " "
-             << "https://api.elevenlabs.io/v1/user 2>/dev/null); "
-             << "CODE=$(printf '%s' \"$RESP\" | tail -n1); "
-             << "BODY=$(printf '%s' \"$RESP\" | sed '$d'); "
-             << "if [ \"$CODE\" = \"200\" ]; then echo 1; "
-             << "elif [ \"$CODE\" = \"401\" ] && printf '%s' \"$BODY\" | grep -q missing_permissions; "
-             << "then echo 1; "
-             << "elif [ \"$CODE\" = \"401\" ] && printf '%s' \"$BODY\" | grep -q invalid_api_key; "
-             << "then echo 0; "
-             << "elif [ \"$CODE\" = \"401\" ]; then echo 1; "
-             << "else echo 0; fi";
-        const int code = curlHttpCode(safe.str());
-        // curlHttpCode reads first line as atoi — our script echoes 0/1.
-        elevenLabsCheckResult.store(code == 1 ? 1 : 0);
+             << "https://api.elevenlabs.io/v1/user 2>/dev/null";
+        const int http = curlHttpCode(safe.str());
+        const std::string body = readFileBytes(bodyPath);
+#if !defined(_WIN32)
+        ::unlink(bodyPath.c_str());
+#endif
+        const int classified = classifyElevenLabsUserResponse(http, body);
+        if (classified < 0)
+            elevenLabsCheckResult.store(-2); // retry
+        else
+            elevenLabsCheckResult.store(classified);
     });
 }
 
@@ -328,7 +486,8 @@ void EditorApiKeys::poll()
             std::atomic<int>& checkResult,
             std::string& checkFp,
             std::thread& thread,
-            auto scheduleFn)
+            auto scheduleFn,
+            double retrySeconds)
     {
         if (key.empty())
         {
@@ -337,7 +496,7 @@ void EditorApiKeys::poll()
             if (thread.joinable())
             {
                 const int pending = checkResult.load();
-                if (pending == 0 || pending == 1)
+                if (pending == 0 || pending == 1 || pending == -2)
                     thread.join();
             }
             return;
@@ -346,7 +505,8 @@ void EditorApiKeys::poll()
         if (thread.joinable())
         {
             const int pending = checkResult.load();
-            if (pending == 0 || pending == 1)
+            // 1=valid, 0=invalid, -2=soft/network fail (retry without marking Invalid)
+            if (pending == 0 || pending == 1 || pending == -2)
             {
                 thread.join();
                 std::string checked;
@@ -356,22 +516,53 @@ void EditorApiKeys::poll()
                 }
                 if (checked == key)
                 {
-                    validity = (pending == 1) ? ApiKeyValidity::Valid
-                                              : ApiKeyValidity::Invalid;
-                    validatedFp = key;
+                    if (pending == 1)
+                    {
+                        validity = ApiKeyValidity::Valid;
+                        validatedFp = key;
+                    }
+                    else if (pending == 0)
+                    {
+                        validity = ApiKeyValidity::Invalid;
+                        validatedFp = key;
+                        // Allow a later retry even after confirmed invalid.
+                        nextCheck = now + retrySeconds;
+                    }
+                    else // -2 network
+                    {
+                        validity = ApiKeyValidity::Unknown;
+                        validatedFp.clear();
+                        nextCheck = now + retrySeconds;
+                    }
                 }
                 checkResult.store(-1);
             }
         }
 
-        if (validatedFp != key)
+        if (validatedFp != key && validity != ApiKeyValidity::Invalid)
             validity = ApiKeyValidity::Unknown;
 
-        if (now >= nextCheck)
+        // Re-check when fingerprint drifted, or periodically retry Invalid.
+        const bool needsCheck = validatedFp != key;
+        const bool retryInvalid =
+            validity == ApiKeyValidity::Invalid && validatedFp == key
+            && now >= nextCheck;
+        if (now >= nextCheck || needsCheck)
         {
-            nextCheck = now + 1.0;
-            if (validatedFp != key && !thread.joinable())
+            if (retryInvalid)
+            {
+                validatedFp.clear();
+                validity = ApiKeyValidity::Unknown;
+            }
+            if ((validatedFp != key) && !thread.joinable())
+            {
+                nextCheck = now + 1.0;
                 scheduleFn(key);
+            }
+            else if (!needsCheck && !retryInvalid && now >= nextCheck)
+            {
+                nextCheck = now + 1.0;
+            }
         }
     };
 
@@ -383,7 +574,8 @@ void EditorApiKeys::poll()
         xaiCheckResult,
         xaiCheckFingerprint,
         xaiThread,
-        [this](const std::string& k) { scheduleXaiCheck(k); });
+        [this](const std::string& k) { scheduleXaiCheck(k); },
+        5.0);
     pollOne(
         elevenLabsKey,
         elevenLabsValidity,
@@ -392,7 +584,8 @@ void EditorApiKeys::poll()
         elevenLabsCheckResult,
         elevenLabsCheckFingerprint,
         elevenLabsThread,
-        [this](const std::string& k) { scheduleElevenLabsCheck(k); });
+        [this](const std::string& k) { scheduleElevenLabsCheck(k); },
+        5.0);
 }
 
 void EditorApiKeys::shutdown()
@@ -400,19 +593,18 @@ void EditorApiKeys::shutdown()
     // Best-effort join so threads do not outlive the app.
     if (xaiThread.joinable())
     {
-        // Wait briefly for an in-flight check.
-        for (int i = 0; i < 50 && xaiCheckResult.load() < 0; ++i)
+        for (int i = 0; i < 50 && xaiCheckResult.load() == -1; ++i)
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
-        if (xaiCheckResult.load() >= 0)
+        if (xaiCheckResult.load() != -1)
             xaiThread.join();
         else
             xaiThread.detach();
     }
     if (elevenLabsThread.joinable())
     {
-        for (int i = 0; i < 50 && elevenLabsCheckResult.load() < 0; ++i)
+        for (int i = 0; i < 50 && elevenLabsCheckResult.load() == -1; ++i)
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
-        if (elevenLabsCheckResult.load() >= 0)
+        if (elevenLabsCheckResult.load() != -1)
             elevenLabsThread.join();
         else
             elevenLabsThread.detach();

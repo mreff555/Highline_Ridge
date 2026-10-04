@@ -330,17 +330,17 @@ void SceneAssistDialog::startGenerate(int target)
                 "Edit the description first.";
         return;
     }
-    if (target == 3)
+    if (target == 2 || target == 3)
     {
-        if (sessionKeys == nullptr || !sessionKeys->elevenLabsValid())
+        if (sessionKeys == nullptr || !sessionKeys->elevenLabsReady())
         {
             error = "Options → Configure API keys — set a valid ElevenLabs key "
-                    "before generating music.";
+                    "before generating ambient / music.";
             status.clear();
             return;
         }
     }
-    else if (sessionKeys == nullptr || !sessionKeys->xaiValid())
+    else if (sessionKeys == nullptr || !sessionKeys->xaiReady())
     {
         error = "Options → Configure API keys — set a valid xAI key "
                 "before generating.";
@@ -710,9 +710,9 @@ void SceneAssistDialog::draw(int screenW, int screenH)
     }
     else
     {
-        const bool xaiOk = sessionKeys != nullptr && sessionKeys->xaiValid();
+        const bool xaiOk = sessionKeys != nullptr && sessionKeys->xaiReady();
         const bool elevenOk =
-            sessionKeys != nullptr && sessionKeys->elevenLabsValid();
+            sessionKeys != nullptr && sessionKeys->elevenLabsReady();
         const bool hasDesc = !payload.description.empty();
         const float gap = 10.0f;
         const float iconSlot = kApiKeyIconSize + kApiKeyIconGap;
@@ -726,7 +726,7 @@ void SceneAssistDialog::draw(int screenW, int screenH)
         };
         const GenRow rows[] = {
             {"Regenerate image", 1, ApiKeyProvider::Xai},
-            {"Regenerate ambient", 2, ApiKeyProvider::Xai},
+            {"Regenerate ambient", 2, ApiKeyProvider::ElevenLabs},
             {"Regenerate music", 3, ApiKeyProvider::ElevenLabs},
         };
         for (int i = 0; i < 3; ++i)

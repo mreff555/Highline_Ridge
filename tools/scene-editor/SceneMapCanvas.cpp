@@ -5055,6 +5055,10 @@ void SceneMapCanvas::drawScenePreviewPane(Rectangle paneBounds)
             }
             else
             {
+                // Keep music dominant; duck ambient if both are previewed.
+                SetMusicVolume(previewMusic, 0.90f);
+                if (previewAmbientLoaded)
+                    SetMusicVolume(previewAmbient, 0.35f);
                 if (!IsMusicStreamPlaying(previewMusic))
                     PlayMusicStream(previewMusic);
                 else
@@ -5071,6 +5075,8 @@ void SceneMapCanvas::drawScenePreviewPane(Rectangle paneBounds)
             }
             else
             {
+                // Ambient alone a bit quieter than music; avoid harsh full-scale beds.
+                SetMusicVolume(previewAmbient, 0.55f);
                 if (!IsMusicStreamPlaying(previewAmbient))
                     PlayMusicStream(previewAmbient);
                 else
