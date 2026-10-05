@@ -208,12 +208,53 @@ AMBIENT_LAYER_CATALOG = [
 
 # Positive / negative styles for ElevenLabs Music composition plans (v2 / v2.5).
 # Keep these musical — never pass image/world casting constraints into music.
+_COMMON_MUSIC_NEG = [
+    "vocals",
+    "choir lyrics",
+    "humming",
+    "synth",
+    "electronic",
+    "EDM",
+    "modern drums",
+    "electric guitar",
+    "trailer braams",
+    "noir jazz saxophone",
+    "horror stingers",
+    "sound effects",
+    "high-pitched electronic tones",
+    "glitch noise",
+    "distortion",
+    "white noise",
+]
+
+
+def _music_preset(
+    label: str,
+    cue: str,
+    bpm: str,
+    positive: list[str],
+    extra_negative: list[str] | None = None,
+) -> dict:
+    neg = list(_COMMON_MUSIC_NEG)
+    if extra_negative:
+        for n in extra_negative:
+            if n not in neg:
+                neg.append(n)
+    return {
+        "label": label,
+        "cue": cue,
+        "bpm": bpm,
+        "positive": positive,
+        "negative": neg,
+    }
+
+
 MUSIC_STYLE_PRESETS: dict[str, dict] = {
-    "saloon_piano": {
-        "label": "saloon parlor upright piano",
-        "cue": "{upright piano playing soft early ragtime waltz fragments}",
-        "bpm": "96 BPM",
-        "positive": [
+    "saloon_piano": _music_preset(
+        "saloon parlor upright piano",
+        "{upright piano playing soft early ragtime waltz fragments}",
+        "96 BPM",
+        [
             "1890s American frontier saloon underscore",
             "solo upright piano",
             "early ragtime and waltz fragments",
@@ -222,27 +263,39 @@ MUSIC_STYLE_PRESETS: dict[str, dict] = {
             "instrumental only",
             "melodic but restrained game bed",
         ],
-        "negative": [
-            "vocals",
-            "choir",
-            "synth",
-            "electronic",
-            "EDM",
-            "drums",
-            "electric guitar",
-            "noir jazz saxophone",
-            "trailer braams",
-            "sound effects",
-            "high-pitched sine tones",
-            "glitch noise",
-            "distortion",
+    ),
+    "parlor_waltz": _music_preset(
+        "parlor waltz piano",
+        "{gentle three-four parlor waltz on upright piano}",
+        "90 BPM",
+        [
+            "1890s parlor waltz",
+            "solo upright piano",
+            "graceful three-four meter",
+            "warm domestic room tone",
+            "instrumental only",
+            "loopable game bed",
         ],
-    },
-    "trail_folk": {
-        "label": "mountain trail folk fiddle",
-        "cue": "{sparse fiddle melody with soft acoustic guitar accompaniment}",
-        "bpm": "84 BPM",
-        "positive": [
+    ),
+    "dance_hall": _music_preset(
+        "frontier dance hall fiddle and piano",
+        "{lively but restrained fiddle with soft parlor piano}",
+        "104 BPM",
+        [
+            "1890s frontier dance hall",
+            "acoustic fiddle lead",
+            "soft upright piano accompaniment",
+            "festive but not frantic",
+            "instrumental only",
+            "loopable game bed",
+        ],
+        extra_negative=["modern drums", "drum kit"],
+    ),
+    "trail_folk": _music_preset(
+        "mountain trail folk fiddle",
+        "{sparse fiddle melody with soft acoustic guitar accompaniment}",
+        "84 BPM",
+        [
             "1890s American frontier folk underscore",
             "Colorado high country trail mood",
             "sparse acoustic fiddle lead",
@@ -253,32 +306,13 @@ MUSIC_STYLE_PRESETS: dict[str, dict] = {
             "instrumental only",
             "seamless loopable game bed",
         ],
-        "negative": [
-            "vocals",
-            "choir",
-            "humming",
-            "synth",
-            "electronic pads",
-            "EDM",
-            "modern drums",
-            "electric guitar",
-            "trailer music",
-            "noir jazz",
-            "sound effects",
-            "wind noise bed",
-            "bird calls as lead",
-            "harsh screeching",
-            "high-pitched electronic tones",
-            "glitch",
-            "distortion",
-            "white noise",
-        ],
-    },
-    "cabin_hearth": {
-        "label": "cabin hearth sparse piano",
-        "cue": "{soft pedaled piano near a quiet cabin hearth}",
-        "bpm": "72 BPM",
-        "positive": [
+        extra_negative=["wind noise bed", "bird calls as lead", "harsh screeching"],
+    ),
+    "cabin_hearth": _music_preset(
+        "cabin hearth sparse piano",
+        "{soft pedaled piano near a quiet cabin hearth}",
+        "72 BPM",
+        [
             "1890s frontier cabin underscore",
             "sparse intimate piano",
             "soft pedaled notes",
@@ -286,22 +320,25 @@ MUSIC_STYLE_PRESETS: dict[str, dict] = {
             "instrumental only",
             "loopable game bed",
         ],
-        "negative": [
-            "vocals",
-            "synth",
-            "electronic",
-            "drums",
-            "trailer braams",
-            "sound effects",
-            "high-pitched sine tones",
-            "glitch noise",
+    ),
+    "hotel_parlor": _music_preset(
+        "hotel parlor soft piano",
+        "{quiet hotel parlor piano, polite and reserved}",
+        "78 BPM",
+        [
+            "1890s mountain hotel parlor",
+            "soft upright piano",
+            "refined and reserved",
+            "evening lobby mood",
+            "instrumental only",
+            "loopable game bed",
         ],
-    },
-    "mining_camp": {
-        "label": "mining camp harmonica",
-        "cue": "{spare harmonica with quiet acoustic guitar}",
-        "bpm": "88 BPM",
-        "positive": [
+    ),
+    "mining_camp": _music_preset(
+        "mining camp harmonica",
+        "{spare harmonica with quiet acoustic guitar}",
+        "88 BPM",
+        [
             "1890s mining camp underscore",
             "spare harmonica",
             "quiet acoustic guitar",
@@ -309,22 +346,66 @@ MUSIC_STYLE_PRESETS: dict[str, dict] = {
             "instrumental only",
             "loopable game bed",
         ],
-        "negative": [
-            "vocals",
-            "synth",
-            "electronic",
-            "EDM",
-            "trailer braams",
-            "sound effects",
-            "high-pitched electronic tones",
-            "glitch noise",
+    ),
+    "depot_guitar": _music_preset(
+        "railroad depot acoustic guitar",
+        "{lonely fingerpicked acoustic guitar at a quiet depot}",
+        "80 BPM",
+        [
+            "1890s railroad depot mood",
+            "solo acoustic guitar",
+            "sparse fingerpicking",
+            "waiting and travel-worn",
+            "instrumental only",
+            "loopable game bed",
         ],
-    },
-    "tension": {
-        "label": "period tension underscore",
-        "cue": "{low piano and muted strings, held tension}",
-        "bpm": "66 BPM",
-        "positive": [
+    ),
+    "river_guitar": _music_preset(
+        "riverside acoustic guitar",
+        "{gentle fingerpicked guitar suggesting a mountain river crossing}",
+        "82 BPM",
+        [
+            "1890s mountain river crossing",
+            "soft acoustic guitar",
+            "flowing simple melody",
+            "open air but intimate",
+            "instrumental only",
+            "loopable game bed",
+        ],
+        extra_negative=["water splash SFX as lead", "nature field recording only"],
+    ),
+    "night_watch": _music_preset(
+        "night watch low guitar and cello",
+        "{very soft low acoustic guitar with muted cello drones}",
+        "64 BPM",
+        [
+            "1890s night watch underscore",
+            "low acoustic guitar",
+            "muted cello drone",
+            "dark quiet vigilance",
+            "instrumental only",
+            "loopable game bed",
+        ],
+    ),
+    "snowbound": _music_preset(
+        "snowbound muted piano and cello",
+        "{muted soft piano with distant cello, cold and still}",
+        "62 BPM",
+        [
+            "1890s high-altitude snowbound mood",
+            "muted soft piano",
+            "distant cello",
+            "cold stillness",
+            "instrumental only",
+            "loopable game bed",
+        ],
+        extra_negative=["wind noise bed", "blizzard SFX"],
+    ),
+    "tension": _music_preset(
+        "period tension underscore",
+        "{low piano and muted strings, held tension}",
+        "66 BPM",
+        [
             "1890s period tension underscore",
             "low piano",
             "muted acoustic strings",
@@ -332,23 +413,41 @@ MUSIC_STYLE_PRESETS: dict[str, dict] = {
             "instrumental only",
             "loopable game bed",
         ],
-        "negative": [
-            "vocals",
-            "synth",
-            "electronic",
-            "trailer braams",
-            "horror stingers",
-            "modern percussion",
-            "sound effects",
-            "high-pitched sine tones",
-            "glitch noise",
+        extra_negative=["horror stingers", "modern percussion"],
+    ),
+    "quiet_inquiry": _music_preset(
+        "quiet detective inquiry piano",
+        "{soft investigative piano figures, thoughtful and spare}",
+        "70 BPM",
+        [
+            "1890s detective inquiry underscore",
+            "soft thoughtful piano",
+            "spare melodic fragments",
+            "curious but calm",
+            "instrumental only",
+            "loopable game bed",
         ],
-    },
-    "title_hymn": {
-        "label": "title hymn acoustic",
-        "cue": "{hopeful hymn-like acoustic guitar and soft piano}",
-        "bpm": "76 BPM",
-        "positive": [
+        extra_negative=["noir jazz", "saxophone", "walking bass slap"],
+    ),
+    "vespers": _music_preset(
+        "vespers reed organ",
+        "{soft reed organ or harmonium hymn fragments at dusk}",
+        "68 BPM",
+        [
+            "1890s frontier vespers",
+            "soft reed organ or harmonium",
+            "hymn-like fragments",
+            "reverent and quiet",
+            "instrumental only",
+            "loopable game bed",
+        ],
+        extra_negative=["pipe organ fortissimo", "choir vocals"],
+    ),
+    "title_hymn": _music_preset(
+        "title hymn acoustic",
+        "{hopeful hymn-like acoustic guitar and soft piano}",
+        "76 BPM",
+        [
             "1890s frontier title theme",
             "hymn-like acoustic guitar",
             "soft piano",
@@ -356,25 +455,15 @@ MUSIC_STYLE_PRESETS: dict[str, dict] = {
             "instrumental only",
             "loopable menu bed",
         ],
-        "negative": [
-            "vocals",
-            "choir lyrics",
-            "synth",
-            "electronic",
-            "EDM",
-            "trailer braams",
-            "sound effects",
-            "high-pitched electronic tones",
-        ],
-    },
-    "scarlet_whispers": {
-        "label": "Scarlet Whispers tragic violin orchestra",
-        "cue": (
+    ),
+    "scarlet_whispers": _music_preset(
+        "Scarlet Whispers tragic violin orchestra",
+        (
             "{solo tragic violin over soft chamber orchestra at dawn, "
             "melancholy sustained strings, restrained dynamics}"
         ),
-        "bpm": "68 BPM",
-        "positive": [
+        "68 BPM",
+        [
             "Scarlet Whispers at Dawn mood",
             "tragic romantic violin lead",
             "small chamber orchestra underscore",
@@ -386,28 +475,13 @@ MUSIC_STYLE_PRESETS: dict[str, dict] = {
             "seamless loopable game bed",
             "moderate dynamics no sudden hits",
         ],
-        "negative": [
-            "vocals",
-            "choir lyrics",
-            "humming",
-            "synth",
-            "electronic pads",
-            "EDM",
-            "modern drums",
-            "electric guitar",
-            "trailer braams",
-            "horror stingers",
-            "jump scares",
+        extra_negative=[
             "harsh screeching violin",
             "atonal noise",
-            "sound effects",
             "wind noise bed",
-            "high-pitched electronic tones",
-            "glitch",
-            "distortion",
-            "white noise",
+            "jump scares",
         ],
-    },
+    ),
 }
 
 
@@ -1028,16 +1102,36 @@ def resolve_music_preset_key(job: dict) -> str:
     ).lower()
     if "saloon" in hint or "pub" in hint or "blackjack" in hint:
         return "saloon_piano"
+    if "waltz" in hint or "parlor" in hint:
+        return "parlor_waltz"
+    if "dance" in hint or "reel" in hint:
+        return "dance_hall"
     if "trail" in hint or "alpine" in hint or "ridge" in hint:
         return "trail_folk"
+    if "hotel" in hint or "lobby" in hint:
+        return "hotel_parlor"
     if "cabin" in hint or "bedroom" in hint:
         return "cabin_hearth"
     if "mine" in hint or "camp" in hint:
         return "mining_camp"
+    if "depot" in hint or "station" in hint or "train" in hint:
+        return "depot_guitar"
+    if "river" in hint or "creek" in hint or "crossing" in hint:
+        return "river_guitar"
+    if "night" in hint or "watch" in hint or "guard" in hint:
+        return "night_watch"
+    if "snow" in hint or "ice" in hint or "blizzard" in hint:
+        return "snowbound"
+    if "church" in hint or "vesper" in hint or "chapel" in hint or "organ" in hint:
+        return "vespers"
+    if "detect" in hint or "inquir" in hint or "clue" in hint:
+        return "quiet_inquiry"
     if "title" in hint or "menu" in hint:
         return "scarlet_whispers"
     if "tragic" in hint or "violin" in hint or "scarlet" in hint or "mourn" in hint:
         return "scarlet_whispers"
+    if "tension" in hint or "suspense" in hint:
+        return "tension"
     return "cabin_hearth"
 
 

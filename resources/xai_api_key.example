@@ -1,4 +1,4 @@
-# Copy to ~/.config/highline-ridge/xai_api_key (preferred) or export XAI_API_KEY.
-# Do NOT put a real key in resources/xai_api_key — that path is legacy and gitignored.
-# Paste your xAI API key on the next line (no quotes):
+# See docs/api-keys.md for setup (Options → Configure API keys…, or this path at mode 600).
+# Preferred live file: ~/.config/highline-ridge/xai_api_key
+# Do NOT commit a real key. Paste on the next line (no quotes):
 xai-your-key-here

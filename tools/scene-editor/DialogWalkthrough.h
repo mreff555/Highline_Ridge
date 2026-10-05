@@ -101,6 +101,8 @@ struct DialogWalkthrough
     float textScroll = 0.0f;
     float listScroll = 0.0f;
     bool voiceMenuOpen = false;
+    float voiceMenuScroll = 0.0f;
+    static constexpr int kVoiceMenuVisibleRows = 10;
     int ignoreInputFrames = 0;
 
     Rectangle lastPane{0, 0, 0, 0};

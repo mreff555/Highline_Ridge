@@ -1,6 +1,6 @@
 # Building Highline Ridge (Timberline engine)
 
-**Highline Ridge** is the showcase game; it runs on the **Timberline** engine. Project overview, contributors, and architecture diagrams live in **[README.md](README.md)**.
+**Highline Ridge** is the showcase game; it runs on the **Timberline** engine. Overview and architecture: **[README.md](README.md)**. Topic index: **[docs/README.md](docs/README.md)**. Dev vs release matrix: [docs/dev-vs-release.md](docs/dev-vs-release.md).
 
 Build the game from the repo root; the **Timberline Resource Editor** is built as `scene-editor` (dev default ON).
 

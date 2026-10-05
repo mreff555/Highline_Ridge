@@ -107,7 +107,10 @@ void SceneEditorApp::wireModules()
     mapCanvas.sceneAuthoring.docs = &document;
     mapCanvas.sceneAuthoring.onCreated = [this](const std::string& id)
     {
-        thumbnails.clear();
+        // Only drop this scene's thumb — clear() raced with map draw while
+        // Generate image rotated/replaced the plate (dangling ThumbnailEntry).
+        if (!id.empty())
+            thumbnails.invalidate(id);
         // selectSceneForEditor is a no-op when id is already selected, so always
         // invalidate bottom-pane media. Otherwise a prior failed load (files not
         // on disk yet) keeps Play disabled after Generate/Confirm writes them.

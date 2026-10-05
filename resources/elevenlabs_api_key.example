@@ -1,0 +1,5 @@
+# See docs/api-keys.md for setup (Options → Configure API keys…, or this path at mode 600).
+# Preferred live file: ~/.config/highline-ridge/elevenlabs_api_key
+# Prefer Music + Sound Effects scopes. Do NOT commit a real key.
+# Paste on the next line (no quotes):
+sk_your-key-here

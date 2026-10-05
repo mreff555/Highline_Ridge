@@ -17,6 +17,7 @@
 #include "TtsVoiceMarkup.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -1056,10 +1057,23 @@ void SceneExitRequirementsDialog::handleInput(int screenW, int screenH)
         closeDialog();
         return;
     }
-    if (lastScrollClip.width > 1.0f && CheckCollisionPointRec(GetMousePosition(), lastScrollClip))
     {
+        const Vector2 mouse = GetMousePosition();
         const float wheel = GetMouseWheelMove();
-        if (wheel != 0.0f)
+        if (wheel != 0.0f
+            && voiceMenuOpen
+            && voiceMenuRect.height > 1.0f
+            && CheckCollisionPointRec(mouse, voiceMenuRect))
+        {
+            const int voiceCount = static_cast<int>(builtinVoiceIds().size());
+            const int visible = std::min(kVoiceMenuVisibleRows, voiceCount);
+            const float maxScroll =
+                static_cast<float>(std::max(0, voiceCount - visible));
+            voiceMenuScroll =
+                std::clamp(voiceMenuScroll - wheel, 0.0f, maxScroll);
+        }
+        else if (wheel != 0.0f && lastScrollClip.width > 1.0f
+                 && CheckCollisionPointRec(mouse, lastScrollClip))
         {
             const float maxScroll =
                 std::max(0.0f, lastContentH - lastScrollClip.height);
@@ -1402,7 +1416,25 @@ void SceneExitRequirementsDialog::draw(int screenW, int screenH)
         canTtsDialog);
     if (canClick && CheckCollisionPointRec(mouse, scrollClip)
         && CheckCollisionPointRec(mouse, voiceBtnRect))
+    {
         voiceMenuOpen = !voiceMenuOpen;
+        if (voiceMenuOpen)
+        {
+            const auto& voices = builtinVoiceIds();
+            const int voiceCount = static_cast<int>(voices.size());
+            int selected = 0;
+            for (int i = 0; i < voiceCount; ++i)
+            {
+                if (voices[static_cast<size_t>(i)] == blockedTtsVoice)
+                {
+                    selected = i;
+                    break;
+                }
+            }
+            voiceMenuScroll = static_cast<float>(std::max(
+                0, selected - kVoiceMenuVisibleRows / 2));
+        }
+    }
     if (canClick && canTtsDialog && CheckCollisionPointRec(mouse, scrollClip)
         && CheckCollisionPointRec(mouse, genTtsBtn))
         startTtsDialogGenerate();
@@ -1746,28 +1778,39 @@ void SceneExitRequirementsDialog::draw(int screenW, int screenH)
     if (voiceMenuOpen)
     {
         const auto& voices = builtinVoiceIds();
+        const int voiceCount = static_cast<int>(voices.size());
         const float rowH = 22.0f;
+        const int visible = std::min(kVoiceMenuVisibleRows, voiceCount);
+        const float maxScroll =
+            static_cast<float>(std::max(0, voiceCount - visible));
+        voiceMenuScroll = std::clamp(voiceMenuScroll, 0.0f, maxScroll);
         voiceMenuRect = {
             voiceBtnRect.x,
             voiceBtnRect.y + voiceBtnRect.height + 2.0f,
             160.0f,
-            rowH * static_cast<float>(voices.size()) + 4.0f};
+            rowH * static_cast<float>(visible) + 4.0f};
         DrawRectangleRec(voiceMenuRect, Color{36, 32, 44, 255});
         DrawRectangleLinesEx(voiceMenuRect, 1.0f, kPanelBorder);
+        const int first = static_cast<int>(std::floor(voiceMenuScroll + 0.001f));
         float my = voiceMenuRect.y + 2.0f;
-        for (const std::string& v : voices)
+        for (int row = 0; row < visible; ++row)
         {
-            Rectangle row = {voiceMenuRect.x + 2.0f, my, voiceMenuRect.width - 4.0f, rowH - 2.0f};
-            if (CheckCollisionPointRec(mouse, row))
+            const int i = first + row;
+            if (i < 0 || i >= voiceCount)
+                break;
+            const std::string& v = voices[static_cast<size_t>(i)];
+            Rectangle r = {
+                voiceMenuRect.x + 2.0f, my, voiceMenuRect.width - 4.0f, rowH - 2.0f};
+            if (CheckCollisionPointRec(mouse, r))
             {
-                DrawRectangleRec(row, Color{60, 54, 72, 220});
+                DrawRectangleRec(r, Color{60, 54, 72, 220});
                 if (canClick)
                 {
                     blockedTtsVoice = normalizeVoiceId(v);
                     voiceMenuOpen = false;
                 }
             }
-            DrawTextEx(font, v.c_str(), {row.x + 6.0f, row.y + 2.0f}, kFontSmall, 1.0f, kTextPrimary);
+            DrawTextEx(font, v.c_str(), {r.x + 6.0f, r.y + 2.0f}, kFontSmall, 1.0f, kTextPrimary);
             my += rowH;
         }
         if (canClick && !CheckCollisionPointRec(mouse, voiceMenuRect)

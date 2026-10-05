@@ -1,6 +1,6 @@
 # Scene editor tutorial
 
-The **Timberline Resource Editor** (`scene-editor`) authors Highline Ridge content on disk under `resources/`.
+The **Timberline Resource Editor** (`scene-editor`) authors Highline Ridge content on disk under `resources/`. Docs index: [README.md](README.md).
 
 Build it with a normal dev configure (`HIGHLINE_BUILD_EDITOR` defaults **ON**):
 
@@ -10,6 +10,12 @@ cmake -S . -B build && cmake --build build --target scene-editor -j
 ```
 
 > **Screenshots:** drop PNGs into `docs/images/` using the filenames below. Until then, each step lists what to capture.
+
+---
+
+## 0. API keys (before Generate)
+
+AI Generate needs keys (players never do). **xAI** → images / TTS text; **ElevenLabs** → ambient / music / SFX. Setup (menu, disk paths, permissions, action matrix): **[api-keys.md](api-keys.md)**. Audio backends: [scene-audio.md](scene-audio.md).
 
 ---
 
@@ -38,36 +44,7 @@ See also [scene-map-exits.md](scene-map-exits.md) (floors, gates, place-item, #1
 
 ## 2b. Gates, floors, and special transitions
 
-### Floors
-
-1. Right-click a card → **Connect to floor…**, or drag one card onto another → Up/Down.  
-2. Switch floor chrome to see the other level.  
-3. **Right-click the stair badge** on the card for **Edit Transition Audio…** / **Exit Requirements…** (same as a gold wire).
-
-### Gated MOVE (locked / dark / story)
-
-1. Right-click a **gold wire** (same floor) or **stair badge** (floor link).  
-2. **Exit Requirements…**  
-3. Set light / room / inventory id(s) / story flag; blocked details + TTS; optional variants.  
-4. Use the **direction slider** for outbound vs return.  
-5. **Save**, then File → Save (⌘S).
-
-### Place item / takeables (not in Edit Scene)
-
-On the **Scene Variables** pane (select the scene first):
-
-| Button | Use for |
-|--------|---------|
-| **Interactions** | Use + `grantItem` (search nightstand / place key) |
-| **Inventory** | Take loot after examine (`+` / red **X** / examine slider) |
-
-### Mini recipe: key in drawer → locked hall door
-
-1. Use wire from bedroom → nightstand focus scene.  
-2. Nightstand scene → Variables → **Inventory** → **+** → your key item (or **Interactions** → Add place item…).  
-3. Hall scene → gold wire to locked room → Exit Requirements → require that item id, badge **lock**.
-
-Full detail: [scene-map-exits.md](scene-map-exits.md).
+Short path: floor connect / stair badges, **Exit Requirements…** on gold wires or badges, place-item via Variables → **Interactions** / **Inventory**. Full procedures and the key-in-drawer recipe: **[scene-map-exits.md](scene-map-exits.md)**.
 
 ---
 

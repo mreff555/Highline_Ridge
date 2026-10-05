@@ -47,4 +47,6 @@ cmake -S . -B build && cmake --build build -j
 ./build/scene-editor
 ```
 
+Authoring API keys (xAI / ElevenLabs): **[docs/api-keys.md](docs/api-keys.md)**. Full docs index: [docs/README.md](docs/README.md).
+
 Thanks for helping with Timberline and Highline Ridge.

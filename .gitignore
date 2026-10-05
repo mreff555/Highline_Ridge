@@ -51,12 +51,13 @@ CMakeUserPresets.json
 
 # Secrets and local runtime caches
 # xAI / ElevenLabs secrets — never commit. Prefer Options → Configure API keys
-# (session memory) in the scene editor. Disk files under ~/.config/highline-ridge/
-# are a temporary fallback for the Python runner / CLI only.
+# (Confirm also writes ~/.config/highline-ridge/{xai,elevenlabs}_api_key at 0600).
+# See docs/api-keys.md. Example stubs below are safe to commit.
 **/xai_api_key
 **/elevenlabs_api_key
 resources/xai_api_key
 !resources/xai_api_key.example
+!resources/elevenlabs_api_key.example
 resources/editor_prefs.json
 .env
 **/cache/

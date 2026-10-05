@@ -135,6 +135,8 @@ nlohmann::json sceneAiJobToJson(const SceneAiJob& job)
         j["softenPrompt"] = job.softenPrompt;
     if (job.type == SceneAiJobType::GenerateMusic && !job.musicStylePreset.empty())
         j["musicStylePreset"] = job.musicStylePreset;
+    if (job.type == SceneAiJobType::GenerateMusic && job.musicLengthMs > 0)
+        j["musicLengthMs"] = job.musicLengthMs;
     return j;
 }
 

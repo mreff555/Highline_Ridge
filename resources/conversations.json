@@ -2509,6 +2509,7 @@
                     "tts": true,
                     "ttsAudio": "resources/audio/tts/saloon_interior/pay_tab_cash.mp3",
                     "ttsText": "You slide the cash across the bar. He takes it without comment, marks the ledger, and meets your eyes. \"We're square.\"",
+                    "ttsTextSha256": "3a1a0bcd77bbfe460e76c123a3bbda46f6fcba9aca68ae99b1ad4ee680f96f26",
                     "ttsVoice": "leo"
                   },
                   {

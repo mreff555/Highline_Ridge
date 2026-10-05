@@ -35,8 +35,7 @@ struct SceneAuthoringPayload
     std::string musicPath;
     /**
      * Period music preset for Generate music (ElevenLabs).
-     * One of: saloon_piano, trail_folk, cabin_hearth, mining_camp, tension,
-     * title_hymn, scarlet_whispers.
+     * Ids: see MusicStylePresets.h / run_item_authoring_ai.py MUSIC_STYLE_PRESETS.
      */
     std::string musicStylePreset = "cabin_hearth";
     /** Enter/exit one-shots. Empty by default — do not stamp shared door SFX
@@ -91,6 +90,8 @@ struct SceneAiJob
     bool softenPrompt = true;
     /** For generate_music: period style preset id. */
     std::string musicStylePreset;
+    /** For generate_music: optional length override (ms). 0 = runner default. */
+    int musicLengthMs = 0;
 };
 
 std::string sanitizeSceneId(const std::string& raw);

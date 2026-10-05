@@ -236,8 +236,12 @@ bool classifyVoiceCloseTag(const std::string& body, bool& knownClose)
 
 const std::vector<std::string>& builtinVoiceIds()
 {
+    // Full xAI Grok TTS catalog from GET /v1/tts/voices (alphabetical).
     static const std::vector<std::string> kVoices = {
-        "ara", "eve", "helios", "leo", "rex", "rigel", "sal"
+        "altair", "ara", "atlas", "aurora", "carina", "castor", "celeste",
+        "cosmo", "eve", "helios", "helix", "iris", "kepler", "leo", "liora",
+        "lumen", "luna", "lux", "naksh", "orion", "perseus", "rex", "rigel",
+        "sal", "sirius", "ursa", "zagan", "zenith"
     };
     return kVoices;
 }

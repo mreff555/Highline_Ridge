@@ -1046,7 +1046,10 @@ bool DialogWalkthrough::handleVoiceMenuClick(Vector2 mouse)
     {
         const std::vector<std::string>& voices = builtinVoiceIds();
         const float rowH = 22.0f;
-        int i = static_cast<int>((mouse.y - voiceMenuRect.y - 2.0f) / rowH);
+        const int first =
+            static_cast<int>(std::floor(voiceMenuScroll + 0.001f));
+        int i = first
+            + static_cast<int>((mouse.y - voiceMenuRect.y - 2.0f) / rowH);
         if (i >= 0 && i < static_cast<int>(voices.size()))
         {
             ttsVoice = normalizeVoiceId(voices[static_cast<size_t>(i)]);
@@ -1075,8 +1078,12 @@ void DialogWalkthrough::drawVoiceMenu(Font font)
         return;
     }
     const std::vector<std::string>& voices = builtinVoiceIds();
+    const int voiceCount = static_cast<int>(voices.size());
     const float rowH = 22.0f;
-    const float menuH = static_cast<float>(voices.size()) * rowH + 4.0f;
+    const int visible = std::min(kVoiceMenuVisibleRows, voiceCount);
+    const float menuH = static_cast<float>(visible) * rowH + 4.0f;
+    const float maxScroll = static_cast<float>(std::max(0, voiceCount - visible));
+    voiceMenuScroll = std::clamp(voiceMenuScroll, 0.0f, maxScroll);
     voiceMenuRect = {
         voiceBtnRect.x,
         voiceBtnRect.y + voiceBtnRect.height + 2.0f,
@@ -1089,21 +1096,26 @@ void DialogWalkthrough::drawVoiceMenu(Font font)
     DrawRectangleRec(voiceMenuRect, Color{36, 32, 44, 255});
     DrawRectangleLinesEx(voiceMenuRect, 1.0f, kPanelBorder);
     const Vector2 mouse = GetMousePosition();
+    const int first = static_cast<int>(std::floor(voiceMenuScroll + 0.001f));
     float my = voiceMenuRect.y + 2.0f;
-    for (const std::string& v : voices)
+    for (int row = 0; row < visible; ++row)
     {
-        const Rectangle row = {
+        const int i = first + row;
+        if (i < 0 || i >= voiceCount)
+            break;
+        const std::string& v = voices[static_cast<size_t>(i)];
+        const Rectangle r = {
             voiceMenuRect.x + 2.0f, my, voiceMenuRect.width - 4.0f, rowH - 2.0f};
-        const bool hov = CheckCollisionPointRec(mouse, row);
+        const bool hov = CheckCollisionPointRec(mouse, r);
         const bool selected = (v == ttsVoice);
         if (selected)
-            DrawRectangleRec(row, kSelection);
+            DrawRectangleRec(r, kSelection);
         else if (hov)
-            DrawRectangleRec(row, Color{60, 54, 72, 220});
+            DrawRectangleRec(r, Color{60, 54, 72, 220});
         DrawTextEx(
             font,
             v.c_str(),
-            {row.x + 8.0f, row.y + 3.0f},
+            {r.x + 8.0f, r.y + 3.0f},
             kFontSmall,
             1.0f,
             kTextPrimary);
@@ -1191,7 +1203,18 @@ void DialogWalkthrough::handleInput(Rectangle pane)
             docs->saveConversationsDocument();
     }
 
-    if (CheckCollisionPointRec(mouse, listPanel))
+    if (voiceMenuOpen
+        && voiceMenuRect.height > 1.0f
+        && CheckCollisionPointRec(mouse, voiceMenuRect))
+    {
+        const int voiceCount = static_cast<int>(builtinVoiceIds().size());
+        const int visible = std::min(kVoiceMenuVisibleRows, voiceCount);
+        const float maxScroll =
+            static_cast<float>(std::max(0, voiceCount - visible));
+        voiceMenuScroll = std::clamp(
+            voiceMenuScroll - GetMouseWheelMove(), 0.0f, maxScroll);
+    }
+    else if (CheckCollisionPointRec(mouse, listPanel))
     {
         listScroll -= GetMouseWheelMove() * kRowH * 2.0f;
         if (listScroll < 0.0f)
@@ -1472,7 +1495,25 @@ void DialogWalkthrough::draw(Rectangle pane)
                 ensureDefaultAudioPath();
         }
         else if (CheckCollisionPointRec(mouse, voiceBtnRect))
+        {
             voiceMenuOpen = !voiceMenuOpen;
+            if (voiceMenuOpen)
+            {
+                const std::vector<std::string>& voices = builtinVoiceIds();
+                const int voiceCount = static_cast<int>(voices.size());
+                int selected = 0;
+                for (int i = 0; i < voiceCount; ++i)
+                {
+                    if (voices[static_cast<size_t>(i)] == ttsVoice)
+                    {
+                        selected = i;
+                        break;
+                    }
+                }
+                voiceMenuScroll = static_cast<float>(std::max(
+                    0, selected - kVoiceMenuVisibleRows / 2));
+            }
+        }
     }
 
     // Body: list | editor

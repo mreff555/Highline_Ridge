@@ -1420,7 +1420,9 @@ void SceneMapCanvas::drawDirectionPorts(Rectangle canvasBounds) const
         for (const char* dir : dirs)
         {
             const Rectangle port = directionPortBounds(card, dir);
-            const bool linked = graph && !graph->getExitTarget(id, dir).empty();
+            // Linked (gold) only when the exit target is still on the map —
+            // matches wire drawing, so Remove from map cannot leave orphan gold dots.
+            const bool linked = graph && graph->isExitPortLinked(id, dir);
             const bool active =
                 dragSource == DragSource::ExitPort
                 && portDragFromId == id
@@ -2542,7 +2544,7 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
             portDragDirection = portDir;
             portDragUseBinding.clear();
             portDragMovingExisting =
-                graph && !graph->getExitTarget(portScene, portDir).empty();
+                graph && graph->isExitPortLinked(portScene, portDir);
             dragSource = DragSource::ExitPort;
             linkDragHoverTarget.clear();
             if (selectSceneForEditor)
@@ -3563,8 +3565,14 @@ void SceneMapCanvas::performRemoveFromMap()
         return;
     }
     const std::string id = confirmSceneId;
+    // Clear compass exits first so neighbors do not keep gold travel ports
+    // (and invisible wires) pointing at an off-map scene.
+    if (graph != nullptr)
+        graph->clearCompassLinksForScene(id);
     docs->scenes.clearLayout(id);
     docs->markDirty();
+    cancelLinkDrag();
+    cancelPortDrag();
     cancelDragsForScene(id);
     confirmMode = ConfirmMode::None;
     confirmSceneId.clear();
@@ -3978,7 +3986,7 @@ void SceneMapCanvas::drawConfirmDialogs(int screenWidth, int screenHeight)
     if (confirmMode == ConfirmMode::RemoveFromMap)
     {
         const float dialogW = 460.0f;
-        const float dialogH = 180.0f;
+        const float dialogH = 200.0f;
         const Rectangle dialog = {
             (static_cast<float>(screenWidth) - dialogW) * 0.5f,
             (static_cast<float>(screenHeight) - dialogH) * 0.5f,
@@ -3996,8 +4004,10 @@ void SceneMapCanvas::drawConfirmDialogs(int screenWidth, int screenHeight)
             kTextPrimary);
         drawWrappedText(
             font,
-            "Remove " + confirmSceneId + " from the map? Scene stays in the list.",
-            {dialog.x + 20.0f, dialog.y + 56.0f},
+            "Remove " + confirmSceneId
+                + " from the map? Scene stays in the list. Compass links to "
+                  "neighbors are cleared so travel ports do not stay connected.",
+            {dialog.x + 20.0f, dialog.y + 52.0f},
             dialogW - 40.0f,
             kFontBody,
             4.0f,

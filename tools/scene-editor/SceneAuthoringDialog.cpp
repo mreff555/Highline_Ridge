@@ -12,6 +12,7 @@
 #include "EditorTheme.h"
 #include "EditorUiDraw.h"
 #include "ImageCompression.h"
+#include "MusicStylePresets.h"
 #include "PlatformPath.h"
 #include "TtsVoiceMarkup.h"
 
@@ -19,7 +20,9 @@
 #include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <filesystem>
 #include <fstream>
+#include <nlohmann/json.hpp>
 
 using timberline_engine::builtinVoiceIds;
 using timberline_engine::isKnownBuiltinVoiceId;
@@ -161,6 +164,14 @@ void SceneAuthoringDialog::openDialog()
     voiceMenuOpen = false;
     voiceBtnRect = {0, 0, 0, 0};
     voiceMenuRect = {0, 0, 0, 0};
+    voiceMenuScroll = 0.0f;
+    musicStyleMenuOpen = false;
+    musicStyleBtnRect = {0, 0, 0, 0};
+    musicStyleMenuRect = {0, 0, 0, 0};
+    musicPreviewBtnRect = {0, 0, 0, 0};
+    musicStyleMenuScroll = 0.0f;
+    pendingMusicStylePreviewPlay = false;
+    pendingMusicStylePreviewPath.clear();
     ttsSwitchTrack = {0, 0, 0, 0};
     alternateSwitchTrack = {0, 0, 0, 0};
     focusViewSwitchTrack = {0, 0, 0, 0};
@@ -264,7 +275,11 @@ void SceneAuthoringDialog::closeDialog()
     generateBusy = false;
     generateCancel.store(false);
     voiceMenuOpen = false;
+    musicStyleMenuOpen = false;
     stopPreviewVoice();
+    stopPreviewStyleMusic();
+    pendingMusicStylePreviewPlay = false;
+    pendingMusicStylePreviewPath.clear();
     open = false;
     editingExisting = false;
     error.clear();
@@ -357,6 +372,228 @@ void SceneAuthoringDialog::updatePreviewVoice()
     UpdateMusicStream(previewVoice);
     if (!IsMusicStreamPlaying(previewVoice))
         stopPreviewVoice();
+}
+
+void SceneAuthoringDialog::stopPreviewStyleMusic()
+{
+    if (previewStyleMusicLoaded && IsMusicValid(previewStyleMusic))
+    {
+        if (IsMusicStreamPlaying(previewStyleMusic))
+            StopMusicStream(previewStyleMusic);
+        UnloadMusicStream(previewStyleMusic);
+    }
+    previewStyleMusic = {};
+    previewStyleMusicLoaded = false;
+    previewStyleMusicPlaying = false;
+    previewStyleMusicPreset.clear();
+    if (!previewStyleMusicTempFile.empty())
+    {
+        std::remove(previewStyleMusicTempFile.c_str());
+        previewStyleMusicTempFile.clear();
+    }
+}
+
+void SceneAuthoringDialog::updatePreviewStyleMusic()
+{
+    if (!previewStyleMusicLoaded || !previewStyleMusicPlaying)
+        return;
+    if (!IsMusicValid(previewStyleMusic))
+    {
+        stopPreviewStyleMusic();
+        return;
+    }
+    UpdateMusicStream(previewStyleMusic);
+    if (!IsMusicStreamPlaying(previewStyleMusic))
+        stopPreviewStyleMusic();
+}
+
+void SceneAuthoringDialog::playPreviewStyleMusicFile(const std::string& relOrAbsPath)
+{
+    if (relOrAbsPath.empty() || docs == nullptr)
+        return;
+    stopPreviewVoice();
+    stopPreviewStyleMusic();
+    if (!editorAudioDeviceReady())
+    {
+        error = "Audio device not ready.";
+        return;
+    }
+
+    using timberline_engine::buildAssetSearchPaths;
+    using timberline_engine::compressedAssetPath;
+    using timberline_engine::loadAssetBytesFromFile;
+
+    const std::string assetRoot = docs->assetRoot.empty() ? "." : docs->assetRoot;
+    std::vector<std::string> candidates;
+    if (relOrAbsPath.size() > 0 && relOrAbsPath[0] == '/')
+        candidates.push_back(relOrAbsPath);
+    else
+        candidates = buildAssetSearchPaths(assetRoot, relOrAbsPath);
+    candidates.push_back(pathJoin(assetRoot, relOrAbsPath));
+
+    Music music{};
+    std::string tempFile;
+    bool ok = false;
+    for (const std::string& path : candidates)
+    {
+        if (FileExists(path.c_str()))
+        {
+            music = LoadMusicStream(path.c_str());
+            if (IsMusicValid(music))
+            {
+                ok = true;
+                break;
+            }
+        }
+        const std::string compressed = compressedAssetPath(path);
+        if (!FileExists(compressed.c_str()))
+            continue;
+        std::vector<unsigned char> bytes;
+        if (!loadAssetBytesFromFile(compressed, bytes) || bytes.empty())
+            continue;
+        const std::string tmp = pathJoin(
+            GetApplicationDirectory() ? GetApplicationDirectory() : ".",
+            "editor_music_style_preview.mp3");
+        std::ofstream out(tmp.c_str(), std::ios::binary);
+        if (!out)
+            continue;
+        out.write(
+            reinterpret_cast<const char*>(bytes.data()),
+            static_cast<std::streamsize>(bytes.size()));
+        out.close();
+        music = LoadMusicStream(tmp.c_str());
+        if (IsMusicValid(music))
+        {
+            tempFile = tmp;
+            ok = true;
+            break;
+        }
+        std::remove(tmp.c_str());
+    }
+
+    if (!ok)
+    {
+        error = "Could not load music style preview.";
+        return;
+    }
+
+    music.looping = false;
+    previewStyleMusic = music;
+    previewStyleMusicLoaded = true;
+    previewStyleMusicPlaying = true;
+    previewStyleMusicTempFile = tempFile;
+    previewStyleMusicPreset = payload.musicStylePreset;
+    SetMusicVolume(previewStyleMusic, 0.9f);
+    PlayMusicStream(previewStyleMusic);
+    status = std::string("Previewing ")
+        + musicStylePresetLabel(payload.musicStylePreset) + "…";
+    error.clear();
+}
+
+void SceneAuthoringDialog::startMusicStylePreview()
+{
+    if (docs == nullptr || generateBusy.load())
+        return;
+    if (sessionKeys == nullptr || !sessionKeys->elevenLabsReady())
+    {
+        error = "Options → Configure API keys — ElevenLabs key required for "
+                "music style preview.";
+        return;
+    }
+
+    if (payload.musicStylePreset.empty())
+        payload.musicStylePreset = "cabin_hearth";
+
+    // Toggle stop if already playing this preset.
+    if (previewStyleMusicPlaying
+        && previewStyleMusicPreset == payload.musicStylePreset)
+    {
+        stopPreviewStyleMusic();
+        status = "Preview stopped.";
+        return;
+    }
+
+    const std::string preset = payload.musicStylePreset;
+    const std::string relOut =
+        "resources/.authoring/music_preview/" + preset + ".mp3";
+    const std::string assetRoot = docs->assetRoot.empty() ? "." : docs->assetRoot;
+    const std::string absOut = pathJoin(assetRoot, relOut);
+    const bool forceRegen =
+        IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
+
+    if (!forceRegen && FileExists(absOut.c_str()))
+    {
+        playPreviewStyleMusicFile(relOut);
+        return;
+    }
+
+    try
+    {
+        std::filesystem::create_directories(
+            std::filesystem::path(absOut).parent_path());
+    }
+    catch (...)
+    {
+        error = "Could not create music preview cache directory.";
+        return;
+    }
+
+    const std::string jobsRel =
+        "resources/.authoring/music_preview_" + preset + "_jobs.json";
+    const std::string jobsAbs = pathJoin(assetRoot, jobsRel);
+    nlohmann::json jobsRoot = {
+        {"backupRotate", false},
+        {"jobs",
+         nlohmann::json::array(
+             {nlohmann::json{
+                 {"type", "generate_music"},
+                 {"itemId", "music_preview"},
+                 {"musicStylePreset", preset},
+                 {"musicLengthMs", 10000},
+                 {"outPath", relOut},
+                 {"prompt",
+                  "Scene mood: short instrumental style preview for the "
+                  "Highline Ridge scene editor. Period 1890s Colorado frontier. "
+                  "No vocals."}}})}};
+    {
+        std::ofstream out(jobsAbs.c_str());
+        if (!out)
+        {
+            error = "Could not write music preview jobs file.";
+            return;
+        }
+        out << jobsRoot.dump(2);
+    }
+
+    pendingMusicStylePreviewPlay = true;
+    pendingMusicStylePreviewPath = relOut;
+    generateCancel.store(false);
+    generateBusy = true;
+    generateTarget = 99;
+    generateResultPending = false;
+    status = std::string("Generating preview: ")
+        + musicStylePresetLabel(preset) + "…";
+    error.clear();
+
+    const std::string keySnap = effectiveApiKey();
+    const std::string elevenSnap =
+        sessionKeys != nullptr ? sessionKeys->elevenLabsKey : std::string{};
+    const std::string resourceDir = docs->resourceDir;
+    if (generateThread.joinable())
+        generateThread.join();
+    generateThread = std::thread(
+        [this, keySnap, elevenSnap, assetRoot, resourceDir, jobsAbs]() {
+            const std::string msg = runSceneAuthoringAiJobsFile(
+                assetRoot,
+                resourceDir,
+                jobsAbs,
+                keySnap,
+                &generateCancel,
+                elevenSnap);
+            std::lock_guard<std::mutex> lock(generateMutex);
+            generateResultStatus = msg;
+            generateResultPending = true;
+        });
 }
 
 void SceneAuthoringDialog::startPreviewVoice(const char* bagKey)
@@ -457,11 +694,14 @@ void SceneAuthoringDialog::startPreviewVoice(const char* bagKey)
 void SceneAuthoringDialog::pollGenerateResult()
 {
     updatePreviewVoice();
+    updatePreviewStyleMusic();
     if (!generateResultPending)
         return;
 
     bool chainVoiceRefresh = false;
     bool wasCancelled = false;
+    bool playMusicPreview = false;
+    std::string musicPreviewPath;
     {
         std::lock_guard<std::mutex> lock(generateMutex);
         if (!generateResultPending)
@@ -473,21 +713,38 @@ void SceneAuthoringDialog::pollGenerateResult()
         generateCancel.store(false);
         const int finishedTarget = generateTarget.load();
         generateTarget = 0;
-        if (!wasCancelled && docs != nullptr && !payload.id.empty())
-            applySceneAiOutputsToPayload(payload, *docs, payload.id);
-        if (!wasCancelled && onCreated && !payload.id.empty() && docs != nullptr
-            && docs->scenes.hasScene(payload.id))
-            onCreated(payload.id);
 
-        // After Generate all, optionally chain voice refresh (outside this lock).
-        if (!wasCancelled && pendingVoiceRefresh
-            && finishedTarget != 10
-            && (sceneTtsTextHasWord(payload.ttsDescription)
-                || sceneTtsTextHasWord(payload.ttsExamineDetails)))
-            chainVoiceRefresh = true;
+        if (pendingMusicStylePreviewPlay)
+        {
+            playMusicPreview = !wasCancelled
+                && generateResultStatus.find("fail") == std::string::npos
+                && generateResultStatus.find("Fail") == std::string::npos
+                && generateResultStatus.find("error") == std::string::npos
+                && generateResultStatus.find("Error") == std::string::npos;
+            musicPreviewPath = pendingMusicStylePreviewPath;
+            pendingMusicStylePreviewPlay = false;
+            pendingMusicStylePreviewPath.clear();
+        }
+        else
+        {
+            if (!wasCancelled && docs != nullptr && !payload.id.empty())
+                applySceneAiOutputsToPayload(payload, *docs, payload.id);
+            if (!wasCancelled && onCreated && !payload.id.empty() && docs != nullptr
+                && docs->scenes.hasScene(payload.id))
+                onCreated(payload.id);
+
+            // After Generate all, optionally chain voice refresh (outside this lock).
+            if (!wasCancelled && pendingVoiceRefresh
+                && finishedTarget != 10
+                && (sceneTtsTextHasWord(payload.ttsDescription)
+                    || sceneTtsTextHasWord(payload.ttsExamineDetails)))
+                chainVoiceRefresh = true;
+        }
         pendingVoiceRefresh = false;
     }
 
+    if (playMusicPreview && !musicPreviewPath.empty())
+        playPreviewStyleMusicFile(musicPreviewPath);
     if (chainVoiceRefresh)
         startVoiceRefresh();
 }
@@ -1564,7 +1821,10 @@ bool SceneAuthoringDialog::handleVoiceMenuClick(Vector2 mouse)
     {
         const std::vector<std::string>& voices = builtinVoiceIds();
         const float rowH = 22.0f;
-        int i = static_cast<int>((mouse.y - voiceMenuRect.y - 2.0f) / rowH);
+        const int first =
+            static_cast<int>(std::floor(voiceMenuScroll + 0.001f));
+        int i = first
+            + static_cast<int>((mouse.y - voiceMenuRect.y - 2.0f) / rowH);
         if (i >= 0 && i < static_cast<int>(voices.size()))
         {
             payload.ttsDefaultVoice = normalizeVoiceId(voices[static_cast<size_t>(i)]);
@@ -1583,6 +1843,37 @@ bool SceneAuthoringDialog::handleVoiceMenuClick(Vector2 mouse)
     return true;
 }
 
+bool SceneAuthoringDialog::handleMusicStyleMenuClick(Vector2 mouse)
+{
+    if (!musicStyleMenuOpen)
+        return false;
+    if (musicStyleMenuRect.width < 1.0f)
+        return false;
+
+    if (CheckCollisionPointRec(mouse, musicStyleMenuRect))
+    {
+        const float rowH = 22.0f;
+        const int first =
+            static_cast<int>(std::floor(musicStyleMenuScroll + 0.001f));
+        int i = first
+            + static_cast<int>((mouse.y - musicStyleMenuRect.y - 2.0f) / rowH);
+        if (i >= 0 && i < kMusicStylePresetCount)
+        {
+            payload.musicStylePreset = musicStylePresetIdAt(i);
+            stopPreviewStyleMusic();
+        }
+        musicStyleMenuOpen = false;
+        ignoreInputFrames = 1;
+        return true;
+    }
+
+    if (CheckCollisionPointRec(mouse, musicStyleBtnRect))
+        return false;
+    musicStyleMenuOpen = false;
+    ignoreInputFrames = 1;
+    return true;
+}
+
 void SceneAuthoringDialog::drawVoiceMenu(Font font)
 {
     if (!voiceMenuOpen)
@@ -1591,8 +1882,12 @@ void SceneAuthoringDialog::drawVoiceMenu(Font font)
         return;
     }
     const std::vector<std::string>& voices = builtinVoiceIds();
+    const int voiceCount = static_cast<int>(voices.size());
     const float rowH = 22.0f;
-    const float menuH = static_cast<float>(voices.size()) * rowH + 4.0f;
+    const int visible = std::min(kVoiceMenuVisibleRows, voiceCount);
+    const float menuH = static_cast<float>(visible) * rowH + 4.0f;
+    const float maxScroll = static_cast<float>(std::max(0, voiceCount - visible));
+    voiceMenuScroll = std::clamp(voiceMenuScroll, 0.0f, maxScroll);
     voiceMenuRect = {
         voiceBtnRect.x,
         voiceBtnRect.y + voiceBtnRect.height + 2.0f,
@@ -1606,21 +1901,85 @@ void SceneAuthoringDialog::drawVoiceMenu(Font font)
     DrawRectangleRec(voiceMenuRect, Color{36, 32, 44, 255});
     DrawRectangleLinesEx(voiceMenuRect, 1.0f, kPanelBorder);
     const Vector2 mouse = GetMousePosition();
+    const int first = static_cast<int>(std::floor(voiceMenuScroll + 0.001f));
     float my = voiceMenuRect.y + 2.0f;
-    for (const std::string& v : voices)
+    for (int row = 0; row < visible; ++row)
     {
-        const Rectangle row = {
+        const int i = first + row;
+        if (i < 0 || i >= voiceCount)
+            break;
+        const std::string& v = voices[static_cast<size_t>(i)];
+        const Rectangle r = {
             voiceMenuRect.x + 2.0f, my, voiceMenuRect.width - 4.0f, rowH - 2.0f};
-        const bool hov = CheckCollisionPointRec(mouse, row);
+        const bool hov = CheckCollisionPointRec(mouse, r);
         const bool selected = (v == payload.ttsDefaultVoice);
         if (selected)
-            DrawRectangleRec(row, kSelection);
+            DrawRectangleRec(r, kSelection);
         else if (hov)
-            DrawRectangleRec(row, Color{60, 54, 72, 220});
+            DrawRectangleRec(r, Color{60, 54, 72, 220});
         DrawTextEx(
             font,
             v.c_str(),
-            {row.x + 8.0f, row.y + 3.0f},
+            {r.x + 8.0f, r.y + 3.0f},
+            kFontSmall,
+            1.0f,
+            kTextPrimary);
+        my += rowH;
+    }
+}
+
+void SceneAuthoringDialog::drawMusicStyleMenu(Font font)
+{
+    if (!musicStyleMenuOpen)
+    {
+        musicStyleMenuRect = {0, 0, 0, 0};
+        return;
+    }
+
+    const float rowH = 22.0f;
+    const int visible = std::min(kMusicStyleMenuVisibleRows, kMusicStylePresetCount);
+    const float menuH = static_cast<float>(visible) * rowH + 4.0f;
+    const float maxScroll = static_cast<float>(
+        std::max(0, kMusicStylePresetCount - visible));
+    musicStyleMenuScroll = std::clamp(musicStyleMenuScroll, 0.0f, maxScroll);
+
+    musicStyleMenuRect = {
+        musicStyleBtnRect.x,
+        musicStyleBtnRect.y + musicStyleBtnRect.height + 2.0f,
+        std::max(musicStyleBtnRect.width, 200.0f),
+        menuH};
+    if (lastContentRect.height > 1.0f
+        && musicStyleMenuRect.y + musicStyleMenuRect.height
+            > lastContentRect.y + lastContentRect.height - 4.0f)
+        musicStyleMenuRect.y =
+            musicStyleBtnRect.y - musicStyleMenuRect.height - 2.0f;
+
+    DrawRectangleRec(musicStyleMenuRect, Color{36, 32, 44, 255});
+    DrawRectangleLinesEx(musicStyleMenuRect, 1.0f, kPanelBorder);
+
+    const Vector2 mouse = GetMousePosition();
+    const int first = static_cast<int>(std::floor(musicStyleMenuScroll + 0.001f));
+    float my = musicStyleMenuRect.y + 2.0f;
+    for (int row = 0; row < visible; ++row)
+    {
+        const int i = first + row;
+        if (i < 0 || i >= kMusicStylePresetCount)
+            break;
+        const Rectangle r = {
+            musicStyleMenuRect.x + 2.0f,
+            my,
+            musicStyleMenuRect.width - 4.0f,
+            rowH - 2.0f};
+        const bool hov = CheckCollisionPointRec(mouse, r);
+        const bool selected = (payload.musicStylePreset == kMusicStylePresets[i].id);
+        if (selected)
+            DrawRectangleRec(r, kSelection);
+        else if (hov)
+            DrawRectangleRec(r, Color{60, 54, 72, 220});
+        DrawTextEx(
+            font,
+            kMusicStylePresets[i].label,
+            {r.x + 8.0f, r.y + 3.0f},
             kFontSmall,
             1.0f,
             kTextPrimary);
@@ -1808,6 +2167,10 @@ void SceneAuthoringDialog::handleInput(int screenW, int screenH)
         {
             // Voice menu consumed the click.
         }
+        else if (handleMusicStyleMenuClick(mouse))
+        {
+            // Music style menu consumed the click.
+        }
         else if (lastFormScrollTrack.width > 1.0f
                  && (CheckCollisionPointRec(mouse, lastFormScrollThumb)
                      || CheckCollisionPointRec(mouse, lastFormScrollTrack)))
@@ -1970,7 +2333,31 @@ void SceneAuthoringDialog::handleInput(int screenW, int screenH)
     // otherwise scroll the form. Also accept wheel anywhere over the dialog
     // content / form scrollbar so the TTS section is reachable.
     const float wheel = GetMouseWheelMove();
-    if (wheel != 0.0f)
+    if (wheel != 0.0f
+        && voiceMenuOpen
+        && voiceMenuRect.height > 1.0f
+        && CheckCollisionPointRec(mouse, voiceMenuRect))
+    {
+        const int voiceCount = static_cast<int>(builtinVoiceIds().size());
+        const int visible = std::min(kVoiceMenuVisibleRows, voiceCount);
+        const float maxScroll =
+            static_cast<float>(std::max(0, voiceCount - visible));
+        voiceMenuScroll =
+            std::clamp(voiceMenuScroll - wheel, 0.0f, maxScroll);
+    }
+    else if (wheel != 0.0f
+        && musicStyleMenuOpen
+        && musicStyleMenuRect.height > 1.0f
+        && CheckCollisionPointRec(mouse, musicStyleMenuRect))
+    {
+        const int visible =
+            std::min(kMusicStyleMenuVisibleRows, kMusicStylePresetCount);
+        const float maxScroll = static_cast<float>(
+            std::max(0, kMusicStylePresetCount - visible));
+        musicStyleMenuScroll =
+            std::clamp(musicStyleMenuScroll - wheel, 0.0f, maxScroll);
+    }
+    else if (wheel != 0.0f)
     {
         auto tryMultiWheel = [&](MultilineState& state, std::string& buffer, int fieldIndex) -> bool {
             if (state.lastField.height <= 1.0f || state.lastMaxScroll <= 0.5f)
@@ -2050,6 +2437,8 @@ void SceneAuthoringDialog::handleInput(int screenW, int screenH)
     {
         if (voiceMenuOpen)
             voiceMenuOpen = false;
+        else if (musicStyleMenuOpen)
+            musicStyleMenuOpen = false;
         else
             closeDialog();
     }
@@ -2416,64 +2805,80 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
         }
         else if (ri == 2)
         {
-            // Period music preset — cycles through 1890s style beds (ElevenLabs).
-            static const char* kMusicPresets[] = {
-                "saloon_piano",
-                "trail_folk",
-                "cabin_hearth",
-                "mining_camp",
-                "tension",
-                "title_hymn",
-                "scarlet_whispers"};
-            static const char* kMusicPresetLabels[] = {
-                "Saloon piano / ragtime",
-                "Trail folk (fiddle)",
-                "Cabin hearth piano",
-                "Mining camp harmonica",
-                "Tension underscore",
-                "Title / menu hymn",
-                "Scarlet Whispers (tragic violin)"};
-            const int presetCount =
-                static_cast<int>(sizeof(kMusicPresets) / sizeof(kMusicPresets[0]));
-            int presetIndex = 2; // cabin_hearth default
-            for (int i = 0; i < presetCount; ++i)
-            {
-                if (payload.musicStylePreset == kMusicPresets[i])
-                {
-                    presetIndex = i;
-                    break;
-                }
-            }
+            // Period music style dropdown + short ElevenLabs preview.
             if (payload.musicStylePreset.empty())
-            {
-                payload.musicStylePreset = kMusicPresets[presetIndex];
-            }
+                payload.musicStylePreset = "cabin_hearth";
+            else if (payload.musicStylePreset
+                     != musicStylePresetIdAt(
+                         musicStylePresetIndex(payload.musicStylePreset)))
+                payload.musicStylePreset = "cabin_hearth";
+
             DrawTextEx(
                 font,
-                "Music style (1890s)",
+                "Music style",
                 {fieldX, y},
                 kFontTiny,
                 1.0f,
                 kTextMuted);
             y += 16.0f;
-            const Rectangle presetBtn = {fieldX, y, std::min(320.0f, fieldW), 28.0f};
+
+            const float previewW = 88.0f;
+            const float gap = 8.0f;
+            const float dropW =
+                std::min(260.0f, std::max(160.0f, fieldW - previewW - gap));
+            musicStyleBtnRect = {fieldX, y, dropW, 28.0f};
+            musicPreviewBtnRect = {
+                fieldX + dropW + gap, y, previewW, 28.0f};
+
+            const std::string dropLabel =
+                std::string(musicStylePresetLabel(payload.musicStylePreset))
+                + (musicStyleMenuOpen ? "  ^" : "  v");
             drawEditorButton(
                 font,
-                presetBtn,
-                kMusicPresetLabels[presetIndex],
-                false,
-                true);
-            if (canClick && hitInContent(presetBtn))
+                musicStyleBtnRect,
+                dropLabel.c_str(),
+                musicStyleMenuOpen,
+                !busy);
+            if (canClick && hitInContent(musicStyleBtnRect))
             {
-                presetIndex = (presetIndex + 1) % presetCount;
-                payload.musicStylePreset = kMusicPresets[presetIndex];
+                musicStyleMenuOpen = !musicStyleMenuOpen;
+                if (musicStyleMenuOpen)
+                {
+                    voiceMenuOpen = false;
+                    const int idx = musicStylePresetIndex(payload.musicStylePreset);
+                    musicStyleMenuScroll = static_cast<float>(std::max(
+                        0, idx - kMusicStyleMenuVisibleRows / 2));
+                }
             }
+
+            const bool previewPlaying =
+                previewStyleMusicPlaying
+                && previewStyleMusicPreset == payload.musicStylePreset;
+            const char* previewLabel =
+                busy && generateTarget.load() == 99
+                    ? "Gen…"
+                    : (previewPlaying ? "Stop" : "Preview");
+            const bool canPreview = !busy && elevenLabsValid;
+            drawEditorButton(
+                font,
+                musicPreviewBtnRect,
+                previewLabel,
+                previewPlaying,
+                canPreview || previewPlaying);
+            if (canClick && hitInContent(musicPreviewBtnRect)
+                && (canPreview || previewPlaying))
+            {
+                musicStyleMenuOpen = false;
+                startMusicStylePreview();
+            }
+
             DrawTextEx(
                 font,
                 elevenLabsValid
-                    ? "Click to cycle"
-                    : "Click to cycle — Options → Configure API keys",
-                {presetBtn.x + presetBtn.width + 10.0f, presetBtn.y + 6.0f},
+                    ? "Shift+Preview regenerates cache"
+                    : "ElevenLabs key required",
+                {musicPreviewBtnRect.x + musicPreviewBtnRect.width + 10.0f,
+                 musicPreviewBtnRect.y + 6.0f},
                 kFontTiny,
                 1.0f,
                 kTextMuted);
@@ -2481,6 +2886,12 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
         }
         else
             y += 4.0f;
+    }
+    if (pathRowCount < 3)
+    {
+        musicStyleBtnRect = {0, 0, 0, 0};
+        musicPreviewBtnRect = {0, 0, 0, 0};
+        musicStyleMenuOpen = false;
     }
 
     // Alternate / focus view switch (bottom of core fields).
@@ -2591,7 +3002,26 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
             true,
             !busy);
         if (canClick && hitInContent(voiceBtnRect))
+        {
             voiceMenuOpen = !voiceMenuOpen;
+            if (voiceMenuOpen)
+            {
+                musicStyleMenuOpen = false;
+                const std::vector<std::string>& voices = builtinVoiceIds();
+                const int voiceCount = static_cast<int>(voices.size());
+                int selected = 0;
+                for (int i = 0; i < voiceCount; ++i)
+                {
+                    if (voices[static_cast<size_t>(i)] == payload.ttsDefaultVoice)
+                    {
+                        selected = i;
+                        break;
+                    }
+                }
+                voiceMenuScroll = static_cast<float>(std::max(
+                    0, selected - kVoiceMenuVisibleRows / 2));
+            }
+        }
         y += 36.0f;
 
         drawLabel(font, "TTS Description", indentX, y);
@@ -2748,8 +3178,9 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
             draggingFormScroll ? kPanelBorder : kPanelAccent);
     }
 
-    // Voice menu must not be clipped by the content scissor.
+    // Dropdown menus must not be clipped by the content scissor.
     drawVoiceMenu(font);
+    drawMusicStyleMenu(font);
 
     // Footer buttons
     const float btnW = 130.0f;
@@ -2779,6 +3210,11 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
         if (voiceMenuOpen && CheckCollisionPointRec(mouse, voiceMenuRect))
         {
             // Handled in handleInput via handleVoiceMenuClick; avoid closing dialog.
+        }
+        else if (musicStyleMenuOpen
+                 && CheckCollisionPointRec(mouse, musicStyleMenuRect))
+        {
+            // Handled in handleInput via handleMusicStyleMenuClick.
         }
         else if (CheckCollisionPointRec(mouse, cancelBtn))
             closeDialog();

@@ -1893,9 +1893,14 @@ namespace
         if (!sceneDatabase.isHighAltitudeScene(worldState.currentSceneId))
             return;
 
+        const float lucidityDelta =
+            gameConfig.gameplay.highAltitudeLucidityPerAction;
+        if (lucidityDelta == 0.0f)
+            return;
+
         StatusEffect altitudeEffect;
         altitudeEffect.key = "high_altitude:count:" + std::to_string(worldState.actionCount);
-        altitudeEffect.lucidity = -1.0f;
+        altitudeEffect.lucidity = lucidityDelta;
         if (!tryApplyStatusEffect(altitudeEffect, false))
             return;
 

@@ -127,6 +127,54 @@ void SceneGraphModel::clearExitTarget(const std::string& sceneId, const std::str
         (*scene)["exitRequirements"].erase(direction);
 }
 
+void SceneGraphModel::clearCompassLinksForScene(const std::string& sceneId)
+{
+    if (!docs || !docs->scenes.isLoaded() || sceneId.empty())
+        return;
+
+    // Compass exits live on parent scene JSON only.
+    const std::string parentId = parentSceneIdForExits(sceneId);
+    static const char* kDirs[] = {"forward", "backward", "left", "right", "up", "down"};
+
+    // Clear outbound exits on this scene (and matching reciprocals when present).
+    for (const char* dir : kDirs)
+    {
+        const std::string target = getExitTarget(parentId, dir);
+        if (target.empty())
+            continue;
+        deleteExitLink(parentId, dir, true);
+    }
+
+    // Clear inbound compass exits that still name this scene (exact id match,
+    // same rule as SceneDocument::removeScene).
+    const std::vector<std::string> ids = docs->scenes.sceneIds();
+    for (const std::string& otherId : ids)
+    {
+        if (otherId == parentId)
+            continue;
+        for (const char* dir : kDirs)
+        {
+            if (getExitTarget(otherId, dir) == parentId)
+                clearExitTarget(otherId, dir);
+        }
+    }
+
+    docs->markDirty();
+}
+
+bool SceneGraphModel::isExitPortLinked(
+    const std::string& sceneId,
+    const std::string& direction) const
+{
+    if (!docs || !docs->scenes.isLoaded())
+        return false;
+    const std::string target = getExitTarget(sceneId, direction);
+    if (target.empty())
+        return false;
+    // Match wire visibility: a target without map placement is not "linked".
+    return docs->scenes.hasMapPlacement(target);
+}
+
 nlohmann::json SceneGraphModel::readExitRequirement(
     const std::string& sceneId,
     const std::string& direction) const
@@ -443,10 +491,20 @@ bool SceneGraphModel::retargetExitLink(
 
     if (hadReciprocal)
     {
-        // Reverse slot on the new target must be free (or already back to fromId).
+        // Reverse slot on the new target must be free, already back to fromId,
+        // or a stale pointer at an off-map / missing scene.
         const std::string existingReverse = getExitTarget(newToId, reverseDir);
         if (!existingReverse.empty() && existingReverse != fromId)
-            return false;
+        {
+            const bool reverseStale =
+                !docs->scenes.hasMapNode(existingReverse)
+                || !docs->scenes.hasMapPlacement(existingReverse);
+            if (!reverseStale)
+                return false;
+            if (getExitTarget(existingReverse, direction) == newToId)
+                clearExitTarget(existingReverse, direction);
+            clearExitTarget(newToId, reverseDir);
+        }
     }
 
     clearExitTarget(fromId, direction);
@@ -503,8 +561,25 @@ bool SceneGraphModel::createExitLink(
     if (reciprocalIfFree && !reverseDir.empty())
     {
         const std::string reverseExisting = getExitTarget(toId, reverseDir);
-        if (reverseExisting.empty() || reverseExisting == fromId)
+        // Treat reverse as free when empty, already reciprocal, or pointing at a
+        // scene that is missing / off the map (stale after Remove from map).
+        const bool reverseFree = reverseExisting.empty() || reverseExisting == fromId;
+        const bool reverseStale =
+            !reverseExisting.empty()
+            && reverseExisting != fromId
+            && (!docs->scenes.hasMapNode(reverseExisting)
+                || !docs->scenes.hasMapPlacement(reverseExisting));
+        if (reverseFree || reverseStale)
+        {
+            if (reverseStale)
+            {
+                // Drop the unplaced neighbor's reciprocal if it still points here.
+                if (getExitTarget(reverseExisting, direction) == toId)
+                    clearExitTarget(reverseExisting, direction);
+                clearExitTarget(toId, reverseDir);
+            }
             setExitTarget(toId, reverseDir, fromId);
+        }
     }
 
     docs->markDirty();

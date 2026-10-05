@@ -262,8 +262,8 @@
           }
         ]
       },
-      "description": "You step inside from the porch into a humble country kitchen with warm wood cabinetry and copper accents. A heavy door behind you leads back out to the snowy plateau. Ahead, a doorway opens on the living room where lamplight and hearth warmth spill across the threshold. On the tiny counter sits an impressive espresso machine that looks far too sophisticated for this ridge cabin.",
-      "examineDetails": "The exterior door is built from thick, hand-planed planks fitted tight enough to hold out the mountain cold. Its lock is a heavy iron box latch with a blackened steel bolt and worn brass keyhole, quality hardware, recently oiled. The espresso machine dominates the counter: polished steel body, twin pressure gauges, two group heads, a chrome steam wand, and a warmed cup rail with two white saucers still holding heat. The portafilter carries the faint bitter scent of a fresh pull. Beneath open shelves, cast iron pans hang in a neat row: a deep skillet, a dutch oven, and a smaller sauce pan, all seasoned to a dark gloss and clearly used often. You open the lower cabinets carefully. Inside are ordinary dry goods: flour in a paper sack, sugar, salt, a tin of crackers, rice in a cloth bag, and canned goods lined along the back. Tucked behind the flour, you find a mason jar filled to the brim with dark roasted coffee beans, their oily surface catching the lamplight. Beside the stove, another mason jar sits heavy with pale rendered lard, its waxed lid sealed tight. Whoever lives here eats simply, but drinks like a connoisseur. The living room lies forward. The plateau and steep mountain trail lie behind you through the porch door.",
+      "description": "You step in from the porch into a warm kitchen of pine boards and copper. A cast-iron wood stove crouches against the far wall, its glass door showing coals still alive; a black coffee pot sits on the cooktop, steaming faintly. Copper pots and pans hang from a rail above the stove, catching lamplight. Behind you the heavy door leads back to the snowy plateau. Ahead, an open doorway spills into the living room where hearth light waits.",
+      "examineDetails": "The porch door is thick hand-planed plank, fitted tight against the mountain cold, its iron box latch recently oiled. Along the left wall a work counter holds ceramic jars, stacked bowls, and a stone mortar — the tools of a kitchen that feeds one life without fuss. Above the stove a copper rail carries pans and kettles in a neat row, seasoned dark where fire has kissed them often.\n\nThe wood stove is the room's heart: black iron, a glass fire door, coals still breathing orange. Heat radiates in steady waves. On the cooktop sits a black enamel coffee pot, warm to the touch, as though someone set it there and stepped away only moments ago. Beside the stove, cast-iron cookware waits within reach.\n\nYou open the lower cabinets carefully. Ordinary dry goods: flour in a paper sack, sugar, salt, a tin of crackers, rice in a cloth bag, canned goods lined along the back. Tucked behind the flour, a mason jar brims with dark roasted coffee beans, their oily skins catching the lamp. Beside it, another jar sits heavy with pale rendered lard, waxed lid sealed tight. A window over the sink looks out on snow and ridge. Whoever keeps this kitchen eats simply, but keeps the stove fed and the coffee pot ready. The living room lies forward. The plateau and mountain trail wait behind you through the porch door.",
       "exits": {
         "backward": "ridge_cabin_exterior",
         "forward": "cabin"
@@ -290,7 +290,7 @@
           "name": "Lard"
         }
       ],
-      "useDetails": "You measure the beans from the mason jar and grind them fine. The espresso machine wakes with a low hum. You lock the portafilter, draw a tight double shot into a warmed cup, and watch the crema rise in a slow amber ribbon. The first sip is sharp and dark, then opens into warmth that spreads through your chest and limbs. The cabin seems less cold afterward, and your thoughts sharpen as the fatigue lifts.",
+      "useDetails": "You scoop beans from the mason jar and grind them coarse in the mortar. Water from the kettle goes into the black coffee pot on the wood stove; you settle it over the live coals and wait while the iron ticks and the grounds bloom. The brew comes up dark and honest — no machine hum, only stove heat and patience. The first sip is bitter, then opens into warmth that spreads through your chest and limbs. The cabin seems less cold afterward, and your thoughts sharpen as the fatigue lifts.",
       "useEnergyDelta": 30,
       "useHealthDelta": 0
     },
@@ -1416,29 +1416,41 @@
       "actions": {
         "examine": true,
         "hit": false,
-        "speak": false,
+        "speak": true,
         "use": false
       },
       "audio": {
         "ambient": [
           {
-            "fade_in": 2.0,
-            "fade_out": 2.0,
+            "fade_in": 1.5,
+            "fade_out": 1.5,
             "loop": true,
             "path": "resources/audio/ambient/wind.mp3",
-            "volume": 0.3
-          },
-          {
-            "fade_in": 2.5,
-            "fade_out": 2.0,
-            "loop": true,
-            "path": "resources/audio/ambient/narrow_path_aspen_grove.mp3",
-            "volume": 0.1
+            "volume": 0.45
           }
-        ]
+        ],
+        "music": {
+          "fade_in": 3.0,
+          "fade_out": 2.5,
+          "loop": true,
+          "path": "resources/audio/music/ridge_cabin_exterior_theme.mp3",
+          "volume": 0.2
+        }
       },
-      "description": "The left-hand path opens onto a small snowy plateau where a cabin looks no older than ten years and far better made than most ridge construction. Squared timber walls rise from a stone foundation, corners tight, roof metal and true. A covered porch faces the valley with two rockers and a braided rug. Windows are clean. The chimney is swept. The place is quaint without being precious - the work of someone who knew how to build and did not need to boast about it.",
-      "examineDetails": "You walk the perimeter slowly, reading the details the way you read a room.\n\nThe logs are dressed and fitted, not the slap-and-chink work of a mining camp. Chinking is neat. The foundation is river stone set in mortar, level on the plateau despite the mountain's tilt all around it. A brass house number - 7 - is nailed beside the door with a carpenter's straightness. The porch boards are recent, still pale where sun has not yet darkened them. Two rockers sit under the eave, cushions faded but dry. A braided rug lies square on the boards as though someone straightened it before leaving.\n\nNo name on the mailbox. No horse in a lean-to. No wash on the line. And yet the cabin is not abandoned: window glass unbroken, door hardware oiled, a faint scent of woodsmoke in the stone chimney though no fire burns now. Whoever lives here keeps a small, orderly life above the fog line.\n\nThe branch path drops away behind you toward the steep mountain trail below. Through the front door you catch the warm smell of coffee and the deeper hearth-light of the living room beyond the kitchen. This feels like a different kind of appointment - private, domestic, recently chosen.",
+      "description": "The left-hand path opens onto a small snowy plateau where a cabin looks no older than ten years and far better made than most ridge construction. Squared timber walls rise from a stone foundation, corners tight, roof metal and true. A covered porch faces the valley with two rockers and a braided rug. Windows are clean. The chimney is swept. The place is quaint without being precious - the work of someone who knew how to build but did not need to boast about it.  Ahead, the path continues.",
+      "descriptionTts": {
+        "tts": true,
+        "ttsAudio": "resources/audio/tts/ridge_cabin_exterior/descriptionTts.mp3",
+        "ttsText": "The left-hand path opens onto a small snowy plateau where a cabin looks no older than ten years and far better made than most ridge construction. Squared timber walls rise from a stone foundation, corners tight, roof metal and true. A covered porch faces the valley with two rockers and a braided rug. Windows are clean. The chimney is swept. The place is quaint without being precious - the work of someone who knew how to build but did not need to boast about it. [pause] Ahead, the path continues.",
+        "ttsVoice": ""
+      },
+      "examineDetails": "At this elevation, the view is breathtaking.  There is no mystery why someone would choose to build a cabin here.  It is quaint, but in good repair.  It is nestled by vibrant orange and yellow aspens providing a wind break without obstructing the view.  Only a few feet beyond the cabin, the earth vanishes.  Nothing but sky, the peaks in the distance and Graymill below.   It has a sturdy foundation of fieldstone with period craftsmanship.  Only perhaps, slightly more elegant.  The welcoming covered porch boasts two rocking chairs.  The front door is sturdy solid oak with detailed panels and a brass lockset.  Easy on the eyes without being ostentatious.  Whoever lives here wanted to blend in while standing out.",
+      "examineTts": {
+        "tts": true,
+        "ttsAudio": "resources/audio/tts/ridge_cabin_exterior/examineTts.mp3",
+        "ttsText": "At this elevation, the view is breathtaking. [pause] There is no mystery why someone would choose to build a cabin here. [long-pause] It is quaint, but in good repair. It is nestled by vibrant orange and yellow aspens providing a wind break without obstructing the view. [pause] Only a few feet beyond the cabin, the earth vanishes. [long-pause] Nothing but sky, the peaks in the distance and Graymill below. [pause] It has a sturdy foundation of fieldstone with period craftsmanship. Only perhaps, slightly more elegant. [pause] The welcoming covered porch boasts two rocking chairs. The front door is sturdy solid oak with detailed panels and a brass lockset. Easy on the eyes without being ostentatious. [pause] Whoever lives here wanted to blend in while standing out.",
+        "ttsVoice": ""
+      },
       "exits": {
         "forward": "cabin_kitchen",
         "right": "steep_mountain_trail"
@@ -1456,6 +1468,8 @@
         "right": true
       },
       "start": false,
+      "ttsDefaultVoice": "leo",
+      "ttsEnabled": true,
       "useDetails": ""
     },
     "ridge_haberdashery": {
@@ -1810,25 +1824,18 @@
         "ambient": [
           {
             "fade_in": 1.5,
-            "fade_out": 1.0,
+            "fade_out": 1.5,
             "loop": true,
             "path": "resources/audio/ambient/saloon_pub_crowd.mp3",
-            "volume": 0.8
-          },
-          {
-            "fade_in": 1.5,
-            "fade_out": 1.0,
-            "loop": true,
-            "path": "resources/audio/ambient/saloon_restaurant_crowd.mp3",
-            "volume": 0.65
+            "volume": 0.45
           }
         ],
         "music": {
-          "fade_in": 2.0,
-          "fade_out": 1.5,
+          "fade_in": 3.0,
+          "fade_out": 2.5,
           "loop": true,
           "path": "resources/audio/music/saloon_noir_jazz.mp3",
-          "volume": 0.28
+          "volume": 0.2
         },
         "sfx": [
           {
@@ -1847,7 +1854,19 @@
       },
       "defaultSubScene": "main_bar",
       "description": "You push through the batwing doors and the air drops out of your lungs. Just for a moment. The room seems to hold its breath with you. Tobacco smoke, spilled whiskey, lamp soot, and something sweeter beneath it all. Then the saloon exhales and life resumes as though you are merely a draft through the doorway. Glasses rise. Cards slap wood. A piano finds the same broken phrase it was playing before you entered. The bartender does not resume. He stands planted behind the long bar, rag frozen on a tumbler, and glares at you with the flat disapproval of a man who has already decided you are trouble. Above the clatter and the low male laughter, you catch movement on the second floor. A balcony rail runs the length of the hall, and behind it women look down in provocative dress. Corsets cinched tight, throats and wrists bare, feathers and cheap jewels catching the lamplight. A few of their colleagues move among the patrons below, hands on shoulders, laughter manufactured and precise. You feel their attention settle on you the way a match settles on kindling. They recognize you. Or they recognize something about you. And you realize, with equal certainty, that you have caught their eye.",
-      "examineDetails": "The main floor is built for throughput and temptation. Sawdust covers the boards between tables. A faro table near the stove holds three players and a dealer whose eyes never quite meet yours. Poker in the corner runs quieter and meaner. The bar itself is a slab of polished pine scarred with initials and burns, brass foot rail bolted through, backbar stacked with bottles labeled in handwriting you cannot read from here. The bartender is broad through the shoulders, sleeves rolled, jaw set. His glare is not surprise. It is inventory.\n\nThe staircase to the balcony is carved with turned balusters and wear-polished treads. Upstairs, the women are not merely decorative. They watch the room the way lookouts watch a road. One in burgundy silk leans far enough over the rail that a patron below thinks the view is for him; her gaze, however, tracks you. Another in emerald green speaks softly to a miner whose stack of chips has grown too tall for comfort. Near the piano, a third woman passes close enough that you catch perfume, rouge, and the metallic edge of nerves held under control. They are working. All of them. And still you have interrupted something by entering. The recognition in their eyes is not warmth. It is calculation.\n\nYou note exits: the doors behind you, a side passage curtained with faded velvet near the stairs, the bar's service hatch snapped shut. Whatever this place is selling tonight, it is selling it on multiple floors. And you are already part of the ledger.",
+      "descriptionTts": {
+        "tts": true,
+        "ttsAudio": "resources/audio/tts/saloon_interior/descriptionTts.mp3",
+        "ttsText": "You push through the batwing doors and the air drops out of your lungs. [pause] Just for a moment. The room seems to hold its breath with you. Tobacco smoke, spilled whiskey, lamp soot, and something sweeter beneath it all. [long-pause] Then the saloon exhales and life resumes as though you are merely a draft through the doorway. Glasses rise. Cards slap wood. A piano finds the same broken phrase it was playing before you entered. [pause] The bartender does not resume. He stands planted behind the long bar, rag frozen on a tumbler, and glares at you with the flat disapproval of a man who has already decided you are trouble. \n\nAbove the clatter and the low male laughter, you catch movement on the second floor. A balcony rail runs the length of the hall, and behind it women look down in provocative dress. Corsets cinched tight, throats and wrists bare, feathers and cheap jewels catching the lamplight. A few of their colleagues move among the patrons below, hands on shoulders, laughter manufactured and precise. [pause] You feel their attention settle on you the way a match settles on kindling. They recognize you. Or they recognize something about you. And you realize, with equal certainty, that you have caught their eye.",
+        "ttsVoice": ""
+      },
+      "examineDetails": "The main floor is built for throughput and temptation. Sawdust covers the boards between tables. A blackjack table near the stove holds three players and a dealer whose eyes never quite meet yours. Poker in the corner runs quieter and meaner. The bar itself is a slab of polished pine scarred with initials and burns, brass foot rail bolted through, backbar stacked with bottles labeled in handwriting you cannot read from here. The bartender is broad through the shoulders, sleeves rolled, jaw set. His glare is not surprise. It is inventory.\n\nThe staircase to the balcony is carved with turned balusters and wear-polished treads. Upstairs, the women are not merely decorative. They watch the room the way lookouts watch a road. One in burgundy silk leans far enough over the rail that a patron below thinks the view is for him; her gaze, however, tracks you. Another in emerald green speaks softly to a miner whose stack of chips has grown too tall for comfort. Near the piano, a third woman passes close enough that you catch perfume, rouge, and the metallic edge of nerves held under control. They are working. All of them. And still you have interrupted something by entering. The recognition in their eyes is not warmth. It is calculation.\n\nYou note exits: the doors behind you, a side passage curtained with faded velvet near the stairs, the bar's service hatch snapped shut. Whatever this place is selling tonight, it is selling it on multiple floors. And you are already part of the ledger.",
+      "examineTts": {
+        "tts": true,
+        "ttsAudio": "resources/audio/tts/saloon_interior/examineTts.mp3",
+        "ttsText": "The main floor is built for throughput and temptation. [pause] Sawdust covers the boards between tables. A blackjack table near the stove holds three players and a dealer whose eyes never quite meet yours. [pause] Poker in the corner runs quieter and meaner. \n\nThe bar itself is a slab of polished pine scarred with initials and burns, brass foot rail bolted through, backbar stacked with bottles labeled in handwriting you cannot read from here. The bartender is broad through the shoulders, sleeves rolled, jaw set. His glare is not surprise. It is inventory.\n\nThe staircase to the balcony is carved with turned balusters and wear-polished treads. [long-pause] Upstairs, the women are not merely decorative. They watch the room the way lookouts watch a road. One in burgundy silk leans far enough over the rail that a patron below thinks the view is for him; her gaze, however, tracks you. [pause] Another in emerald green speaks softly to a miner whose stack of chips has grown too tall for comfort. Near the piano, a third woman passes close enough that you catch perfume, rouge, and the metallic edge of nerves held under control. \n\nThey are working. All of them. [pause] And still you have interrupted something by entering. The recognition in their eyes is not warmth. It is calculation.\n\nYou note exits: the doors behind you, a side passage curtained with faded velvet near the stairs, the bar's service hatch snapped shut. [long-pause] Whatever this place is selling tonight, it is selling it on multiple floors. And you are already part of the ledger.",
+        "ttsVoice": ""
+      },
       "exits": {
         "backward": "saloon_front",
         "right": "saloon_side_passage",
@@ -1856,7 +1875,7 @@
       "image": "resources/images/saloon_interior.png",
       "layout": {
         "level": 0,
-        "x": 1320.0,
+        "x": 1319.0,
         "y": 1565.0
       },
       "movement": {

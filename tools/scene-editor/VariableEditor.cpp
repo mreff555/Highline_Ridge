@@ -102,6 +102,7 @@ void VariableEditor::closeVariableEditor()
     voiceDropdownOpen = false;
     voiceDropdownBtn = {0, 0, 0, 0};
     voiceDropdownMenu = {0, 0, 0, 0};
+    voiceDropdownScroll = 0.0f;
 }
 
 bool VariableEditor::canOpenParchment() const
@@ -1083,6 +1084,24 @@ void VariableEditor::handleVariableEditorTextInput()
         IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER);
     const Vector2 mouse = GetMousePosition();
 
+    if (voiceDropdownOpen
+        && voiceDropdownMenu.height > 1.0f
+        && CheckCollisionPointRec(mouse, voiceDropdownMenu))
+    {
+        const float wheel = GetMouseWheelMove();
+        if (wheel != 0.0f)
+        {
+            const int optionCount =
+                1 + static_cast<int>(builtinVoiceIds().size());
+            const int visible =
+                std::min(kVoiceDropdownVisibleRows, optionCount);
+            const float maxScroll =
+                static_cast<float>(std::max(0, optionCount - visible));
+            voiceDropdownScroll =
+                std::clamp(voiceDropdownScroll - wheel, 0.0f, maxScroll);
+        }
+    }
+
     // Right-click field → "Edit full screen" (same affordance as Edit Scene).
     if (canOpenParchment() && editorMousePressed(MOUSE_BUTTON_RIGHT)
         && CheckCollisionPointRec(mouse, field))
@@ -1146,24 +1165,50 @@ void VariableEditor::handleVariableEditorTextInput()
         {
             mouseSelecting = false;
             voiceDropdownOpen = !voiceDropdownOpen;
+            if (voiceDropdownOpen)
+            {
+                const std::vector<std::string>& voices = builtinVoiceIds();
+                const std::string current = ownerTtsPolicyDropdownLabel();
+                int selected = 0;
+                if (current != "OFF")
+                {
+                    for (int i = 0; i < static_cast<int>(voices.size()); ++i)
+                    {
+                        if (voices[static_cast<size_t>(i)] == current)
+                        {
+                            selected = i + 1; // +1 for OFF row
+                            break;
+                        }
+                    }
+                }
+                voiceDropdownScroll = static_cast<float>(std::max(
+                    0, selected - kVoiceDropdownVisibleRows / 2));
+            }
             return;
         }
         if (voiceDropdownOpen && voiceDropdownMenu.height > 1.0f)
         {
             const std::vector<std::string>& voices = builtinVoiceIds();
             const int optionCount = 1 + static_cast<int>(voices.size());
-            const float rowH = voiceDropdownMenu.height / static_cast<float>(optionCount);
+            const float rowH = 24.0f;
+            const int first =
+                static_cast<int>(std::floor(voiceDropdownScroll + 0.001f));
+            const int visible = std::min(kVoiceDropdownVisibleRows, optionCount);
             bool hit = false;
-            for (int i = 0; i < optionCount; ++i)
+            for (int row = 0; row < visible; ++row)
             {
-                const Rectangle row = {
+                const int i = first + row;
+                if (i < 0 || i >= optionCount)
+                    break;
+                const Rectangle r = {
                     voiceDropdownMenu.x,
-                    voiceDropdownMenu.y + rowH * static_cast<float>(i),
+                    voiceDropdownMenu.y + rowH * static_cast<float>(row),
                     voiceDropdownMenu.width,
                     rowH};
-                if (CheckCollisionPointRec(mouse, row))
+                if (CheckCollisionPointRec(mouse, r))
                 {
-                    const std::string opt = (i == 0) ? "OFF" : voices[static_cast<size_t>(i - 1)];
+                    const std::string opt =
+                        (i == 0) ? "OFF" : voices[static_cast<size_t>(i - 1)];
                     applyOwnerTtsPolicySelection(opt);
                     voiceDropdownOpen = false;
                     hit = true;
@@ -1451,13 +1496,17 @@ void VariableEditor::drawVariableEditor(int screenWidth, int screenHeight)
         const std::vector<std::string>& voices = builtinVoiceIds();
         const int optionCount = 1 + static_cast<int>(voices.size());
         const float rowH = 24.0f;
+        const int visible = std::min(kVoiceDropdownVisibleRows, optionCount);
+        const float maxScroll =
+            static_cast<float>(std::max(0, optionCount - visible));
+        voiceDropdownScroll = std::clamp(voiceDropdownScroll, 0.0f, maxScroll);
         if (voiceDropdownOpen)
         {
             voiceDropdownMenu = {
                 voiceBtnX,
                 voiceBtnY + voiceBtnH + 2.0f,
                 voiceBtnW,
-                rowH * static_cast<float>(optionCount)};
+                rowH * static_cast<float>(visible)};
         }
         else
         {
@@ -1732,24 +1781,34 @@ void VariableEditor::drawVariableEditor(int screenWidth, int screenHeight)
     {
         const std::vector<std::string>& voices = builtinVoiceIds();
         const int optionCount = 1 + static_cast<int>(voices.size());
-        const float rowH = voiceDropdownMenu.height / static_cast<float>(optionCount);
+        const float rowH = 24.0f;
+        const int visible = std::min(kVoiceDropdownVisibleRows, optionCount);
+        const float maxScroll =
+            static_cast<float>(std::max(0, optionCount - visible));
+        voiceDropdownScroll = std::clamp(voiceDropdownScroll, 0.0f, maxScroll);
+        const int first =
+            static_cast<int>(std::floor(voiceDropdownScroll + 0.001f));
         DrawRectangleRec(voiceDropdownMenu, Color{28, 26, 34, 255});
         DrawRectangleLinesEx(voiceDropdownMenu, 1.0f, kPanelBorder);
-        for (int i = 0; i < optionCount; ++i)
+        for (int row = 0; row < visible; ++row)
         {
-            const std::string opt = (i == 0) ? "OFF" : voices[static_cast<size_t>(i - 1)];
-            const Rectangle row = {
+            const int i = first + row;
+            if (i < 0 || i >= optionCount)
+                break;
+            const std::string opt =
+                (i == 0) ? "OFF" : voices[static_cast<size_t>(i - 1)];
+            const Rectangle r = {
                 voiceDropdownMenu.x,
-                voiceDropdownMenu.y + rowH * static_cast<float>(i),
+                voiceDropdownMenu.y + rowH * static_cast<float>(row),
                 voiceDropdownMenu.width,
                 rowH};
             const bool selected = (opt == ownerTtsPolicyDropdownLabel());
-            if (CheckCollisionPointRec(GetMousePosition(), row) || selected)
-                DrawRectangleRec(row, selected ? Color{70, 60, 90, 255} : Color{60, 55, 75, 255});
+            if (CheckCollisionPointRec(GetMousePosition(), r) || selected)
+                DrawRectangleRec(r, selected ? Color{70, 60, 90, 255} : Color{60, 55, 75, 255});
             DrawTextEx(
                 headerFont,
                 opt.c_str(),
-                {row.x + 8.0f, row.y + 4.0f},
+                {r.x + 8.0f, r.y + 4.0f},
                 kFontBody,
                 1.0f,
                 kTextPrimary);

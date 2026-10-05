@@ -20,6 +20,19 @@ Storyboarding is still in progress. Engineering focus is Timberline as a reusabl
 
 ---
 
+## Documentation
+
+**Index:** **[`docs/README.md`](docs/README.md)** — full catalog of topic guides, plus which page owns keys / audio / TTS / exits so we do not repeat the same how-to in multiple places.
+
+| Quick links | |
+|-------------|--|
+| Build / platforms / save paths | [BUILD.md](BUILD.md) |
+| Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Scene editor | [docs/scene-editor-tutorial.md](docs/scene-editor-tutorial.md) |
+| API keys | [docs/api-keys.md](docs/api-keys.md) |
+
+---
+
 ## AI co-developed
 
 This project is **mostly AI-developed** in partnership with a human director.
@@ -27,11 +40,7 @@ This project is **mostly AI-developed** in partnership with a human director.
 - **Human:** Dan Feerst (`feerstd@gmail.com`) — design direction, playtesting, art/TTS approvals, release decisions  
 - **Agent:** **c0d3B0t555** — implementation, tooling, docs, issue triage, and iterative authoring alongside Dan  
 
-Timberline is designed to work with **[xAI](https://x.ai)** / **Grok**:
-
-- Dialog and scene TTS via Grok voices (`ara`, `eve`, `helios`, `leo`, `rex`, `rigel`, `sal`)
-- Inline voice markup and realism tags (see [docs/tts.md](docs/tts.md))
-- Refresh workflows that call the xAI API from **dev** builds (`--key`, `--refresh-voices`)
+Timberline integrates **[xAI](https://x.ai)** / **Grok** (TTS, images) and **ElevenLabs** (ambient, music, SFX). Voice markup: [docs/tts.md](docs/tts.md). Keys and which Generate actions need which provider: [docs/api-keys.md](docs/api-keys.md).
 
 Art, narrative beats, and engine features are co-evolved in the loop: human taste + agent throughput.
 
@@ -39,9 +48,7 @@ Art, narrative beats, and engine features are co-evolved in the loop: human tast
 
 ## Contributing
 
-Human and AI contributions are welcome — especially **Windows** support, storyboarding, scene/TTS generation, UI, and docs.
-
-See **[CONTRIBUTING.md](CONTRIBUTING.md)** for contact (`feerstd@gmail.com`), branch/PR rules, and the current needs list. Work from the latest release-candidate branch (currently `v0.3.0.0_RC`).
+Human and AI contributions are welcome — especially **Windows** support, storyboarding, scene/TTS generation, UI, and docs. See **[CONTRIBUTING.md](CONTRIBUTING.md)** (contact, branch/PR rules, needs list). Work from the latest release-candidate branch (currently `v0.3.0.0_RC`).
 
 ---
 
@@ -68,33 +75,17 @@ Status effects can be one-shot or repeatable (`repeat` / `useRepeatStatus`). Sce
 
 ### Movement and Use
 
-- **Compass exits** — gold mid-edge wires on the map  
-- **Floor up/down** — Connect to floor; stair badges (`^N` / `vN`) for audio/gates  
-- **Use → another scene** — silver corner wires (`useExit` or interaction `exitSceneId`)  
-- **Same-room Use** (narrative only) — no map wire; still appears in-game  
-- **Gated MOVE** — Exit Requirements (light / item / flag + blocked VO)  
-
-Details: [docs/scene-map-exits.md](docs/scene-map-exits.md) (also covers place-item vs Inventory and folds #16 special cases).
+Compass (gold), floors (stair badges), Use (silver), and gated MOVE are authored on the scene map. Full detail: [docs/scene-map-exits.md](docs/scene-map-exits.md).
 
 ### Saves
 
-Release builds do **not** write beside the binary:
-
-| Platform | User data |
-|----------|-----------|
-| Linux | `~/.highline_ridge/` |
-| macOS | `~/Library/Application Support/Highline Ridge/` |
-| Windows | `%AppData%\Highline Ridge\` |
-
-Override with `HIGHLINE_DATA_DIR`.
+Release builds store saves/settings in the platform **user data** directory (not beside the binary). Paths and `HIGHLINE_DATA_DIR`: [BUILD.md](BUILD.md#user-data-saves--settings).
 
 ---
 
 ## Multi-platform build
 
-**Dependencies:** CMake, C++17, Raylib (fetched), **liblzma**, **libjpeg**, **libopusfile** / **libopus**.
-
-Full platform steps (macOS Homebrew/`/opt/homebrew`, Linux apt, Windows vcpkg): **[BUILD.md](BUILD.md)**.
+**Dependencies:** CMake, C++17, Raylib (fetched), **liblzma**, **libjpeg**, **libopusfile** / **libopus**. Platform steps and flags: **[BUILD.md](BUILD.md)**. Dev vs player package: [docs/dev-vs-release.md](docs/dev-vs-release.md).
 
 ### Dev (disk `resources/` + editor)
 
@@ -114,32 +105,9 @@ cd build-release
 ./Highline\ Ridge
 ```
 
-| Mode | Embed | Scene editor | Dev tools / TTS refresh CLI |
-|------|-------|--------------|------------------------------|
-| Dev (default) | OFF | ON | ON |
-| `./build-release.sh` | ON | OFF | OFF |
-| + `--with-scene-editor` | ON | ON | OFF |
-| + `--with-dev-tools` | ON | — | ON |
-
 ---
 
 ## Development
-
-### Scene editor tutorial
-
-See **[docs/scene-editor-tutorial.md](docs/scene-editor-tutorial.md)** — map, Variables, Conversations, Use wires, Events, Inventory/Effects, and screenshot placeholders under `docs/images/`.
-
-### TTS syntax and usage
-
-See **[docs/tts.md](docs/tts.md)** — voices, `[pause]` / style tags, `{{voice:…}}`, refresh CLI, and release packaging.
-
-Scene ambient beds and period music generation: **[docs/scene-audio.md](docs/scene-audio.md)**.
-
-Dialog **world tokens** like `{tab_amount}` (not TTS): [docs/dialog-tokens.md](docs/dialog-tokens.md).
-
-### Dev vs release package
-
-See **[docs/dev-vs-release.md](docs/dev-vs-release.md)** — what players get vs what authors need.
 
 ### Architecture diagrams
 
@@ -244,19 +212,7 @@ When `HIGHLINE_DEV_TOOLS=ON` (dev default):
 | **Ctrl+Shift+S** | Scene debug overlay |
 | **\`** / **~** | Developer console (`give-item`, …) |
 
-### Related docs
-
-| Doc | Topic |
-|-----|-------|
-| [BUILD.md](BUILD.md) | Platform builds, flags, Homebrew `/opt/homebrew` |
-| [docs/scene-editor-tutorial.md](docs/scene-editor-tutorial.md) | Editor walkthrough |
-| [docs/tts.md](docs/tts.md) | TTS markup and refresh |
-| [docs/scene-audio.md](docs/scene-audio.md) | Ambient beds + period music (ElevenLabs) |
-| [docs/dev-vs-release.md](docs/dev-vs-release.md) | Dev vs player package |
-| [docs/scene-map-exits.md](docs/scene-map-exits.md) | Compass, floors, Use, gates, place-item |
-| [docs/dialog-tokens.md](docs/dialog-tokens.md) | `{tab_amount}`-style tokens |
-| [docs/display-aspect.md](docs/display-aspect.md) | Display aspect preferences |
-| [docs/platform-parallelism.md](docs/platform-parallelism.md) | JobSystem / parallelism notes |
+Full documentation catalog: [docs/README.md](docs/README.md).
 
 ---
 

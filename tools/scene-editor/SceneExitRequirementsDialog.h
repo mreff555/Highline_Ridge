@@ -90,6 +90,8 @@ struct SceneExitRequirementsDialog
     bool voiceMenuOpen = false;
     Rectangle voiceBtnRect{0, 0, 0, 0};
     Rectangle voiceMenuRect{0, 0, 0, 0};
+    float voiceMenuScroll = 0.0f;
+    static constexpr int kVoiceMenuVisibleRows = 10;
     Rectangle directionSliderRect{0, 0, 0, 0};
 
     /** Inventory-item id autocomplete (#47). */

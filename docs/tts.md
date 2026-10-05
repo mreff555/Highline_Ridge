@@ -2,13 +2,13 @@
 
 Timberline uses **xAI Grok voices** for optional spoken dialog and scene narrative. Audio is authored in **dev** builds (disk `resources/`), then packed into the release HLAP pak.
 
-Get an API key and credits at the [xAI console](https://console.x.ai). Cost to regenerate a short game’s voices is usually small.
+Credits: [console.x.ai](https://console.x.ai). Where to put the key (menu, `~/.config`, permissions): **[api-keys.md](api-keys.md)** — this page covers markup and refresh only.
 
 ## Voices
 
-Built-in ids: **ara**, **eve**, **helios**, **leo**, **rex**, **rigel**, **sal**.
+Built-in ids (xAI Grok TTS, alphabetical): **altair**, **ara**, **atlas**, **aurora**, **carina**, **castor**, **celeste**, **cosmo**, **eve**, **helios**, **helix**, **iris**, **kepler**, **leo**, **liora**, **lumen**, **luna**, **lux**, **naksh**, **orion**, **perseus**, **rex**, **rigel**, **sal**, **sirius**, **ursa**, **zagan**, **zenith**.
 
-Set a default per scene / item / conversation line (`ttsDefaultVoice`, `ttsVoice`, etc.). Unknown ids fail validation.
+Set a default per scene / item / conversation line (`ttsDefaultVoice`, `ttsVoice`, etc.). Unknown ids fail validation. The allowlist lives in `builtinVoiceIds()` (`src/TtsVoiceMarkup.cpp`) and must match the live catalog from `GET /v1/tts/voices`.
 
 ## Markup
 
@@ -60,7 +60,7 @@ Release binaries **strip** these flags so players cannot hit the API by accident
 
 | Flag | Purpose |
 |------|---------|
-| `--key=API_KEY` | xAI key (not stored) |
+| `--key=API_KEY` | xAI key for this run (game does not persist it; see [api-keys.md](api-keys.md) for editor/disk setup) |
 | `--refresh-voices` | Regenerate all `ttsEnabled` owners |
 | `--refresh=ID` | Limit to one conversation / scene / item / recipe id |
 | `-force` / `--force` | Ignore text hashes; regenerate matching lines |
