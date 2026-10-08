@@ -91,6 +91,32 @@ struct DialogWalkthrough
     bool editTtsText = false;
     bool textFieldFocused = true;
     int cursor = 0;
+
+    /** Choice flow fields (when current JSON object is a choice with `label`). */
+    bool editingChoice = false;
+    std::string choiceLabel;
+    bool choiceClosePhase = true;
+    std::string choiceStartPhase;
+    bool choiceSkipIntro = false;
+    std::string choiceResumeId;
+    std::string choiceGrantFlag;
+    std::string choiceExitSceneId;
+    enum class FlowFocus
+    {
+        None,
+        Label,
+        StartPhase,
+        ResumeId,
+        GrantFlag,
+        ExitScene
+    };
+    FlowFocus flowFocus = FlowFocus::None;
+    bool startPhaseMenuOpen = false;
+    float startPhaseMenuScroll = 0.0f;
+    Rectangle startPhaseBtnRect{0, 0, 0, 0};
+    Rectangle startPhaseMenuRect{0, 0, 0, 0};
+    std::vector<std::string> phaseIdOptions;
+    static constexpr int kStartPhaseMenuVisibleRows = 8;
     /** Selection anchor (-1 = no selection). Range is [min(anchor,cursor), max(...)). */
     int selectAnchor = -1;
     bool mouseSelecting = false;
@@ -147,6 +173,31 @@ private:
     void ensureDefaultAudioPath();
     void drawVoiceMenu(Font font);
     bool handleVoiceMenuClick(Vector2 mouse);
+
+    bool currentObjectIsChoice() const;
+    void loadChoiceFlowFromObject(const nlohmann::json& obj);
+    void applyChoiceFlowToObject(nlohmann::json& obj);
+    void refreshPhaseIdOptions();
+    /** Returns height consumed. */
+    float drawChoiceFlowPanel(
+        Font font,
+        Font bold,
+        Rectangle editor,
+        float startY,
+        bool canClick,
+        Vector2 mouse);
+    void handleFlowFieldTyping();
+    bool handleStartPhaseMenuClick(Vector2 mouse);
+    void drawStartPhaseMenu(Font font);
+
+    /** Parent choices[] pointer + index for the current choice step; false if N/A. */
+    bool currentChoiceArrayLocation(std::string& arrayPointerOut, size_t& indexOut) const;
+    /** Phase pointer when the current step is a phase narrative field. */
+    bool currentPhasePointer(std::string& phasePointerOut) const;
+    std::string allocateChoiceId() const;
+    bool addChoiceNearCurrent();
+    bool deleteCurrentChoice();
+    bool confirmDeleteChoice = false;
     static int utf8Prev(const std::string& buffer, int cursor);
     static int utf8Next(const std::string& buffer, int cursor);
     void ensureCaretVisible(const std::vector<EditorVisualLine>& lines, float lineHeight);

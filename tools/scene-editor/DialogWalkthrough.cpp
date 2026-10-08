@@ -18,6 +18,8 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <functional>
+#include <set>
 #include <sstream>
 
 using timberline_engine::builtinVoiceIds;
@@ -394,6 +396,8 @@ void DialogWalkthrough::loadCurrentStep()
     status.clear();
     editTtsText = false;
     voiceMenuOpen = false;
+    startPhaseMenuOpen = false;
+    flowFocus = FlowFocus::None;
     cursor = 0;
     selectAnchor = -1;
     mouseSelecting = false;
@@ -406,6 +410,16 @@ void DialogWalkthrough::loadCurrentStep()
     ttsVoice.clear();
     ttsAudio.clear();
     ttsEnabled = false;
+    editingChoice = false;
+    confirmDeleteChoice = false;
+    choiceLabel.clear();
+    choiceClosePhase = true;
+    choiceStartPhase.clear();
+    choiceSkipIntro = false;
+    choiceResumeId.clear();
+    choiceGrantFlag.clear();
+    choiceExitSceneId.clear();
+    phaseIdOptions.clear();
 
     if (index < 0 || index >= static_cast<int>(steps.size()))
         return;
@@ -440,7 +454,12 @@ void DialogWalkthrough::loadCurrentStep()
         ttsVoice = "leo";
     ttsVoice = normalizeVoiceId(ttsVoice);
 
+    loadChoiceFlowFromObject(*obj);
+    if (editingChoice)
+        refreshPhaseIdOptions();
+
     cursor = static_cast<int>(textBuffer.size());
+    textFieldFocused = true;
 
     if (conversationSelectedKey != nullptr)
         *conversationSelectedKey = step.treeKey;
@@ -507,6 +526,9 @@ bool DialogWalkthrough::applyCurrentStep()
     {
         // Leave ttsText if present; flag off is enough for collectors.
     }
+
+    if (editingChoice)
+        applyChoiceFlowToObject(*obj);
 
     if (oldText != textBuffer || dirtyStep)
         obj->erase(ttsShaKey(step.field));
@@ -871,8 +893,586 @@ void DialogWalkthrough::ensureCaretVisible(
         textScroll = 0.0f;
 }
 
+bool DialogWalkthrough::currentObjectIsChoice() const
+{
+    const nlohmann::json* obj = currentObject();
+    return obj != nullptr && obj->is_object() && obj->contains("label");
+}
+
+void DialogWalkthrough::loadChoiceFlowFromObject(const nlohmann::json& obj)
+{
+    editingChoice = obj.contains("label");
+    if (!editingChoice)
+        return;
+    choiceLabel = obj.value("label", "");
+    choiceClosePhase = obj.value("closePhase", true);
+    choiceStartPhase = obj.value("startPhase", "");
+    choiceSkipIntro = obj.value("skipIntroOnStartPhase", false);
+    choiceResumeId = obj.value("resumeChoiceId", "");
+    choiceGrantFlag = obj.value("grantStoryFlag", "");
+    choiceExitSceneId = obj.value("exitSceneId", "");
+}
+
+void DialogWalkthrough::applyChoiceFlowToObject(nlohmann::json& obj)
+{
+    if (!editingChoice)
+        return;
+
+    if (choiceLabel.empty())
+    {
+        error = "Player option (label) cannot be empty";
+        choiceLabel = obj.value("label", "New option");
+    }
+    obj["label"] = choiceLabel;
+    obj["closePhase"] = choiceClosePhase;
+
+    if (choiceStartPhase.empty())
+        obj.erase("startPhase");
+    else
+        obj["startPhase"] = choiceStartPhase;
+
+    if (choiceSkipIntro && !choiceStartPhase.empty())
+        obj["skipIntroOnStartPhase"] = true;
+    else
+        obj.erase("skipIntroOnStartPhase");
+
+    if (choiceResumeId.empty())
+        obj.erase("resumeChoiceId");
+    else
+        obj["resumeChoiceId"] = choiceResumeId;
+
+    if (choiceGrantFlag.empty())
+        obj.erase("grantStoryFlag");
+    else
+        obj["grantStoryFlag"] = choiceGrantFlag;
+
+    if (choiceExitSceneId.empty())
+        obj.erase("exitSceneId");
+    else
+    {
+        obj["exitSceneId"] = choiceExitSceneId;
+        // Leave wins over startPhase — clear startPhase when leaving.
+        obj.erase("startPhase");
+        obj.erase("skipIntroOnStartPhase");
+        choiceStartPhase.clear();
+        choiceSkipIntro = false;
+    }
+}
+
+void DialogWalkthrough::refreshPhaseIdOptions()
+{
+    phaseIdOptions.clear();
+    phaseIdOptions.push_back("(none)");
+    if (docs == nullptr || selectionSceneId == nullptr || selectionSceneId->empty())
+        return;
+    if (!docs->conversationsRoot.contains(*selectionSceneId)
+        || !docs->conversationsRoot[*selectionSceneId].is_object())
+        return;
+    const nlohmann::json& sceneNode = docs->conversationsRoot[*selectionSceneId];
+    if (!sceneNode.contains("speakPhases") || !sceneNode["speakPhases"].is_array())
+        return;
+    for (const nlohmann::json& phase : sceneNode["speakPhases"])
+    {
+        if (!phase.is_object())
+            continue;
+        const std::string id = phase.value("id", "");
+        if (!id.empty())
+            phaseIdOptions.push_back(id);
+    }
+}
+
+void DialogWalkthrough::handleFlowFieldTyping()
+{
+    if (flowFocus == FlowFocus::None || voiceMenuOpen || startPhaseMenuOpen)
+        return;
+
+    std::string* target = nullptr;
+    switch (flowFocus)
+    {
+    case FlowFocus::Label:
+        target = &choiceLabel;
+        break;
+    case FlowFocus::StartPhase:
+        target = &choiceStartPhase;
+        break;
+    case FlowFocus::ResumeId:
+        target = &choiceResumeId;
+        break;
+    case FlowFocus::GrantFlag:
+        target = &choiceGrantFlag;
+        break;
+    case FlowFocus::ExitScene:
+        target = &choiceExitSceneId;
+        break;
+    default:
+        break;
+    }
+    if (target == nullptr)
+        return;
+
+    // Drain main-text path: flow fields own typing while focused.
+    textFieldFocused = false;
+
+    if (IsKeyPressed(KEY_BACKSPACE) && !target->empty())
+    {
+        // UTF-8 safe enough for ids/labels: erase last code unit cluster.
+        size_t i = target->size();
+        do
+        {
+            --i;
+        } while (i > 0
+                 && (static_cast<unsigned char>((*target)[i]) & 0xC0) == 0x80);
+        target->erase(i);
+        dirtyStep = true;
+    }
+    if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_ESCAPE))
+    {
+        flowFocus = FlowFocus::None;
+        textFieldFocused = true;
+        return;
+    }
+
+    for (;;)
+    {
+        const int ch = GetCharPressed();
+        if (ch <= 0)
+            break;
+        if (ch < 32)
+            continue;
+        // Encode codepoint as UTF-8.
+        char bytes[5] = {};
+        int n = 0;
+        if (ch < 0x80)
+            bytes[n++] = static_cast<char>(ch);
+        else if (ch < 0x800)
+        {
+            bytes[n++] = static_cast<char>(0xC0 | (ch >> 6));
+            bytes[n++] = static_cast<char>(0x80 | (ch & 0x3F));
+        }
+        else if (ch < 0x10000)
+        {
+            bytes[n++] = static_cast<char>(0xE0 | (ch >> 12));
+            bytes[n++] = static_cast<char>(0x80 | ((ch >> 6) & 0x3F));
+            bytes[n++] = static_cast<char>(0x80 | (ch & 0x3F));
+        }
+        else
+        {
+            bytes[n++] = static_cast<char>(0xF0 | (ch >> 18));
+            bytes[n++] = static_cast<char>(0x80 | ((ch >> 12) & 0x3F));
+            bytes[n++] = static_cast<char>(0x80 | ((ch >> 6) & 0x3F));
+            bytes[n++] = static_cast<char>(0x80 | (ch & 0x3F));
+        }
+        target->append(bytes, static_cast<size_t>(n));
+        dirtyStep = true;
+    }
+}
+
+bool DialogWalkthrough::handleStartPhaseMenuClick(Vector2 mouse)
+{
+    if (!startPhaseMenuOpen)
+        return false;
+    if (startPhaseMenuRect.width < 1.0f)
+        return false;
+
+    if (CheckCollisionPointRec(mouse, startPhaseMenuRect))
+    {
+        const float rowH = 22.0f;
+        const int first =
+            static_cast<int>(std::floor(startPhaseMenuScroll + 0.001f));
+        int i = first
+            + static_cast<int>((mouse.y - startPhaseMenuRect.y - 2.0f) / rowH);
+        if (i >= 0 && i < static_cast<int>(phaseIdOptions.size()))
+        {
+            if (i == 0)
+                choiceStartPhase.clear();
+            else
+                choiceStartPhase = phaseIdOptions[static_cast<size_t>(i)];
+            dirtyStep = true;
+        }
+        startPhaseMenuOpen = false;
+        ignoreInputFrames = 1;
+        return true;
+    }
+
+    if (CheckCollisionPointRec(mouse, startPhaseBtnRect))
+        return false;
+    startPhaseMenuOpen = false;
+    ignoreInputFrames = 1;
+    return true;
+}
+
+void DialogWalkthrough::drawStartPhaseMenu(Font font)
+{
+    if (!startPhaseMenuOpen)
+    {
+        startPhaseMenuRect = {0, 0, 0, 0};
+        return;
+    }
+    const int count = static_cast<int>(phaseIdOptions.size());
+    const float rowH = 22.0f;
+    const int visible = std::min(kStartPhaseMenuVisibleRows, std::max(1, count));
+    const float menuH = static_cast<float>(visible) * rowH + 4.0f;
+    const float maxScroll =
+        static_cast<float>(std::max(0, count - visible));
+    startPhaseMenuScroll = std::clamp(startPhaseMenuScroll, 0.0f, maxScroll);
+    startPhaseMenuRect = {
+        startPhaseBtnRect.x,
+        startPhaseBtnRect.y + startPhaseBtnRect.height + 2.0f,
+        std::max(startPhaseBtnRect.width, 160.0f),
+        menuH};
+    if (startPhaseMenuRect.y + startPhaseMenuRect.height
+        > lastPane.y + lastPane.height - 4.0f)
+        startPhaseMenuRect.y =
+            startPhaseBtnRect.y - startPhaseMenuRect.height - 2.0f;
+
+    DrawRectangleRec(startPhaseMenuRect, Color{36, 32, 44, 255});
+    DrawRectangleLinesEx(startPhaseMenuRect, 1.0f, kPanelBorder);
+    const Vector2 mouse = GetMousePosition();
+    const int first = static_cast<int>(std::floor(startPhaseMenuScroll + 0.001f));
+    float my = startPhaseMenuRect.y + 2.0f;
+    for (int row = 0; row < visible; ++row)
+    {
+        const int i = first + row;
+        if (i < 0 || i >= count)
+            break;
+        const std::string& opt = phaseIdOptions[static_cast<size_t>(i)];
+        const bool selected =
+            (i == 0 && choiceStartPhase.empty())
+            || (i > 0 && opt == choiceStartPhase);
+        const Rectangle r = {
+            startPhaseMenuRect.x + 2.0f,
+            my,
+            startPhaseMenuRect.width - 4.0f,
+            rowH - 2.0f};
+        if (selected)
+            DrawRectangleRec(r, kSelection);
+        else if (CheckCollisionPointRec(mouse, r))
+            DrawRectangleRec(r, Color{60, 54, 72, 220});
+        DrawTextEx(
+            font, opt.c_str(), {r.x + 8.0f, r.y + 3.0f}, kFontSmall, 1.0f, kTextPrimary);
+        my += rowH;
+    }
+}
+
+bool DialogWalkthrough::currentChoiceArrayLocation(
+    std::string& arrayPointerOut,
+    size_t& indexOut) const
+{
+    if (index < 0 || index >= static_cast<int>(steps.size()))
+        return false;
+    const std::string& ptr = steps[static_cast<size_t>(index)].objectPointer;
+    // Expect …/choices/<n>
+    const std::string marker = "/choices/";
+    const size_t pos = ptr.rfind(marker);
+    if (pos == std::string::npos)
+        return false;
+    arrayPointerOut = ptr.substr(0, pos + std::string("/choices").size());
+    try
+    {
+        indexOut = static_cast<size_t>(std::stoul(ptr.substr(pos + marker.size())));
+    }
+    catch (...)
+    {
+        return false;
+    }
+    return true;
+}
+
+bool DialogWalkthrough::currentPhasePointer(std::string& phasePointerOut) const
+{
+    if (index < 0 || index >= static_cast<int>(steps.size()))
+        return false;
+    const DialogWalkStep& step = steps[static_cast<size_t>(index)];
+    if (step.field != DialogWalkStep::Field::Intro
+        && step.field != DialogWalkStep::Field::ResumeIntro
+        && step.field != DialogWalkStep::Field::LineText)
+        return false;
+    // Phase narrative steps point at the phase object (not a choice).
+    if (step.objectPointer.find("/choices/") != std::string::npos)
+        return false;
+    phasePointerOut = step.objectPointer;
+    return !phasePointerOut.empty();
+}
+
+std::string DialogWalkthrough::allocateChoiceId() const
+{
+    std::set<std::string> used;
+    if (docs != nullptr && selectionSceneId != nullptr && !selectionSceneId->empty()
+        && docs->conversationsRoot.contains(*selectionSceneId))
+    {
+        const nlohmann::json& sceneNode = docs->conversationsRoot[*selectionSceneId];
+        std::function<void(const nlohmann::json&)> walk = [&](const nlohmann::json& node) {
+            if (node.is_object())
+            {
+                if (node.contains("id") && node["id"].is_string()
+                    && node.contains("label"))
+                    used.insert(node["id"].get<std::string>());
+                for (auto it = node.begin(); it != node.end(); ++it)
+                    walk(it.value());
+            }
+            else if (node.is_array())
+            {
+                for (const auto& child : node)
+                    walk(child);
+            }
+        };
+        walk(sceneNode);
+    }
+    for (int n = 1; n < 10000; ++n)
+    {
+        const std::string id = "choice_" + std::to_string(n);
+        if (used.count(id) == 0)
+            return id;
+    }
+    return "choice_new";
+}
+
+bool DialogWalkthrough::addChoiceNearCurrent()
+{
+    if (docs == nullptr || !docs->conversationsLoaded)
+        return false;
+    if (dirtyStep)
+        applyCurrentStep();
+
+    nlohmann::json* array = nullptr;
+    std::string arrayPointer;
+    size_t unusedIndex = 0;
+    std::string phasePointer;
+    if (currentChoiceArrayLocation(arrayPointer, unusedIndex))
+    {
+        array = docs->conversationJsonAt(arrayPointer);
+    }
+    else if (currentPhasePointer(phasePointer))
+    {
+        nlohmann::json* phase = docs->conversationJsonAt(phasePointer);
+        if (phase == nullptr || !phase->is_object())
+            return false;
+        if (!phase->contains("choices") || !(*phase)["choices"].is_array())
+            (*phase)["choices"] = nlohmann::json::array();
+        arrayPointer = conversationPointerJoin(phasePointer, "choices");
+        array = &(*phase)["choices"];
+    }
+    else
+    {
+        error = "Select a phase line or choice to add a speech option";
+        return false;
+    }
+
+    if (array == nullptr || !array->is_array())
+    {
+        // Fallback via pointer lookup after ensuring choices exists.
+        array = docs->conversationJsonAt(arrayPointer);
+    }
+    if (array == nullptr || !array->is_array())
+    {
+        error = "Could not find choices array";
+        return false;
+    }
+
+    const std::string newId = allocateChoiceId();
+    nlohmann::json neu = nlohmann::json::object();
+    neu["id"] = newId;
+    neu["label"] = "New option";
+    neu["response"] = "";
+    neu["closePhase"] = true;
+    array->push_back(std::move(neu));
+    const size_t newIndex = array->size() - 1;
+    const std::string newPointer = conversationPointerIndex(arrayPointer, newIndex);
+
+    docs->markDirty();
+    if (onDirty)
+        onDirty();
+    rebuildSteps();
+    // Select the new choice response step.
+    for (size_t i = 0; i < steps.size(); ++i)
+    {
+        if (steps[i].objectPointer == newPointer)
+        {
+            selectIndex(static_cast<int>(i));
+            break;
+        }
+    }
+    if (onTreeRebuild)
+        onTreeRebuild();
+    status = "Added speech option " + newId;
+    confirmDeleteChoice = false;
+    return true;
+}
+
+bool DialogWalkthrough::deleteCurrentChoice()
+{
+    if (!editingChoice || docs == nullptr)
+        return false;
+    std::string arrayPointer;
+    size_t choiceIndex = 0;
+    if (!currentChoiceArrayLocation(arrayPointer, choiceIndex))
+    {
+        error = "Not a choice step";
+        return false;
+    }
+    nlohmann::json* array = docs->conversationJsonAt(arrayPointer);
+    if (array == nullptr || !array->is_array())
+    {
+        error = "Choices array missing";
+        return false;
+    }
+    if (choiceIndex >= array->size())
+    {
+        error = "Choice index out of range";
+        return false;
+    }
+
+    const std::string removedId =
+        (*array)[choiceIndex].value("id", std::string("choice"));
+    array->erase(array->begin() + static_cast<std::ptrdiff_t>(choiceIndex));
+    docs->markDirty();
+    if (onDirty)
+        onDirty();
+    rebuildSteps();
+    if (!steps.empty())
+        selectIndex(std::min(index, static_cast<int>(steps.size()) - 1));
+    else
+    {
+        index = 0;
+        loadCurrentStep();
+    }
+    if (onTreeRebuild)
+        onTreeRebuild();
+    status = "Deleted speech option " + removedId;
+    confirmDeleteChoice = false;
+    return true;
+}
+
+float DialogWalkthrough::drawChoiceFlowPanel(
+    Font font,
+    Font bold,
+    Rectangle editor,
+    float startY,
+    bool canClick,
+    Vector2 mouse)
+{
+    if (!editingChoice)
+        return 0.0f;
+
+    float y = startY;
+    const float x = editor.x + 10.0f;
+    const float w = editor.width - 20.0f;
+
+    DrawTextEx(bold, "Speech option / flow", {x, y}, kFontSmall, 1.0f, kTextPrimary);
+    y += 18.0f;
+
+    auto drawField = [&](const char* label,
+                         const std::string& value,
+                         FlowFocus focus,
+                         float fieldW) -> Rectangle {
+        DrawTextEx(font, label, {x, y}, kFontTiny, 1.0f, kTextMuted);
+        y += 14.0f;
+        const Rectangle box = {x, y, fieldW, 26.0f};
+        const bool focused = flowFocus == focus;
+        DrawRectangleRec(box, Color{22, 20, 28, 255});
+        DrawRectangleLinesEx(
+            box, 1.0f, focused ? kPanelBorder : kPanelInnerEdge);
+        const std::string shown =
+            value.empty() ? std::string("(click to type)") : value;
+        DrawTextEx(
+            font,
+            truncateOneLine(shown, 64).c_str(),
+            {box.x + 8.0f, box.y + 5.0f},
+            kFontSmall,
+            1.0f,
+            value.empty() ? kTextMuted : kTextPrimary);
+        if (canClick && CheckCollisionPointRec(mouse, box))
+        {
+            flowFocus = focus;
+            textFieldFocused = false;
+            startPhaseMenuOpen = false;
+            voiceMenuOpen = false;
+        }
+        y += 30.0f;
+        return box;
+    };
+
+    drawField("Player option (label)", choiceLabel, FlowFocus::Label, w);
+
+    // Toggles row
+    const Rectangle closeBtn = {x, y, 150.0f, 26.0f};
+    const Rectangle skipBtn = {x + 158.0f, y, 170.0f, 26.0f};
+    drawEditorButton(
+        font,
+        closeBtn,
+        choiceClosePhase ? "Close phase: ON" : "Close phase: off",
+        choiceClosePhase,
+        true);
+    drawEditorButton(
+        font,
+        skipBtn,
+        choiceSkipIntro ? "Skip intro: ON" : "Skip intro: off",
+        choiceSkipIntro,
+        !choiceStartPhase.empty());
+    if (canClick)
+    {
+        if (CheckCollisionPointRec(mouse, closeBtn))
+        {
+            choiceClosePhase = !choiceClosePhase;
+            dirtyStep = true;
+            flowFocus = FlowFocus::None;
+        }
+        else if (
+            !choiceStartPhase.empty() && CheckCollisionPointRec(mouse, skipBtn))
+        {
+            choiceSkipIntro = !choiceSkipIntro;
+            dirtyStep = true;
+            flowFocus = FlowFocus::None;
+        }
+    }
+    y += 32.0f;
+
+    DrawTextEx(font, "Start phase", {x, y}, kFontTiny, 1.0f, kTextMuted);
+    y += 14.0f;
+    startPhaseBtnRect = {x, y, std::min(220.0f, w * 0.45f), 26.0f};
+    const std::string startLabel =
+        choiceStartPhase.empty() ? "(none)" : choiceStartPhase;
+    drawEditorButton(
+        font,
+        startPhaseBtnRect,
+        (startLabel + (startPhaseMenuOpen ? "  ^" : "  v")).c_str(),
+        !choiceStartPhase.empty(),
+        choiceExitSceneId.empty());
+    if (canClick && choiceExitSceneId.empty()
+        && CheckCollisionPointRec(mouse, startPhaseBtnRect))
+    {
+        startPhaseMenuOpen = !startPhaseMenuOpen;
+        flowFocus = FlowFocus::None;
+        textFieldFocused = false;
+        if (startPhaseMenuOpen)
+            refreshPhaseIdOptions();
+    }
+    y += 30.0f;
+
+    drawField("Resume choice id", choiceResumeId, FlowFocus::ResumeId, w * 0.55f);
+    drawField("Grant story flag", choiceGrantFlag, FlowFocus::GrantFlag, w * 0.55f);
+    drawField(
+        "Leave to scene (exitSceneId)  —  MOVE-like; clears startPhase",
+        choiceExitSceneId,
+        FlowFocus::ExitScene,
+        w);
+
+    DrawTextEx(
+        font,
+        "Reply text below is the NPC/narrator response after this option.",
+        {x, y},
+        kFontTiny,
+        1.0f,
+        kTextMuted);
+    y += 16.0f;
+
+    return y - startY;
+}
+
 void DialogWalkthrough::handleTextTyping()
 {
+    if (flowFocus != FlowFocus::None)
+        return;
     if (!textFieldFocused || voiceMenuOpen)
         return;
 
@@ -1148,8 +1748,10 @@ void DialogWalkthrough::handleInput(Rectangle pane)
     const Vector2 mouse = GetMousePosition();
     const bool canClick = editorMousePressed(MOUSE_BUTTON_LEFT);
 
-    // Voice menu is modal for clicks — handle first so it is never under other controls.
+    // Voice / start-phase menus are modal for clicks — handle first.
     if (canClick && voiceMenuOpen && handleVoiceMenuClick(mouse))
+        return;
+    if (canClick && startPhaseMenuOpen && handleStartPhaseMenuClick(mouse))
         return;
 
     if (parchment != nullptr && editorMousePressed(MOUSE_BUTTON_RIGHT)
@@ -1168,12 +1770,18 @@ void DialogWalkthrough::handleInput(Rectangle pane)
             && docs != nullptr)
         {
             std::string* target = editTtsText ? &ttsTextBuffer : &textBuffer;
+            if (editTtsText && ttsAudio.empty())
+                ensureDefaultAudioPath();
             parchment->openEditor(
                 target,
                 editTtsText,
                 editTtsText ? "TTS dialog" : "Dialog text",
                 docs->resourceDir,
-                docs->assetRoot);
+                docs->assetRoot,
+                editTtsText ? textBuffer : std::string{},
+                editTtsText ? ttsVoice : std::string{},
+                editTtsText ? ttsAudio : std::string{},
+                editTtsText ? &ttsAudio : nullptr);
             parchment->onClosed = [this]() {
                 dirtyStep = true;
                 cursor = static_cast<int>(
@@ -1203,7 +1811,19 @@ void DialogWalkthrough::handleInput(Rectangle pane)
             docs->saveConversationsDocument();
     }
 
-    if (voiceMenuOpen
+    if (startPhaseMenuOpen
+        && startPhaseMenuRect.height > 1.0f
+        && CheckCollisionPointRec(mouse, startPhaseMenuRect))
+    {
+        const int count = static_cast<int>(phaseIdOptions.size());
+        const int visible =
+            std::min(kStartPhaseMenuVisibleRows, std::max(1, count));
+        const float maxScroll =
+            static_cast<float>(std::max(0, count - visible));
+        startPhaseMenuScroll = std::clamp(
+            startPhaseMenuScroll - GetMouseWheelMove(), 0.0f, maxScroll);
+    }
+    else if (voiceMenuOpen
         && voiceMenuRect.height > 1.0f
         && CheckCollisionPointRec(mouse, voiceMenuRect))
     {
@@ -1233,6 +1853,8 @@ void DialogWalkthrough::handleInput(Rectangle pane)
         if (CheckCollisionPointRec(mouse, textField))
         {
             textFieldFocused = true;
+            flowFocus = FlowFocus::None;
+            startPhaseMenuOpen = false;
             const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
             const std::string& buf = editTtsText ? ttsTextBuffer : textBuffer;
             const float pad = 8.0f;
@@ -1306,6 +1928,7 @@ void DialogWalkthrough::handleInput(Rectangle pane)
     if (editorMouseReleased(MOUSE_BUTTON_LEFT))
         mouseSelecting = false;
 
+    handleFlowFieldTyping();
     handleTextTyping();
 }
 
@@ -1318,7 +1941,8 @@ void DialogWalkthrough::draw(Rectangle pane)
     // Clicks on the voice menu are handled in handleInput (before draw) so they
     // never fall through to buttons underneath.
     const bool canClick =
-        ignoreInputFrames <= 0 && !voiceMenuOpen && editorMousePressed(MOUSE_BUTTON_LEFT);
+        ignoreInputFrames <= 0 && !voiceMenuOpen && !startPhaseMenuOpen
+        && editorMousePressed(MOUSE_BUTTON_LEFT);
 
     DrawRectangleRec(pane, Color{22, 20, 28, 255});
     DrawRectangleLinesEx(pane, 1.0f, kPanelInnerEdge);
@@ -1398,11 +2022,27 @@ void DialogWalkthrough::draw(Rectangle pane)
     const Rectangle ttsToggle = {bx, by, 110.0f, btnH};
     bx += 118.0f;
     voiceBtnRect = {bx, by, 130.0f, btnH};
+    bx += 138.0f;
+
+    const bool canAddChoice = editingChoice || [&]() {
+        std::string phasePtr;
+        return currentPhasePointer(phasePtr);
+    }();
+    const Rectangle addChoiceBtn = {bx, by, 108.0f, btnH};
+    bx += 116.0f;
+    const Rectangle delChoiceBtn = {bx, by, confirmDeleteChoice ? 120.0f : 108.0f, btnH};
 
     // ASCII-only labels: UI fonts often lack ◀/▶ and draw them as '?'.
     drawEditorButton(font, prevBtn, "Prev", false, index > 0);
     drawEditorButton(font, nextBtn, "Next", false, index + 1 < static_cast<int>(steps.size()));
     drawEditorButton(font, saveBtn, dirtyStep ? "Save *" : "Save", true, true);
+    drawEditorButton(font, addChoiceBtn, "+ Option", false, canAddChoice);
+    drawEditorButton(
+        font,
+        delChoiceBtn,
+        confirmDeleteChoice ? "Confirm del" : "Del option",
+        confirmDeleteChoice,
+        editingChoice);
 
     DrawRectangleRounded(sideTrack, 0.5f, 6, Color{44, 42, 52, 255});
     DrawRectangleLinesEx(sideTrack, 1.0f, kPanelBorder);
@@ -1475,6 +2115,8 @@ void DialogWalkthrough::draw(Rectangle pane)
         {
             editTtsText = !editTtsText;
             textFieldFocused = true;
+            flowFocus = FlowFocus::None;
+            startPhaseMenuOpen = false;
             clearSelection();
             mouseSelecting = false;
             if (editTtsText)
@@ -1513,6 +2155,22 @@ void DialogWalkthrough::draw(Rectangle pane)
                 voiceMenuScroll = static_cast<float>(std::max(
                     0, selected - kVoiceMenuVisibleRows / 2));
             }
+        }
+        else if (canAddChoice && CheckCollisionPointRec(mouse, addChoiceBtn))
+        {
+            addChoiceNearCurrent();
+        }
+        else if (editingChoice && CheckCollisionPointRec(mouse, delChoiceBtn))
+        {
+            if (confirmDeleteChoice)
+                deleteCurrentChoice();
+            else
+                confirmDeleteChoice = true;
+        }
+        else if (confirmDeleteChoice)
+        {
+            // Click elsewhere cancels delete confirm.
+            confirmDeleteChoice = false;
         }
     }
 
@@ -1584,19 +2242,7 @@ void DialogWalkthrough::draw(Rectangle pane)
         kTextMuted);
     ey += 18.0f;
 
-    if (!step.playerLabel.empty())
-    {
-        DrawTextEx(font, "Player choice:", {editor.x + 10.0f, ey}, kFontTiny, 1.0f, kTextMuted);
-        ey += 16.0f;
-        DrawTextEx(
-            font,
-            truncateOneLine(step.playerLabel, 80).c_str(),
-            {editor.x + 10.0f, ey},
-            kFontSmall,
-            1.0f,
-            kTextPrimary);
-        ey += 22.0f;
-    }
+    ey += drawChoiceFlowPanel(font, bold, editor, ey, canClick, mouse);
 
     // Mode banner — Text vs TTS (toolbar slider).
     const Rectangle modeBanner = {editor.x + 10.0f, ey, editor.width - 20.0f, 28.0f};
@@ -1606,7 +2252,9 @@ void DialogWalkthrough::draw(Rectangle pane)
     DrawRectangleLinesEx(modeBanner, 1.0f, modeEdge);
     const char* modeTitle = editTtsText
         ? "TTS   -   spoken script sent to the voice API"
-        : "text   -   on-screen dialog the player reads";
+        : (editingChoice
+               ? "text   -   on-screen reply after this speech option"
+               : "text   -   on-screen dialog the player reads");
     DrawTextEx(
         font,
         modeTitle,
@@ -1764,14 +2412,17 @@ void DialogWalkthrough::draw(Rectangle pane)
 
     DrawTextEx(
         font,
-        "Right-click text: Edit full screen  |  text/TTS slider  |  Ctrl/Cmd+C V X A  |  Alt+Left/Right  |  Ctrl+S",
+        editingChoice
+            ? "Speech option fields above  |  Right-click reply: full screen  |  Ctrl/Cmd+S saves conversations.json"
+            : "Right-click text: Edit full screen  |  text/TTS slider  |  Ctrl/Cmd+C V X A  |  Alt+Left/Right  |  Ctrl+S",
         {editor.x + 10.0f, editor.y + editor.height - 18.0f},
         kFontTiny,
         1.0f,
         kTextMuted);
 
-    // Draw voice menu LAST so it paints above the text field and list.
+    // Draw menus LAST so they paint above the text field and list.
     drawVoiceMenu(font);
+    drawStartPhaseMenu(font);
 
     if (fieldContextOpen)
     {

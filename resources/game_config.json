@@ -7,12 +7,12 @@
   },
   "display": {
     "aspectPreference": "auto",
-    "fullscreen": false,
-    "height": 1080,
-    "monitor": 2,
-    "width": 1920,
-    "x": 272,
-    "y": 156
+    "fullscreen": true,
+    "height": 1440,
+    "monitor": 0,
+    "width": 2560,
+    "x": -1742,
+    "y": 248
   },
   "gameplay": {
     "highAltitudeLucidityPerAction": -1.0
@@ -22,7 +22,7 @@
     "skipDropConfirmation": false
   },
   "saves": {
-    "maxNamedSaves": 20
+    "maxNamedSaves": 25
   },
   "tts": {
     "bundleDir": "resources/audio/tts",

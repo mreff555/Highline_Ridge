@@ -78,6 +78,7 @@ Right-click a **silver** wire → **Manage…** or **Edit Transition Audio…**.
 | Locked / dark / story-gated MOVE | Exit Requirements on gold wire or stair badge | Blocked notebook + optional TTS; no move |
 | “Search the drawer” for an item | Variables → **Interactions** (grantItem) | Examine → Use |
 | Item on the ground after examine | Variables → **Inventory** (takeable) | Examine → Take |
+| Speak choice leaves to another room | Choice `exitSceneId` in Conversations tab ([conversations.md](conversations.md)) | Speak → pick option (MOVE-like; map Speak wires TBD) |
 
 There is no separate “special transition” schema beyond these tools.
 

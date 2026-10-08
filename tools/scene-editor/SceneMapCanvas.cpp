@@ -2429,6 +2429,26 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         static_cast<int>(contentView.width),
         static_cast<int>(contentView.height));
 
+    // Subtle grid (same language as Conversations flowchart) — scrolls with the map.
+    {
+        const float step = 32.0f;
+        const Color grid = {32, 30, 38, 255};
+        const float ox = contentView.x - std::fmod(scroll.x, step);
+        const float oy = contentView.y - std::fmod(scroll.y, step);
+        for (float x = ox; x < contentView.x + contentView.width; x += step)
+            DrawLineEx(
+                {x, contentView.y},
+                {x, contentView.y + contentView.height},
+                1.0f,
+                grid);
+        for (float y = oy; y < contentView.y + contentView.height; y += step)
+            DrawLineEx(
+                {contentView.x, y},
+                {contentView.x + contentView.width, y},
+                1.0f,
+                grid);
+    }
+
     // Draw cards first, then links on top so arrows are never half-hidden
     // under (*thumbnails).
     const std::vector<std::string> ids = docs->scenes.mapNodeIds();
@@ -3819,9 +3839,12 @@ void SceneMapCanvas::placeUnplacedSubViewsOnMap(const std::string& parentId)
         if (docs->scenes.hasMapPlacement(node))
             continue;
         SceneLayout layout = parentLayout;
+        // Same pitch language as ensureDefaultLayouts (card + gap), staggered down
+        // so alternate views don't sit on top of the parent or each other.
         layout.x = parentLayout.x
-            + static_cast<float>(placed + 1) * (kSceneCardWidth + 48.0f);
-        layout.y = parentLayout.y + 24.0f;
+            + static_cast<float>(placed + 1) * (kSceneCardWidth + kLayoutGapX);
+        layout.y = parentLayout.y
+            + static_cast<float>(placed + 1) * 36.0f;
         docs->scenes.setLayout(node, layout);
         ++placed;
     }
@@ -5154,18 +5177,7 @@ void SceneMapCanvas::drawBottomPane(Rectangle bottomBounds)
 {
     drawPanel(bottomBounds);
 
-    const float splitX = bottomBounds.x + bottomBounds.width * 0.55f;
-    const Rectangle variablesBounds = {bottomBounds.x, bottomBounds.y,
-                                       splitX - bottomBounds.x, bottomBounds.height};
-    const Rectangle previewBounds = {splitX + 2.0f, bottomBounds.y,
-                                    bottomBounds.x + bottomBounds.width - splitX - 2.0f,
-                                    bottomBounds.height};
-
-    DrawLineEx(
-        {splitX, bottomBounds.y + 12.0f},
-        {splitX, bottomBounds.y + bottomBounds.height - 12.0f},
-        1.5f,
-        kDividerGrip);
+    const bool conversationsTab = docs && docs->isConversationsTab();
 
     const bool paneInteract = !sceneAuthoring.blocksInput()
         && !sceneAssist.blocksInput()
@@ -5181,8 +5193,45 @@ void SceneMapCanvas::drawBottomPane(Rectangle bottomBounds)
         && !(itemEditor && itemEditor->blocksInput())
         && !(variableEditor && variableEditor->open)
         && confirmMode == ConfirmMode::None;
-    variableEditor->drawVariablesPane(variablesBounds, paneInteract);
-    drawScenePreviewPane(previewBounds);
+
+    if (conversationsTab && dialogPalette && dialogMedia)
+    {
+        const DialogBottomSplit split = computeDialogBottomSplit(bottomBounds);
+        auto drawGrip = [&](float x) {
+            DrawLineEx(
+                {x, bottomBounds.y + 12.0f},
+                {x, bottomBounds.y + bottomBounds.height - 12.0f},
+                1.5f,
+                kDividerGrip);
+        };
+        drawGrip(split.types.x + split.types.width);
+        drawGrip(split.details.x + split.details.width);
+        dialogPalette->draw(split.types);
+        if (dialogDetails)
+            dialogDetails->draw(split.details);
+        dialogMedia->draw(split.media);
+    }
+    else
+    {
+        const float splitX = bottomBounds.x + bottomBounds.width * 0.55f;
+        const Rectangle leftBottom = {
+            bottomBounds.x,
+            bottomBounds.y,
+            splitX - bottomBounds.x,
+            bottomBounds.height};
+        const Rectangle rightBottom = {
+            splitX + 2.0f,
+            bottomBounds.y,
+            bottomBounds.x + bottomBounds.width - splitX - 2.0f,
+            bottomBounds.height};
+        DrawLineEx(
+            {splitX, bottomBounds.y + 12.0f},
+            {splitX, bottomBounds.y + bottomBounds.height - 12.0f},
+            1.5f,
+            kDividerGrip);
+        variableEditor->drawVariablesPane(leftBottom, paneInteract);
+        drawScenePreviewPane(rightBottom);
+    }
 }
 
 
@@ -5295,7 +5344,11 @@ void SceneMapCanvas::draw()
     const int screenWidth = GetScreenWidth();
     const int screenHeight = GetScreenHeight();
     if (layout)
+    {
+        const bool conversations = docs && docs->isConversationsTab();
+        layout->applyChromeForTab(conversations, screenWidth, screenHeight);
         layout->syncToWindow(screenWidth, screenHeight);
+    }
 
     BeginDrawing();
     ClearBackground(Color{14, 13, 18, 255});
@@ -5324,8 +5377,13 @@ void SceneMapCanvas::draw()
         main.y + 4.0f,
         main.width - 8.0f,
         main.height - 8.0f};
-    if (docs && docs->isConversationsTab() && dialogWalkthrough)
+    if (docs && docs->isConversationsTab() && dialogFlow)
     {
+        dialogFlow->draw(canvasBounds);
+    }
+    else if (docs && docs->isConversationsTab() && dialogWalkthrough)
+    {
+        // Fallback if flowchart module is not wired.
         dialogWalkthrough->draw(canvasBounds);
     }
     else if (docs && docs->isItemsTab())

@@ -2300,6 +2300,23 @@ def process_job(
     return ""
 
 
+def translate_plain_to_tts(api_key: str, source: str) -> str:
+    """Rewrite on-screen dialog prose into spoken TTS markup."""
+    source = (source or "").strip()
+    if not source:
+        raise RuntimeError("empty source text")
+    prompt = (
+        "Rewrite the following on-screen dialog / narrative into spoken TTS script "
+        "for Highline Ridge (Timberline). Keep meaning and speaker intent. "
+        "Add natural [pause] / [long-pause] / [pause:Xms] and style tags "
+        "(<whisper>, <soft>, <emphasis>, …) where a voice actor would breathe or color "
+        "the line. Use {{voice:id}}…{{/voice}} only if the line clearly switches speaker. "
+        "Do not invent plot. Reply with ONLY the spoken markup.\n\n"
+        f"SOURCE:\n{source}"
+    )
+    return generate_chat_text(api_key, prompt)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -2317,9 +2334,57 @@ def main() -> int:
         default=None,
         help="ElevenLabs API key override (music only)",
     )
+    parser.add_argument(
+        "--translate-tts",
+        action="store_true",
+        help="One-shot: rewrite --in plain text to spoken TTS markup at --out",
+    )
+    parser.add_argument(
+        "--in",
+        dest="in_path",
+        type=Path,
+        default=None,
+        help="Input text file for --translate-tts",
+    )
+    parser.add_argument(
+        "--out",
+        dest="out_path",
+        type=Path,
+        default=None,
+        help="Output TTS markup file for --translate-tts",
+    )
     args = parser.parse_args()
 
     asset_root = args.asset_root.resolve()
+
+    if args.translate_tts:
+        if args.in_path is None or args.out_path is None:
+            print("--translate-tts requires --in and --out", file=sys.stderr)
+            return 2
+        in_path = args.in_path if args.in_path.is_absolute() else asset_root / args.in_path
+        out_path = args.out_path if args.out_path.is_absolute() else asset_root / args.out_path
+        if not in_path.is_file():
+            print(f"Input not found: {in_path}", file=sys.stderr)
+            return 2
+        api_key = resolve_api_key(asset_root, args.key)
+        if not api_key:
+            print(
+                "Missing xAI API key (pass --key or set XAI_API_KEY / "
+                "~/.config/highline-ridge/xai_api_key)",
+                file=sys.stderr,
+            )
+            return 2
+        source = in_path.read_text(encoding="utf-8")
+        try:
+            text = translate_plain_to_tts(api_key, source)
+        except Exception as exc:  # noqa: BLE001
+            print(f"translate-tts failed: {exc}", file=sys.stderr)
+            return 1
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(text + "\n", encoding="utf-8")
+        print(f"Wrote TTS markup ({len(text)} chars) -> {out_path}", flush=True)
+        return 0
+
     if args.jobs_file:
         jobs_path = args.jobs_file if args.jobs_file.is_absolute() else asset_root / args.jobs_file
     elif args.item_id:

@@ -1193,6 +1193,7 @@ void ItemEditor::openProseParchment(SubEditKind kind)
     std::string* target = nullptr;
     bool tts = false;
     const char* label = "Edit";
+    std::string companion;
     switch (kind)
     {
     case SubEditKind::Description:
@@ -1203,6 +1204,7 @@ void ItemEditor::openProseParchment(SubEditKind kind)
         target = &authoringPayload.ttsDescription;
         tts = true;
         label = "Item TTS description";
+        companion = authoringPayload.description;
         break;
     case SubEditKind::ConstructionDescription:
         target = &authoringPayload.recipe.constructionDescription;
@@ -1212,14 +1214,37 @@ void ItemEditor::openProseParchment(SubEditKind kind)
         target = &authoringPayload.recipe.ttsConstructionDescription;
         tts = true;
         label = "TTS construction description";
+        companion = authoringPayload.recipe.constructionDescription;
         break;
     default:
         openSubEdit(kind);
         return;
     }
 
+    std::string bakeVoice;
+    std::string bakeAudio;
+    if (tts && docs != nullptr)
+    {
+        // Item bags use leo unless a scene/item default is authored later.
+        bakeVoice = "leo";
+        if (kind == SubEditKind::TtsDescription && !authoringPayload.id.empty())
+            bakeAudio = "resources/audio/tts/items/" + authoringPayload.id
+                + "/examineTts.mp3";
+        else if (
+            kind == SubEditKind::TtsConstructionDescription
+            && !authoringPayload.id.empty())
+            bakeAudio = "resources/audio/tts/items/" + authoringPayload.id
+                + "/assembleTts.mp3";
+    }
     parchment->openEditor(
-        target, tts, label, docs->resourceDir, docs->assetRoot);
+        target,
+        tts,
+        label,
+        docs->resourceDir,
+        docs->assetRoot,
+        companion,
+        bakeVoice,
+        bakeAudio);
     parchment->onClosed = [this]() {
         // Swallow the mouse release so Cancel/outside-click cannot dismiss
         // the authoring dialog underneath the parchment.

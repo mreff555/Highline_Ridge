@@ -39,6 +39,7 @@
         "tts": true,
         "ttsAudio": "resources/audio/tts/alpine_hardware/descriptionTts.mp3",
         "ttsText": "You step inside Alpine Hardware and Mining Supplies and the room answers with timber, iron, and lamp oil. Post-and-beam construction rises around you with a joiner's precision. Braces cut true, pegs seated flush, every bearing face squared as though the building itself were a tool. Kerosene lanterns hang from posts and wall hooks, throwing a steady amber light across merchandise meant for men who work with their hands. A merchant stands behind the counter, tall and broad as an ox, shirt pressed, suspenders straight, beard trimmed with the same seriousness he brings to stock and shelf. He looks up as you enter, professional and unhurried, a man who obviously takes his job seriously.",
+        "ttsTextSha256": "72d22ddcec3e08976e4bff9918087bf1524c883908ffca88825d7370fe8d3ade",
         "ttsVoice": ""
       },
       "examineDetails": "You read the room the way you would a workshop: what is stored, how it is kept, what kind of man tends it.\n\nThe frame first. Post-and-beam timbers, hand-hewn and joined with a craftsman's patience. Cross braces cut to length, pegged mortises tight enough that the structure hums when a boot strikes the floor. This is not frontier slap construction. Someone built this room to stand through snow load and mine blast and the slow contempt of altitude.\n\nLight comes from kerosene lanterns hung on posts and wall hooks, glass chimneys trimmed, wicks recently cut. The air smells of lamp oil, iron, pine shavings, and the faint mineral tang of hardware stock kept dry against ridge damp.\n\nFloor space is honest mercantile clutter. Barrels hold rakes, hoes, and shovels standing handle-up like a stand of pale timber. Along the wall, picks and scythes hang from forged hooks in a row that keeps edge from edge. Hammers, hatchets, draw knives, augers, pry bars, and the other hand tools of 1891 line pegboards with labels written in a clerk's square hand. Rope in coils. Lanterns ready for filling. Mining candles in tins. Lime and blasting caps behind a counter drawer you are not meant to open without asking.\n\nBehind the merchant, open shelves carry the small necessities: nails sorted by penny weight in wooden bins, drill bits in cloth rolls, spools of copper and iron wire, hinges, hasps, stove bolts, and the thousand minor fasteners that keep a settlement from falling apart.\n\nThe counter is thick plank scarred by honest trade. At the right corner sits a brass cash register angled toward the merchant, as though the machine and the man share a private understanding of accounts.\n\nThe merchant himself is the room's other proof of competence. Tall, thick through the chest and arms, clean shirt, practical suspenders, eyes that measure you the way a man measures stock: weight, use, likelihood of return. He is not unfriendly. He is simply serious. This is a store built by someone who expects the ridge to dig, build, and stay.",
@@ -48,8 +49,8 @@
       "image": "resources/images/alpine_hardware.png",
       "layout": {
         "level": 0,
-        "x": 1320.0,
-        "y": 2213.0
+        "x": 1480.0,
+        "y": 2453.0
       },
       "movement": {
         "backward": false,
@@ -106,7 +107,7 @@
       "layout": {
         "level": 1,
         "x": 40.0,
-        "y": 269.0
+        "y": 293.0
       },
       "movement": {
         "backward": true,
@@ -169,8 +170,8 @@
       ],
       "layout": {
         "level": 0,
-        "x": 552.0,
-        "y": 269.0
+        "x": 616.0,
+        "y": 293.0
       },
       "movement": {
         "backward": true,
@@ -211,8 +212,8 @@
       "image": "resources/images/cabin_cellar_open.png",
       "layout": {
         "level": 0,
-        "x": 2600.0,
-        "y": 269.0
+        "x": 2920.0,
+        "y": 293.0
       },
       "movement": {
         "backward": false,
@@ -271,8 +272,8 @@
       "image": "resources/images/cabin_kitchen.png",
       "layout": {
         "level": 0,
-        "x": 552.0,
-        "y": 485.0
+        "x": 616.0,
+        "y": 533.0
       },
       "movement": {
         "backward": true,
@@ -324,8 +325,8 @@
       "image": "resources/images/cabin_under_rug.png",
       "layout": {
         "level": 0,
-        "x": 3368.0,
-        "y": 269.0
+        "x": 3784.0,
+        "y": 293.0
       },
       "movement": {
         "backward": false,
@@ -432,7 +433,7 @@
       "layout": {
         "level": -1,
         "x": 40.0,
-        "y": 480.0
+        "y": 528.0
       },
       "movement": {
         "backward": false,
@@ -482,7 +483,7 @@
       "layout": {
         "level": -1,
         "x": 40.0,
-        "y": 264.0
+        "y": 288.0
       },
       "movement": {
         "backward": true,
@@ -733,8 +734,8 @@
       ],
       "layout": {
         "level": 0,
-        "x": 1320.0,
-        "y": 701.0
+        "x": 1480.0,
+        "y": 773.0
       },
       "movement": {
         "backward": false,
@@ -809,7 +810,7 @@
       "image": "resources/images/high_alpine_trail.png",
       "layout": {
         "level": 0,
-        "x": 1064.0,
+        "x": 1192.0,
         "y": 53.0
       },
       "movement": {
@@ -850,8 +851,8 @@
       "image": "resources/images/ice_house.png",
       "layout": {
         "level": 0,
-        "x": 1064.0,
-        "y": 917.0
+        "x": 1192.0,
+        "y": 1013.0
       },
       "movement": {
         "backward": true,
@@ -914,8 +915,8 @@
       "image": "resources/images/ice_house_interior.png",
       "layout": {
         "level": 0,
-        "x": 808.0,
-        "y": 912.0
+        "x": 904.0,
+        "y": 1008.0
       },
       "movement": {
         "backward": false,
@@ -1002,8 +1003,8 @@
       "image": "resources/images/mining_camp.png",
       "layout": {
         "level": 0,
-        "x": 1064.0,
-        "y": 1349.0
+        "x": 1192.0,
+        "y": 1493.0
       },
       "movement": {
         "backward": true,
@@ -1052,8 +1053,8 @@
       "image": "resources/images/mountain_road.png",
       "layout": {
         "level": 0,
-        "x": 1064.0,
-        "y": 1781.0
+        "x": 1192.0,
+        "y": 1973.0
       },
       "movement": {
         "backward": true,
@@ -1095,8 +1096,8 @@
       "image": "resources/images/mountain_road.png",
       "layout": {
         "level": 0,
-        "x": 4136.0,
-        "y": 264.0
+        "x": 4648.0,
+        "y": 288.0
       },
       "movement": {
         "backward": false,
@@ -1143,8 +1144,8 @@
       "image": "resources/images/mountain_road_supply_row.png",
       "layout": {
         "level": 0,
-        "x": 1064.0,
-        "y": 2208.0
+        "x": 1192.0,
+        "y": 2448.0
       },
       "movement": {
         "backward": true,
@@ -1189,8 +1190,8 @@
       "image": "resources/images/mountain_road_trade_row.png",
       "layout": {
         "level": 0,
-        "x": 1064.0,
-        "y": 1992.0
+        "x": 1192.0,
+        "y": 2208.0
       },
       "movement": {
         "backward": true,
@@ -1229,8 +1230,8 @@
       "image": "resources/images/narrow_path.png",
       "layout": {
         "level": 0,
-        "x": 1064.0,
-        "y": 1565.0
+        "x": 1192.0,
+        "y": 1733.0
       },
       "movement": {
         "backward": true,
@@ -1282,8 +1283,8 @@
       "image": "resources/images/private_overlook.png",
       "layout": {
         "level": 0,
-        "x": 1320.0,
-        "y": 485.0
+        "x": 1480.0,
+        "y": 533.0
       },
       "movement": {
         "backward": false,
@@ -1320,8 +1321,8 @@
       "image": "resources/images/ridge_cabin_bedroom.png",
       "interactions": [
         {
-          "exitMapCorner": "nw",
-          "exitMapToCorner": "se",
+          "exitMapCorner": "ne",
+          "exitMapToCorner": "sw",
           "exitSceneId": "ridge_cabin_br_nightstand_2",
           "id": "use_map_1",
           "label": "Use -> ridge_cabin_br_nightstand_2",
@@ -1331,7 +1332,7 @@
       ],
       "layout": {
         "level": 0,
-        "x": 552.0,
+        "x": 616.0,
         "y": 48.0
       },
       "movement": {
@@ -1358,8 +1359,8 @@
       "image": "resources/images/ridge_cabin_bedroom_nightstand.png",
       "layout": {
         "level": 0,
-        "x": 4904.0,
-        "y": 264.0
+        "x": 5512.0,
+        "y": 288.0
       },
       "movement": {
         "backward": false,
@@ -1391,8 +1392,8 @@
       "image": "resources/images/ridge_cabin_bedroom_nightstand.png",
       "layout": {
         "level": 0,
-        "x": 5672.0,
-        "y": 264.0
+        "x": 6376.0,
+        "y": 288.0
       },
       "movement": {
         "backward": false,
@@ -1458,8 +1459,8 @@
       "image": "resources/images/ridge_cabin_exterior.png",
       "layout": {
         "level": 0,
-        "x": 808.0,
-        "y": 480.0
+        "x": 904.0,
+        "y": 528.0
       },
       "movement": {
         "backward": false,
@@ -1531,8 +1532,8 @@
       "image": "resources/images/ridge_haberdashery.png",
       "layout": {
         "level": 0,
-        "x": 808.0,
-        "y": 2208.0
+        "x": 904.0,
+        "y": 2448.0
       },
       "movement": {
         "backward": false,
@@ -1615,8 +1616,8 @@
       "image": "resources/images/saloon_balcony.png",
       "layout": {
         "level": 1,
-        "x": 808.0,
-        "y": 269.0
+        "x": 904.0,
+        "y": 293.0
       },
       "movement": {
         "backward": false,
@@ -1744,8 +1745,8 @@
       ],
       "layout": {
         "level": 1,
-        "x": 1064.0,
-        "y": 269.0
+        "x": 1192.0,
+        "y": 293.0
       },
       "movement": {
         "backward": false,
@@ -1763,35 +1764,28 @@
       "actions": {
         "examine": true,
         "hit": false,
-        "speak": true,
+        "speak": false,
         "use": false
       },
       "audio": {
         "ambient": [
           {
-            "fade_in": 2.0,
+            "fade_in": 1.5,
             "fade_out": 1.5,
             "loop": true,
             "path": "resources/audio/ambient/saloon_pub_crowd.mp3",
-            "volume": 0.65
-          },
-          {
-            "fade_in": 2.0,
-            "fade_out": 1.5,
-            "loop": true,
-            "path": "resources/audio/ambient/saloon_restaurant_crowd.mp3",
-            "volume": 0.4
+            "volume": 0.45
           }
         ],
         "music": {
-          "fade_in": 2.5,
-          "fade_out": 2.0,
+          "fade_in": 3.0,
+          "fade_out": 2.5,
           "loop": true,
           "path": "resources/audio/music/saloon_noir_jazz.mp3",
           "volume": 0.2
         }
       },
-      "description": "You turn off the mountain road and find yourself before a period saloon front, false-front facade rising two stories, batwing doors still swinging faintly from some recent passage. Warm lamplight spills through the windows into the alpine dark. Inside, silhouettes cluster at the bar and around a poker table; you catch the glint of a bottle raised, the slap of cards, laughter cut short by the deal. A plank walkway runs the length of the storefront, its boards cupped and silvery with age. Leaning against the wall beside the entrance, a cowboy occupies the shade as though he grew there. His hat is pulled low, shielding most of his face, but not the cigarette rolled between his lips nor the methodically trimmed beard beneath it. He does not look at you. He does not react to your presence at all.",
+      "description": "You turn off the mountain road and find yourself before a lively saloon.  \"The Guilded Ace\", as the sign reports above.  Horse troughs and a porch extend the parimeter , batwing doors still swinging faintly from some recent passage. Warm lamplight spills through the windows into the alpine dark. Inside, silhouettes cluster at the bar and around a poker table; you catch the glint of a bottle raised, the slap of cards, laughter cut short by the deal. A plank walkway runs the length of the storefront, its boards cupped and silvery with age. Leaning against the wall beside the entrance, a cowboy occupies the shade. His hat is pulled low, shielding most of his face, but not the cigarette rolled between his lips nor the methodically trimmed beard beneath it. He does not look at you. He does not react to your presence at all.",
       "examineDetails": "The saloon is built in the territorial style: painted pine siding, carved cornice, double-hung windows with oil lamps behind rippled glass. Through the nearest pane you make out a faro layout on a round table, chips stacked in uneven columns, a dealer's hand frozen mid-turn. The plank walkway is held on rough-hewn joists; your boots ring hollow against it. The cowboy's duster is dust-faded at the hem, his spurs dull as if he has not ridden in days. The cigarette smoke rises in a thin unbroken thread, which means he is breathing slowly, evenly, without surprise. Whoever he is, he knew someone would come. He is simply waiting to see if you are worth noticing.",
       "exits": {
         "forward": "saloon_interior",
@@ -1800,8 +1794,8 @@
       "image": "resources/images/saloon_front.png",
       "layout": {
         "level": 0,
-        "x": 1320.0,
-        "y": 1781.0
+        "x": 1480.0,
+        "y": 1973.0
       },
       "movement": {
         "backward": false,
@@ -1875,8 +1869,8 @@
       "image": "resources/images/saloon_interior.png",
       "layout": {
         "level": 0,
-        "x": 1319.0,
-        "y": 1565.0
+        "x": 1480.0,
+        "y": 1733.0
       },
       "movement": {
         "backward": true,
@@ -2005,8 +1999,8 @@
       "image": "resources/images/saloon_kitchen.png",
       "layout": {
         "level": 0,
-        "x": 1832.0,
-        "y": 1565.0
+        "x": 2056.0,
+        "y": 1733.0
       },
       "movement": {
         "backward": false,
@@ -2067,8 +2061,8 @@
       "image": "resources/images/saloon_owner_office.png",
       "layout": {
         "level": 0,
-        "x": 1320.0,
-        "y": 1344.0
+        "x": 1480.0,
+        "y": 1488.0
       },
       "movement": {
         "backward": false,
@@ -2110,8 +2104,8 @@
       "image": "resources/images/saloon_owner_office_desk.png",
       "layout": {
         "level": 0,
-        "x": 6440.0,
-        "y": 264.0
+        "x": 7240.0,
+        "y": 288.0
       },
       "movement": {
         "backward": false,
@@ -2200,8 +2194,8 @@
       "image": "resources/images/saloon_service_hall.png",
       "layout": {
         "level": 0,
-        "x": 1576.0,
-        "y": 1344.0
+        "x": 1768.0,
+        "y": 1488.0
       },
       "movement": {
         "backward": true,
@@ -2245,8 +2239,8 @@
       "image": "resources/images/saloon_side_passage.png",
       "layout": {
         "level": 0,
-        "x": 1576.0,
-        "y": 1560.0
+        "x": 1768.0,
+        "y": 1728.0
       },
       "movement": {
         "backward": false,
@@ -2313,8 +2307,8 @@
       ],
       "layout": {
         "level": 0,
-        "x": 1832.0,
-        "y": 1344.0
+        "x": 2056.0,
+        "y": 1488.0
       },
       "movement": {
         "backward": false,
@@ -2489,8 +2483,8 @@
       "image": "resources/images/snow_cave_exterior.png",
       "layout": {
         "level": 0,
-        "x": 1064.0,
-        "y": 264.0
+        "x": 1192.0,
+        "y": 288.0
       },
       "movement": {
         "backward": true,
@@ -2549,8 +2543,8 @@
       "image": "resources/images/snow_cave_interior.png",
       "layout": {
         "level": 0,
-        "x": 808.0,
-        "y": 264.0
+        "x": 904.0,
+        "y": 288.0
       },
       "movement": {
         "backward": false,
@@ -2620,7 +2614,7 @@
           "flags": [
             "dark"
           ],
-          "image": "resources/images/snow_cave_interior_low.png",
+          "image": "resources/images/snow_cave_interior.png",
           "movement": {
             "right": true
           },
@@ -2684,8 +2678,8 @@
       "image": "resources/images/steep_mountain_trail.png",
       "layout": {
         "level": 0,
-        "x": 1064.0,
-        "y": 480.0
+        "x": 1192.0,
+        "y": 528.0
       },
       "movement": {
         "backward": true,
@@ -2723,8 +2717,8 @@
       "image": "resources/images/survey_stake_line.png",
       "layout": {
         "level": 0,
-        "x": 1064.0,
-        "y": 1133.0
+        "x": 1192.0,
+        "y": 1253.0
       },
       "movement": {
         "backward": true,
@@ -2770,8 +2764,8 @@
       "image": "resources/images/white_baptist_church.png",
       "layout": {
         "level": 0,
-        "x": 808.0,
-        "y": 696.0
+        "x": 904.0,
+        "y": 768.0
       },
       "movement": {
         "backward": false,
@@ -2816,8 +2810,8 @@
       "image": "resources/images/white_baptist_church_cemetery.png",
       "layout": {
         "level": 0,
-        "x": 296.0,
-        "y": 696.0
+        "x": 328.0,
+        "y": 768.0
       },
       "movement": {
         "backward": false,
@@ -2869,8 +2863,8 @@
       "image": "resources/images/white_baptist_church_interior.png",
       "layout": {
         "level": 0,
-        "x": 552.0,
-        "y": 696.0
+        "x": 616.0,
+        "y": 768.0
       },
       "movement": {
         "backward": true,
@@ -2921,8 +2915,8 @@
       "image": "resources/images/white_baptist_church_vestry.png",
       "layout": {
         "level": 0,
-        "x": 552.0,
-        "y": 912.0
+        "x": 616.0,
+        "y": 1008.0
       },
       "movement": {
         "backward": false,
@@ -2984,8 +2978,8 @@
       "image": "resources/images/winding_alpine_path.png",
       "layout": {
         "level": 0,
-        "x": 1064.0,
-        "y": 696.0
+        "x": 1192.0,
+        "y": 768.0
       },
       "movement": {
         "backward": true,
@@ -3042,7 +3036,7 @@
       "layout": {
         "level": 0,
         "x": 40.0,
-        "y": 701.0
+        "y": 773.0
       },
       "movement": {
         "backward": false,

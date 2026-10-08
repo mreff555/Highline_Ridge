@@ -21,6 +21,7 @@ Project overview, abstract, and architecture live in the root **[README.md](../R
 | [scene-map-exits.md](scene-map-exits.md) | Compass / floors / Use wires / Exit Requirements / place-item vs Inventory |
 | [scene-audio.md](scene-audio.md) | Ambient + music backends, style presets, backup rotation (not key setup) |
 | [tts.md](tts.md) | Voice ids, markup, editor highlighting, `--refresh-voices` packaging loop |
+| [conversations.md](conversations.md) | Speak / `speakPhases`, choice flow fields, `exitSceneId` leave rules |
 | [dialog-tokens.md](dialog-tokens.md) | Runtime `{tab_amount}`-style world tokens (not TTS markup) |
 | [display-aspect.md](display-aspect.md) | Display aspect preferences and scene plate ratios |
 | [dev-vs-release.md](dev-vs-release.md) | Dev vs release matrix and authoring → ship loop |
@@ -39,6 +40,7 @@ Project overview, abstract, and architecture live in the root **[README.md](../R
 - **Keys** → [api-keys.md](api-keys.md) only  
 - **Ambient/music how-to** → [scene-audio.md](scene-audio.md)  
 - **TTS markup / refresh** → [tts.md](tts.md)  
+- **Speak dialog / choice leaves** → [conversations.md](conversations.md)  
 - **Map exits / gates** → [scene-map-exits.md](scene-map-exits.md)  
 - **Editor UI tour** → [scene-editor-tutorial.md](scene-editor-tutorial.md)  
 

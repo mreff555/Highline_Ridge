@@ -10,9 +10,11 @@
 #include "EditorUiDraw.h"
 #include "ImageCompression.h"
 #include "PlatformPath.h"
+#include "SceneAuthoring.h"
 #include "TtsVoiceMarkup.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <vector>
 
@@ -195,6 +197,7 @@ void FullscreenParchmentEditor::loadAssets(
 
 void FullscreenParchmentEditor::unloadAssets()
 {
+    joinAiThreads();
     if (deskLoaded && deskTexture.id != 0)
     {
         UnloadTexture(deskTexture);
@@ -215,10 +218,16 @@ void FullscreenParchmentEditor::openEditor(
     bool ttsHighlight,
     const std::string& label,
     const std::string& resourceDir,
-    const std::string& assetRoot)
+    const std::string& assetRoot,
+    const std::string& companionPlain,
+    const std::string& bakeVoiceId,
+    const std::string& bakeAudioRelPath,
+    std::string* bakeAudioBind,
+    std::vector<std::string>* bakeAudioSegmentsBind)
 {
     if (target == nullptr)
         return;
+    joinAiThreads();
     loadAssets(resourceDir, assetRoot);
     if (!resourceDir.empty())
         ensureTtsSyntaxThemeLoaded(resourceDir);
@@ -226,6 +235,26 @@ void FullscreenParchmentEditor::openEditor(
     draft = *target;
     highlightTts = ttsHighlight;
     hintLabel = label;
+    companionPlainText = companionPlain;
+    voiceId = bakeVoiceId;
+    audioRelPath = bakeAudioRelPath;
+    bindAudioPath = bakeAudioBind;
+    bindAudioSegments = bakeAudioSegmentsBind;
+    storedResourceDir = resourceDir;
+    storedAssetRoot = assetRoot;
+    translateBusy = false;
+    translateResultPending = false;
+    translateResultText.clear();
+    translateError.clear();
+    translateCancel.store(false);
+    voiceBusy = false;
+    voiceResultPending = false;
+    voiceResultPath.clear();
+    voiceError.clear();
+    voiceCancel.store(false);
+    aiStatus.clear();
+    if (ttsHighlight && bakeVoiceId.empty())
+        aiStatus = "Default voice is Off — set a voice to enable Generate voice.";
     cursor = static_cast<int>(draft.size());
     selectAnchor = -1;
     mouseSelecting = false;
@@ -235,29 +264,292 @@ void FullscreenParchmentEditor::openEditor(
     ignoreInputFrames = 2;
     TraceLog(
         LOG_INFO,
-        "TIMBERLINE: parchment editor open (%s) desk=%s script=%s",
+        "TIMBERLINE: parchment editor open (%s) desk=%s script=%s tts=%s",
         label.c_str(),
         deskLoaded ? "yes" : "no",
-        scriptLoaded ? "yes" : "no");
+        scriptLoaded ? "yes" : "no",
+        ttsHighlight ? "yes" : "no");
 }
 
 void FullscreenParchmentEditor::confirm()
 {
+    joinAiThreads();
     if (bindTarget != nullptr)
         *bindTarget = draft;
     open = false;
     bindTarget = nullptr;
+    bindAudioPath = nullptr;
+    companionPlainText.clear();
+    voiceId.clear();
+    audioRelPath.clear();
+    aiStatus.clear();
     if (onClosed)
         onClosed();
 }
 
 void FullscreenParchmentEditor::cancel()
 {
+    joinAiThreads();
     open = false;
     bindTarget = nullptr;
+    bindAudioPath = nullptr;
     draft.clear();
+    companionPlainText.clear();
+    voiceId.clear();
+    audioRelPath.clear();
+    aiStatus.clear();
     if (onClosed)
         onClosed();
+}
+
+void FullscreenParchmentEditor::joinAiThreads()
+{
+    {
+        std::lock_guard<std::mutex> lock(translateMutex);
+        translateCancel.store(true);
+        translateResultPending = false;
+        translateResultText.clear();
+        translateError.clear();
+    }
+    {
+        std::lock_guard<std::mutex> lock(voiceMutex);
+        voiceCancel.store(true);
+        voiceResultPending = false;
+        voiceResultPath.clear();
+        voiceError.clear();
+    }
+    if (translateThread.joinable())
+    {
+        if (translateBusy)
+            translateThread.detach();
+        else
+            translateThread.join();
+    }
+    if (voiceThread.joinable())
+    {
+        if (voiceBusy)
+            voiceThread.detach();
+        else
+            voiceThread.join();
+    }
+    translateBusy = false;
+    voiceBusy = false;
+    translateCancel.store(false);
+    voiceCancel.store(false);
+}
+
+void FullscreenParchmentEditor::startGenerateTts()
+{
+    if (!highlightTts || aiBusy())
+        return;
+
+    std::string source = companionPlainText;
+    auto trimEmpty = [](const std::string& s) {
+        size_t b = 0;
+        while (b < s.size()
+               && std::isspace(static_cast<unsigned char>(s[b])))
+            ++b;
+        size_t e = s.size();
+        while (e > b
+               && std::isspace(static_cast<unsigned char>(s[e - 1])))
+            --e;
+        return s.substr(b, e - b);
+    };
+    source = trimEmpty(source);
+    if (source.empty())
+        source = trimEmpty(draft);
+    if (source.empty())
+    {
+        aiStatus = "Nothing to generate — add on-screen dialog text first.";
+        return;
+    }
+    if (sessionKeys == nullptr || !sessionKeys->xaiReady())
+    {
+        aiStatus = "Set an xAI key in Options → API keys.";
+        return;
+    }
+
+    joinAiThreads();
+    translateBusy = true;
+    aiStatus = "Generating TTS…";
+    translateCancel.store(false);
+
+    const std::string keySnap = sessionKeys->xaiKey;
+    const std::string assetRoot = storedAssetRoot;
+    const std::string resourceDir = storedResourceDir;
+    const std::string sourceSnap = source;
+
+    translateThread = std::thread([this, keySnap, assetRoot, resourceDir, sourceSnap]() {
+        std::string outText;
+        const std::string err = runTranslatePlainTextToTts(
+            assetRoot, resourceDir, sourceSnap, keySnap, outText);
+        std::lock_guard<std::mutex> lock(translateMutex);
+        if (translateCancel.load())
+            return;
+        if (!err.empty())
+        {
+            translateError = err;
+            translateResultText.clear();
+        }
+        else
+        {
+            translateError.clear();
+            translateResultText = outText;
+        }
+        translateResultPending = true;
+    });
+}
+
+void FullscreenParchmentEditor::startGenerateVoice()
+{
+    if (!highlightTts || aiBusy())
+        return;
+
+    auto trimEmpty = [](const std::string& s) {
+        size_t b = 0;
+        while (b < s.size()
+               && std::isspace(static_cast<unsigned char>(s[b])))
+            ++b;
+        size_t e = s.size();
+        while (e > b
+               && std::isspace(static_cast<unsigned char>(s[e - 1])))
+            --e;
+        return s.substr(b, e - b);
+    };
+    const std::string spoken = trimEmpty(draft);
+    if (spoken.empty())
+    {
+        aiStatus = "Nothing to speak — Generate TTS (or type markup) first.";
+        return;
+    }
+    if (voiceId.empty())
+    {
+        // Button should already be disabled; keep a clear status if clicked.
+        aiStatus = "Generate voice needs a default voice (currently Off).";
+        return;
+    }
+    if (sessionKeys == nullptr || !sessionKeys->xaiReady())
+    {
+        aiStatus = "Set an xAI key in Options → API keys.";
+        return;
+    }
+
+    joinAiThreads();
+    voiceBusy = true;
+    aiStatus = "Generating voice…";
+    voiceCancel.store(false);
+
+    const std::string keySnap = sessionKeys->xaiKey;
+    const std::string assetRoot = storedAssetRoot;
+    const std::string resourceDir = storedResourceDir;
+    const std::string voiceSnap = voiceId;
+    const std::string audioSnap = audioRelPath;
+    const std::string textSnap = spoken;
+
+    voiceThread = std::thread(
+        [this, keySnap, assetRoot, resourceDir, voiceSnap, audioSnap, textSnap]() {
+            std::string written;
+            std::vector<std::string> segments;
+            const std::string err = runSynthesizeTtsAudio(
+                assetRoot,
+                resourceDir,
+                textSnap,
+                voiceSnap,
+                keySnap,
+                audioSnap,
+                written,
+                &segments);
+            std::lock_guard<std::mutex> lock(voiceMutex);
+            if (voiceCancel.load())
+                return;
+            if (!err.empty())
+            {
+                voiceError = err;
+                voiceResultPath.clear();
+                voiceResultSegments.clear();
+            }
+            else
+            {
+                voiceError.clear();
+                voiceResultPath = written;
+                voiceResultSegments = std::move(segments);
+            }
+            voiceResultPending = true;
+        });
+}
+
+void FullscreenParchmentEditor::pollAiResults()
+{
+    if (translateResultPending)
+    {
+        std::string err;
+        std::string text;
+        {
+            std::lock_guard<std::mutex> lock(translateMutex);
+            if (translateResultPending)
+            {
+                err = translateError;
+                text = translateResultText;
+                translateResultPending = false;
+                translateError.clear();
+                translateResultText.clear();
+            }
+        }
+        if (translateThread.joinable())
+            translateThread.join();
+        translateBusy = false;
+        if (!err.empty())
+            aiStatus = err;
+        else if (!text.empty())
+        {
+            draft = text;
+            cursor = static_cast<int>(draft.size());
+            selectAnchor = -1;
+            mouseSelecting = false;
+            preferX = -1.0f;
+            scrollY = 0.0f;
+            aiStatus = "TTS markup updated — Generate voice or Confirm.";
+        }
+    }
+
+    if (voiceResultPending)
+    {
+        std::string err;
+        std::string path;
+        std::vector<std::string> segments;
+        {
+            std::lock_guard<std::mutex> lock(voiceMutex);
+            if (voiceResultPending)
+            {
+                err = voiceError;
+                path = voiceResultPath;
+                segments = voiceResultSegments;
+                voiceResultPending = false;
+                voiceError.clear();
+                voiceResultPath.clear();
+                voiceResultSegments.clear();
+            }
+        }
+        if (voiceThread.joinable())
+            voiceThread.join();
+        voiceBusy = false;
+        if (!err.empty())
+            aiStatus = err;
+        else if (!path.empty())
+        {
+            if (bindAudioPath != nullptr)
+                *bindAudioPath = path;
+            if (bindAudioSegments != nullptr)
+                *bindAudioSegments = segments;
+            if (audioRelPath.empty())
+                audioRelPath = path;
+            if (segments.size() > 1)
+                aiStatus = "Voice written: " + std::to_string(segments.size())
+                    + " segments (" + path + ")";
+            else
+                aiStatus = "Voice written: " + path;
+        }
+    }
 }
 
 bool FullscreenParchmentEditor::hasSelection() const
@@ -389,24 +681,50 @@ void FullscreenParchmentEditor::layoutChrome(int screenW, int screenH)
         parchment.y + kParchmentMarginY,
         parchment.width - kParchmentMarginX * 2.0f - 14.0f,
         parchment.height - kParchmentMarginY * 2.0f};
-    const float btnW = 140.0f;
+    const float btnW = 120.0f;
+    const float genTtsW = 130.0f;
+    const float genVoiceW = 140.0f;
     const float btnH = 36.0f;
+    const float gap = 10.0f;
     const float btnY = parchment.y + parchment.height + 24.0f;
-    confirmBtn = {parchment.x + parchment.width * 0.5f - btnW - 12.0f, btnY, btnW, btnH};
-    cancelBtn = {parchment.x + parchment.width * 0.5f + 12.0f, btnY, btnW, btnH};
+    const float centerX = parchment.x + parchment.width * 0.5f;
+    if (highlightTts)
+    {
+        const float totalW =
+            genTtsW + gap + genVoiceW + gap + btnW + gap + btnW;
+        float x = centerX - totalW * 0.5f;
+        generateTtsBtn = {x, btnY, genTtsW, btnH};
+        x += genTtsW + gap;
+        generateVoiceBtn = {x, btnY, genVoiceW, btnH};
+        x += genVoiceW + gap;
+        confirmBtn = {x, btnY, btnW, btnH};
+        x += btnW + gap;
+        cancelBtn = {x, btnY, btnW, btnH};
+    }
+    else
+    {
+        generateTtsBtn = {0, 0, 0, 0};
+        generateVoiceBtn = {0, 0, 0, 0};
+        confirmBtn = {centerX - btnW - gap, btnY, btnW, btnH};
+        cancelBtn = {centerX + gap, btnY, btnW, btnH};
+    }
 }
 
 void FullscreenParchmentEditor::handleInput(int screenW, int screenH)
 {
     if (!open)
         return;
+
+    pollAiResults();
+
     if (ignoreInputFrames > 0)
     {
         --ignoreInputFrames;
         return;
     }
 
-    typeIntoDraft();
+    if (!aiBusy())
+        typeIntoDraft();
 
     if (IsKeyPressed(KEY_ESCAPE))
     {
@@ -523,8 +841,29 @@ void FullscreenParchmentEditor::handleInput(int screenW, int screenH)
 
     if (canClick)
     {
+        if (highlightTts && generateTtsBtn.width > 1.0f
+            && CheckCollisionPointRec(mouse, generateTtsBtn))
+        {
+            mouseSelecting = false;
+            if (!aiBusy())
+                startGenerateTts();
+            return;
+        }
+        if (highlightTts && generateVoiceBtn.width > 1.0f
+            && CheckCollisionPointRec(mouse, generateVoiceBtn))
+        {
+            mouseSelecting = false;
+            if (!aiBusy() && !voiceId.empty())
+                startGenerateVoice();
+            else if (voiceId.empty() && !aiBusy())
+                aiStatus =
+                    "Generate voice needs a default voice (currently Off).";
+            return;
+        }
         if (CheckCollisionPointRec(mouse, confirmBtn))
         {
+            if (aiBusy())
+                return;
             mouseSelecting = false;
             confirm();
             return;
@@ -535,7 +874,7 @@ void FullscreenParchmentEditor::handleInput(int screenW, int screenH)
             cancel();
             return;
         }
-        if (CheckCollisionPointRec(mouse, lastTextArea))
+        if (!aiBusy() && CheckCollisionPointRec(mouse, lastTextArea))
         {
             const int pos = indexAtMouse(mouse);
             preferX = -1.0f;
@@ -580,6 +919,8 @@ void FullscreenParchmentEditor::draw(int screenW, int screenH)
 {
     if (!open)
         return;
+
+    pollAiResults();
 
     // Cover entire editor chrome (must run inside BeginDrawing/EndDrawing).
     DrawRectangle(0, 0, screenW, screenH, Color{10, 8, 6, 255});
@@ -788,8 +1129,33 @@ void FullscreenParchmentEditor::draw(int screenW, int screenH)
     }
 
     const Font ui = GetFontDefault();
-    drawEditorButton(ui, confirmBtn, "Confirm", true, true);
+    const bool busy = aiBusy();
+    const bool canBakeVoice = !voiceId.empty();
+    if (highlightTts && generateTtsBtn.width > 1.0f)
+    {
+        const char* label = translateBusy ? "Working…" : "Generate TTS";
+        drawEditorButton(ui, generateTtsBtn, label, true, !busy);
+    }
+    if (highlightTts && generateVoiceBtn.width > 1.0f)
+    {
+        const char* label = voiceBusy ? "Working…" : "Generate voice";
+        drawEditorButton(
+            ui, generateVoiceBtn, label, true, !busy && canBakeVoice);
+    }
+    drawEditorButton(ui, confirmBtn, "Confirm", true, !busy);
     drawEditorButton(ui, cancelBtn, "Cancel", false, true);
+
+    if (highlightTts && !aiStatus.empty())
+    {
+        const float statusY = confirmBtn.y + confirmBtn.height + 10.0f;
+        DrawTextEx(
+            ui,
+            aiStatus.c_str(),
+            {lastParchment.x + 8.0f, statusY},
+            14.0f,
+            1.0f,
+            Color{230, 210, 170, 255});
+    }
 }
 
 } // namespace timberline_editor

@@ -169,6 +169,8 @@ struct ConversationChoiceDef
     std::string grantStoryFlag;
     std::string startPhase;
     bool skipIntroOnStartPhase = false;
+    /** Leave to this scene (or scene#sub) after the response path. MOVE-like. */
+    std::string exitSceneId;
     std::vector<OverlaySequenceStep> overlaySequence;
     std::vector<ConversationChoiceDef> followUpChoices;
 
@@ -321,6 +323,8 @@ struct SpeakResult
     std::string grantStoryFlag;
     std::string startPhaseId;
     bool skipIntroOnStartPhase = false;
+    /** Non-empty → leave room after response (MOVE-like; skips startPhase chain). */
+    std::string exitSceneId;
     std::vector<OverlaySequenceStep> overlaySequence;
     std::string spokenActorId;
 };

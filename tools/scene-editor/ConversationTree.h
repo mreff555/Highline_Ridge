@@ -54,6 +54,12 @@ struct ConversationTree
     std::function<bool()> draggingDivider;
     /** Called when the user picks a scene root in the conversations tree. */
     std::function<void(const std::string& sceneId)> onSelectScene;
+    /**
+     * Fired whenever the tree selection key changes (scene / actor / phase /
+     * choice). Used to migrate speakPhases onto the flowchart canvas.
+     */
+    std::function<void(const std::string& treeKey, const std::string& sceneId)>
+        onTreeSelection;
     Font uiFont{};
     Font uiFontBold{};
 

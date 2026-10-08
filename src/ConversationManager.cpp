@@ -1205,6 +1205,7 @@ SpeakResult ConversationManager::resolveScriptedChoice(
     result.grantStoryFlag = choice.grantStoryFlag;
     result.startPhaseId = choice.startPhase;
     result.skipIntroOnStartPhase = choice.skipIntroOnStartPhase;
+    result.exitSceneId = choice.exitSceneId;
     result.overlaySequence = choice.overlaySequence;
     applyTtsFields(
         result,

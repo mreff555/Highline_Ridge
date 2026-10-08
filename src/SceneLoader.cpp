@@ -411,6 +411,7 @@ bool parseConversationChoice(const nlohmann::json& choice, ConversationChoiceDef
     out.grantStoryFlag = choice.value("grantStoryFlag", "");
     out.startPhase = choice.value("startPhase", "");
     out.skipIntroOnStartPhase = choice.value("skipIntroOnStartPhase", false);
+    out.exitSceneId = choice.value("exitSceneId", "");
 
     if (!parseOverlaySequence(choice.value("overlaySequence", nlohmann::json::array()), out.overlaySequence))
         return false;

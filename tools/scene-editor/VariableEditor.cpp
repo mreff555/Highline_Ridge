@@ -123,12 +123,23 @@ void VariableEditor::openParchmentEditor()
     else if (!editorSceneId.empty())
         label = editorKey;
 
+    // When editing the TTS side, feed the plain-text side as AI source.
+    std::string companion;
+    std::string bakeVoice;
+    if (ttsHighlight)
+    {
+        stashActiveBufferToSide();
+        companion = textSideBuffer;
+        bakeVoice = "leo";
+    }
     parchment->openEditor(
         &buffer,
         ttsHighlight,
         label,
         docs->resourceDir,
-        docs->assetRoot);
+        docs->assetRoot,
+        companion,
+        bakeVoice);
     parchment->onClosed = [this]() {
         // Confirm already wrote draft → buffer; stash so Text/TTS dual-side
         // Save still sees the parchment result.

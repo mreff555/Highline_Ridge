@@ -64,6 +64,10 @@ void SceneEditorApp::wireModules()
     {
         dialogWalkthrough.selectConversationScene(sceneId);
     };
+    conversation.onTreeSelection =
+        [this](const std::string& treeKey, const std::string& sceneId) {
+            dialogFlow.migrateFromTreeSelection(treeKey, sceneId);
+        };
 
     dialogWalkthrough.docs = &document;
     dialogWalkthrough.parchment = &parchmentEditor;
@@ -78,6 +82,16 @@ void SceneEditorApp::wireModules()
         if (!selectedSceneId.empty())
             conversation.expanded.insert("scene:" + selectedSceneId);
     };
+
+    dialogFlow.docs = &document;
+    dialogFlow.selectionSceneId = &selectedSceneId;
+    dialogFlow.parchment = &parchmentEditor;
+    dialogPalette.flow = &dialogFlow;
+    dialogDetails.flow = &dialogFlow;
+    dialogMedia.docs = &document;
+    dialogMedia.flow = &dialogFlow;
+    dialogMedia.thumbnails = &thumbnails;
+    dialogMedia.selectionSceneId = &selectedSceneId;
 
     itemEditor.docs = &document;
     itemEditor.text = &variableEditor;
@@ -98,6 +112,10 @@ void SceneEditorApp::wireModules()
     mapCanvas.variableEditor = &variableEditor;
     mapCanvas.conversation = &conversation;
     mapCanvas.dialogWalkthrough = &dialogWalkthrough;
+    mapCanvas.dialogFlow = &dialogFlow;
+    mapCanvas.dialogPalette = &dialogPalette;
+    mapCanvas.dialogDetails = &dialogDetails;
+    mapCanvas.dialogMedia = &dialogMedia;
     mapCanvas.itemEditor = &itemEditor;
     mapCanvas.selectionSceneId = &selectedSceneId;
     mapCanvas.variablesScroll = &variablesScroll;
@@ -204,11 +222,20 @@ void SceneEditorApp::syncModuleFonts()
     conversation.uiFontBold = uiFontBold;
     dialogWalkthrough.uiFont = uiFont;
     dialogWalkthrough.uiFontBold = uiFontBold;
+    dialogFlow.uiFont = uiFont;
+    dialogFlow.uiFontBold = uiFontBold;
+    dialogPalette.uiFont = uiFont;
+    dialogPalette.uiFontBold = uiFontBold;
+    dialogDetails.uiFont = uiFont;
+    dialogDetails.uiFontBold = uiFontBold;
+    dialogMedia.uiFont = uiFont;
+    dialogMedia.uiFontBold = uiFontBold;
     itemEditor.uiFont = uiFont;
     itemEditor.uiFontBold = uiFontBold;
     mapCanvas.uiFont = uiFont;
     mapCanvas.uiFontBold = uiFontBold;
     mapCanvas.parchment = &parchmentEditor;
+    parchmentEditor.sessionKeys = &sessionApiKeys;
     mapCanvas.sceneAuthoring.parchment = &parchmentEditor;
     mapCanvas.sceneAuthoring.uiFont = uiFont;
     mapCanvas.sceneAuthoring.uiFontBold = uiFontBold;
@@ -324,6 +351,9 @@ bool SceneEditorApp::saveDocument()
 
 void SceneEditorApp::unloadThumbnails()
 {
+    dialogMedia.unloadAudio();
+    dialogFlow.unloadIcons();
+    mapCanvas.unloadScenePreviewMedia();
     thumbnails.clear();
 }
 
@@ -341,7 +371,11 @@ void SceneEditorApp::selectSceneForEditor(const std::string& id)
         dialogWalkthrough.ensureConversationSceneSelected();
         dialogWalkthrough.rebuildSteps();
         if (!selectedSceneId.empty())
+        {
             conversation.expanded.insert("scene:" + selectedSceneId);
+            dialogFlow.migrateFromTreeSelection(
+                "scene:" + selectedSceneId, selectedSceneId);
+        }
     }
 }
 
@@ -438,7 +472,11 @@ bool SceneEditorApp::loadActiveDocument()
         dialogWalkthrough.ensureConversationSceneSelected();
         dialogWalkthrough.rebuildSteps();
         if (!selectedSceneId.empty())
+        {
             conversation.expanded.insert("scene:" + selectedSceneId);
+            dialogFlow.migrateFromTreeSelection(
+                "scene:" + selectedSceneId, selectedSceneId);
+        }
         return true;
     }
 
@@ -694,11 +732,14 @@ void SceneEditorApp::update()
         const Rectangle main = layout.mainPaneBounds(screenWidth);
         const Rectangle canvasBounds = {
             main.x + 4.0f, main.y + 4.0f, main.width - 8.0f, main.height - 8.0f};
-        dialogWalkthrough.handleInput(canvasBounds);
-        if (CheckCollisionPointRec(GetMousePosition(), dialogWalkthrough.textField))
-            SetMouseCursor(MOUSE_CURSOR_IBEAM);
-        else
-            SetMouseCursor(MOUSE_CURSOR_DEFAULT);
+        const Rectangle bottom = layout.bottomPaneBounds(screenWidth, screenHeight);
+        const DialogBottomSplit split = computeDialogBottomSplit(bottom);
+        const bool paneInteract = !layout.isDraggingDivider();
+        dialogPalette.handleInput(split.types, paneInteract);
+        dialogDetails.handleInput(split.details, paneInteract);
+        dialogFlow.handleInput(canvasBounds, paneInteract);
+        dialogMedia.handleInput(split.media, paneInteract);
+        SetMouseCursor(MOUSE_CURSOR_DEFAULT);
     }
 
     layout.handleDividerInput(screenWidth, screenHeight);

@@ -494,7 +494,12 @@ int GameApplication::run(int argc, char* argv[])
 
     while (!WindowShouldClose() && !session->shouldQuit())
     {
+        // Keep music beds fed across job completions (e.g. large scene-texture
+        // uploads) which otherwise stall the main thread before session->update
+        // and underrun the short default stream buffer (#58).
+        audioManager.pumpStreams();
         JobSystem::global().pollCompletions();
+        audioManager.pumpStreams();
         session->update();
         BeginDrawing();
         session->draw();

@@ -825,8 +825,8 @@
             "resumeTopLevel": true,
             "tts": true,
             "ttsAudio": "resources/audio/tts/alpine_hardware/compliment_building.mp3",
-            "ttsTextSha256": "0c12625c750fa8d7918f869fef69f4bcf168a61c8d838a315563ab1451176977",
-            "ttsVoice": "helios"
+            "ttsText": "You take in the post-and-beam bones of the room. [pause] Timbers joined with a joiner’s patience, [pause] braces cut true, [pause] the whole frame standing with the quiet confidence of work done by someone who did not need to hurry.\n\n[long-pause]\n\n\"Impressive building,\" you say.\n\n[pause:800ms]\n\nFor the first time, something like pleasure enters his face.\n\n[pause:1200ms]\n\n{{voice:helios}}I built it myself. [pause] Every beam, every brace, every peg. [pause] My father ran a mill in Pennsylvania. [pause] I learned timber before I learned trade. [long-pause] Came up here in eighty-one when the High Line decided it was going to stay, [soft] not just camp. [pause] There was no proper hardware north of Graysmill that would make the climb worth a mule’s temper, [pause] so I opened this room and stocked it for men who break ground in weather that kills carelessness.{{/voice}} [pause:700ms]\n\nHe taps the nearest post with his knuckle.\n\n{{voice:helios}}<soft>She’ll stand longer than most of the claims on this ridge.</soft>{{/voice}}",
+            "ttsVoice": "leo"
           },
           {
             "id": "just_browsing",
@@ -834,12 +834,12 @@
             "response": "\"Then browse,\" he says. \"Mind the barrels and the low lantern hooks. Holler if you want something down from the wall.\"",
             "tts": true,
             "ttsAudio": "resources/audio/tts/alpine_hardware/just_browsing.mp3",
-            "ttsTextSha256": "46fe9ce51c439c60f4b27c0b5e499758e320afd59701e55232c83ebab3e79490",
+            "ttsText": "",
             "ttsVoice": "helios"
           }
         ],
         "id": "merchant",
-        "intro": "The merchant straightens from a ledger behind the counter and meets your eyes without hurry. He is tall, broad through the chest and shoulders, built like a man who has lifted iron all his life and meant to keep doing it. His shirt is clean, his suspenders straight, his beard trimmed with the same discipline he brings to stock and shelf.\n\n\"Afternoon. What can I help you find?",
+        "intro": "The merchant straightens from a ledger behind the counter and meets your eyes without hurry. He is tall, broad through the chest and shoulders, built like a man who has lifted iron all his life and meant to keep doing it. His shirt is clean, his suspenders straight, his beard trimmed with the same discipline he brings to stock and shelf.\n\n\"Afternoon. What can I help you find?\"",
         "resetOnSceneEnter": true,
         "resumeIntro": "He rests both hands on the counter, patient and square-shouldered. \"What else do you need?\"",
         "resumeTts": true,
@@ -848,7 +848,11 @@
         "resumeTtsVoice": "helios",
         "tts": true,
         "ttsAudio": "resources/audio/tts/alpine_hardware/merchant_intro.mp3",
-        "ttsText": "The merchant straightens from a ledger behind the counter and meets your eyes without hurry. He is tall, broad through the chest and shoulders, built like a man who has lifted iron all his life and meant to keep doing it. His shirt is clean, his suspenders straight, his beard trimmed with the same discipline he brings to stock and shelf.\n\n\"Afternoon. What can I help you find?\"I It's ",
+        "ttsAudioSegments": [
+          "resources/audio/tts/alpine_hardware/merchant_intro.seg0.mp3",
+          "resources/audio/tts/alpine_hardware/merchant_intro.seg1.mp3"
+        ],
+        "ttsText": "The merchant straightens from a ledger behind the counter and meets your eyes without hurry. He is tall, broad through the chest and shoulders, built like a man who has lifted iron all his life and meant to keep doing it. His shirt is clean, his suspenders straight, his beard trimmed with the same discipline he brings to stock and shelf.\n\n{{voice:helios}}\"Afternoon. What can I help you find?\"{{/voice}}",
         "ttsVoice": "leo",
         "type": "scripted"
       }

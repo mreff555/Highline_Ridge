@@ -2071,8 +2071,32 @@ void SceneAuthoringDialog::handleInput(int screenW, int screenH)
             }
             if (target != nullptr)
             {
+                std::string companion;
+                std::string bakeVoice;
+                std::string bakeAudio;
+                if (fieldContextTarget == 7)
+                {
+                    companion = payload.description;
+                    bakeVoice = payload.ttsDefaultVoice;
+                    bakeAudio =
+                        "resources/audio/tts/" + payload.id + "/descriptionTts.mp3";
+                }
+                else if (fieldContextTarget == 8)
+                {
+                    companion = payload.examineDetails;
+                    bakeVoice = payload.ttsDefaultVoice;
+                    bakeAudio =
+                        "resources/audio/tts/" + payload.id + "/examineTts.mp3";
+                }
                 parchment->openEditor(
-                    target, tts, label, docs->resourceDir, docs->assetRoot);
+                    target,
+                    tts,
+                    label,
+                    docs->resourceDir,
+                    docs->assetRoot,
+                    companion,
+                    bakeVoice,
+                    bakeAudio);
                 parchment->onClosed = [this]() {
                     descriptionEdit.cursor =
                         static_cast<int>(payload.description.size());

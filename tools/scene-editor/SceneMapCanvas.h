@@ -28,6 +28,10 @@
 #include "ThumbnailCache.h"
 #include "VariableEditor.h"
 #include "ConversationTree.h"
+#include "DialogFlowCanvas.h"
+#include "DialogMediaPreview.h"
+#include "DialogNodeDetails.h"
+#include "DialogNodePalette.h"
 #include "DialogWalkthrough.h"
 #include "ItemEditor.h"
 #include "SceneAuthoringDialog.h"
@@ -163,6 +167,11 @@ struct SceneMapCanvas
     VariableEditor* variableEditor = nullptr;
     ConversationTree* conversation = nullptr;
     DialogWalkthrough* dialogWalkthrough = nullptr;
+    /** Phase 1 Conversations flowchart shell (preferred over walkthrough). */
+    DialogFlowCanvas* dialogFlow = nullptr;
+    DialogNodePalette* dialogPalette = nullptr;
+    DialogNodeDetails* dialogDetails = nullptr;
+    DialogMediaPreview* dialogMedia = nullptr;
     ItemEditor* itemEditor = nullptr;
     SceneAuthoringDialog sceneAuthoring;
     FullscreenParchmentEditor* parchment = nullptr;

@@ -189,7 +189,11 @@ class GameSession
         const std::string& fromRoom = "",
         bool playDescriptionTts = true,
         bool preserveNarrative = false);
-    void transitionToScene(const std::string& sceneId, const std::string& subSceneId = "");
+    /** Default kind is Use (pushes return). Pass false for MOVE-like Speak leaves. */
+    void transitionToScene(
+        const std::string& sceneId,
+        const std::string& subSceneId = "",
+        bool asUseTransition = true);
     void syncActiveSubScene();
     void tryMove(const std::string& direction);
     bool tryFireStoryEvents(StoryEventWhen when, const std::string& direction = "");

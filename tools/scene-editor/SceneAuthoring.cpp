@@ -8,6 +8,7 @@
 #include "EditorPrefs.h"
 #include "ImageCompression.h"
 #include "PlatformPath.h"
+#include "TtsVoiceMarkup.h"
 
 #include <raylib.h>
 
@@ -32,9 +33,12 @@
 #include <unistd.h>
 #endif
 
+using timberline_engine::buildSegmentAudioPaths;
 using timberline_engine::compressedAssetPath;
 using timberline_engine::ensureParentDirectoryExists;
+using timberline_engine::parseVoiceMarkup;
 using timberline_engine::pathJoin;
+using timberline_engine::TtsVoiceSegment;
 
 namespace timberline_editor
 {
@@ -847,6 +851,259 @@ SceneUpsertResult upsertScene(
     if (!result.jobsFilePath.empty())
         result.message += " | AI jobs: " + result.jobsFilePath;
     return result;
+}
+
+std::string runTranslatePlainTextToTts(
+    const std::string& assetRootHint,
+    const std::string& resourceDirHint,
+    const std::string& sourcePlainText,
+    const std::string& sessionApiKey,
+    std::string& outTtsText)
+{
+    outTtsText.clear();
+    const std::string trimmed = [&]() {
+        size_t b = 0;
+        while (b < sourcePlainText.size()
+               && std::isspace(static_cast<unsigned char>(sourcePlainText[b])))
+            ++b;
+        size_t e = sourcePlainText.size();
+        while (e > b
+               && std::isspace(static_cast<unsigned char>(sourcePlainText[e - 1])))
+            --e;
+        return sourcePlainText.substr(b, e - b);
+    }();
+    if (trimmed.empty())
+        return "Nothing to translate — provide on-screen dialog text first.";
+
+    const std::string gameRoot = findGameRoot(assetRootHint, resourceDirHint);
+    const std::string runner =
+        pathJoin(gameRoot, "tools/run_item_authoring_ai.py");
+    if (!FileExists(runner.c_str()))
+        return "AI runner missing: tools/run_item_authoring_ai.py";
+
+    const std::string authDir = pathJoin(gameRoot, "resources/.authoring");
+#if !defined(_WIN32)
+    {
+        std::string mkdirCmd = "mkdir -p " + shellQuote(authDir);
+        std::system(mkdirCmd.c_str());
+    }
+#endif
+    const std::string inPath = pathJoin(authDir, "parchment_tts_in.txt");
+    const std::string outPath = pathJoin(authDir, "parchment_tts_out.txt");
+    {
+        std::ofstream out(inPath.c_str(), std::ios::binary | std::ios::trunc);
+        if (!out)
+            return "Could not write temp input:\n" + inPath;
+        out << trimmed;
+    }
+
+    auto runWith = [&](const char* pythonBin) -> int {
+        std::ostringstream command;
+        command << pythonBin << " \"" << runner << "\" --asset-root \"" << gameRoot
+                << "\" --translate-tts --in \"" << inPath << "\" --out \"" << outPath
+                << "\"";
+        if (!sessionApiKey.empty())
+            command << " --key " << shellQuote(sessionApiKey);
+        command << " 2>&1";
+        return std::system(command.str().c_str());
+    };
+
+    int code = runWith("python3");
+#if !defined(_WIN32)
+    const int python3Status =
+        (code >= 0 && WIFEXITED(code)) ? WEXITSTATUS(code) : code;
+#else
+    const int python3Status = code;
+#endif
+    if (python3Status == 127 || code == -1)
+        code = runWith("python");
+
+#if !defined(_WIN32)
+    const int status = (code >= 0 && WIFEXITED(code)) ? WEXITSTATUS(code) : code;
+#else
+    const int status = code;
+#endif
+    if (status != 0)
+    {
+        return "AI translate failed (exit "
+            + std::to_string(status)
+            + "). Check xAI key in Options → API keys.";
+    }
+
+    std::ifstream in(outPath.c_str(), std::ios::binary);
+    if (!in)
+        return "AI translate wrote no output:\n" + outPath;
+    std::ostringstream buf;
+    buf << in.rdbuf();
+    outTtsText = buf.str();
+    while (!outTtsText.empty()
+           && (outTtsText.back() == '\n' || outTtsText.back() == '\r'))
+        outTtsText.pop_back();
+    if (outTtsText.empty())
+        return "AI translate returned empty TTS text.";
+    return {};
+}
+
+namespace
+{
+
+std::string synthesizeOneTtsMp3(
+    const std::string& absPath,
+    const std::string& spokenText,
+    const std::string& segmentVoiceId,
+    const std::string& sessionApiKey)
+{
+    if (!ensureParentDirectoryExists(absPath))
+        return "Could not create audio folder for:\n" + absPath;
+
+    nlohmann::json payload;
+    payload["text"] = spokenText;
+    payload["voice_id"] = segmentVoiceId;
+    payload["language"] = "en";
+
+    const std::string payloadPath = absPath + ".json";
+    const std::string httpCodePath = absPath + ".http";
+    {
+        std::ofstream out(payloadPath.c_str(), std::ios::binary | std::ios::trunc);
+        if (!out)
+            return "Could not write TTS request JSON.";
+        out << payload.dump();
+    }
+
+    std::ostringstream command;
+    command << "/usr/bin/curl -sS -X POST https://api.x.ai/v1/tts "
+            << "-H " << shellQuote("Authorization: Bearer " + sessionApiKey) << " "
+            << "-H " << shellQuote("Content-Type: application/json") << " "
+            << "-d @" << shellQuote(payloadPath) << " "
+            << "-o " << shellQuote(absPath) << " "
+            << "-w \"%{http_code}\" > " << shellQuote(httpCodePath);
+    const int code = std::system(command.str().c_str());
+    std::remove(payloadPath.c_str());
+
+    std::string httpCode;
+    {
+        std::ifstream in(httpCodePath.c_str());
+        if (in)
+            std::getline(in, httpCode);
+    }
+    std::remove(httpCodePath.c_str());
+
+#if !defined(_WIN32)
+    const int status = (code >= 0 && WIFEXITED(code)) ? WEXITSTATUS(code) : code;
+#else
+    const int status = code;
+#endif
+    if (status != 0 || !FileExists(absPath.c_str()))
+    {
+        std::remove(absPath.c_str());
+        return "Generate voice failed (curl exit " + std::to_string(status)
+            + "). Check xAI key / network.";
+    }
+    if (httpCode != "200")
+    {
+        std::remove(absPath.c_str());
+        return "Generate voice API error (HTTP " + httpCode
+            + "). Check voice id and key.";
+    }
+    {
+        std::ifstream in(absPath.c_str(), std::ios::binary);
+        char head[8] = {};
+        in.read(head, 1);
+        if (in.gcount() == 1 && head[0] == '{')
+        {
+            std::remove(absPath.c_str());
+            return "Generate voice returned an API error payload.";
+        }
+    }
+    std::remove(compressedAssetPath(absPath).c_str());
+    return {};
+}
+
+void removeStaleSegmentFiles(const std::string& gameRoot, const std::string& baseRel)
+{
+    // Clear a reasonable span of prior .segN leftovers after a re-bake.
+    const std::vector<std::string> paths = buildSegmentAudioPaths(baseRel, 16);
+    for (const std::string& rel : paths)
+    {
+        if (rel == baseRel)
+            continue;
+        const std::string abs =
+            (rel.size() >= 1 && rel[0] == '/') ? rel : pathJoin(gameRoot, rel);
+        std::remove(abs.c_str());
+        std::remove(compressedAssetPath(abs).c_str());
+    }
+}
+
+} // namespace
+
+std::string runSynthesizeTtsAudio(
+    const std::string& assetRootHint,
+    const std::string& resourceDirHint,
+    const std::string& ttsMarkupText,
+    const std::string& voiceId,
+    const std::string& sessionApiKey,
+    const std::string& audioRelPath,
+    std::string& outWrittenRel,
+    std::vector<std::string>* outSegmentRels)
+{
+    outWrittenRel.clear();
+    if (outSegmentRels != nullptr)
+        outSegmentRels->clear();
+
+    const std::string trimmed = [&]() {
+        size_t b = 0;
+        while (b < ttsMarkupText.size()
+               && std::isspace(static_cast<unsigned char>(ttsMarkupText[b])))
+            ++b;
+        size_t e = ttsMarkupText.size();
+        while (e > b
+               && std::isspace(static_cast<unsigned char>(ttsMarkupText[e - 1])))
+            --e;
+        return ttsMarkupText.substr(b, e - b);
+    }();
+    if (trimmed.empty())
+        return "Nothing to speak — add TTS markup first (Generate TTS).";
+    if (voiceId.empty())
+        return "Set a default voice first (Off cannot bake audio).";
+    if (sessionApiKey.empty())
+        return "Set an xAI key in Options → API keys.";
+
+    std::vector<TtsVoiceSegment> segments;
+    std::string markupError;
+    if (!parseVoiceMarkup(trimmed, voiceId, segments, markupError))
+        return "TTS markup error: " + markupError;
+    if (segments.empty())
+        return "TTS markup produced no spoken segments.";
+
+    const std::string gameRoot = findGameRoot(assetRootHint, resourceDirHint);
+    std::string baseRel = audioRelPath;
+    if (baseRel.empty())
+        baseRel = "resources/.authoring/parchment_voice.mp3";
+
+    removeStaleSegmentFiles(gameRoot, baseRel);
+
+    const std::vector<std::string> segmentRels =
+        buildSegmentAudioPaths(baseRel, segments.size());
+    for (size_t i = 0; i < segments.size(); ++i)
+    {
+        const std::string& rel = segmentRels[i];
+        const std::string absPath =
+            (rel.size() >= 1 && rel[0] == '/') ? rel : pathJoin(gameRoot, rel);
+        const std::string err = synthesizeOneTtsMp3(
+            absPath, segments[i].text, segments[i].voiceId, sessionApiKey);
+        if (!err.empty())
+            return err;
+    }
+
+    outWrittenRel = baseRel;
+    if (outSegmentRels != nullptr)
+    {
+        if (segments.size() > 1)
+            *outSegmentRels = segmentRels;
+        else
+            outSegmentRels->clear();
+    }
+    return {};
 }
 
 std::string runSceneAuthoringAiJobsFile(

@@ -1836,12 +1836,18 @@ void SceneExitRequirementsDialog::draw(int screenW, int screenH)
             {
                 std::string* target =
                     fieldContextTarget == 3 ? &blockedTtsText : &blockedDetails;
+                if (fieldContextTarget == 3 && blockedTtsAudio.empty())
+                    blockedTtsAudio = defaultBlockedAudioPath();
                 parchment->openEditor(
                     target,
                     fieldContextTarget == 3,
                     fieldContextTarget == 3 ? "Blocked TTS" : "Blocked details",
                     docs->resourceDir,
-                    docs->assetRoot);
+                    docs->assetRoot,
+                    fieldContextTarget == 3 ? blockedDetails : std::string{},
+                    fieldContextTarget == 3 ? blockedTtsVoice : std::string{},
+                    fieldContextTarget == 3 ? blockedTtsAudio : std::string{},
+                    fieldContextTarget == 3 ? &blockedTtsAudio : nullptr);
                 parchment->onClosed = [this]() { waitMouseRelease = true; };
                 waitMouseRelease = true;
             }

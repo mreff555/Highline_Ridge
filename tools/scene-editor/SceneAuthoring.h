@@ -127,6 +127,35 @@ SceneUpsertResult upsertScene(
     bool writeAiJobs,
     bool backupRotate = false);
 
+/**
+ * One-shot: rewrite plain on-screen dialog into spoken TTS markup via
+ * tools/run_item_authoring_ai.py --translate-tts (xAI chat).
+ * Returns empty string on success (outText filled); otherwise an error message.
+ */
+std::string runTranslatePlainTextToTts(
+    const std::string& assetRootHint,
+    const std::string& resourceDirHint,
+    const std::string& sourcePlainText,
+    const std::string& sessionApiKey,
+    std::string& outTtsText);
+
+/**
+ * One-shot: synthesize spoken TTS markup via POST /v1/tts.
+ * Parses {{voice:…}} like game --refresh: one file when single-voice, else
+ * writes .segN.mp3 siblings and fills outSegmentRels for ttsAudioSegments.
+ * audioRelPath is under the game root; empty → .authoring/parchment_voice.mp3.
+ * Returns empty string on success (outWrittenRel = base path); else an error.
+ */
+std::string runSynthesizeTtsAudio(
+    const std::string& assetRootHint,
+    const std::string& resourceDirHint,
+    const std::string& ttsMarkupText,
+    const std::string& voiceId,
+    const std::string& sessionApiKey,
+    const std::string& audioRelPath,
+    std::string& outWrittenRel,
+    std::vector<std::string>* outSegmentRels = nullptr);
+
 /** Run tools/run_item_authoring_ai.py against a scene jobs file. */
 std::string runSceneAuthoringAiJobs(
     const std::string& assetRootHint,

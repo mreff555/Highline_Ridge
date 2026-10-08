@@ -22,6 +22,10 @@
 
 #include "ApiKeysDialog.h"
 #include "ConversationTree.h"
+#include "DialogFlowCanvas.h"
+#include "DialogMediaPreview.h"
+#include "DialogNodeDetails.h"
+#include "DialogNodePalette.h"
 #include "DialogWalkthrough.h"
 #include "DocumentWorkspace.h"
 #include "EditorApiKeys.h"
@@ -50,6 +54,10 @@ struct SceneEditorApp
     VariableEditor variableEditor;
     ConversationTree conversation;
     DialogWalkthrough dialogWalkthrough;
+    DialogFlowCanvas dialogFlow;
+    DialogNodePalette dialogPalette;
+    DialogNodeDetails dialogDetails;
+    DialogMediaPreview dialogMedia;
     ItemEditor itemEditor;
     SceneGraphModel sceneGraph;
     SceneMapCanvas mapCanvas;

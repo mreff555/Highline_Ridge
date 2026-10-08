@@ -113,16 +113,19 @@ Used for ice-house badge glint, vestry greeting, cottonwood departure, etc.
 
 ## 6. Conversations tab
 
-1. Switch to **Conversations**.  
-2. Tree: scene → speak phases / actors → choices.  
-3. Main pane: **Dialog walkthrough** — edit response / TTS text, shift-select, copy/paste.  
-4. TTS highlighting shows pauses, voices, and errors.  
+1. Switch to **Conversations** (narrow left tree, shorter bottom pane).  
+2. Tree: **scene → actor → conversation**.  
+3. Main pane: **dialog flowchart** — immobile Start compass; drag types from the lower-left palette; wire child → parent ports.  
+4. Lower right: **dialog media** preview (scene image / ambient / music fallback; play/pause).  
+5. Graph layout is **editor-local** in this shell — runtime still reads `conversations.json` speak phases until Phase 2 persist.
 
-**Delete** while editing text deletes characters — it does **not** delete the scene.
+**Delete** / **Backspace** removes a selected flowchart stub (not Start). It does **not** delete the scene.
 
-**Screenshot:** `docs/images/editor-conversations.png` — walkthrough with TTS-colored text.
+Schema, node catalog, and leave rules: **[conversations.md](conversations.md)**. Map MOVE/Use wires: [scene-map-exits.md](scene-map-exits.md).
 
-After changing spoken lines, refresh audio with a **dev** game binary ([tts.md](tts.md)), then rebuild release to embed.
+**Screenshot:** `docs/images/editor-conversations.png` — may still show the older walkthrough until refreshed.
+
+After changing spoken lines in JSON, refresh audio with a **dev** game binary ([tts.md](tts.md)), then rebuild release to embed.
 
 ---
 

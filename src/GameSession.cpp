@@ -1532,7 +1532,14 @@ namespace
         evaluateMilestones();
         refreshSceneImage();
 
-        if (!result.startPhaseId.empty())
+        // Speak→scene leave wins over startPhase (MOVE-like; no Use return stack).
+        if (!result.exitSceneId.empty())
+        {
+            const MovementTarget leaveTarget = parseMovementTarget(result.exitSceneId);
+            if (!leaveTarget.sceneId.empty())
+                transitionToScene(leaveTarget.sceneId, leaveTarget.subSceneId, false);
+        }
+        else if (!result.startPhaseId.empty())
         {
             SpeakResult chained = conversationMgr.startScriptedPhase(
                 speakConfig,
@@ -1945,7 +1952,10 @@ namespace
         return applied;
     }
 
-    void GameSession::transitionToScene(const std::string& nextSceneId, const std::string& nextSubSceneId)
+    void GameSession::transitionToScene(
+        const std::string& nextSceneId,
+        const std::string& nextSubSceneId,
+        bool asUseTransition)
     {
         const std::string fromSceneId = worldState.currentSceneId;
         const std::string fromSubSceneId = worldState.activeSubSceneId;
@@ -1965,7 +1975,8 @@ namespace
                 {
                     return conversationMgr.isPhaseComplete(phaseId);
                 },
-                SceneController::TransitionKind::Use))
+                asUseTransition ? SceneController::TransitionKind::Use
+                                : SceneController::TransitionKind::Movement))
         {
             return;
         }
@@ -3440,6 +3451,7 @@ namespace
         LocationStruct locationStruct;
         const std::string fromSceneId = worldState.currentSceneId;
         const std::string fromSubSceneId = worldState.activeSubSceneId;
+        const bool handoffFromTitle = titleScreenActive;
 
         // Cut off any dialog/TTS still playing from the live session before the load.
         cancelDelayedSceneNarrativeTts();
@@ -3448,6 +3460,18 @@ namespace
         audioManager.onRoomExit(
             sceneDatabase.getSceneAudio(fromSceneId, fromSubSceneId),
             state.sceneId);
+
+        // From the title screen: arm the intro→scene music ease *before* the heavy
+        // restore/image work so a main-thread stall cannot underrun a still-static bed
+        // and then "blip" right as the fade begins (#58).
+        if (handoffFromTitle && !state.sceneId.empty())
+        {
+            audioManager.onRoomEnter(
+                sceneDatabase.getSceneAudio(state.sceneId, state.activeSubSceneId),
+                fromSceneId);
+            deferInitialRoomAudio = true; // re-assert after hypoxia / settle
+        }
+        audioManager.pumpStreams();
 
         if (!worldState.restore(state, conversationMgr, milestoneMgr, inventoryMgr))
             return false;
@@ -3470,6 +3494,7 @@ namespace
         {
             return false;
         }
+        audioManager.pumpStreams();
 
         sceneController.getActiveScene().loadFromStruct(worldState.currentSceneId, locationStruct);
         syncFromActiveScene();
@@ -3494,13 +3519,23 @@ namespace
             conversationSnapshot,
             [this](const std::string& itemId) { return inventoryMgr.hasItem(itemId); });
         evaluateMilestones();
+        audioManager.pumpStreams();
 
-        audioManager.onRoomEnter(
-            sceneDatabase.getSceneAudio(worldState.currentSceneId, worldState.activeSubSceneId),
-            fromSceneId);
+        // Title handoff already armed onRoomEnter above. In-game loads apply now.
+        if (handoffFromTitle)
+        {
+            deferInitialRoomAudio = true;
+        }
+        else
+        {
+            audioManager.onRoomEnter(
+                sceneDatabase.getSceneAudio(worldState.currentSceneId, worldState.activeSubSceneId),
+                fromSceneId);
+        }
         trimNarrativeBuffer();
         resetDevSceneImagePreview();
         refreshSceneImage();
+        audioManager.pumpStreams();
         updateInventoryLayout();
         syncWalletInventoryDisplay();
         updateActionAvailability();
@@ -4011,7 +4046,8 @@ namespace
         if (!titleScreenActive)
             return;
         titleScreenActive = false;
-        audioManager.stopTitleScreenBed();
+        // Keep the title bed playing — deferred onRoomEnter crossfades into scene
+        // music (same track → volume ramp; different track → slow fade out/in) (#58).
         closeAllUiPanels();
         audioManager.setGameplayPaused(false);
         if (openingHypoxiaArmed)
@@ -4063,7 +4099,26 @@ namespace
             overlayMgr.setHypoxiaOpacity(1.0f);
             openingHypoxiaArmed = true;
         }
-        leaveTitleScreen();
+
+        // Title New Game: leaveTitleScreen unmutes, arms hypoxia fade, and
+        // defers room audio so the title bed can crossfade into scene music.
+        // Pause → New Game already ran applySaveState/onRoomEnter and
+        // leaveTitleScreen is a no-op when titleScreenActive is false — still
+        // unmute and arm the opening fade.
+        if (titleScreenActive)
+        {
+            leaveTitleScreen();
+        }
+        else
+        {
+            closeAllUiPanels();
+            audioManager.setGameplayPaused(false);
+            if (openingHypoxiaArmed)
+            {
+                pendingOpeningHypoxiaSequence = true;
+                openingHypoxiaArmed = false;
+            }
+        }
         return true;
     }
 
@@ -4188,15 +4243,18 @@ namespace
         if (titleScreenActive)
         {
             mainMenuBackdrop.update(dt);
-            audioManager.update(dt);
             trackDisplayConfigChanges();
             updateTransientMessage(dt);
+            // Handle New Game / Load before pumping audio: applySaveState can stall
+            // the main thread for hundreds of ms. Updating streams afterward (and
+            // pumps inside applySaveState) avoids a title-bed underrun blip (#58).
             handlePauseMenuInput();
             if (saveLoadMenu.isOpen())
             {
                 saveLoadMenu.update();
                 handleSaveLoadMenuInput();
             }
+            audioManager.update(dt);
             return;
         }
 

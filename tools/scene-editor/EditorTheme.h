@@ -53,6 +53,12 @@ const float kTopAreaRatio = 2.0f / 3.0f;
 const float kLeftPaneRatio = 0.4f;
 // was 0.2; doubled so scene labels stay readable
 
+/** Conversations flowchart chrome (narrow tree, short bottom). */
+const float kConversationsLeftPaneRatio = 0.20f;
+const float kConversationsTopAreaRatio = 0.75f;
+const float kConversationsMinLeftWidth = 240.0f;
+const float kConversationsMinBottomHeight = 120.0f;
+
 const float kMinLeftWidth = 320.0f;
 const float kMinMainWidth = 280.0f;
 const float kMinTopHeight = 200.0f;
@@ -68,8 +74,9 @@ const float kSceneCardTitleLineHeight = 17.0f;
 const int kSceneCardMaxTitleLines = 4;
 // Corridors between cards for mid-route turns (endpoints stay flush with card edges).
 
-const float kLayoutGapX = 96.0f;
-const float kLayoutGapY = 96.0f;
+/** Scene-map auto-layout pitch between cards (room for wires / ports). */
+const float kLayoutGapX = 128.0f;
+const float kLayoutGapY = 120.0f;
 // UI body fonts are ~2pt larger than the original defaults.
 
 const float kFontTiny = 14.0f;
