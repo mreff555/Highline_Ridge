@@ -36,6 +36,66 @@ constexpr float kStartWorldY = 48.0f;
 constexpr float kPortHitSlop = 12.0f;
 constexpr float kContextRowH = 26.0f;
 constexpr float kVoiceRowH = 22.0f;
+
+/**
+ * Seed a TTS parchment from on-screen prose when ttsText was never persisted
+ * (walkthrough does the same: empty TTS ← text). If a default voice is set and
+ * the prose has no markup yet, wrap "quoted speech" in {{voice:id}}…{{/voice}}
+ * so Edit TTS matches alpine/merchant authoring conventions. Richer [pause] /
+ * style tags still come from Generate TTS.
+ */
+std::string seedDialogTtsFromPlain(
+    const std::string& plain,
+    const std::string& voiceId)
+{
+    if (plain.empty())
+        return {};
+
+    if (plain.find("{{voice:") != std::string::npos
+        || plain.find("{{/voice}}") != std::string::npos
+        || plain.find("[pause]") != std::string::npos
+        || plain.find("<whisper>") != std::string::npos
+        || plain.find("<soft>") != std::string::npos
+        || plain.find("<emphasis>") != std::string::npos)
+        return plain;
+
+    std::string voice;
+    if (!voiceId.empty() && isKnownBuiltinVoiceId(voiceId))
+        voice = normalizeVoiceId(voiceId);
+    if (voice.empty())
+        return plain;
+
+    const std::string openTag = "{{voice:" + voice + "}}";
+    const std::string closeTag = "{{/voice}}";
+    std::string out;
+    out.reserve(plain.size() + openTag.size() * 2 + closeTag.size() * 2);
+    bool inQuote = false;
+    for (size_t i = 0; i < plain.size(); ++i)
+    {
+        const char ch = plain[i];
+        if (ch == '"')
+        {
+            if (!inQuote)
+            {
+                out += openTag;
+                out += ch;
+                inQuote = true;
+            }
+            else
+            {
+                out += ch;
+                out += closeTag;
+                inQuote = false;
+            }
+            continue;
+        }
+        out += ch;
+    }
+    // Unclosed quote — don't leave a dangling voice open tag.
+    if (inQuote)
+        return plain;
+    return out;
+}
 }
 
 void DialogFlowCanvas::clearGraph()
@@ -792,7 +852,11 @@ void DialogFlowCanvas::applyContextMenuAction(int action)
     switch (action)
     {
     case kFlowMenuEditText:
-        openParchmentForField(&n->dialogText, false, "Actor dialog text");
+        openParchmentForField(
+            &n->dialogText,
+            false,
+            n->kind == DialogNodeKind::ActorInventory ? "Opening text"
+                                                      : "Actor dialog text");
         return;
     case kFlowMenuEditTts:
     {
@@ -802,6 +866,10 @@ void DialogFlowCanvas::applyContextMenuAction(int action)
         std::string voice = n->defaultVoice;
         if (voice.empty())
             voice = sceneDefaultVoice();
+        // Walkthrough parity: empty TTS side ← on-screen text, with quoted
+        // speech wrapped in the line's voice when markup was never persisted.
+        if (n->dialogTts.empty() && !companion.empty())
+            n->dialogTts = seedDialogTtsFromPlain(companion, voice);
         // Prefer the authored bag path so Generate voice overwrites the same
         // file Play TTS resolves (never fall back to parchment_voice.mp3).
         if (n->dialogTtsAudio.empty() && docs != nullptr && !n->jsonPointer.empty())
@@ -816,8 +884,14 @@ void DialogFlowCanvas::applyContextMenuAction(int action)
             const bool textLeaf = n->jsonPointer.size() >= 5
                 && n->jsonPointer.compare(n->jsonPointer.size() - 5, 5, "/text")
                     == 0;
+            // Inventory node pointer is …/openActorInventory (string leaf) —
+            // TTS bags live on the parent choice object.
+            const bool inventoryLeaf = n->jsonPointer.size() >= 19
+                && n->jsonPointer.compare(
+                       n->jsonPointer.size() - 19, 19, "/openActorInventory")
+                    == 0;
             std::string bagPtr = n->jsonPointer;
-            if (resumeLeaf || introLeaf || textLeaf)
+            if (resumeLeaf || introLeaf || textLeaf || inventoryLeaf)
             {
                 const size_t slash = n->jsonPointer.rfind('/');
                 if (slash != std::string::npos)
@@ -830,6 +904,14 @@ void DialogFlowCanvas::applyContextMenuAction(int action)
                     n->dialogTtsAudio = resumeLeaf
                         ? obj->value("resumeTtsAudio", std::string())
                         : obj->value("ttsAudio", std::string());
+                    if (n->dialogTts.empty())
+                    {
+                        const std::string stored = resumeLeaf
+                            ? obj->value("resumeTtsText", std::string())
+                            : obj->value("ttsText", std::string());
+                        if (!stored.empty())
+                            n->dialogTts = stored;
+                    }
                 }
             }
         }
@@ -849,11 +931,15 @@ void DialogFlowCanvas::applyContextMenuAction(int action)
             n->dialogTtsAudio =
                 "resources/audio/tts/" + *selectionSceneId + "/" + leaf + ".mp3";
         }
+        const char* ttsLabel = "Actor dialog TTS";
+        if (n->kind == DialogNodeKind::PlayerDialog)
+            ttsLabel = "Player dialog TTS";
+        else if (n->kind == DialogNodeKind::ActorInventory)
+            ttsLabel = "Opening TTS";
         openParchmentForField(
             &n->dialogTts,
             true,
-            n->kind == DialogNodeKind::PlayerDialog ? "Player dialog TTS"
-                                                    : "Actor dialog TTS",
+            ttsLabel,
             companion,
             voice,
             n->dialogTtsAudio,
@@ -1822,9 +1908,16 @@ void DialogFlowCanvas::migrateChoiceTree(
         {
             n->inventoryActorId = openInventory;
             n->dialogText = response;
-            n->dialogTts = responseTts == response ? std::string() : responseTts;
             if (!responseVoice.empty() && isKnownBuiltinVoiceId(responseVoice))
                 n->defaultVoice = normalizeVoiceId(responseVoice);
+            // Prefer authored ttsText; otherwise seed from response + voice wrap
+            // (same idea as walkthrough empty-TTS ← text).
+            if (!responseTts.empty() && responseTts != response)
+                n->dialogTts = responseTts;
+            else if (choice.contains("ttsText") && choice["ttsText"].is_string())
+                n->dialogTts = choice["ttsText"].get<std::string>();
+            else
+                n->dialogTts = seedDialogTtsFromPlain(response, n->defaultVoice);
             n->dialogTtsAudio = choice.value("ttsAudio", std::string());
             n->jsonPointer = pointer + "/openActorInventory";
             n->sourceChoiceId = choiceId;
@@ -2426,7 +2519,7 @@ void DialogFlowCanvas::migrateFromTreeSelection(
     }
 
     // Bump when migrate topology changes so an already-open scope remigrates.
-    constexpr const char* kMigrateRev = "|mgr5-actorInventoryNode";
+    constexpr const char* kMigrateRev = "|mgr6-inventoryTtsSeed";
     const std::string scoped = scope + kMigrateRev;
     if (scoped == migratedScope && !nodes.empty())
         return; // already showing this graph
