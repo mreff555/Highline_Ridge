@@ -22,6 +22,10 @@ struct DialogNodePalette
     Font uiFont{};
     Font uiFontBold{};
 
+    /** Vertical scroll when the pane is shorter than the icon grid (#63). */
+    float scrollY = 0.0f;
+    bool draggingScroll = false;
+
     void handleInput(Rectangle bounds, bool allowInteraction);
     void draw(Rectangle bounds);
 

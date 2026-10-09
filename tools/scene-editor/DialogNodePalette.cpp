@@ -20,7 +20,6 @@ namespace timberline_editor
 namespace
 {
 constexpr int kCols = 3;
-constexpr int kRows = 2;
 /** Wide column gutters so labels under icons do not collide. */
 constexpr float kMinGapX = 28.0f;
 constexpr float kGapY = 22.0f;
@@ -28,6 +27,13 @@ constexpr float kLabelH = 18.0f;
 constexpr float kPad = 10.0f;
 constexpr float kHeader = 28.0f;
 constexpr float kFooter = 22.0f;
+constexpr float kScrollBarW = kScrollBarSize;
+
+int paletteRowCount()
+{
+    const int n = static_cast<int>(DialogNodeKind::Count);
+    return (n + kCols - 1) / kCols;
+}
 
 struct PaletteLayout
 {
@@ -37,36 +43,55 @@ struct PaletteLayout
     float gapX = kMinGapX;
     float x0 = 0.0f;
     float y0 = 0.0f;
+    float contentH = 0.0f;
+    float viewH = 0.0f;
+    Rectangle clip{0, 0, 0, 0};
+    Rectangle scrollTrack{0, 0, 0, 0};
+    bool showScroll = false;
 };
 
 PaletteLayout computeLayout(Rectangle bounds, float iconHint)
 {
     PaletteLayout L;
-    const float availW = std::max(1.0f, bounds.width - kPad * 2.0f);
-    // Divide width into equal columns with a guaranteed horizontal gutter.
+    const int rows = std::max(1, paletteRowCount());
+    const bool mayScroll = true; // reserve gutter so layout does not jump
+    const float scrollGutter = mayScroll ? (kScrollBarW + 4.0f) : 0.0f;
+
+    const float availW =
+        std::max(1.0f, bounds.width - kPad * 2.0f - scrollGutter);
     L.gapX = kMinGapX;
     L.cellW = (availW - L.gapX * static_cast<float>(kCols - 1))
         / static_cast<float>(kCols);
     if (L.cellW < 36.0f)
     {
-        // On very narrow panes, shrink gutters slightly but keep separation.
         L.gapX = 16.0f;
         L.cellW = (availW - L.gapX * static_cast<float>(kCols - 1))
             / static_cast<float>(kCols);
     }
 
-    const float availH = bounds.height - kHeader - kFooter - kPad * 2.0f
-        - kGapY * static_cast<float>(kRows - 1)
-        - kLabelH * static_cast<float>(kRows);
-    float byH = availH / static_cast<float>(kRows);
-    L.icon = std::min({iconHint, L.cellW, byH, 64.0f});
+    // Size icons from width — do not shrink to fit short panes; scroll instead (#63).
+    L.icon = std::min({iconHint, L.cellW - 2.0f, 56.0f});
     if (L.icon < 28.0f)
         L.icon = 28.0f;
 
     L.cellH = L.icon + kLabelH + 4.0f;
-    // Upper-left justify (not centered in the pane).
     L.x0 = bounds.x + kPad;
     L.y0 = bounds.y + kHeader + kPad;
+    L.contentH = static_cast<float>(rows) * L.cellH
+        + static_cast<float>(rows - 1) * kGapY;
+    L.viewH = std::max(
+        1.0f, bounds.height - kHeader - kFooter - kPad * 2.0f);
+    L.clip = {
+        bounds.x + 1.0f,
+        bounds.y + kHeader,
+        std::max(1.0f, bounds.width - 2.0f),
+        std::max(1.0f, bounds.height - kHeader - kFooter)};
+    L.scrollTrack = {
+        bounds.x + bounds.width - kPad - kScrollBarW,
+        L.clip.y + 2.0f,
+        kScrollBarW,
+        std::max(1.0f, L.clip.height - 4.0f)};
+    L.showScroll = L.contentH > L.viewH + 0.5f;
     return L;
 }
 
@@ -96,21 +121,70 @@ void DialogNodePalette::handleInput(Rectangle bounds, bool allowInteraction)
 
     const Vector2 mouse = GetMousePosition();
     if (!CheckCollisionPointRec(mouse, bounds))
+    {
+        if (!editorMouseDown(MOUSE_BUTTON_LEFT))
+            draggingScroll = false;
         return;
+    }
+
+    const PaletteLayout L = computeLayout(bounds, 64.0f);
+    const float maxScroll = std::max(0.0f, L.contentH - L.viewH);
+    scrollY = std::clamp(scrollY, 0.0f, maxScroll);
+
+    const float wheel = GetMouseWheelMove();
+    if (wheel != 0.0f)
+    {
+        scrollY = std::clamp(scrollY - wheel * 28.0f, 0.0f, maxScroll);
+    }
+
+    if (L.showScroll && maxScroll > 0.0f)
+    {
+        const float thumbH =
+            std::max(24.0f, L.scrollTrack.height * (L.viewH / L.contentH));
+        const float thumbY = L.scrollTrack.y
+            + (L.scrollTrack.height - thumbH) * (scrollY / maxScroll);
+        const Rectangle thumb = {
+            L.scrollTrack.x + 2.0f,
+            thumbY,
+            L.scrollTrack.width - 4.0f,
+            thumbH};
+
+        if (editorMousePressed(MOUSE_BUTTON_LEFT)
+            && (CheckCollisionPointRec(mouse, thumb)
+                || CheckCollisionPointRec(mouse, L.scrollTrack)))
+        {
+            draggingScroll = true;
+        }
+        if (!editorMouseDown(MOUSE_BUTTON_LEFT))
+            draggingScroll = false;
+        if (draggingScroll)
+        {
+            const float rel = (mouse.y - L.scrollTrack.y - thumbH * 0.5f)
+                / std::max(1.0f, L.scrollTrack.height - thumbH);
+            scrollY = std::clamp(rel, 0.0f, 1.0f) * maxScroll;
+            return;
+        }
+    }
+    else
+    {
+        draggingScroll = false;
+    }
 
     if (!editorMousePressed(MOUSE_BUTTON_LEFT))
         return;
 
     flow->ensureIconsLoaded();
 
-    const PaletteLayout L = computeLayout(bounds, 64.0f);
     for (int i = 0; i < static_cast<int>(DialogNodeKind::Count); ++i)
     {
         const int col = i % kCols;
         const int row = i / kCols;
         const float x = L.x0 + static_cast<float>(col) * (L.cellW + L.gapX);
-        const float y = L.y0 + static_cast<float>(row) * (L.cellH + kGapY);
+        const float y =
+            L.y0 + static_cast<float>(row) * (L.cellH + kGapY) - scrollY;
         const Rectangle cell = {x, y, L.cellW, L.cellH};
+        if (!CheckCollisionPointRec(mouse, L.clip))
+            continue;
         if (CheckCollisionPointRec(mouse, cell))
         {
             flow->beginPlaceFromPalette(static_cast<DialogNodeKind>(i));
@@ -138,8 +212,17 @@ void DialogNodePalette::draw(Rectangle bounds)
         kTextMuted);
 
     const PaletteLayout L = computeLayout(bounds, 64.0f);
+    const float maxScroll = std::max(0.0f, L.contentH - L.viewH);
+    scrollY = std::clamp(scrollY, 0.0f, maxScroll);
+
     const Vector2 mouse = GetMousePosition();
     DialogNodeKind hoverKind = DialogNodeKind::Count;
+
+    BeginScissorMode(
+        static_cast<int>(L.clip.x),
+        static_cast<int>(L.clip.y),
+        static_cast<int>(L.clip.width),
+        static_cast<int>(L.clip.height));
 
     for (int i = 0; i < static_cast<int>(DialogNodeKind::Count); ++i)
     {
@@ -147,11 +230,12 @@ void DialogNodePalette::draw(Rectangle bounds)
         const int col = i % kCols;
         const int row = i / kCols;
         const float x = L.x0 + static_cast<float>(col) * (L.cellW + L.gapX);
-        const float y = L.y0 + static_cast<float>(row) * (L.cellH + kGapY);
-        // Icon upper-left within its column cell.
+        const float y =
+            L.y0 + static_cast<float>(row) * (L.cellH + kGapY) - scrollY;
         const Rectangle tile = {x, y, L.icon, L.icon};
         const Rectangle cell = {x, y, L.cellW, L.cellH};
-        const bool hover = CheckCollisionPointRec(mouse, cell);
+        const bool hover = CheckCollisionPointRec(mouse, L.clip)
+            && CheckCollisionPointRec(mouse, cell);
         if (hover)
             hoverKind = kind;
 
@@ -171,7 +255,10 @@ void DialogNodePalette::draw(Rectangle bounds)
                 DrawTexturePro(
                     tex,
                     {0, 0, static_cast<float>(tex.width), static_cast<float>(tex.height)},
-                    {tile.x + pad, tile.y + pad, tile.width - pad * 2.0f, tile.height - pad * 2.0f},
+                    {tile.x + pad,
+                     tile.y + pad,
+                     tile.width - pad * 2.0f,
+                     tile.height - pad * 2.0f},
                     {0, 0},
                     0.0f,
                     WHITE);
@@ -194,8 +281,8 @@ void DialogNodePalette::draw(Rectangle bounds)
             }
         }
 
-        // Left-aligned label under icon, clipped to column width (no overlap).
-        const std::string label = fitLabel(font, dialogNodeKindLabel(kind), L.cellW);
+        const std::string label =
+            fitLabel(font, dialogNodeKindLabel(kind), L.cellW);
         DrawTextEx(
             font,
             label.c_str(),
@@ -203,6 +290,27 @@ void DialogNodePalette::draw(Rectangle bounds)
             kFontTiny,
             1.0f,
             kTextPrimary);
+    }
+
+    EndScissorMode();
+
+    if (L.showScroll)
+    {
+        DrawRectangleRec(L.scrollTrack, kScrollTrack);
+        if (maxScroll > 0.0f)
+        {
+            const float thumbH = std::max(
+                24.0f, L.scrollTrack.height * (L.viewH / L.contentH));
+            const float thumbY = L.scrollTrack.y
+                + (L.scrollTrack.height - thumbH) * (scrollY / maxScroll);
+            const Rectangle thumb = {
+                L.scrollTrack.x + 2.0f,
+                thumbY,
+                L.scrollTrack.width - 4.0f,
+                thumbH};
+            DrawRectangleRec(
+                thumb, draggingScroll ? kScrollThumbActive : kScrollThumb);
+        }
     }
 
     if (hoverKind != DialogNodeKind::Count)
@@ -219,7 +327,8 @@ void DialogNodePalette::draw(Rectangle bounds)
     {
         DrawTextEx(
             font,
-            "Drag onto flowchart",
+            L.showScroll ? "Scroll for more · drag onto flowchart"
+                         : "Drag onto flowchart",
             {bounds.x + 10.0f, bounds.y + bounds.height - 18.0f},
             kFontTiny,
             1.0f,
