@@ -22,6 +22,7 @@
 
 #include <ConversationStruct.h>
 #include <SaveGame.h>
+#include <functional>
 #include <map>
 #include <set>
 #include <string>
@@ -38,6 +39,13 @@ class ConversationManager
     void setRequirementContext(const ConversationRequirementContext& context)
     {
         requirementContext = context;
+    }
+    /** Build priced browse/buy choices for an actor bag (#60). */
+    using ActorInventoryChoiceBuilder =
+        std::function<std::vector<ConversationChoiceDef>(const std::string& actorId)>;
+    void setActorInventoryChoiceBuilder(ActorInventoryChoiceBuilder builder)
+    {
+        actorInventoryChoiceBuilder = std::move(builder);
     }
     void onEnterScene(const std::string& sceneId, const SceneSpeakConfig& config);
     bool canSpeak(
@@ -161,6 +169,7 @@ class ConversationManager
     std::vector<ConversationChoiceDef> pendingChoices;
     const ProgressionService* progressionService = nullptr;
     ConversationRequirementContext requirementContext;
+    ActorInventoryChoiceBuilder actorInventoryChoiceBuilder;
 };
 
 }

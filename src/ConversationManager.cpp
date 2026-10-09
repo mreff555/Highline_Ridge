@@ -1057,7 +1057,11 @@ SpeakResult ConversationManager::resolveScriptedChoice(
     {
         const ConversationChoiceDef* resumeChoice =
             findChoiceInPhase(phase, choice.resumeChoiceId, nullptr);
-        if (resumeChoice != nullptr && !resumeChoice->followUpChoices.empty())
+        const bool resumeInventory = resumeChoice != nullptr
+            && !resumeChoice->openActorInventory.empty()
+            && static_cast<bool>(actorInventoryChoiceBuilder);
+        if (resumeChoice != nullptr
+            && (!resumeChoice->followUpChoices.empty() || resumeInventory))
         {
             activeParentChoiceId = resumeChoice->id;
 
@@ -1084,7 +1088,10 @@ SpeakResult ConversationManager::resolveScriptedChoice(
                 choice.ttsAfterAudioSegments,
                 "");
 
-            result.choices = resumeChoice->followUpChoices;
+            if (resumeInventory)
+                result.choices = actorInventoryChoiceBuilder(resumeChoice->openActorInventory);
+            else
+                result.choices = resumeChoice->followUpChoices;
             awaitingChoice = true;
             activeScriptPhaseId = phase.id;
             pendingChoices = result.choices;
@@ -1130,6 +1137,46 @@ SpeakResult ConversationManager::resolveScriptedChoice(
         return result;
     }
 
+    // Actor inventory (#60): synthesize browse/buy choices from the actor bag.
+    if (!choice.openActorInventory.empty() && actorInventoryChoiceBuilder)
+    {
+        const std::vector<ConversationChoiceDef> nextChoices =
+            actorInventoryChoiceBuilder(choice.openActorInventory);
+        activeParentChoiceId = choice.id;
+
+        SpeakResult result;
+        result.action = SpeakResult::Action::ShowChoices;
+        result.narrative = choice.response;
+        result.choices = nextChoices;
+        if (choice.status.hasDelta())
+            result.statusEffects.push_back(choice.status);
+        if (choice.grantItem.isValid())
+            result.grantItem = choice.grantItem;
+        result.grantStoryFlag = choice.grantStoryFlag;
+        appendDialogAudioTrack(result, choice.responseAudio);
+        applyTtsFields(
+            result,
+            choice.tts,
+            choice.ttsText,
+            choice.ttsVoice,
+            choice.ttsAudio,
+            choice.ttsAudioSegments,
+            choice.response);
+        applyTtsAfterFields(
+            result,
+            choice.ttsAfter,
+            choice.ttsAfterText,
+            choice.ttsAfterVoice,
+            choice.ttsAfterAudio,
+            choice.ttsAfterAudioSegments,
+            "");
+        awaitingChoice = true;
+        activeScriptPhaseId = phase.id;
+        pendingChoices = nextChoices;
+        result.spokenActorId = phaseActorId(phase);
+        return result;
+    }
+
     if (!choice.followUpChoices.empty())
     {
         const std::vector<ConversationChoiceDef> nextChoices = choice.followUpChoices;
@@ -1147,6 +1194,8 @@ SpeakResult ConversationManager::resolveScriptedChoice(
         if (choice.grantItem.isValid())
             result.grantItem = choice.grantItem;
         result.grantStoryFlag = choice.grantStoryFlag;
+        if (!choice.purchaseFromActor.empty())
+            result.purchaseFromActor = choice.purchaseFromActor;
         appendDialogAudioTrack(result, responseAudio);
         applyTtsFields(
             result,
@@ -1207,6 +1256,8 @@ SpeakResult ConversationManager::resolveScriptedChoice(
     result.skipIntroOnStartPhase = choice.skipIntroOnStartPhase;
     result.exitSceneId = choice.exitSceneId;
     result.overlaySequence = choice.overlaySequence;
+    if (!choice.purchaseFromActor.empty())
+        result.purchaseFromActor = choice.purchaseFromActor;
     applyTtsFields(
         result,
         choice.tts,

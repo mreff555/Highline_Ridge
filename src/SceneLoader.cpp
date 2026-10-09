@@ -412,6 +412,8 @@ bool parseConversationChoice(const nlohmann::json& choice, ConversationChoiceDef
     out.startPhase = choice.value("startPhase", "");
     out.skipIntroOnStartPhase = choice.value("skipIntroOnStartPhase", false);
     out.exitSceneId = choice.value("exitSceneId", "");
+    out.openActorInventory = choice.value("openActorInventory", "");
+    out.purchaseFromActor = choice.value("purchaseFromActor", "");
 
     if (!parseOverlaySequence(choice.value("overlaySequence", nlohmann::json::array()), out.overlaySequence))
         return false;
@@ -565,6 +567,66 @@ bool parseConversationPhase(const nlohmann::json& phase, ConversationPhase& out)
     return true;
 }
 
+bool parseActorInventorySlots(const nlohmann::json& items, std::vector<ActorInventorySlot>& out)
+{
+    out.clear();
+    if (!items.is_array())
+        return false;
+
+    for (const nlohmann::json& entry : items)
+    {
+        if (!entry.is_object())
+            return false;
+        ActorInventorySlot slot;
+        slot.id = entry.value("id", "");
+        if (slot.id.empty())
+            return false;
+        slot.price = entry.value("price", 0.0f);
+        if (entry.contains("quantity") && entry["quantity"].is_null())
+        {
+            slot.infinite = true;
+            slot.quantity = 0;
+        }
+        else if (entry.contains("infinite") && entry["infinite"].is_boolean() && entry["infinite"].get<bool>())
+        {
+            slot.infinite = true;
+            slot.quantity = 0;
+        }
+        else
+        {
+            slot.infinite = false;
+            slot.quantity = entry.value("quantity", 1);
+            if (slot.quantity < 0)
+                slot.quantity = 0;
+        }
+        out.push_back(slot);
+    }
+    return true;
+}
+
+bool parseActorInventories(
+    const nlohmann::json& inventories,
+    std::map<std::string, std::vector<ActorInventorySlot>>& out)
+{
+    out.clear();
+    if (!inventories.is_object())
+        return false;
+
+    for (auto it = inventories.begin(); it != inventories.end(); ++it)
+    {
+        if (it.key().empty() || !it.value().is_object())
+            return false;
+        std::vector<ActorInventorySlot> slots;
+        const nlohmann::json& items = it.value().contains("items")
+            ? it.value()["items"]
+            : it.value();
+        if (!parseActorInventorySlots(items, slots))
+            return false;
+        out[it.key()] = std::move(slots);
+    }
+    return true;
+}
+
 bool parseSpeakPhasesArray(const nlohmann::json& phases, SceneSpeakConfig& out)
 {
     if (!phases.is_array())
@@ -585,13 +647,20 @@ bool parseSpeakPhasesArray(const nlohmann::json& phases, SceneSpeakConfig& out)
 bool parseSpeakConfig(const nlohmann::json& sceneJson, SceneSpeakConfig& out)
 {
     out.phases.clear();
+    out.actorInventories.clear();
 
-    if (sceneJson.contains("conversations") &&
-        sceneJson["conversations"].is_object() &&
-        sceneJson["conversations"].contains("speakPhases"))
+    const nlohmann::json* root = &sceneJson;
+    if (sceneJson.contains("conversations") && sceneJson["conversations"].is_object())
+        root = &sceneJson["conversations"];
+
+    if (root->contains("actorInventories"))
     {
-        return parseSpeakPhasesArray(sceneJson["conversations"]["speakPhases"], out);
+        if (!parseActorInventories((*root)["actorInventories"], out.actorInventories))
+            return false;
     }
+
+    if (root->contains("speakPhases"))
+        return parseSpeakPhasesArray((*root)["speakPhases"], out);
 
     if (sceneJson.contains("speakPhases"))
         return parseSpeakPhasesArray(sceneJson["speakPhases"], out);

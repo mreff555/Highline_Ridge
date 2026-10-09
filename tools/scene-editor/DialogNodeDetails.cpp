@@ -184,6 +184,20 @@ void DialogNodeDetails::draw(Rectangle bounds)
                 "Voice",
                 n->defaultVoice.empty() ? "Off" : n->defaultVoice);
             appendRow(rows, "Audio", n->dialogTtsAudio);
+            if (!n->resumeIntroText.empty())
+            {
+                appendRow(rows, "Resume", firstLinePreview(n->resumeIntroText));
+                if (!n->resumeIntroTts.empty())
+                    appendRow(rows, "Resume TTS", firstLinePreview(n->resumeIntroTts));
+                appendRow(
+                    rows,
+                    "Resume voice",
+                    n->resumeIntroVoice.empty() ? "Off" : n->resumeIntroVoice);
+                rows.push_back(
+                    {"",
+                     "Resume plays only when revisiting remaining top-level choices — not on first Speak.",
+                     true});
+            }
             break;
         case DialogNodeKind::PlayerDialog:
             if (!n->playerDialogText.empty())

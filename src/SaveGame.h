@@ -20,6 +20,7 @@
 #ifndef SAVE_GAME_H
 #define SAVE_GAME_H
 
+#include <ConversationStruct.h>
 #include <InventoryItem.h>
 #include <ItemInstance.h>
 #include <MilestoneStruct.h>
@@ -86,6 +87,7 @@ struct SavedGameState
     std::map<std::string, int> flagGrantedDay;
     std::map<std::string, int> actorOpinions;
     std::map<std::string, float> actorTabOwed;
+    std::map<std::string, std::vector<ActorInventorySlot>> actorInventories;
     std::set<std::string> knownActorIds;
 };
 

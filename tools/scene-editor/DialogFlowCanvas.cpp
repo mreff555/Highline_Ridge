@@ -2241,20 +2241,22 @@ void DialogFlowCanvas::migratePhase(
             addEdge(0, 0, openerId);
     }
 
-    // resumeIntro as a sibling branch off opener (port 1) when present.
-    if (phase.contains("resumeIntro") && phase["resumeIntro"].is_string()
+    // resumeIntro is a revisit-only line (ConversationManager::resumeScriptedPhase).
+    // Stash it on the opener Actor — do not wire a first-visit sibling that races
+    // "What do you have on offer?" on the flowchart (#60).
+    if (openerId > 0 && phase.contains("resumeIntro") && phase["resumeIntro"].is_string()
         && !phase["resumeIntro"].get<std::string>().empty())
     {
-        const int resumeId = migrateActorLine(
-            phase["resumeIntro"].get<std::string>(),
-            phase.value("resumeTtsText", std::string()),
-            phasePtr + "/resumeIntro",
-            originX + 110.0f,
-            originY,
-            resumeVoice.empty() ? openerVoice : resumeVoice);
-        if (DialogFlowNode* n = findNode(resumeId))
-            n->sourcePhaseId = phaseId;
-        connectWithPorts(openerId, resumeId);
+        if (DialogFlowNode* n = findNode(openerId))
+        {
+            n->resumeIntroText = phase["resumeIntro"].get<std::string>();
+            n->resumeIntroTts = phase.value("resumeTtsText", std::string());
+            if (!resumeVoice.empty() && isKnownBuiltinVoiceId(resumeVoice))
+                n->resumeIntroVoice = normalizeVoiceId(resumeVoice);
+            else if (!openerVoice.empty())
+                n->resumeIntroVoice = openerVoice;
+            n->resumeIntroTtsAudio = phase.value("resumeTtsAudio", std::string());
+        }
     }
 
     if (phase.contains("choices") && phase["choices"].is_array())
@@ -2386,7 +2388,7 @@ void DialogFlowCanvas::migrateFromTreeSelection(
     }
 
     // Bump when migrate topology changes so an already-open scope remigrates.
-    constexpr const char* kMigrateRev = "|mgr3-allAvailabilityGates";
+    constexpr const char* kMigrateRev = "|mgr4-resumeIntroOnOpener";
     const std::string scoped = scope + kMigrateRev;
     if (scoped == migratedScope && !nodes.empty())
         return; // already showing this graph

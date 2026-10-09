@@ -134,6 +134,18 @@ struct GrantedInventoryItemDef
     bool isValid() const { return !id.empty(); }
 };
 
+/** Authored / runtime slot in an actor's priced inventory (#60). */
+struct ActorInventorySlot
+{
+    std::string id;
+    float price = 0.0f;
+    /** When true, quantity is ignored and stock never depletes. */
+    bool infinite = false;
+    int quantity = 1;
+
+    bool isInStock() const { return infinite || quantity > 0; }
+};
+
 struct ConversationChoiceDef
 {
     std::string id;
@@ -171,6 +183,16 @@ struct ConversationChoiceDef
     bool skipIntroOnStartPhase = false;
     /** Leave to this scene (or scene#sub) after the response path. MOVE-like. */
     std::string exitSceneId;
+    /**
+     * Open this actor's priced inventory after the response (synthesized browse
+     * choices). Empty = normal choice tree (#60).
+     */
+    std::string openActorInventory;
+    /**
+     * Synthesized buy leaf: after grant/money, decrement this actor's stock for
+     * grantItem.id (#60).
+     */
+    std::string purchaseFromActor;
     std::vector<OverlaySequenceStep> overlaySequence;
     std::vector<ConversationChoiceDef> followUpChoices;
 
@@ -295,6 +317,8 @@ struct ConversationPhase
 struct SceneSpeakConfig
 {
     std::vector<ConversationPhase> phases;
+    /** Default bags keyed by actor id (seeded into WorldState on first use). */
+    std::map<std::string, std::vector<ActorInventorySlot>> actorInventories;
 
     bool hasPhases() const { return !phases.empty(); }
 };
@@ -327,6 +351,8 @@ struct SpeakResult
     std::string exitSceneId;
     std::vector<OverlaySequenceStep> overlaySequence;
     std::string spokenActorId;
+    /** When set with grantItem, GameSession depletes this actor's stock (#60). */
+    std::string purchaseFromActor;
 };
 
 }

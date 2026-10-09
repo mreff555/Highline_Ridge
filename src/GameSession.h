@@ -147,6 +147,8 @@ class GameSession
     void updateTransientMessage(float deltaSeconds);
     void drawTransientMessage() const;
     void resolveDialogChoice(const std::string& choiceId);
+    /** Synthesize priced browse/buy choices from an actor's inventory bag (#60). */
+    std::vector<ConversationChoiceDef> buildActorInventoryChoices(const std::string& actorId);
     void resolveCombatEncounter(const std::string& encounterId);
     void processSpeakResult(const SpeakResult& result);
     void grantConversationItem(const GrantedInventoryItemDef& granted);

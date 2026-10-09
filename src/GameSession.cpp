@@ -28,6 +28,7 @@
 #include <PlayerStats.h>
 #include <RaylibCompat.h>
 #include <raylib.h>
+#include <iomanip>
 #include <sstream>
 #include <algorithm>
 #include <cctype>
@@ -402,6 +403,10 @@ namespace
         narrativeNotebook.getNarrativeText() = locationStruct.locationDescription;
         narrativeNotebook.setAssetRoot(assetRoot);
         conversationMgr.setProgressionService(&progressionService);
+        conversationMgr.setActorInventoryChoiceBuilder(
+            [this](const std::string& actorId) {
+                return buildActorInventoryChoices(actorId);
+            });
         saveLoadMenu.setSaveGameService(&saveGameService);
         conversationMgr.onEnterScene(worldState.currentSceneId, sceneDatabase.getSpeakConfig(worldState.currentSceneId));
         evaluateMilestones();
@@ -1271,6 +1276,133 @@ namespace
         evaluateMilestones();
     }
 
+    namespace
+    {
+        std::string formatShopPriceLabel(float price)
+        {
+            std::ostringstream oss;
+            oss << std::fixed << std::setprecision(2) << price;
+            std::string s = oss.str();
+            while (!s.empty() && s.back() == '0')
+                s.pop_back();
+            if (!s.empty() && s.back() == '.')
+                s.pop_back();
+            return s;
+        }
+    }
+
+    std::vector<ConversationChoiceDef> GameSession::buildActorInventoryChoices(
+        const std::string& actorId)
+    {
+        std::vector<ConversationChoiceDef> out;
+        if (actorId.empty())
+            return out;
+
+        const SceneSpeakConfig& speak = sceneDatabase.getSpeakConfig(worldState.currentSceneId);
+        std::map<std::string, std::vector<ActorInventorySlot>>::const_iterator defIt =
+            speak.actorInventories.find(actorId);
+        if (defIt != speak.actorInventories.end())
+            worldState.ensureActorInventory(actorId, defIt->second);
+
+        const std::vector<ActorInventorySlot>* bag = worldState.actorInventory(actorId);
+        if (bag == nullptr)
+            return out;
+
+        const std::string ttsDir =
+            "resources/audio/tts/" + worldState.currentSceneId + "/";
+
+        for (const ActorInventorySlot& slot : *bag)
+        {
+            if (!slot.isInStock() || inventoryMgr.hasItem(slot.id))
+                continue;
+
+            const ItemDef* def = itemDatabase.getDef(slot.id);
+            const std::string displayName =
+                (def != nullptr && !def->name.empty()) ? def->name : slot.id;
+
+            ConversationChoiceDef browse;
+            browse.id = "browse_" + slot.id;
+            browse.label = displayName + " - $" + formatShopPriceLabel(slot.price);
+            browse.closePhase = false;
+            browse.response = (def != nullptr && !def->description.empty())
+                ? def->description
+                : ("He shows you the " + displayName + ".");
+            const std::string browseAudio = ttsDir + "browse_" + slot.id + ".mp3";
+            browse.ttsAudio = browseAudio;
+            browse.responseAudio = browseAudio;
+            browse.tts = true;
+
+            ConversationChoiceDef buy;
+            buy.id = "buy_" + slot.id;
+            buy.label = "I'll take it.";
+            buy.closePhase = false;
+            buy.requiresMoney = slot.price;
+            buy.status.money = -slot.price;
+            buy.purchaseFromActor = actorId;
+            buy.grantItem.id = slot.id;
+            if (def != nullptr)
+            {
+                buy.grantItem.name = def->name;
+                buy.grantItem.iconPath = def->icons.icon;
+                buy.grantItem.examineImagePath = def->visuals.image;
+                buy.grantItem.examineText = def->description;
+            }
+            buy.response =
+                "He wraps the " + displayName
+                + " with care. \"A pleasure doing business.\"\n\n\"Anything else?\"";
+            buy.ttsAudio = ttsDir + "buy_" + slot.id + ".mp3";
+            buy.responseAudio = buy.ttsAudio;
+            buy.tts = true;
+
+            ConversationChoiceDef decline;
+            decline.id = "decline_" + slot.id;
+            decline.label = "Thanks, maybe next time.";
+            decline.closePhase = false;
+            decline.response = "\"No rush,\" he says. \"It'll keep.\"";
+            decline.ttsAudio = ttsDir + "decline_" + slot.id + ".mp3";
+            decline.responseAudio = decline.ttsAudio;
+            decline.tts = true;
+
+            ConversationChoiceDef lookAgain;
+            lookAgain.id = "shop_look_again";
+            lookAgain.label = "Let me look again.";
+            lookAgain.closePhase = false;
+            lookAgain.resumeChoiceId = "what_on_offer";
+            lookAgain.response = "He nods and waits.";
+            lookAgain.ttsAudio = ttsDir + "shop_look_again.mp3";
+            lookAgain.responseAudio = lookAgain.ttsAudio;
+            lookAgain.tts = true;
+
+            ConversationChoiceDef noThanks;
+            noThanks.id = "shop_no_thanks";
+            noThanks.label = "That's all for now.";
+            noThanks.closePhase = true;
+            noThanks.response = "\"Safe travels.\"";
+            noThanks.ttsAudio = ttsDir + "shop_no_thanks.mp3";
+            noThanks.responseAudio = noThanks.ttsAudio;
+            noThanks.tts = true;
+
+            buy.followUpChoices.push_back(lookAgain);
+            buy.followUpChoices.push_back(noThanks);
+            decline.followUpChoices.push_back(lookAgain);
+            decline.followUpChoices.push_back(noThanks);
+            browse.followUpChoices.push_back(buy);
+            browse.followUpChoices.push_back(decline);
+            out.push_back(browse);
+        }
+
+        ConversationChoiceDef done;
+        done.id = "catalog_done";
+        done.label = "Thanks, just browsing.";
+        done.closePhase = true;
+        done.response = "\"Browse as you like.\"";
+        done.ttsAudio = ttsDir + "catalog_done.mp3";
+        done.responseAudio = done.ttsAudio;
+        done.tts = true;
+        out.push_back(done);
+        return out;
+    }
+
     bool GameSession::isCurrentSceneTtsEnabled() const
     {
         const SceneData* scene = sceneDatabase.getScene(worldState.currentSceneId);
@@ -1406,6 +1538,10 @@ namespace
         {
             applyStatusEffects(result.statusEffects);
             grantConversationItem(result.grantItem);
+            if (!result.purchaseFromActor.empty() && result.grantItem.isValid())
+                worldState.consumeActorInventoryItem(
+                    result.purchaseFromActor,
+                    result.grantItem.id);
             playDialogAudio(result);
             const std::vector<ConversationChoiceDef>& pending = conversationMgr.getPendingChoices();
             appendChoiceLinesToNarrative(!pending.empty() ? pending : result.choices);
@@ -1419,6 +1555,10 @@ namespace
 
         applyStatusEffects(result.statusEffects);
         grantConversationItem(result.grantItem);
+        if (!result.purchaseFromActor.empty() && result.grantItem.isValid())
+            worldState.consumeActorInventoryItem(
+                result.purchaseFromActor,
+                result.grantItem.id);
         playDialogAudio(result);
         evaluateMilestones();
         refreshSceneImage();

@@ -67,6 +67,8 @@ class WorldState
     std::map<std::string, int> flagGrantedDay;
     std::map<std::string, int> actorOpinions;
     std::map<std::string, float> actorTabOwed;
+    /** Runtime actor shop bags (seeded from SceneSpeakConfig.actorInventories). */
+    std::map<std::string, std::vector<ActorInventorySlot>> actorInventories;
 
     void recordAction() { ++actionCount; }
     bool isActorKnown(const std::string& actorId) const;
@@ -76,6 +78,14 @@ class WorldState
     float actorTabOwedTo(const std::string& actorId) const;
     void applyActorTabDelta(const std::string& actorId, float delta);
     void advanceDay() { ++day; }
+
+    /** Seed bag from authored defaults if this actor has no runtime bag yet. */
+    void ensureActorInventory(
+        const std::string& actorId,
+        const std::vector<ActorInventorySlot>& defaults);
+    const std::vector<ActorInventorySlot>* actorInventory(const std::string& actorId) const;
+    /** Decrement finite stock for defId; returns false if missing / out of stock. */
+    bool consumeActorInventoryItem(const std::string& actorId, const std::string& itemId);
 
     SavedGameState snapshot(
         const ConversationManager& conversationMgr,

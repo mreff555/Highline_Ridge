@@ -43,6 +43,14 @@ struct DialogFlowNode
     std::string dialogTtsAudio;
     /** Multi-voice bake paths (ttsAudioSegments); empty when single-file. */
     std::vector<std::string> dialogTtsAudioSegments;
+    /**
+     * Phase revisit line (Actor Dialog opener only). Runtime uses resumeIntro when
+     * returning to remaining top-level choices — not a first-visit sibling (#60).
+     */
+    std::string resumeIntroText;
+    std::string resumeIntroTts;
+    std::string resumeIntroVoice;
+    std::string resumeIntroTtsAudio;
     std::string eventId;
     std::string itemId;
     std::string combatantId;
