@@ -27,7 +27,7 @@ constexpr float kLabelH = 18.0f;
 constexpr float kPad = 10.0f;
 constexpr float kHeader = 28.0f;
 constexpr float kFooter = 22.0f;
-constexpr float kScrollBarW = kScrollBarSize;
+const float kScrollBarW = kScrollBarSize;
 
 int paletteRowCount()
 {
