@@ -152,10 +152,15 @@ def main() -> None:
         }
     items_path.write_text(json.dumps(data, indent=2) + "\n")
 
+    # Legacy nested browse/buy export (haberdashery-style). Alpine runtime uses
+    # actorInventories via merge_hardware_conversation.py (#60).
     catalog = catalog_choices(ITEMS, merchant_tone="hardware")
     out = ROOT / "tools" / "hardware_catalog.json"
     out.write_text(json.dumps(catalog, indent=2) + "\n")
-    print(f"Wrote {len(ITEMS)} hardware items and {len(catalog)} catalog choices")
+    print(
+        f"Wrote {len(ITEMS)} hardware items and {len(catalog)} legacy catalog choices "
+        "(prefer merge_hardware_conversation.py + actorInventories for alpine)"
+    )
 
 
 if __name__ == "__main__":

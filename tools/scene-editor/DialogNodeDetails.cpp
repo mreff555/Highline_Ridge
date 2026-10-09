@@ -224,6 +224,21 @@ void DialogNodeDetails::draw(Rectangle bounds)
             else
                 appendEmptyHint(rows, "Item", "(unset)");
             break;
+        case DialogNodeKind::ActorInventory:
+            if (!n->inventoryActorId.empty())
+                appendRow(rows, "Actor", n->inventoryActorId);
+            else
+                appendEmptyHint(rows, "Actor", "(unset bag id)");
+            if (!n->dialogText.empty())
+                appendRow(rows, "Opening", firstLinePreview(n->dialogText));
+            if (!n->dialogTts.empty())
+                appendRow(rows, "TTS", firstLinePreview(n->dialogTts));
+            appendRow(rows, "Audio", n->dialogTtsAudio);
+            rows.push_back(
+                {"",
+                 "Runtime synthesizes priced browse/buy choices from actorInventories.",
+                 true});
+            break;
         case DialogNodeKind::Attack:
             if (!n->combatantId.empty())
                 appendRow(rows, "Combatant", n->combatantId);

@@ -51,6 +51,8 @@ struct DialogFlowNode
     std::string resumeIntroTts;
     std::string resumeIntroVoice;
     std::string resumeIntroTtsAudio;
+    /** ActorInventory node: bag key / openActorInventory actor id (#60). */
+    std::string inventoryActorId;
     std::string eventId;
     std::string itemId;
     std::string combatantId;
@@ -78,6 +80,7 @@ enum DialogFlowMenuAction
     kFlowMenuEditPlayerText,
     kFlowMenuEditEventId,
     kFlowMenuEditItemId,
+    kFlowMenuEditInventoryActor,
     kFlowMenuEditCombatant,
     kFlowMenuToggleDeathPossible,
     kFlowMenuOpenDefaultVoice,

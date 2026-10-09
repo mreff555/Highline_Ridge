@@ -2,830 +2,33 @@
   "alpine_hardware": {
     "speakPhases": [
       {
+        "id": "merchant",
+        "type": "scripted",
+        "resetOnSceneEnter": true,
+        "intro": "The merchant straightens from a ledger behind the counter and meets your eyes without hurry. He is tall, broad through the chest and shoulders, built like a man who has lifted iron all his life and meant to keep doing it. His shirt is clean, his suspenders straight, his beard trimmed with the same discipline he brings to stock and shelf.\n\n\"Afternoon. What can I help you find?\"",
+        "resumeIntro": "He rests both hands on the counter, patient and square-shouldered. \"What else do you need?\"",
         "choices": [
           {
-            "choices": [
-              {
-                "choices": [
-                  {
-                    "choices": [
-                      {
-                        "closePhase": false,
-                        "id": "shop_look_again",
-                        "label": "Let me take another look.",
-                        "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
-                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
-                        "ttsVoice": "helios"
-                      },
-                      {
-                        "closePhase": true,
-                        "id": "shop_no_thanks",
-                        "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
-                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
-                        "ttsVoice": "helios"
-                      }
-                    ],
-                    "closePhase": false,
-                    "grantItem": {
-                      "examineImage": "resources/images/crampons_examine.png",
-                      "examineText": "A pair of forged-steel crampons with twelve front points and four rear spikes, strapped to leather and canvas bindings sized for mountain boots. The frames are blued against ridge damp, the points dressed sharp on a wheel. Built for glazed snow and bare ice above timberline, where a boot alone is only a polite way to die.",
-                      "icon": "resources/icons/crampons_icon.png",
-                      "id": "crampons",
-                      "name": "Crampons"
-                    },
-                    "id": "buy_crampons",
-                    "label": "I'll take it.",
-                    "requiresMoney": 3.25,
-                    "response": "He sets the crampons on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"\n\n\"Need anything else while you're here?\"",
-                    "status": {
-                      "money": -3.25
-                    },
-                    "tts": true,
-                    "ttsAudio": "resources/audio/tts/alpine_hardware/buy_crampons.mp3",
-                    "ttsTextSha256": "e392c0caf0147611c2598c0b6c39af8a144cdf442d0addb32f6b5afb5b6f5554",
-                    "ttsVoice": "helios"
-                  },
-                  {
-                    "choices": [
-                      {
-                        "closePhase": false,
-                        "id": "shop_look_again",
-                        "label": "Let me take another look.",
-                        "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
-                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
-                        "ttsVoice": "helios"
-                      },
-                      {
-                        "closePhase": true,
-                        "id": "shop_no_thanks",
-                        "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
-                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
-                        "ttsVoice": "helios"
-                      }
-                    ],
-                    "closePhase": false,
-                    "id": "decline_crampons",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\"",
-                    "tts": true,
-                    "ttsAudio": "resources/audio/tts/alpine_hardware/decline_crampons.mp3",
-                    "ttsTextSha256": "7151a30749288de401b64c859dbc9434b38fbdaa92a55b6061ee85906f45f0b2",
-                    "ttsVoice": "helios"
-                  }
-                ],
-                "id": "browse_crampons",
-                "label": "Crampons - $3.25",
-                "response": "\"Solid choice,\" he says. \"That'll be three dollars and twenty-five cents.\"",
-                "tts": true,
-                "ttsAudio": "resources/audio/tts/alpine_hardware/browse_crampons.mp3",
-                "ttsTextSha256": "8f5585e3bdfdf656a954658bdda59b35d70bcd6c239756d3e344f1b5911053a7",
-                "ttsVoice": "helios"
-              },
-              {
-                "choices": [
-                  {
-                    "choices": [
-                      {
-                        "closePhase": false,
-                        "id": "shop_look_again",
-                        "label": "Let me take another look.",
-                        "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
-                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
-                        "ttsVoice": "helios"
-                      },
-                      {
-                        "closePhase": true,
-                        "id": "shop_no_thanks",
-                        "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
-                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
-                        "ttsVoice": "helios"
-                      }
-                    ],
-                    "closePhase": false,
-                    "grantItem": {
-                      "examineImage": "resources/images/mining_pick_examine.png",
-                      "examineText": "A prospector's pick with a hickory handle darkened by pitch and honest sweat. The head is forged steel, double-bit, with an edge that has been dressed recently on a wheel. Weighted for mountain ground: quartz, shale, and the stubborn ribs of ore that men chase above the timberline.",
-                      "icon": "resources/icons/mining_pick_icon.png",
-                      "id": "mining_pick",
-                      "name": "Mining Pick"
-                    },
-                    "id": "buy_mining_pick",
-                    "label": "I'll take it.",
-                    "requiresMoney": 4.5,
-                    "response": "He sets the mining pick on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"\n\n\"Need anything else while you're here?\"",
-                    "status": {
-                      "money": -4.5
-                    },
-                    "tts": true,
-                    "ttsAudio": "resources/audio/tts/alpine_hardware/buy_mining_pick.mp3",
-                    "ttsTextSha256": "02a8f3924ba2df626e329ac952cc0d333617c09b7fd341476e32fd894354a23e",
-                    "ttsVoice": "helios"
-                  },
-                  {
-                    "choices": [
-                      {
-                        "closePhase": false,
-                        "id": "shop_look_again",
-                        "label": "Let me take another look.",
-                        "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
-                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
-                        "ttsVoice": "helios"
-                      },
-                      {
-                        "closePhase": true,
-                        "id": "shop_no_thanks",
-                        "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
-                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
-                        "ttsVoice": "helios"
-                      }
-                    ],
-                    "closePhase": false,
-                    "id": "decline_mining_pick",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\"",
-                    "tts": true,
-                    "ttsAudio": "resources/audio/tts/alpine_hardware/decline_mining_pick.mp3",
-                    "ttsTextSha256": "7151a30749288de401b64c859dbc9434b38fbdaa92a55b6061ee85906f45f0b2",
-                    "ttsVoice": "helios"
-                  }
-                ],
-                "id": "browse_mining_pick",
-                "label": "Mining Pick - $4.50",
-                "response": "\"Solid choice,\" he says. \"That'll be four dollars and fifty cents.\"",
-                "tts": true,
-                "ttsAudio": "resources/audio/tts/alpine_hardware/browse_mining_pick.mp3",
-                "ttsTextSha256": "c4e33505331ab3f767ae7fcff4612a597f58ee0fe0cae77784407d984c9e9624",
-                "ttsVoice": "helios"
-              },
-              {
-                "choices": [
-                  {
-                    "choices": [
-                      {
-                        "closePhase": false,
-                        "id": "shop_look_again",
-                        "label": "Let me take another look.",
-                        "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
-                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
-                        "ttsVoice": "helios"
-                      },
-                      {
-                        "closePhase": true,
-                        "id": "shop_no_thanks",
-                        "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
-                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
-                        "ttsVoice": "helios"
-                      }
-                    ],
-                    "closePhase": false,
-                    "grantItem": {
-                      "examineImage": "resources/images/shovel_examine.png",
-                      "examineText": "A round-point shovel with a long ash handle and a steel blade rolled at the edge. The socket is riveted true, the grip worn smooth where working hands have found the balance. Built for snow, gravel, and the endless digging that altitude demands.",
-                      "icon": "resources/icons/shovel_icon.png",
-                      "id": "shovel",
-                      "name": "Shovel"
-                    },
-                    "id": "buy_shovel",
-                    "label": "I'll take it.",
-                    "requiresMoney": 1.75,
-                    "response": "He sets the shovel on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"\n\n\"Need anything else while you're here?\"",
-                    "status": {
-                      "money": -1.75
-                    },
-                    "tts": true,
-                    "ttsAudio": "resources/audio/tts/alpine_hardware/buy_shovel.mp3",
-                    "ttsTextSha256": "4837f6d70d7d0e12a41cc985966dea8285723c6914aedb92affa582789b8e2a0",
-                    "ttsVoice": "helios"
-                  },
-                  {
-                    "choices": [
-                      {
-                        "closePhase": false,
-                        "id": "shop_look_again",
-                        "label": "Let me take another look.",
-                        "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
-                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
-                        "ttsVoice": "helios"
-                      },
-                      {
-                        "closePhase": true,
-                        "id": "shop_no_thanks",
-                        "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
-                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
-                        "ttsVoice": "helios"
-                      }
-                    ],
-                    "closePhase": false,
-                    "id": "decline_shovel",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\"",
-                    "tts": true,
-                    "ttsAudio": "resources/audio/tts/alpine_hardware/decline_shovel.mp3",
-                    "ttsTextSha256": "7151a30749288de401b64c859dbc9434b38fbdaa92a55b6061ee85906f45f0b2",
-                    "ttsVoice": "helios"
-                  }
-                ],
-                "id": "browse_shovel",
-                "label": "Shovel - $1.75",
-                "response": "\"Solid choice,\" he says. \"That'll be one dollar and seventy-five cents.\"",
-                "tts": true,
-                "ttsAudio": "resources/audio/tts/alpine_hardware/browse_shovel.mp3",
-                "ttsTextSha256": "e3963ade81d69196930741e481d144d41e5158b4548678f6b3e6041f79e32daa",
-                "ttsVoice": "helios"
-              },
-              {
-                "choices": [
-                  {
-                    "choices": [
-                      {
-                        "closePhase": false,
-                        "id": "shop_look_again",
-                        "label": "Let me take another look.",
-                        "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
-                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
-                        "ttsVoice": "helios"
-                      },
-                      {
-                        "closePhase": true,
-                        "id": "shop_no_thanks",
-                        "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
-                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
-                        "ttsVoice": "helios"
-                      }
-                    ],
-                    "closePhase": false,
-                    "grantItem": {
-                      "examineImage": "resources/images/garden_rake_examine.png",
-                      "examineText": "A bow rake with sixteen forged tines and a handle cut from straight-grained ash. The head is pinned, not merely nailed, the way tools were made when men expected to keep them through more than one hard season.",
-                      "icon": "resources/icons/garden_rake_icon.png",
-                      "id": "garden_rake",
-                      "name": "Garden Rake"
-                    },
-                    "id": "buy_garden_rake",
-                    "label": "I'll take it.",
-                    "requiresMoney": 1.25,
-                    "response": "He sets the garden rake on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"\n\n\"Need anything else while you're here?\"",
-                    "status": {
-                      "money": -1.25
-                    },
-                    "tts": true,
-                    "ttsAudio": "resources/audio/tts/alpine_hardware/buy_garden_rake.mp3",
-                    "ttsTextSha256": "f1718a7f17a30d4a4e5cf2dbda6da7146dc372adf68e6d2cc7970dd5bc84f277",
-                    "ttsVoice": "helios"
-                  },
-                  {
-                    "choices": [
-                      {
-                        "closePhase": false,
-                        "id": "shop_look_again",
-                        "label": "Let me take another look.",
-                        "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
-                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
-                        "ttsVoice": "helios"
-                      },
-                      {
-                        "closePhase": true,
-                        "id": "shop_no_thanks",
-                        "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
-                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
-                        "ttsVoice": "helios"
-                      }
-                    ],
-                    "closePhase": false,
-                    "id": "decline_garden_rake",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\"",
-                    "tts": true,
-                    "ttsAudio": "resources/audio/tts/alpine_hardware/decline_garden_rake.mp3",
-                    "ttsTextSha256": "7151a30749288de401b64c859dbc9434b38fbdaa92a55b6061ee85906f45f0b2",
-                    "ttsVoice": "helios"
-                  }
-                ],
-                "id": "browse_garden_rake",
-                "label": "Garden Rake - $1.25",
-                "response": "\"Solid choice,\" he says. \"That'll be one dollar and twenty-five cents.\"",
-                "tts": true,
-                "ttsAudio": "resources/audio/tts/alpine_hardware/browse_garden_rake.mp3",
-                "ttsTextSha256": "6a50c846f51e8ff38d5018217953061d4b3e0c70d9896da4e0c38ab2c6e0ad95",
-                "ttsVoice": "helios"
-              },
-              {
-                "choices": [
-                  {
-                    "choices": [
-                      {
-                        "closePhase": false,
-                        "id": "shop_look_again",
-                        "label": "Let me take another look.",
-                        "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
-                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
-                        "ttsVoice": "helios"
-                      },
-                      {
-                        "closePhase": true,
-                        "id": "shop_no_thanks",
-                        "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
-                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
-                        "ttsVoice": "helios"
-                      }
-                    ],
-                    "closePhase": false,
-                    "grantItem": {
-                      "examineImage": "resources/images/hand_drill_examine.png",
-                      "examineText": "A carpenter's brace-and-bit hand drill in beech and steel, the chuck tight, the crank worn bright at the palm. Three interchangeable bits ride in a cloth wrap: steel made for timber, cabinet work, and the small precise holes hardware men trust more than luck.",
-                      "icon": "resources/icons/hand_drill_icon.png",
-                      "id": "hand_drill",
-                      "name": "Hand Drill"
-                    },
-                    "id": "buy_hand_drill",
-                    "label": "I'll take it.",
-                    "requiresMoney": 2.5,
-                    "response": "He sets the hand drill on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"\n\n\"Need anything else while you're here?\"",
-                    "status": {
-                      "money": -2.5
-                    },
-                    "tts": true,
-                    "ttsAudio": "resources/audio/tts/alpine_hardware/buy_hand_drill.mp3",
-                    "ttsTextSha256": "59a8bb3db93b2af7db9d528edf3c9236d65a364e46b3fc4a1afe0a43919ab2c1",
-                    "ttsVoice": "helios"
-                  },
-                  {
-                    "choices": [
-                      {
-                        "closePhase": false,
-                        "id": "shop_look_again",
-                        "label": "Let me take another look.",
-                        "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
-                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
-                        "ttsVoice": "helios"
-                      },
-                      {
-                        "closePhase": true,
-                        "id": "shop_no_thanks",
-                        "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
-                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
-                        "ttsVoice": "helios"
-                      }
-                    ],
-                    "closePhase": false,
-                    "id": "decline_hand_drill",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\"",
-                    "tts": true,
-                    "ttsAudio": "resources/audio/tts/alpine_hardware/decline_hand_drill.mp3",
-                    "ttsTextSha256": "7151a30749288de401b64c859dbc9434b38fbdaa92a55b6061ee85906f45f0b2",
-                    "ttsVoice": "helios"
-                  }
-                ],
-                "id": "browse_hand_drill",
-                "label": "Hand Drill - $2.50",
-                "response": "\"Solid choice,\" he says. \"That'll be two dollars and fifty cents.\"",
-                "tts": true,
-                "ttsAudio": "resources/audio/tts/alpine_hardware/browse_hand_drill.mp3",
-                "ttsTextSha256": "e84ecd9a896bef7bbefdc120df4f3f58e8e266e2e7f1dfae33ef1cda12176832",
-                "ttsVoice": "helios"
-              },
-              {
-                "choices": [
-                  {
-                    "choices": [
-                      {
-                        "closePhase": false,
-                        "id": "shop_look_again",
-                        "label": "Let me take another look.",
-                        "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
-                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
-                        "ttsVoice": "helios"
-                      },
-                      {
-                        "closePhase": true,
-                        "id": "shop_no_thanks",
-                        "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
-                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
-                        "ttsVoice": "helios"
-                      }
-                    ],
-                    "closePhase": false,
-                    "grantItem": {
-                      "examineImage": "resources/images/blacksmith_hammer_examine.png",
-                      "examineText": "A cross-peen blacksmith's hammer with a hickory handle shaped to the swing. The head carries the honest scars of work, peened and polished where countless blows have landed true. Not a wall decoration. A tool meant to move hot iron.",
-                      "icon": "resources/icons/blacksmith_hammer_icon.png",
-                      "id": "blacksmith_hammer",
-                      "name": "Blacksmith's Hammer"
-                    },
-                    "id": "buy_blacksmith_hammer",
-                    "label": "I'll take it.",
-                    "requiresMoney": 2.0,
-                    "response": "He sets the blacksmith's hammer on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"\n\n\"Need anything else while you're here?\"",
-                    "status": {
-                      "money": -2.0
-                    },
-                    "tts": true,
-                    "ttsAudio": "resources/audio/tts/alpine_hardware/buy_blacksmith_hammer.mp3",
-                    "ttsTextSha256": "3d30c3783a4a329ad61cb2c0cd7adc45f58698ed384163b50626a1db998beb50",
-                    "ttsVoice": "helios"
-                  },
-                  {
-                    "choices": [
-                      {
-                        "closePhase": false,
-                        "id": "shop_look_again",
-                        "label": "Let me take another look.",
-                        "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
-                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
-                        "ttsVoice": "helios"
-                      },
-                      {
-                        "closePhase": true,
-                        "id": "shop_no_thanks",
-                        "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
-                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
-                        "ttsVoice": "helios"
-                      }
-                    ],
-                    "closePhase": false,
-                    "id": "decline_blacksmith_hammer",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\"",
-                    "tts": true,
-                    "ttsAudio": "resources/audio/tts/alpine_hardware/decline_blacksmith_hammer.mp3",
-                    "ttsTextSha256": "7151a30749288de401b64c859dbc9434b38fbdaa92a55b6061ee85906f45f0b2",
-                    "ttsVoice": "helios"
-                  }
-                ],
-                "id": "browse_blacksmith_hammer",
-                "label": "Blacksmith's Hammer - $2",
-                "response": "\"Solid choice,\" he says. \"That'll be two dollars.\"",
-                "tts": true,
-                "ttsAudio": "resources/audio/tts/alpine_hardware/browse_blacksmith_hammer.mp3",
-                "ttsTextSha256": "d8fc98b07df4138e2ec8b423c06259009b90b0d247fbccc2e0071147d95bf7ff",
-                "ttsVoice": "helios"
-              },
-              {
-                "choices": [
-                  {
-                    "choices": [
-                      {
-                        "closePhase": false,
-                        "id": "shop_look_again",
-                        "label": "Let me take another look.",
-                        "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
-                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
-                        "ttsVoice": "helios"
-                      },
-                      {
-                        "closePhase": true,
-                        "id": "shop_no_thanks",
-                        "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
-                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
-                        "ttsVoice": "helios"
-                      }
-                    ],
-                    "closePhase": false,
-                    "grantItem": {
-                      "examineImage": "resources/images/mid_anvil_examine.png",
-                      "examineText": "A mid-sized cast-steel anvil, roughly eighty pounds, with a clean face, hard horn, and a hardy hole dark from use. The waist is stamped with a Pittsburgh maker's mark. It rings when you tap it, a bright note that says the steel was tempered by someone who understood the trade.",
-                      "icon": "resources/icons/mid_anvil_icon.png",
-                      "id": "mid_anvil",
-                      "name": "Mid-Sized Anvil"
-                    },
-                    "id": "buy_mid_anvil",
-                    "label": "I'll take it.",
-                    "requiresMoney": 28.0,
-                    "response": "He sets the mid-sized anvil on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"\n\n\"Need anything else while you're here?\"",
-                    "status": {
-                      "money": -28.0
-                    },
-                    "tts": true,
-                    "ttsAudio": "resources/audio/tts/alpine_hardware/buy_mid_anvil.mp3",
-                    "ttsTextSha256": "23504d4fcc4cb35fb57b469c7060beaf0a7f5662f7e1bcfe81fe938b6d348205",
-                    "ttsVoice": "helios"
-                  },
-                  {
-                    "choices": [
-                      {
-                        "closePhase": false,
-                        "id": "shop_look_again",
-                        "label": "Let me take another look.",
-                        "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
-                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
-                        "ttsVoice": "helios"
-                      },
-                      {
-                        "closePhase": true,
-                        "id": "shop_no_thanks",
-                        "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
-                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
-                        "ttsVoice": "helios"
-                      }
-                    ],
-                    "closePhase": false,
-                    "id": "decline_mid_anvil",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\"",
-                    "tts": true,
-                    "ttsAudio": "resources/audio/tts/alpine_hardware/decline_mid_anvil.mp3",
-                    "ttsTextSha256": "7151a30749288de401b64c859dbc9434b38fbdaa92a55b6061ee85906f45f0b2",
-                    "ttsVoice": "helios"
-                  }
-                ],
-                "id": "browse_mid_anvil",
-                "label": "Mid-Sized Anvil - $28",
-                "response": "\"Solid choice,\" he says. \"That'll be twenty-eight dollars.\"",
-                "tts": true,
-                "ttsAudio": "resources/audio/tts/alpine_hardware/browse_mid_anvil.mp3",
-                "ttsTextSha256": "5ce3fa3bae6d239d542ee6f6f7b79a1d4abb61504dfc02d807b7d039970521c9",
-                "ttsVoice": "helios"
-              },
-              {
-                "choices": [
-                  {
-                    "choices": [
-                      {
-                        "closePhase": false,
-                        "id": "shop_look_again",
-                        "label": "Let me take another look.",
-                        "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
-                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
-                        "ttsVoice": "helios"
-                      },
-                      {
-                        "closePhase": true,
-                        "id": "shop_no_thanks",
-                        "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
-                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
-                        "ttsVoice": "helios"
-                      }
-                    ],
-                    "closePhase": false,
-                    "grantItem": {
-                      "examineImage": "resources/images/box_of_nails_examine.png",
-                      "examineText": "A pine box of cut common nails, four-penny weight, the heads slightly proud, the points sharp enough to bite on first strike. The lid is chalk-marked with the count and the date received. The small arithmetic of every cabin, fence, and mine brace on the ridge.",
-                      "icon": "resources/icons/box_of_nails_icon.png",
-                      "id": "box_of_nails",
-                      "name": "Box of Nails"
-                    },
-                    "id": "buy_box_of_nails",
-                    "label": "I'll take it.",
-                    "requiresMoney": 0.45,
-                    "response": "He sets the box of nails on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"\n\n\"Need anything else while you're here?\"",
-                    "status": {
-                      "money": -0.45
-                    },
-                    "tts": true,
-                    "ttsAudio": "resources/audio/tts/alpine_hardware/buy_box_of_nails.mp3",
-                    "ttsTextSha256": "7d31cc983eb4b5fead52eece01f437dd16642d026263a43291431c82af1562c8",
-                    "ttsVoice": "helios"
-                  },
-                  {
-                    "choices": [
-                      {
-                        "closePhase": false,
-                        "id": "shop_look_again",
-                        "label": "Let me take another look.",
-                        "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
-                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
-                        "ttsVoice": "helios"
-                      },
-                      {
-                        "closePhase": true,
-                        "id": "shop_no_thanks",
-                        "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
-                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
-                        "ttsVoice": "helios"
-                      }
-                    ],
-                    "closePhase": false,
-                    "id": "decline_box_of_nails",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\"",
-                    "tts": true,
-                    "ttsAudio": "resources/audio/tts/alpine_hardware/decline_box_of_nails.mp3",
-                    "ttsTextSha256": "7151a30749288de401b64c859dbc9434b38fbdaa92a55b6061ee85906f45f0b2",
-                    "ttsVoice": "helios"
-                  }
-                ],
-                "id": "browse_box_of_nails",
-                "label": "Box of Nails - $0.45",
-                "response": "\"Solid choice,\" he says. \"That'll be forty-five cents.\"",
-                "tts": true,
-                "ttsAudio": "resources/audio/tts/alpine_hardware/browse_box_of_nails.mp3",
-                "ttsTextSha256": "7159e93e7e3a97e579b0bcddcb92a2523c78fa2ed23448290600040e7af22001",
-                "ttsVoice": "helios"
-              },
-              {
-                "choices": [
-                  {
-                    "choices": [
-                      {
-                        "closePhase": false,
-                        "id": "shop_look_again",
-                        "label": "Let me take another look.",
-                        "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
-                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
-                        "ttsVoice": "helios"
-                      },
-                      {
-                        "closePhase": true,
-                        "id": "shop_no_thanks",
-                        "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
-                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
-                        "ttsVoice": "helios"
-                      }
-                    ],
-                    "closePhase": false,
-                    "grantItem": {
-                      "examineImage": "resources/images/copper_wire_spool_examine.png",
-                      "examineText": "A small spool of bare eighteen-gauge copper wire wound tight on a turned wooden core. The strand is fine as a pencil lead, rose-bright and springy, the sort of wire used for lantern leads, telegraph repairs, and the small electrical improvisations men make when the valley is too far below. The spool is light in the hand and the coils sit close, kept dry against mountain damp.",
-                      "icon": "resources/icons/copper_wire_spool_icon.png",
-                      "id": "copper_wire_spool",
-                      "name": "Spool of Copper Wire"
-                    },
-                    "id": "buy_copper_wire_spool",
-                    "label": "I'll take it.",
-                    "requiresMoney": 1.6,
-                    "response": "He sets the spool of copper wire on the counter with both hands, the way a man handles weight he respects. \"Good iron. It'll serve you.\"\n\n\"Need anything else while you're here?\"",
-                    "status": {
-                      "money": -1.6
-                    },
-                    "tts": true,
-                    "ttsAudio": "resources/audio/tts/alpine_hardware/buy_copper_wire_spool.mp3",
-                    "ttsTextSha256": "d91335cc121206bc0746e2b8c3da5558b4394abf273bd4c2f88db9072ff6869b",
-                    "ttsVoice": "helios"
-                  },
-                  {
-                    "choices": [
-                      {
-                        "closePhase": false,
-                        "id": "shop_look_again",
-                        "label": "Let me take another look.",
-                        "response": "\"Take your time,\" he says, nodding toward the stock.",
-                        "resumeChoiceId": "what_on_offer",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_look_again.mp3",
-                        "ttsTextSha256": "3a015e07cb94df120c099091fd3ea8f6c528aee64c4f83717b59b4ac29d17437",
-                        "ttsVoice": "helios"
-                      },
-                      {
-                        "closePhase": true,
-                        "id": "shop_no_thanks",
-                        "label": "No, thanks.",
-                        "response": "\"Fair enough,\" he says. \"Door's open when you need us.\"",
-                        "tts": true,
-                        "ttsAudio": "resources/audio/tts/alpine_hardware/shop_no_thanks.mp3",
-                        "ttsTextSha256": "dd6ec739f007cb1f74cfec97d7d6bb047193a83c690c5b5347d4acb7927f8347",
-                        "ttsVoice": "helios"
-                      }
-                    ],
-                    "closePhase": false,
-                    "id": "decline_copper_wire_spool",
-                    "label": "Thanks, maybe next time.",
-                    "response": "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n\"Need anything else while you're here?\"",
-                    "tts": true,
-                    "ttsAudio": "resources/audio/tts/alpine_hardware/decline_copper_wire_spool.mp3",
-                    "ttsTextSha256": "7151a30749288de401b64c859dbc9434b38fbdaa92a55b6061ee85906f45f0b2",
-                    "ttsVoice": "helios"
-                  }
-                ],
-                "id": "browse_copper_wire_spool",
-                "label": "Spool of Copper Wire - $1.60",
-                "response": "\"Solid choice,\" he says. \"That'll be one dollar and sixty cents.\"",
-                "tts": true,
-                "ttsAudio": "resources/audio/tts/alpine_hardware/browse_copper_wire_spool.mp3",
-                "ttsTextSha256": "7ce6ce4046857ea18f4a7e7572554754b68e3185eba62588757197ec4d999969",
-                "ttsVoice": "helios"
-              },
-              {
-                "id": "catalog_done",
-                "label": "Thanks, just browsing.",
-                "response": "\"Suit yourself,\" he says, not unkindly. \"Walk the aisles. Holler if you need a hand.\"",
-                "tts": true,
-                "ttsAudio": "resources/audio/tts/alpine_hardware/catalog_done.mp3",
-                "ttsTextSha256": "8731de4c21fa102ecc01ca1a07c4b379c73f329f782511a03163d490c3092701",
-                "ttsVoice": "helios"
-              }
-            ],
             "id": "what_on_offer",
             "label": "Yes, what do you have on offer?",
             "response": "\"Everything you see and most of what you don't.\" He jerks his chin toward the floor stock and wall tools. \"Picks, shovels, rakes, drills, hammers, anvils, nails, wire, rope, lanterns, mining goods. If a man means to build or dig at altitude, I stock for it.\"",
+            "openActorInventory": "merchant",
             "tts": true,
             "ttsAudio": "resources/audio/tts/alpine_hardware/what_on_offer.mp3",
             "ttsTextSha256": "de41551c051a071e066ac459f28f14a27d8795f62b47d7b59ea09a1e6c5815f8",
             "ttsVoice": "helios"
           },
           {
-            "closePhase": false,
-            "consumeOnSelect": true,
             "id": "compliment_building",
             "label": "Impressive building (looking around a bit)",
-            "persistConsumed": true,
             "response": "You take in the post-and-beam bones of the room: timbers joined with a joiner's patience, braces cut true, the whole frame standing with the quiet confidence of work done by someone who did not need to hurry.\n\n\"Impressive building,\" you say.\n\nFor the first time, something like pleasure enters his face.\n\n\"I built it myself,\" he says. \"Every beam, every brace, every peg. My father ran a mill in Pennsylvania. I learned timber before I learned trade. Came up here in eighty-one when the High Line decided it was going to stay, not just camp. There was no proper hardware north of Graysmill that would make the climb worth a mule's temper, so I opened this room and stocked it for men who break ground in weather that kills carelessness.\" He taps the nearest post with his knuckle. \"She'll stand longer than most of the claims on this ridge.\"",
+            "consumeOnSelect": true,
+            "persistConsumed": true,
             "resumeTopLevel": true,
+            "closePhase": false,
             "tts": true,
             "ttsAudio": "resources/audio/tts/alpine_hardware/compliment_building.mp3",
-            "ttsText": "You take in the post-and-beam bones of the room. [pause] Timbers joined with a joiner’s patience, [pause] braces cut true, [pause] the whole frame standing with the quiet confidence of work done by someone who did not need to hurry.\n\n[long-pause]\n\n\"Impressive building,\" you say.\n\n[pause:800ms]\n\nFor the first time, something like pleasure enters his face.\n\n[pause:1200ms]\n\n{{voice:helios}}I built it myself. [pause] Every beam, every brace, every peg. [pause] My father ran a mill in Pennsylvania. [pause] I learned timber before I learned trade. [long-pause] Came up here in eighty-one when the High Line decided it was going to stay, [soft] not just camp. [pause] There was no proper hardware north of Graysmill that would make the climb worth a mule’s temper, [pause] so I opened this room and stocked it for men who break ground in weather that kills carelessness.{{/voice}} [pause:700ms]\n\nHe taps the nearest post with his knuckle.\n\n{{voice:helios}}<soft>She’ll stand longer than most of the claims on this ridge.</soft>{{/voice}}",
+            "ttsText": "You take in the post-and-beam bones of the room. [pause] Timbers joined with a joiner\u2019s patience, [pause] braces cut true, [pause] the whole frame standing with the quiet confidence of work done by someone who did not need to hurry.\n\n[long-pause]\n\n\"Impressive building,\" you say.\n\n[pause:800ms]\n\nFor the first time, something like pleasure enters his face.\n\n[pause:1200ms]\n\n{{voice:helios}}I built it myself. [pause] Every beam, every brace, every peg. [pause] My father ran a mill in Pennsylvania. [pause] I learned timber before I learned trade. [long-pause] Came up here in eighty-one when the High Line decided it was going to stay, [soft] not just camp. [pause] There was no proper hardware north of Graysmill that would make the climb worth a mule\u2019s temper, [pause] so I opened this room and stocked it for men who break ground in weather that kills carelessness.{{/voice}} [pause:700ms]\n\nHe taps the nearest post with his knuckle.\n\n{{voice:helios}}<soft>She\u2019ll stand longer than most of the claims on this ridge.</soft>{{/voice}}",
             "ttsVoice": "leo"
           },
           {
@@ -838,25 +41,71 @@
             "ttsVoice": "helios"
           }
         ],
-        "id": "merchant",
-        "intro": "The merchant straightens from a ledger behind the counter and meets your eyes without hurry. He is tall, broad through the chest and shoulders, built like a man who has lifted iron all his life and meant to keep doing it. His shirt is clean, his suspenders straight, his beard trimmed with the same discipline he brings to stock and shelf.\n\n\"Afternoon. What can I help you find?\"",
-        "resetOnSceneEnter": true,
-        "resumeIntro": "He rests both hands on the counter, patient and square-shouldered. \"What else do you need?\"",
-        "resumeTts": true,
-        "resumeTtsAudio": "resources/audio/tts/alpine_hardware/merchant_resume.mp3",
-        "resumeTtsTextSha256": "ef9e1057f738e4cfbe813795b250f8ee51391c0c48649652d2b89b534f4b1668",
-        "resumeTtsVoice": "helios",
-        "tts": true,
-        "ttsAudio": "resources/audio/tts/alpine_hardware/merchant_intro.mp3",
+        "ttsText": "The merchant straightens from a ledger behind the counter and meets your eyes without hurry. He is tall, broad through the chest and shoulders, built like a man who has lifted iron all his life and meant to keep doing it. His shirt is clean, his suspenders straight, his beard trimmed with the same discipline he brings to stock and shelf.\n\n{{voice:helios}}\"Afternoon. What can I help you find?\"{{/voice}}",
         "ttsAudioSegments": [
           "resources/audio/tts/alpine_hardware/merchant_intro.seg0.mp3",
           "resources/audio/tts/alpine_hardware/merchant_intro.seg1.mp3"
         ],
-        "ttsText": "The merchant straightens from a ledger behind the counter and meets your eyes without hurry. He is tall, broad through the chest and shoulders, built like a man who has lifted iron all his life and meant to keep doing it. His shirt is clean, his suspenders straight, his beard trimmed with the same discipline he brings to stock and shelf.\n\n{{voice:helios}}\"Afternoon. What can I help you find?\"{{/voice}}",
         "ttsVoice": "leo",
-        "type": "scripted"
+        "ttsAudio": "resources/audio/tts/alpine_hardware/merchant_intro.mp3",
+        "tts": true,
+        "resumeTts": true,
+        "resumeTtsAudio": "resources/audio/tts/alpine_hardware/merchant_resume.mp3",
+        "resumeTtsTextSha256": "ef9e1057f738e4cfbe813795b250f8ee51391c0c48649652d2b89b534f4b1668",
+        "resumeTtsVoice": "helios"
       }
-    ]
+    ],
+    "actorInventories": {
+      "merchant": {
+        "items": [
+          {
+            "id": "crampons",
+            "price": 3.25,
+            "quantity": 1
+          },
+          {
+            "id": "mining_pick",
+            "price": 4.5,
+            "quantity": 1
+          },
+          {
+            "id": "shovel",
+            "price": 1.75,
+            "quantity": 1
+          },
+          {
+            "id": "garden_rake",
+            "price": 1.25,
+            "quantity": 1
+          },
+          {
+            "id": "hand_drill",
+            "price": 2.5,
+            "quantity": 1
+          },
+          {
+            "id": "blacksmith_hammer",
+            "price": 2.0,
+            "quantity": 1
+          },
+          {
+            "id": "mid_anvil",
+            "price": 28.0,
+            "quantity": 1
+          },
+          {
+            "id": "box_of_nails",
+            "price": 0.45,
+            "quantity": 1
+          },
+          {
+            "id": "copper_wire_spool",
+            "price": 1.6,
+            "quantity": 1
+          }
+        ]
+      }
+    }
   },
   "ridge_haberdashery": {
     "speakPhases": [
@@ -931,7 +180,7 @@
                     "closePhase": false,
                     "grantItem": {
                       "examineImage": "resources/images/mens_cologne_examine.png",
-                      "examineText": "A heavy glass bottle of men's cologne with a ground stopper and a label printed in restrained copperplate. The scent is cedar, bergamot, and something drier beneath—tobacco leaf, perhaps, or the memory of it. The Ridge Haberdashery wraps its goods as though altitude might bruise them.",
+                      "examineText": "A heavy glass bottle of men's cologne with a ground stopper and a label printed in restrained copperplate. The scent is cedar, bergamot, and something drier beneath\u2014tobacco leaf, perhaps, or the memory of it. The Ridge Haberdashery wraps its goods as though altitude might bruise them.",
                       "icon": "resources/icons/mens_cologne_icon.png",
                       "id": "mens_cologne",
                       "name": "Men's Cologne"
@@ -1558,7 +807,7 @@
                     ],
                     "id": "fabric_custom_shirt",
                     "label": "I don't have the funds today, just browsing. I do really like that fabric though.",
-                    "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric—one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\"",
+                    "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric\u2014one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\"",
                     "tts": true,
                     "ttsAudio": "resources/audio/tts/ridge_haberdashery/fabric_custom_shirt.mp3",
                     "ttsTextSha256": "e936b5aedb1d55fc71bb49d8b0fbc5e34c341557b3ff1b92d51c0eb540aa6259",
@@ -1734,7 +983,7 @@
                     ],
                     "id": "fabric_custom_trousers",
                     "label": "I don't have the funds today, just browsing. I do really like that fabric though.",
-                    "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric—one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\"",
+                    "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric\u2014one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\"",
                     "tts": true,
                     "ttsAudio": "resources/audio/tts/ridge_haberdashery/fabric_custom_trousers.mp3",
                     "ttsTextSha256": "e936b5aedb1d55fc71bb49d8b0fbc5e34c341557b3ff1b92d51c0eb540aa6259",
@@ -1910,7 +1159,7 @@
                     ],
                     "id": "fabric_custom_jacket",
                     "label": "I don't have the funds today, just browsing. I do really like that fabric though.",
-                    "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric—one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\"",
+                    "response": "He follows your gesture to the bolt rolls and nods with quiet pride.\n\n\"Yes, this is my more premium fabric\u2014one hundred percent long-grain wool. If you would like to consider it, I can get you a sample for twenty-five cents.\"",
                     "tts": true,
                     "ttsAudio": "resources/audio/tts/ridge_haberdashery/fabric_custom_jacket.mp3",
                     "ttsTextSha256": "e936b5aedb1d55fc71bb49d8b0fbc5e34c341557b3ff1b92d51c0eb540aa6259",
@@ -2158,7 +1407,7 @@
             "id": "compliment_store",
             "label": "This is an impressive store.",
             "persistConsumed": true,
-            "response": "You let your gaze travel the shelves, the bolt rolls, the glass cases, the iron rack of ready-made coats, taking it in the way you would a room that has been assembled with intention.\n\n\"This is an impressive store,\" you say.\n\nA modest smile crosses his face, pleased but not surprised—he has heard the compliment before and still believes it.\n\n\"You are kind to say so, sir.\" He rests his fingertips on the counter. \"I trained on Savile Row before the mountains called. My uncle kept a dry goods post on this ridge when the High Line was only timber camps and prayer. I came up to visit, saw what men lacked at altitude, and stayed. That was eighteen ninety-one. Everything here is chosen so a man need not descend to Graysmill merely to look as though he belongs in a room with money.\"",
+            "response": "You let your gaze travel the shelves, the bolt rolls, the glass cases, the iron rack of ready-made coats, taking it in the way you would a room that has been assembled with intention.\n\n\"This is an impressive store,\" you say.\n\nA modest smile crosses his face, pleased but not surprised\u2014he has heard the compliment before and still believes it.\n\n\"You are kind to say so, sir.\" He rests his fingertips on the counter. \"I trained on Savile Row before the mountains called. My uncle kept a dry goods post on this ridge when the High Line was only timber camps and prayer. I came up to visit, saw what men lacked at altitude, and stayed. That was eighteen ninety-one. Everything here is chosen so a man need not descend to Graysmill merely to look as though he belongs in a room with money.\"",
             "resumeTopLevel": true,
             "tts": true,
             "ttsAudio": "resources/audio/tts/ridge_haberdashery/compliment_store.mp3",
@@ -2318,7 +1567,7 @@
                 "closePhase": false,
                 "id": "looking_for_apology",
                 "label": "Are you looking for an apology?",
-                "response": "\"No.\"\n\nShe takes a quick drag of her cigarette, her eyes not leaving yours.\n\n\"I just wanted to tell you something....\"\n\nShe looks away for a moment, then back. When she speaks, it is quieter — not the whole confession she almost gave when you apologized, just the part she needs you to hear.\n\n\"Last night you asked how I ended up here. I still will not discuss all of it. But I chose to run once. I do not run anymore.\"\n\nShe clasps one hand with the other and lowers her eyes, embarrassed by even that much.",
+                "response": "\"No.\"\n\nShe takes a quick drag of her cigarette, her eyes not leaving yours.\n\n\"I just wanted to tell you something....\"\n\nShe looks away for a moment, then back. When she speaks, it is quieter \u2014 not the whole confession she almost gave when you apologized, just the part she needs you to hear.\n\n\"Last night you asked how I ended up here. I still will not discuss all of it. But I chose to run once. I do not run anymore.\"\n\nShe clasps one hand with the other and lowers her eyes, embarrassed by even that much.",
                 "status": {
                   "key": "saloon_balcony:looking_for_apology"
                 },
@@ -3237,7 +2486,7 @@
             "grantStoryFlag": "saloon_interior:blackjack_discovered",
             "id": "blackjack_spotted",
             "once": true,
-            "text": "Your circuit of the room brings you past the stove table where four men play blackjack under a hanging lamp. Whiskey glasses and cigar stubs crowd the felt. An empty chair sits at the near corner — sawdust on the seat, a fresh ring on the wood where a glass stood and left.\n\nOne of the players glances up as you slow, then returns to his cards as though daring you to remember the opening.",
+            "text": "Your circuit of the room brings you past the stove table where four men play blackjack under a hanging lamp. Whiskey glasses and cigar stubs crowd the felt. An empty chair sits at the near corner \u2014 sawdust on the seat, a fresh ring on the wood where a glass stood and left.\n\nOne of the players glances up as you slow, then returns to his cards as though daring you to remember the opening.",
             "tts": true,
             "ttsAudio": "resources/audio/tts/saloon_interior/blackjack_spotted.mp3",
             "ttsText": "Your circuit of the room brings you past the stove table where four men play blackjack under a hanging lamp. Whiskey glasses and cigar stubs crowd the felt. An empty chair sits at the near corner, sawdust on the seat, a fresh ring on the wood where a glass stood and left. One of the players glances up as you slow, then returns to his cards as though daring you to remember the opening.",
@@ -3277,7 +2526,7 @@
             "id": "blackjack_join",
             "label": "> I'm in.",
             "requiresMoney": 2.0,
-            "response": "You pull out the empty chair and slide two dollars into the center of the felt. The men around you return to their cards without introducing themselves — sleeves rolled, collars loose, faces kept at the edge of the lamplight.\n\nA fresh hand is dealt before you've finished counting the chips in front of you.",
+            "response": "You pull out the empty chair and slide two dollars into the center of the felt. The men around you return to their cards without introducing themselves \u2014 sleeves rolled, collars loose, faces kept at the edge of the lamplight.\n\nA fresh hand is dealt before you've finished counting the chips in front of you.",
             "status": {
               "key": "saloon_interior:blackjack_join",
               "money": -2.0
@@ -3306,7 +2555,7 @@
           }
         ],
         "id": "blackjack_invite_wary",
-        "intro": "You pause at the blackjack table long enough to draw their attention. Cards stop. The miner with the cigar clamped in his teeth looks you over without warmth.\n\n\"We haven't forgotten the last time you sat here,\" he says. \"Chair's open if you still want it. Buy-in's two dollars — and don't waste our evening.\"\n\n\"Well?\" he adds. \"Are you playing?\"",
+        "intro": "You pause at the blackjack table long enough to draw their attention. Cards stop. The miner with the cigar clamped in his teeth looks you over without warmth.\n\n\"We haven't forgotten the last time you sat here,\" he says. \"Chair's open if you still want it. Buy-in's two dollars \u2014 and don't waste our evening.\"\n\n\"Well?\" he adds. \"Are you playing?\"",
         "opinionActor": "blackjack_players",
         "repeatable": true,
         "requiresActorOpinionAtLeast": -4,
@@ -3330,7 +2579,7 @@
             "id": "blackjack_join",
             "label": "> I'm in.",
             "requiresMoney": 2.0,
-            "response": "You pull out the empty chair and slide two dollars into the center of the felt. The men around you return to their cards without introducing themselves — sleeves rolled, collars loose, faces kept at the edge of the lamplight.\n\nA fresh hand is dealt before you've finished counting the chips in front of you.",
+            "response": "You pull out the empty chair and slide two dollars into the center of the felt. The men around you return to their cards without introducing themselves \u2014 sleeves rolled, collars loose, faces kept at the edge of the lamplight.\n\nA fresh hand is dealt before you've finished counting the chips in front of you.",
             "status": {
               "key": "saloon_interior:blackjack_join",
               "money": -2.0
@@ -3345,7 +2594,7 @@
             "closePhase": true,
             "id": "blackjack_decline",
             "label": "> Maybe next time.",
-            "response": "You shake your head. \"Maybe next time.\"\n\nThe miner snorts and mutters something about greenhorns and wasted chairs — not quite aimed at you, not quite aimed anywhere else. His companions laugh once, without warmth, and the deal resumes as though you were never standing there.",
+            "response": "You shake your head. \"Maybe next time.\"\n\nThe miner snorts and mutters something about greenhorns and wasted chairs \u2014 not quite aimed at you, not quite aimed anywhere else. His companions laugh once, without warmth, and the deal resumes as though you were never standing there.",
             "status": {
               "actor": "blackjack_players",
               "actorOpinion": -1,
@@ -3359,7 +2608,7 @@
           }
         ],
         "id": "blackjack_invite",
-        "intro": "Near the stove table, four men in trail-worn garb play blackjack with the quiet intensity of men who have nowhere else to be. An empty chair sits at the near corner — sawdust on the seat, a fresh glass mark on the wood, as though someone stood up mid-hand and never came back.\n\nYou pause long enough to draw their attention. Cards stop. A miner with a cigar clamped in his teeth looks up without smiling.\n\n\"Well?\" he says. \"Are you playing? Buy-in's two dollars.\"",
+        "intro": "Near the stove table, four men in trail-worn garb play blackjack with the quiet intensity of men who have nowhere else to be. An empty chair sits at the near corner \u2014 sawdust on the seat, a fresh glass mark on the wood, as though someone stood up mid-hand and never came back.\n\nYou pause long enough to draw their attention. Cards stop. A miner with a cigar clamped in his teeth looks up without smiling.\n\n\"Well?\" he says. \"Are you playing? Buy-in's two dollars.\"",
         "opinionActor": "blackjack_players",
         "repeatable": true,
         "requiresActorOpinionAtLeast": 0,

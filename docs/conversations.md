@@ -66,8 +66,9 @@ Entry sketch: `{ stat, mode, amount }`.
 | **Get item** | 1 | `itemId` | — |
 | **Attack** | 2 (win / lose) | combatant (sketch); `playerDeathPossible` (else **10%** HP floor); win = **StatModifier** list | Combat algo; lose fields |
 | **Trigger event** | 1 | `eventId` | — |
+| **Actor inventory** | 1 | `inventoryActorId` (bag key); opening `dialogText` / TTS | Migrate collapses `openActorInventory` (no nested `browse_*` trees). Runtime synthesizes priced notebook choices from `actorInventories`. |
 
-_More types may be added; Phase 1 palette currently stubs these six._
+_Phase 1 palette stubs these seven kinds. Flowchart layout remains editor-local until Phase 2 persist._
 
 ### Phase 1 interactions
 
@@ -84,6 +85,28 @@ Icons live under `resources/ui/editor/dialog_nodes/` (speech bubbles opposing di
 Selecting a **phase** (or choice under a phase) migrates that phase only — cleaner for large scenes like the saloon. Selecting the **scene** root migrates all phases (Start wires to the first).
 
 The older **Dialog walkthrough** remains in the binary as a fallback compile path but is no longer the primary Conversations UI.
+
+## Actor inventories (shops) — runtime (#60)
+
+Shops no longer need giant nested `browse_*` / `buy_*` trees. Authored stock lives on the conversation document next to `speakPhases`:
+
+```json
+"alpine_hardware": {
+  "actorInventories": {
+    "merchant": {
+      "items": [
+        { "id": "crampons", "price": 3.25, "quantity": 1 },
+        { "id": "mining_pick", "price": 4.5, "quantity": 1 }
+      ]
+    }
+  },
+  "speakPhases": [ ... ]
+}
+```
+
+- **`quantity`**: finite stock; use `null` or `"infinite": true` for never-depleting lines.
+- A player choice with `"openActorInventory": "merchant"` plays its response/TTS, then the runtime **synthesizes** browse → buy/decline → look-again choices from that actor’s bag (labels like `Crampons - $3.25`). Buys deduct money, grant the item from `items.json`, and decrement stock; bags persist in saves.
+- Alpine Hardware is the pilot. Haberdashery still uses nested trees until cut over. Authoring helpers: `tools/shop_utils.py` (`use_actor_inventory=True`) and `tools/merge_hardware_conversation.py`.
 
 ## Choice → new scene (`exitSceneId`) — runtime (existing JSON)
 

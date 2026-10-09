@@ -71,6 +71,13 @@ class ShopDialogConfig:
 
     extra_top_level_choices: list[dict[str, Any]] = field(default_factory=list)
 
+    # When True, catalog opens via openActorInventory and stock lives in
+    # actorInventories instead of nested browse/buy choice trees (#60).
+    # Default False so haberdashery custom-order trees keep working until cut over.
+    use_actor_inventory: bool = False
+    # Actor id / bag key for openActorInventory (defaults to phase_id).
+    inventory_actor_id: str = ""
+
 
 def format_price(amount: float) -> str:
     if abs(amount - round(amount)) < 0.001:
@@ -414,6 +421,7 @@ def catalog_choices(
     browse_done_label: str | None = None,
     browse_done_response: str | None = None,
 ) -> list[dict[str, Any]]:
+    """Legacy nested browse/buy tree. Prefer actor_inventory_bag + openActorInventory (#60)."""
     if config is None:
         config = ShopDialogConfig(merchant_tone=merchant_tone)
     config = _tone_defaults(config)
@@ -447,6 +455,26 @@ def catalog_choices(
     return apply_post_transaction_to_leaves(choices, config)
 
 
+def actor_inventory_bag(
+    items: list[dict],
+    *,
+    quantity: int | None = 1,
+) -> list[dict[str, Any]]:
+    """Build SceneSpeakConfig.actorInventories[<actor>].items entries (#60)."""
+    bag: list[dict[str, Any]] = []
+    for item in items:
+        entry: dict[str, Any] = {
+            "id": item["id"],
+            "price": float(item["price"]),
+        }
+        if quantity is None:
+            entry["quantity"] = None  # infinite stock
+        else:
+            entry["quantity"] = int(quantity)
+        bag.append(entry)
+    return bag
+
+
 def build_shop_main_phase(
     items: list[dict],
     *,
@@ -455,7 +483,24 @@ def build_shop_main_phase(
     requires_flag: str = "",
 ) -> dict[str, Any]:
     config = _tone_defaults(config)
-    catalog = catalog_choices(items, config=config, sample_item=sample_item)
+    actor_id = config.inventory_actor_id or config.phase_id
+
+    offer: dict[str, Any] = {
+        "id": config.catalog_choice_id,
+        "label": config.catalog_offer_label,
+        "response": config.catalog_offer_response,
+    }
+    if config.use_actor_inventory:
+        if any(item.get("custom") for item in items):
+            raise ValueError(
+                "use_actor_inventory does not support custom-order branches; "
+                "set use_actor_inventory=False for haberdashery-style catalogs"
+            )
+        offer["openActorInventory"] = actor_id
+    else:
+        offer["choices"] = catalog_choices(
+            items, config=config, sample_item=sample_item
+        )
 
     phase: dict[str, Any] = {
         "id": config.phase_id,
@@ -464,12 +509,7 @@ def build_shop_main_phase(
         "intro": config.intro,
         "resumeIntro": config.resume_intro,
         "choices": [
-            {
-                "id": config.catalog_choice_id,
-                "label": config.catalog_offer_label,
-                "response": config.catalog_offer_response,
-                "choices": catalog,
-            },
+            offer,
             *config.extra_top_level_choices,
             {
                 "id": "just_browsing",
@@ -491,6 +531,7 @@ def build_shop_conversation(
     greeting_phases: list[dict[str, Any]] | None = None,
     requires_flag: str = "",
 ) -> dict[str, Any]:
+    config = _tone_defaults(config)
     phases = list(greeting_phases or [])
     phases.append(
         build_shop_main_phase(
@@ -500,4 +541,10 @@ def build_shop_conversation(
             requires_flag=requires_flag,
         )
     )
-    return {"speakPhases": phases}
+    out: dict[str, Any] = {"speakPhases": phases}
+    if config.use_actor_inventory:
+        actor_id = config.inventory_actor_id or config.phase_id
+        out["actorInventories"] = {
+            actor_id: {"items": actor_inventory_bag(items)},
+        }
+    return out

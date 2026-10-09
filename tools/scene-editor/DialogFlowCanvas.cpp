@@ -423,6 +423,11 @@ void DialogFlowCanvas::buildContextMenuItems(const DialogFlowNode& n)
     case DialogNodeKind::GetItem:
         add("Edit item id...", kFlowMenuEditItemId);
         break;
+    case DialogNodeKind::ActorInventory:
+        add("Edit actor id...", kFlowMenuEditInventoryActor);
+        add("Edit opening text...", kFlowMenuEditText);
+        add("Edit opening TTS...", kFlowMenuEditTts);
+        break;
     case DialogNodeKind::Attack:
         add("Edit combatant...", kFlowMenuEditCombatant);
         add(n.playerDeathPossible ? "Death possible: ON" : "Death possible: off",
@@ -864,6 +869,9 @@ void DialogFlowCanvas::applyContextMenuAction(int action)
         return;
     case kFlowMenuEditItemId:
         openParchmentForField(&n->itemId, false, "Item id");
+        return;
+    case kFlowMenuEditInventoryActor:
+        openParchmentForField(&n->inventoryActorId, false, "Inventory actor id");
         return;
     case kFlowMenuEditCombatant:
         openParchmentForField(&n->combatantId, false, "Combatant id");
@@ -1755,7 +1763,11 @@ void DialogFlowCanvas::migrateChoiceTree(
 
     int responseParent = (playerId > 0) ? playerId : parentId;
     int responseId = -1;
-    if (!response.empty())
+    const std::string openInventoryEarly =
+        choice.value("openActorInventory", std::string());
+    // When opening actor inventory, the shop pitch lives on the ActorInventory
+    // node — skip a separate response Actor that would duplicate it (#60).
+    if (!response.empty() && openInventoryEarly.empty())
     {
         responseId = migrateActorLine(
             response,
@@ -1799,13 +1811,39 @@ void DialogFlowCanvas::migrateChoiceTree(
         chainParent = flagNode;
     }
 
+    // Actor inventory (#60): openActorInventory collapses the shop catalog into one
+    // node instead of migrating nested browse_*/buy_* trees.
+    const std::string& openInventory = openInventoryEarly;
+    if (!openInventory.empty())
+    {
+        const float invY = y + dy * (skipPlayerNode ? 0.0f : 1.0f) + 20.0f;
+        const int invId = allocNode(DialogNodeKind::ActorInventory, x, invY);
+        if (DialogFlowNode* n = findNode(invId))
+        {
+            n->inventoryActorId = openInventory;
+            n->dialogText = response;
+            n->dialogTts = responseTts == response ? std::string() : responseTts;
+            if (!responseVoice.empty() && isKnownBuiltinVoiceId(responseVoice))
+                n->defaultVoice = normalizeVoiceId(responseVoice);
+            n->dialogTtsAudio = choice.value("ttsAudio", std::string());
+            n->jsonPointer = pointer + "/openActorInventory";
+            n->sourceChoiceId = choiceId;
+            n->title = "Inventory: " + openInventory;
+        }
+        connectWithPorts(chainParent, invId);
+        chainParent = invId;
+    }
+
     if (choice.contains("startPhase") && choice["startPhase"].is_string())
         deferredStartPhase.push_back({chainParent, choice["startPhase"].get<std::string>()});
     if (choice.contains("resumeChoiceId") && choice["resumeChoiceId"].is_string())
         deferredResume.push_back({chainParent, choice["resumeChoiceId"].get<std::string>()});
 
     // Nested choices fan out under the response (or player), including money gates.
-    if (choice.contains("choices") && choice["choices"].is_array())
+    // Skip when openActorInventory owns the catalog (runtime synthesizes stock).
+    if (openInventory.empty()
+        && choice.contains("choices")
+        && choice["choices"].is_array())
     {
         const float childY = y + dy * (responseId > 0 ? 2.0f : 1.0f) + 20.0f;
         migrateChoicesArray(
@@ -2388,7 +2426,7 @@ void DialogFlowCanvas::migrateFromTreeSelection(
     }
 
     // Bump when migrate topology changes so an already-open scope remigrates.
-    constexpr const char* kMigrateRev = "|mgr4-resumeIntroOnOpener";
+    constexpr const char* kMigrateRev = "|mgr5-actorInventoryNode";
     const std::string scoped = scope + kMigrateRev;
     if (scoped == migratedScope && !nodes.empty())
         return; // already showing this graph

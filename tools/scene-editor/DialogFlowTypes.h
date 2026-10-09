@@ -23,6 +23,7 @@ enum class DialogNodeKind
     GetItem,
     Attack,
     TriggerEvent,
+    ActorInventory,
     Count
 };
 
@@ -42,6 +43,8 @@ inline const char* dialogNodeKindLabel(DialogNodeKind kind)
         return "Attack";
     case DialogNodeKind::TriggerEvent:
         return "Trigger event";
+    case DialogNodeKind::ActorInventory:
+        return "Actor inventory";
     default:
         return "Node";
     }
@@ -63,6 +66,8 @@ inline const char* dialogNodeKindBrief(DialogNodeKind kind)
         return "Fight (win/lose)";
     case DialogNodeKind::TriggerEvent:
         return "Fire story event";
+    case DialogNodeKind::ActorInventory:
+        return "Priced stock browse/buy";
     default:
         return "";
     }
@@ -85,6 +90,8 @@ inline const char* dialogNodeKindGlyph(DialogNodeKind kind)
         return "X";
     case DialogNodeKind::TriggerEvent:
         return "T";
+    case DialogNodeKind::ActorInventory:
+        return "$";
     default:
         return "?";
     }
@@ -106,6 +113,8 @@ inline int dialogNodeChildCount(DialogNodeKind kind)
         return 2;
     case DialogNodeKind::TriggerEvent:
         return 1;
+    case DialogNodeKind::ActorInventory:
+        return 1; // after-browse continue (look-again is runtime-internal)
     default:
         return 0;
     }
@@ -128,6 +137,8 @@ inline const char* dialogNodeKindIconFile(DialogNodeKind kind)
         return "attack.png";
     case DialogNodeKind::TriggerEvent:
         return "trigger_event.png";
+    case DialogNodeKind::ActorInventory:
+        return "actor_inventory.png";
     default:
         return "";
     }

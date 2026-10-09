@@ -32,6 +32,7 @@
 #include <sstream>
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
@@ -1280,14 +1281,74 @@ namespace
     {
         std::string formatShopPriceLabel(float price)
         {
+            // Match tools/shop_utils.format_price: whole dollars without cents.
+            const float rounded = std::round(price);
+            if (std::fabs(price - rounded) < 0.001f)
+            {
+                std::ostringstream oss;
+                oss << static_cast<int>(rounded);
+                return oss.str();
+            }
             std::ostringstream oss;
             oss << std::fixed << std::setprecision(2) << price;
-            std::string s = oss.str();
-            while (!s.empty() && s.back() == '0')
-                s.pop_back();
-            if (!s.empty() && s.back() == '.')
-                s.pop_back();
-            return s;
+            return oss.str();
+        }
+
+        std::string shopOnesWord(int n)
+        {
+            static const char* const ones[] = {
+                "zero", "one", "two", "three", "four", "five", "six", "seven",
+                "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen",
+                "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"};
+            if (n >= 0 && n < 20)
+                return ones[n];
+            return std::to_string(n);
+        }
+
+        std::string shopUnderHundred(int n)
+        {
+            if (n < 20)
+                return shopOnesWord(n);
+            static const char* const tens[] = {
+                "", "", "twenty", "thirty", "forty", "fifty",
+                "sixty", "seventy", "eighty", "ninety"};
+            const int t = n / 10;
+            const int o = n % 10;
+            if (o == 0)
+                return tens[t];
+            return std::string(tens[t]) + "-" + shopOnesWord(o);
+        }
+
+        /** Spoken money phrase — keep in sync with tools/shop_utils.price_words. */
+        std::string shopPriceWords(float amount)
+        {
+            const int centsTotal = static_cast<int>(std::lround(static_cast<double>(amount) * 100.0));
+            const int dollars = centsTotal / 100;
+            const int cents = centsTotal % 100;
+            std::string dollarText;
+            if (dollars == 1)
+                dollarText = "one dollar";
+            else if (dollars > 1)
+                dollarText = shopUnderHundred(dollars) + " dollars";
+            std::string centText;
+            if (cents == 1)
+                centText = "one cent";
+            else if (cents > 1)
+                centText = shopUnderHundred(cents) + " cents";
+            if (!dollarText.empty() && !centText.empty())
+                return dollarText + " and " + centText;
+            if (!dollarText.empty())
+                return dollarText;
+            if (!centText.empty())
+                return centText;
+            return "nothing";
+        }
+
+        std::string toLowerCopy(std::string value)
+        {
+            for (char& ch : value)
+                ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+            return value;
         }
     }
 
@@ -1311,6 +1372,27 @@ namespace
         const std::string ttsDir =
             "resources/audio/tts/" + worldState.currentSceneId + "/";
 
+        // Shared post-tx / catalog-done copy matches tools/shop_utils hardware tone
+        // so existing alpine_hardware TTS stays in sync (#60).
+        ConversationChoiceDef lookAgain;
+        lookAgain.id = "shop_look_again";
+        lookAgain.label = "Let me take another look.";
+        lookAgain.closePhase = false;
+        lookAgain.resumeChoiceId = "what_on_offer";
+        lookAgain.response = "\"Take your time,\" he says, nodding toward the stock.";
+        lookAgain.ttsAudio = ttsDir + "shop_look_again.mp3";
+        lookAgain.responseAudio = lookAgain.ttsAudio;
+        lookAgain.tts = true;
+
+        ConversationChoiceDef noThanks;
+        noThanks.id = "shop_no_thanks";
+        noThanks.label = "No, thanks.";
+        noThanks.closePhase = true;
+        noThanks.response = "\"Fair enough,\" he says. \"Door's open when you need us.\"";
+        noThanks.ttsAudio = ttsDir + "shop_no_thanks.mp3";
+        noThanks.responseAudio = noThanks.ttsAudio;
+        noThanks.tts = true;
+
         for (const ActorInventorySlot& slot : *bag)
         {
             if (!slot.isInStock() || inventoryMgr.hasItem(slot.id))
@@ -1319,14 +1401,15 @@ namespace
             const ItemDef* def = itemDatabase.getDef(slot.id);
             const std::string displayName =
                 (def != nullptr && !def->name.empty()) ? def->name : slot.id;
+            const std::string spokenName = toLowerCopy(displayName);
 
             ConversationChoiceDef browse;
             browse.id = "browse_" + slot.id;
             browse.label = displayName + " - $" + formatShopPriceLabel(slot.price);
             browse.closePhase = false;
-            browse.response = (def != nullptr && !def->description.empty())
-                ? def->description
-                : ("He shows you the " + displayName + ".");
+            browse.response =
+                "\"Solid choice,\" he says. \"That'll be "
+                + shopPriceWords(slot.price) + ".\"";
             const std::string browseAudio = ttsDir + "browse_" + slot.id + ".mp3";
             browse.ttsAudio = browseAudio;
             browse.responseAudio = browseAudio;
@@ -1348,8 +1431,10 @@ namespace
                 buy.grantItem.examineText = def->description;
             }
             buy.response =
-                "He wraps the " + displayName
-                + " with care. \"A pleasure doing business.\"\n\n\"Anything else?\"";
+                "He sets the " + spokenName
+                + " on the counter with both hands, the way a man handles weight he respects. "
+                  "\"Good iron. It'll serve you.\"\n\n"
+                  "\"Need anything else while you're here?\"";
             buy.ttsAudio = ttsDir + "buy_" + slot.id + ".mp3";
             buy.responseAudio = buy.ttsAudio;
             buy.tts = true;
@@ -1358,29 +1443,12 @@ namespace
             decline.id = "decline_" + slot.id;
             decline.label = "Thanks, maybe next time.";
             decline.closePhase = false;
-            decline.response = "\"No rush,\" he says. \"It'll keep.\"";
+            decline.response =
+                "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n"
+                "\"Need anything else while you're here?\"";
             decline.ttsAudio = ttsDir + "decline_" + slot.id + ".mp3";
             decline.responseAudio = decline.ttsAudio;
             decline.tts = true;
-
-            ConversationChoiceDef lookAgain;
-            lookAgain.id = "shop_look_again";
-            lookAgain.label = "Let me look again.";
-            lookAgain.closePhase = false;
-            lookAgain.resumeChoiceId = "what_on_offer";
-            lookAgain.response = "He nods and waits.";
-            lookAgain.ttsAudio = ttsDir + "shop_look_again.mp3";
-            lookAgain.responseAudio = lookAgain.ttsAudio;
-            lookAgain.tts = true;
-
-            ConversationChoiceDef noThanks;
-            noThanks.id = "shop_no_thanks";
-            noThanks.label = "That's all for now.";
-            noThanks.closePhase = true;
-            noThanks.response = "\"Safe travels.\"";
-            noThanks.ttsAudio = ttsDir + "shop_no_thanks.mp3";
-            noThanks.responseAudio = noThanks.ttsAudio;
-            noThanks.tts = true;
 
             buy.followUpChoices.push_back(lookAgain);
             buy.followUpChoices.push_back(noThanks);
@@ -1395,7 +1463,9 @@ namespace
         done.id = "catalog_done";
         done.label = "Thanks, just browsing.";
         done.closePhase = true;
-        done.response = "\"Browse as you like.\"";
+        done.response =
+            "\"Suit yourself,\" he says, not unkindly. "
+            "\"Walk the aisles. Holler if you need a hand.\"";
         done.ttsAudio = ttsDir + "catalog_done.mp3";
         done.responseAudio = done.ttsAudio;
         done.tts = true;
