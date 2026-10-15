@@ -853,8 +853,9 @@ float SceneAuthoringDialog::estimateFormContentHeight() const
     }
     h += 16.0f + 110.0f + 12.0f; // description
     h += 16.0f + 88.0f + 12.0f; // examine
-    // Image path (+ soften switch + description/examine weight slider).
-    h += 16.0f + 32.0f + 36.0f + 52.0f; // image + soften + #65 weight slider
+    // Image prompt mix (#65) above image path, then image + soften.
+    h += 16.0f + 22.0f + 22.0f; // mix label + slider + % labels
+    h += 16.0f + 32.0f + 36.0f; // image path + soften
     if (!payload.alternateMode)
     {
         // ambient / music rows (+ optional disable-reason line under each)
@@ -2756,6 +2757,87 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
     };
     const int pathRowCount = payload.alternateMode ? 1 : 3;
 
+    // Description↔examine mix sits above the image path (#65).
+    {
+        DrawTextEx(
+            font,
+            "Image prompt mix",
+            {fieldX, y},
+            kFontTiny,
+            1.0f,
+            kTextMuted);
+        y += 16.0f;
+
+        const float trackW = std::min(320.0f, std::max(160.0f, fieldW - 8.0f));
+        const float trackH = 22.0f;
+        imageWeightSliderRect = {fieldX, y, trackW, trackH};
+        DrawRectangleRounded(
+            imageWeightSliderRect, 0.5f, 6, Color{28, 26, 36, 255});
+        DrawRectangleRoundedLines(
+            imageWeightSliderRect, 0.5f, 6, kPanelInnerEdge);
+
+        float descW = std::clamp(payload.imagePromptDescriptionWeight, 0.0f, 1.0f);
+        // Slider: left = 100% description, right = 100% examine.
+        float t = 1.0f - descW;
+        const bool overSlider = hitInContent(imageWeightSliderRect);
+        if (canClick && overSlider && editorMousePressed(MOUSE_BUTTON_LEFT))
+            draggingImageWeightSlider = true;
+        if (!editorMouseDown(MOUSE_BUTTON_LEFT))
+            draggingImageWeightSlider = false;
+        if (draggingImageWeightSlider)
+        {
+            const float mx = GetMousePosition().x;
+            t = std::clamp(
+                (mx - imageWeightSliderRect.x) / imageWeightSliderRect.width,
+                0.0f,
+                1.0f);
+            descW = 1.0f - t;
+            payload.imagePromptDescriptionWeight = descW;
+            sessionImageDescriptionWeight = descW;
+        }
+
+        const float knobSize = 16.0f;
+        const float knobX = imageWeightSliderRect.x
+            + t * (imageWeightSliderRect.width - knobSize);
+        DrawRectangleRounded(
+            {knobX,
+             imageWeightSliderRect.y + (trackH - knobSize) * 0.5f,
+             knobSize,
+             knobSize},
+            0.5f,
+            6,
+            draggingImageWeightSlider ? kPanelBorder : kPanelAccent);
+
+        const int descPct = static_cast<int>(std::lround(descW * 100.0f));
+        const int examPct = 100 - descPct;
+        DrawTextEx(
+            font,
+            "Description",
+            {fieldX, y + trackH + 4.0f},
+            kFontTiny,
+            1.0f,
+            kTextMuted);
+        const std::string mixLabel = std::to_string(descPct) + "% / "
+            + std::to_string(examPct) + "%";
+        const float mixW = measureUiTextWidth(font, mixLabel, kFontTiny);
+        DrawTextEx(
+            font,
+            mixLabel.c_str(),
+            {fieldX + (trackW - mixW) * 0.5f, y + trackH + 4.0f},
+            kFontTiny,
+            1.0f,
+            kTextPrimary);
+        const float examLabelW = measureUiTextWidth(font, "Examine", kFontTiny);
+        DrawTextEx(
+            font,
+            "Examine",
+            {fieldX + trackW - examLabelW, y + trackH + 4.0f},
+            kFontTiny,
+            1.0f,
+            kTextMuted);
+        y += trackH + 22.0f;
+    }
+
     for (int ri = 0; ri < pathRowCount; ++ri)
     {
         const PathRow& row = rows[ri];
@@ -2819,7 +2901,7 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
         }
         y += 40.0f;
 
-        // Soften switch + description↔examine weight slider under image path (#65).
+        // Soften switch under the image path row.
         if (ri == 0)
         {
             const Rectangle softenTrack = {fieldX, y, 64.0f, 26.0f};
@@ -2834,84 +2916,6 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
             if (softenToggled)
                 payload.softenImagePrompt = !payload.softenImagePrompt;
             y += 36.0f;
-
-            DrawTextEx(
-                font,
-                "Image prompt mix",
-                {fieldX, y},
-                kFontTiny,
-                1.0f,
-                kTextMuted);
-            y += 16.0f;
-
-            const float trackW = std::min(320.0f, std::max(160.0f, fieldW - 8.0f));
-            const float trackH = 22.0f;
-            imageWeightSliderRect = {fieldX, y, trackW, trackH};
-            DrawRectangleRounded(
-                imageWeightSliderRect, 0.5f, 6, Color{28, 26, 36, 255});
-            DrawRectangleRoundedLines(
-                imageWeightSliderRect, 0.5f, 6, kPanelInnerEdge);
-
-            float descW = std::clamp(payload.imagePromptDescriptionWeight, 0.0f, 1.0f);
-            // Slider: left = 100% description, right = 100% examine.
-            float t = 1.0f - descW;
-            const bool overSlider = hitInContent(imageWeightSliderRect);
-            if (canClick && overSlider && editorMousePressed(MOUSE_BUTTON_LEFT))
-                draggingImageWeightSlider = true;
-            if (!editorMouseDown(MOUSE_BUTTON_LEFT))
-                draggingImageWeightSlider = false;
-            if (draggingImageWeightSlider)
-            {
-                const float mx = GetMousePosition().x;
-                t = std::clamp(
-                    (mx - imageWeightSliderRect.x) / imageWeightSliderRect.width,
-                    0.0f,
-                    1.0f);
-                descW = 1.0f - t;
-                payload.imagePromptDescriptionWeight = descW;
-                sessionImageDescriptionWeight = descW;
-            }
-
-            const float knobSize = 16.0f;
-            const float knobX = imageWeightSliderRect.x
-                + t * (imageWeightSliderRect.width - knobSize);
-            DrawRectangleRounded(
-                {knobX,
-                 imageWeightSliderRect.y + (trackH - knobSize) * 0.5f,
-                 knobSize,
-                 knobSize},
-                0.5f,
-                6,
-                draggingImageWeightSlider ? kPanelBorder : kPanelAccent);
-
-            const int descPct = static_cast<int>(std::lround(descW * 100.0f));
-            const int examPct = 100 - descPct;
-            DrawTextEx(
-                font,
-                "Description",
-                {fieldX, y + trackH + 4.0f},
-                kFontTiny,
-                1.0f,
-                kTextMuted);
-            const std::string mixLabel = std::to_string(descPct) + "% / "
-                + std::to_string(examPct) + "%";
-            const float mixW = measureUiTextWidth(font, mixLabel, kFontTiny);
-            DrawTextEx(
-                font,
-                mixLabel.c_str(),
-                {fieldX + (trackW - mixW) * 0.5f, y + trackH + 4.0f},
-                kFontTiny,
-                1.0f,
-                kTextPrimary);
-            const float examLabelW = measureUiTextWidth(font, "Examine", kFontTiny);
-            DrawTextEx(
-                font,
-                "Examine",
-                {fieldX + trackW - examLabelW, y + trackH + 4.0f},
-                kFontTiny,
-                1.0f,
-                kTextMuted);
-            y += trackH + 22.0f;
         }
         else if (ri == 2)
         {
