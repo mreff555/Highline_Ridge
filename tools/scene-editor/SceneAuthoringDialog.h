@@ -200,7 +200,8 @@ private:
         const char* placeholder,
         SingleLineState& state,
         bool focused,
-        float fontSize) const;
+        float fontSize,
+        Color textColor = kTextPrimary) const;
     void ensureMultilineCursorVisible(
         Font font,
         const std::string& buffer,

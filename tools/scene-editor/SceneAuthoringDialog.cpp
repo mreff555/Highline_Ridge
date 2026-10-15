@@ -947,7 +947,8 @@ void SceneAuthoringDialog::drawSingleLineField(
     const char* placeholder,
     SingleLineState& state,
     bool focused,
-    float fontSize) const
+    float fontSize,
+    Color textColor) const
 {
     const auto& cfg = editorButtons();
     const float padX = 8.0f;
@@ -959,7 +960,7 @@ void SceneAuthoringDialog::drawSingleLineField(
     const std::string& shown = showPlaceholder
         ? (placeholder != nullptr ? std::string(placeholder) : std::string{})
         : buffer;
-    const Color color = showPlaceholder ? fadedPlaceholderColor() : kTextPrimary;
+    const Color color = showPlaceholder ? fadedPlaceholderColor() : textColor;
     const float textY = field.y + (field.height - fontSize) * 0.5f;
 
     // Do not Begin/EndScissorMode here — that would cancel the parent form
@@ -2603,6 +2604,20 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
             y,
             editingExisting ? (fieldW - renameW - 10.0f) : (fieldW * 0.55f),
             32.0f};
+        // Red text when the sanitized id collides with an existing scene.
+        constexpr Color kIdConflictText = {220, 80, 70, 255};
+        Color idTextColor = kTextPrimary;
+        bool idConflict = false;
+        if (docs != nullptr && !idDraft.empty())
+        {
+            const std::string candidate = sanitizeSceneId(idDraft);
+            if (isValidSceneId(candidate) && docs->scenes.hasScene(candidate)
+                && !(editingExisting && candidate == payload.id))
+            {
+                idTextColor = kIdConflictText;
+                idConflict = true;
+            }
+        }
         drawSingleLineField(
             font,
             idField,
@@ -2610,7 +2625,8 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
             "e.g. abandoned_mine_shaft",
             idEdit,
             focusField == 0,
-            kFontSmall);
+            kFontSmall,
+            idTextColor);
         hitField(idField, 0);
         if (editingExisting)
         {
@@ -2621,6 +2637,17 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
                 applyRename();
         }
         y += 44.0f;
+        if (idConflict)
+        {
+            DrawTextEx(
+                font,
+                "Id already exists — choose a unique scene id",
+                {fieldX, y - 12.0f},
+                kFontTiny,
+                1.0f,
+                kIdConflictText);
+            y += 6.0f;
+        }
     }
     else
     {
