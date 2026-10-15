@@ -10,6 +10,7 @@
 
 #include "DocumentWorkspace.h"
 #include "EditorApiKeys.h"
+#include "EditorTheme.h"
 #include "FullscreenParchmentEditor.h"
 #include "SceneAuthoring.h"
 
