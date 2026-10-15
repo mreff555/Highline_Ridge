@@ -222,4 +222,52 @@ bool WorldState::consumeActorInventoryItem(const std::string& actorId, const std
     return false;
 }
 
+bool WorldState::addActorInventoryItem(
+    const std::string& actorId,
+    const std::string& itemId,
+    int quantity,
+    float price)
+{
+    if (actorId.empty() || itemId.empty())
+        return false;
+    const int addQty = std::max(1, quantity);
+    std::vector<ActorInventorySlot>& bag = actorInventories[actorId];
+    for (ActorInventorySlot& slot : bag)
+    {
+        if (slot.id != itemId)
+            continue;
+        if (slot.infinite)
+            return true;
+        slot.quantity += addQty;
+        if (price > 0.0f)
+            slot.price = price;
+        return true;
+    }
+    ActorInventorySlot slot;
+    slot.id = itemId;
+    slot.price = price;
+    slot.quantity = addQty;
+    slot.infinite = false;
+    bag.push_back(slot);
+    return true;
+}
+
+int WorldState::actorInventoryQuantity(
+    const std::string& actorId,
+    const std::string& itemId) const
+{
+    const std::vector<ActorInventorySlot>* bag = actorInventory(actorId);
+    if (bag == nullptr)
+        return 0;
+    for (const ActorInventorySlot& slot : *bag)
+    {
+        if (slot.id != itemId)
+            continue;
+        if (slot.infinite)
+            return 1000000;
+        return std::max(0, slot.quantity);
+    }
+    return 0;
+}
+
 }

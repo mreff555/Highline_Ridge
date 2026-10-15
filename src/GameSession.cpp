@@ -1250,7 +1250,7 @@ namespace
 
     void GameSession::grantConversationItem(const GrantedInventoryItemDef& granted)
     {
-        if (!granted.isValid() || inventoryMgr.hasItem(granted.id))
+        if (!granted.isValid())
             return;
 
         ItemDefOverrides overrides;
@@ -1273,8 +1273,179 @@ namespace
                 displayName);
         }
 
-        inventoryMgr.addItem(item);
+        std::string message;
+        if (!inventoryMgr.giveOrStackItem(item, message))
+        {
+            TraceLog(
+                LOG_WARNING,
+                "Conversation grant skipped for '%s': %s",
+                granted.id.c_str(),
+                message.c_str());
+            return;
+        }
         evaluateMilestones();
+    }
+
+    bool GameSession::applyItemExchanges(SpeakResult& result)
+    {
+        result.exchangeSucceeded = true;
+        const bool hasGive = result.giveToPlayer.isValid();
+        const bool hasTake = result.takeFromPlayer.isValid();
+        if (!hasGive && !hasTake)
+            return true;
+
+        auto resolveActor = [&](const ItemExchangeDef& ex) -> std::string {
+            if (!ex.actorId.empty())
+                return ex.actorId;
+            return result.spokenActorId;
+        };
+
+        // Validate both before mutating (atomic: fail → no partial apply).
+        if (hasGive)
+        {
+            const ItemExchangeDef& g = result.giveToPlayer;
+            const std::string actor = resolveActor(g);
+            if (g.money < 0.0f)
+            {
+                result.exchangeSucceeded = false;
+                TraceLog(LOG_WARNING, "giveToPlayer: invalid money amount");
+                return false;
+            }
+            if (!g.itemId.empty())
+            {
+                if (g.useActorInventory)
+                {
+                    const SceneSpeakConfig& speak =
+                        sceneDatabase.getSpeakConfig(worldState.currentSceneId);
+                    auto defIt = speak.actorInventories.find(actor);
+                    if (defIt != speak.actorInventories.end())
+                        worldState.ensureActorInventory(actor, defIt->second);
+                    if (worldState.actorInventoryQuantity(actor, g.itemId) < g.quantity)
+                    {
+                        result.exchangeSucceeded = false;
+                        TraceLog(
+                            LOG_WARNING,
+                            "giveToPlayer failed: actor '%s' lacks '%s' x%d",
+                            actor.c_str(),
+                            g.itemId.c_str(),
+                            g.quantity);
+                        return false;
+                    }
+                }
+                const ItemDef* def = itemDatabase.getDef(g.itemId);
+                const bool stackable = def != nullptr && def->quantity.stackable;
+                if (!stackable && inventoryMgr.hasItem(g.itemId))
+                {
+                    result.exchangeSucceeded = false;
+                    TraceLog(
+                        LOG_WARNING,
+                        "giveToPlayer failed: player already owns non-stackable '%s'",
+                        g.itemId.c_str());
+                    return false;
+                }
+            }
+        }
+
+        if (hasTake)
+        {
+            const ItemExchangeDef& t = result.takeFromPlayer;
+            if (t.money > 0.0f && worldState.playerStats.walletCash + 0.0001f < t.money)
+            {
+                result.exchangeSucceeded = false;
+                TraceLog(
+                    LOG_WARNING,
+                    "takeFromPlayer failed: wallet $%.2f < $%.2f",
+                    worldState.playerStats.walletCash,
+                    t.money);
+                return false;
+            }
+            if (!t.itemId.empty()
+                && inventoryMgr.itemQuantity(t.itemId) < t.quantity)
+            {
+                result.exchangeSucceeded = false;
+                TraceLog(
+                    LOG_WARNING,
+                    "takeFromPlayer failed: player lacks '%s' x%d",
+                    t.itemId.c_str(),
+                    t.quantity);
+                return false;
+            }
+        }
+
+        if (hasGive)
+        {
+            const ItemExchangeDef& g = result.giveToPlayer;
+            const std::string actor = resolveActor(g);
+            if (!g.itemId.empty())
+            {
+                if (g.useActorInventory)
+                {
+                    for (int i = 0; i < g.quantity; ++i)
+                    {
+                        if (!worldState.consumeActorInventoryItem(actor, g.itemId))
+                        {
+                            result.exchangeSucceeded = false;
+                            TraceLog(
+                                LOG_WARNING,
+                                "giveToPlayer failed mid-consume for '%s'",
+                                g.itemId.c_str());
+                            return false;
+                        }
+                    }
+                }
+                GrantedInventoryItemDef granted;
+                granted.id = g.itemId;
+                InventoryItem item = buildInventoryItem(g.itemId, {});
+                item.instance.quantity = std::max(1, g.quantity);
+                std::string message;
+                if (!inventoryMgr.giveOrStackItem(item, message))
+                {
+                    result.exchangeSucceeded = false;
+                    TraceLog(
+                        LOG_WARNING,
+                        "giveToPlayer failed: %s",
+                        message.c_str());
+                    return false;
+                }
+            }
+            if (g.money > 0.0f)
+            {
+                StatusEffect pay;
+                pay.money = g.money;
+                applyStatusEffects({pay});
+            }
+        }
+
+        if (hasTake)
+        {
+            const ItemExchangeDef& t = result.takeFromPlayer;
+            const std::string actor = resolveActor(t);
+            if (!t.itemId.empty())
+            {
+                if (!inventoryMgr.removeQuantity(t.itemId, t.quantity))
+                {
+                    result.exchangeSucceeded = false;
+                    TraceLog(
+                        LOG_WARNING,
+                        "takeFromPlayer failed removing '%s' x%d",
+                        t.itemId.c_str(),
+                        t.quantity);
+                    return false;
+                }
+                if (t.useActorInventory)
+                    worldState.addActorInventoryItem(actor, t.itemId, t.quantity, 0.0f);
+            }
+            if (t.money > 0.0f)
+            {
+                StatusEffect pay;
+                pay.money = -t.money;
+                applyStatusEffects({pay});
+            }
+        }
+
+        evaluateMilestones();
+        result.exchangeSucceeded = true;
+        return true;
     }
 
     namespace
@@ -1591,7 +1762,7 @@ namespace
         delayedSceneNarrativeTtsPaths.clear();
     }
 
-    void GameSession::processSpeakResult(const SpeakResult& result)
+    void GameSession::processSpeakResult(SpeakResult result)
     {
         if (result.action == SpeakResult::Action::None
             && result.narrative.empty()
@@ -1612,6 +1783,7 @@ namespace
                 worldState.consumeActorInventoryItem(
                     result.purchaseFromActor,
                     result.grantItem.id);
+            applyItemExchanges(result);
             playDialogAudio(result);
             const std::vector<ConversationChoiceDef>& pending = conversationMgr.getPendingChoices();
             appendChoiceLinesToNarrative(!pending.empty() ? pending : result.choices);
@@ -1629,6 +1801,7 @@ namespace
             worldState.consumeActorInventoryItem(
                 result.purchaseFromActor,
                 result.grantItem.id);
+        applyItemExchanges(result);
         playDialogAudio(result);
         evaluateMilestones();
         refreshSceneImage();
@@ -1704,6 +1877,11 @@ namespace
         {
             applyStatusEffects(effects);
             grantConversationItem(result.grantItem);
+            if (!result.purchaseFromActor.empty() && result.grantItem.isValid())
+                worldState.consumeActorInventoryItem(
+                    result.purchaseFromActor,
+                    result.grantItem.id);
+            applyItemExchanges(result);
             playDialogAudio(result);
             const std::vector<ConversationChoiceDef>& pending = conversationMgr.getPendingChoices();
             appendChoiceLinesToNarrative(
@@ -1719,6 +1897,11 @@ namespace
 
         applyStatusEffects(effects);
         grantConversationItem(result.grantItem);
+        if (!result.purchaseFromActor.empty() && result.grantItem.isValid())
+            worldState.consumeActorInventoryItem(
+                result.purchaseFromActor,
+                result.grantItem.id);
+        applyItemExchanges(result);
         playDialogAudio(result);
 
         if (!selectedLineText.empty())

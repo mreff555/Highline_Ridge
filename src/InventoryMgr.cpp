@@ -1292,6 +1292,42 @@ bool InventoryMgr::removeItem(const std::string& id)
     return true;
 }
 
+int InventoryMgr::itemQuantity(const std::string& id) const
+{
+    const InventoryItem* item = getItemById(id);
+    if (item == nullptr)
+        return 0;
+    return std::max(1, item->instance.quantity);
+}
+
+bool InventoryMgr::removeQuantity(const std::string& id, int quantity)
+{
+    if (id.empty() || quantity <= 0)
+        return false;
+
+    InventoryItem* existing = findMutableItem(id);
+    if (existing == nullptr)
+        return false;
+
+    const ItemDef* def = itemDatabase != nullptr ? itemDatabase->getDef(id) : nullptr;
+    const bool stackable = def != nullptr && def->quantity.stackable;
+    if (!stackable || quantity >= existing->instance.quantity)
+        return removeItem(id);
+
+    existing->instance.quantity -= quantity;
+    if (existing->instance.quantity < 1)
+        return removeItem(id);
+
+    if (itemDatabase != nullptr)
+    {
+        InventoryItem refreshed = itemDatabase->buildInventoryItem(existing->instance);
+        refreshed.icon = existing->icon;
+        refreshed.examineImage = existing->examineImage;
+        *existing = refreshed;
+    }
+    return true;
+}
+
 std::string InventoryMgr::consumePendingDropItemId()
 {
     const std::string itemId = pendingDropItemId;

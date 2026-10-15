@@ -20,12 +20,16 @@ enum class DialogNodeKind
     ActorDialog = 0,
     PlayerDialog,
     Event,
-    GetItem,
+    GiveItem, // actor → player (L→R); formerly GetItem (#64)
+    TakeItem, // player → actor (R→L) (#64)
     Attack,
     TriggerEvent,
     ActorInventory,
     Count
 };
+
+/** Legacy alias — same value as GiveItem. */
+inline constexpr DialogNodeKind DialogNodeKind_GetItem = DialogNodeKind::GiveItem;
 
 inline const char* dialogNodeKindLabel(DialogNodeKind kind)
 {
@@ -37,8 +41,10 @@ inline const char* dialogNodeKindLabel(DialogNodeKind kind)
         return "Player Dialog";
     case DialogNodeKind::Event:
         return "Event";
-    case DialogNodeKind::GetItem:
-        return "Get item";
+    case DialogNodeKind::GiveItem:
+        return "Give item";
+    case DialogNodeKind::TakeItem:
+        return "Take item";
     case DialogNodeKind::Attack:
         return "Attack";
     case DialogNodeKind::TriggerEvent:
@@ -60,8 +66,10 @@ inline const char* dialogNodeKindBrief(DialogNodeKind kind)
         return "Player line (1 out)";
     case DialogNodeKind::Event:
         return "Gate (pass / fail)";
-    case DialogNodeKind::GetItem:
-        return "Grant inventory item";
+    case DialogNodeKind::GiveItem:
+        return "Actor → player (ok/fail)";
+    case DialogNodeKind::TakeItem:
+        return "Player → actor (ok/fail)";
     case DialogNodeKind::Attack:
         return "Fight (win/lose)";
     case DialogNodeKind::TriggerEvent:
@@ -84,8 +92,10 @@ inline const char* dialogNodeKindGlyph(DialogNodeKind kind)
         return "P";
     case DialogNodeKind::Event:
         return "E";
-    case DialogNodeKind::GetItem:
-        return "I";
+    case DialogNodeKind::GiveItem:
+        return "→";
+    case DialogNodeKind::TakeItem:
+        return "←";
     case DialogNodeKind::Attack:
         return "X";
     case DialogNodeKind::TriggerEvent:
@@ -106,15 +116,17 @@ inline int dialogNodeChildCount(DialogNodeKind kind)
     case DialogNodeKind::PlayerDialog:
         return 1;
     case DialogNodeKind::Event:
-        return 2; // pass (0) / fail (1) — e.g. money gate
-    case DialogNodeKind::GetItem:
-        return 1;
+        return 2; // pass (0) / fail (1)
+    case DialogNodeKind::GiveItem:
+        return 2; // success (0 green) / fail (1 red) (#64)
+    case DialogNodeKind::TakeItem:
+        return 2; // success (0 green) / fail (1 red) (#64)
     case DialogNodeKind::Attack:
         return 2;
     case DialogNodeKind::TriggerEvent:
         return 1;
     case DialogNodeKind::ActorInventory:
-        return 1; // after-browse continue (look-again is runtime-internal)
+        return 1;
     default:
         return 0;
     }
@@ -131,8 +143,10 @@ inline const char* dialogNodeKindIconFile(DialogNodeKind kind)
         return "player_dialog.png";
     case DialogNodeKind::Event:
         return "event.png";
-    case DialogNodeKind::GetItem:
-        return "get_item.png";
+    case DialogNodeKind::GiveItem:
+        return "give_item.png";
+    case DialogNodeKind::TakeItem:
+        return "take_item.png";
     case DialogNodeKind::Attack:
         return "attack.png";
     case DialogNodeKind::TriggerEvent:
@@ -148,12 +162,18 @@ inline const char* dialogNodeKindIconFile(DialogNodeKind kind)
 inline constexpr Color kDialogParentPort = {90, 160, 200, 255};
 /** Child (out) port color — bottom / sides. */
 inline constexpr Color kDialogChildPort = {210, 120, 90, 255};
+/** Give/Take success (green) / fail (red) child ports (#64). */
+inline constexpr Color kDialogExchangeOkPort = {70, 170, 90, 255};
+inline constexpr Color kDialogExchangeFailPort = {200, 70, 70, 255};
 /** Speak-graph wire (not gold MOVE / silver Use). */
 inline constexpr Color kDialogFlowWire = {200, 90, 100, 230};
 
 /**
  * Child port slots 0..n-1 filled from bottom-center outward:
  * 0 = bottom, then SW, SE, left, right (max 5).
+ * For Give/Take (2 outs): slot 0 = bottom-left success, slot 1 = bottom-right fail
+ * via dialogChildSlotForIndex — Bottom + BottomLeft. Prefer explicit placement
+ * in canvas draw for exchange kinds.
  */
 enum class DialogChildSlot
 {

@@ -150,8 +150,14 @@ class GameSession
     /** Synthesize priced browse/buy choices from an actor's inventory bag (#60). */
     std::vector<ConversationChoiceDef> buildActorInventoryChoices(const std::string& actorId);
     void resolveCombatEncounter(const std::string& encounterId);
-    void processSpeakResult(const SpeakResult& result);
+    void processSpeakResult(SpeakResult result);
     void grantConversationItem(const GrantedInventoryItemDef& granted);
+    /**
+     * Apply giveToPlayer / takeFromPlayer on a SpeakResult (#64).
+     * Sets result.exchangeSucceeded. Returns false when an exchange was
+     * requested and failed (no partial apply).
+     */
+    bool applyItemExchanges(SpeakResult& result);
     InventoryItem buildInventoryItem(
         const std::string& defId,
         const ItemDefOverrides& overrides = {}) const;

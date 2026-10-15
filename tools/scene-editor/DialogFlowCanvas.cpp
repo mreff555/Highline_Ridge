@@ -238,7 +238,15 @@ Vector2 DialogFlowCanvas::childPortWorld(int nodeId, int childIndex) const
         return {0, 0};
 
     const Rectangle card = nodeCardWorld(*node);
-    const DialogChildSlot slot = dialogChildSlotForIndex(childIndex);
+    // Give/Take: success bottom-left (0), fail bottom-right (1) (#64).
+    DialogChildSlot slot = dialogChildSlotForIndex(childIndex);
+    if ((node->kind == DialogNodeKind::GiveItem
+         || node->kind == DialogNodeKind::TakeItem)
+        && dialogNodeChildCount(node->kind) >= 2)
+    {
+        slot = (childIndex == 0) ? DialogChildSlot::BottomLeft
+                                 : DialogChildSlot::BottomRight;
+    }
     switch (slot)
     {
     case DialogChildSlot::Bottom:
@@ -411,12 +419,19 @@ void DialogFlowCanvas::tryFinishWire(Vector2 screen)
         return;
     }
 
-    edges.erase(
-        std::remove_if(
-            edges.begin(),
-            edges.end(),
-            [toId](const DialogFlowEdge& e) { return e.toId == toId; }),
-        edges.end());
+    // Fan-in allowed: multiple parents may wire into the same top port (#64).
+    // Only reject an exact duplicate of the same from→to link.
+    for (const DialogFlowEdge& existing : edges)
+    {
+        if (existing.fromId == wireFromId
+            && existing.fromChildIndex == wireFromChild
+            && existing.toId == toId)
+        {
+            wiring = false;
+            status = "Already connected";
+            return;
+        }
+    }
 
     DialogFlowEdge edge;
     edge.fromId = wireFromId;
@@ -480,8 +495,15 @@ void DialogFlowCanvas::buildContextMenuItems(const DialogFlowNode& n)
     case DialogNodeKind::Event:
         add("Edit event id...", kFlowMenuEditEventId);
         break;
-    case DialogNodeKind::GetItem:
+    case DialogNodeKind::GiveItem:
+    case DialogNodeKind::TakeItem:
         add("Edit item id...", kFlowMenuEditItemId);
+        add("Edit quantity...", kFlowMenuEditExchangeQty);
+        add("Edit money...", kFlowMenuEditExchangeMoney);
+        add(n.useActorInventory ? "Actor inventory: ON" : "Actor inventory: off",
+            kFlowMenuToggleActorInventory);
+        add("Edit opening text...", kFlowMenuEditText);
+        add("Edit opening TTS...", kFlowMenuEditTts);
         break;
     case DialogNodeKind::ActorInventory:
         add("Edit actor id...", kFlowMenuEditInventoryActor);
@@ -955,6 +977,44 @@ void DialogFlowCanvas::applyContextMenuAction(int action)
         return;
     case kFlowMenuEditItemId:
         openParchmentForField(&n->itemId, false, "Item id");
+        return;
+    case kFlowMenuEditExchangeQty:
+    {
+        // Parchment edits strings — store qty as text then parse on close is heavy;
+        // cycle 1→2→5→10→1 for quick authoring.
+        static const int kSteps[] = {1, 2, 5, 10, 25};
+        int next = kSteps[0];
+        for (size_t i = 0; i < sizeof(kSteps) / sizeof(kSteps[0]); ++i)
+        {
+            if (n->exchangeQuantity == kSteps[i])
+            {
+                next = kSteps[(i + 1) % (sizeof(kSteps) / sizeof(kSteps[0]))];
+                break;
+            }
+        }
+        n->exchangeQuantity = next;
+        status = "Quantity → " + std::to_string(n->exchangeQuantity);
+        return;
+    }
+    case kFlowMenuEditExchangeMoney:
+    {
+        static const float kCash[] = {0.0f, 0.25f, 0.5f, 1.0f, 2.0f, 5.0f, 10.0f};
+        float next = kCash[0];
+        for (size_t i = 0; i < sizeof(kCash) / sizeof(kCash[0]); ++i)
+        {
+            if (std::fabs(n->exchangeMoney - kCash[i]) < 0.001f)
+            {
+                next = kCash[(i + 1) % (sizeof(kCash) / sizeof(kCash[0]))];
+                break;
+            }
+        }
+        n->exchangeMoney = next;
+        status = "Money → $" + std::to_string(n->exchangeMoney);
+        return;
+    }
+    case kFlowMenuToggleActorInventory:
+        n->useActorInventory = !n->useActorInventory;
+        status = n->useActorInventory ? "Actor inventory ON" : "Actor inventory off";
         return;
     case kFlowMenuEditInventoryActor:
         openParchmentForField(&n->inventoryActorId, false, "Inventory actor id");
@@ -1457,10 +1517,15 @@ void DialogFlowCanvas::draw(Rectangle bounds)
             DrawCircleLinesV(p, kPortR, Color{20, 30, 40, 255});
         }
         const int kids = dialogNodeChildCount(n.kind);
+        const bool exchangePorts = n.kind == DialogNodeKind::GiveItem
+            || n.kind == DialogNodeKind::TakeItem;
         for (int c = 0; c < kids; ++c)
         {
             const Vector2 p = screenFromWorld(childPortWorld(n.id, c));
-            DrawCircleV(p, kPortR, kDialogChildPort);
+            const Color fill = exchangePorts
+                ? (c == 0 ? kDialogExchangeOkPort : kDialogExchangeFailPort)
+                : kDialogChildPort;
+            DrawCircleV(p, kPortR, fill);
             DrawCircleLinesV(p, kPortR, Color{40, 30, 28, 255});
         }
     }
@@ -1519,13 +1584,14 @@ int DialogFlowCanvas::allocNode(DialogNodeKind kind, float x, float y)
 
 void DialogFlowCanvas::addEdge(int fromId, int fromChild, int toId)
 {
-    // One inbound edge per node for the shell.
-    edges.erase(
-        std::remove_if(
-            edges.begin(),
-            edges.end(),
-            [toId](const DialogFlowEdge& e) { return e.toId == toId; }),
-        edges.end());
+    // Fan-in allowed on parent ports (#64). Skip exact duplicate links only.
+    for (const DialogFlowEdge& existing : edges)
+    {
+        if (existing.fromId == fromId
+            && existing.fromChildIndex == fromChild
+            && existing.toId == toId)
+            return;
+    }
     DialogFlowEdge e;
     e.fromId = fromId;
     e.fromChildIndex = fromChild;
@@ -1870,17 +1936,80 @@ void DialogFlowCanvas::migrateChoiceTree(
 
     // Side-effect nodes after the response (or player if no response).
     int chainParent = responseParent;
-    if (choice.contains("grantItem") && choice["grantItem"].is_string())
+    // grantItem (legacy) or giveToPlayer → Give item node (#64).
+    // Skip shop buys that also set purchaseFromActor (Actor inventory owns those).
+    const bool shopPurchase = choice.contains("purchaseFromActor")
+        && choice["purchaseFromActor"].is_string()
+        && !choice["purchaseFromActor"].get<std::string>().empty();
+    std::string giveItemId;
+    int giveQty = 1;
+    float giveMoney = 0.0f;
+    bool giveFromBag = false;
+    if (!shopPurchase)
+    {
+        if (choice.contains("giveToPlayer") && choice["giveToPlayer"].is_object())
+        {
+            const nlohmann::json& g = choice["giveToPlayer"];
+            giveItemId = g.value("itemId", g.value("id", ""));
+            giveQty = g.value("quantity", 1);
+            giveMoney = g.value("money", 0.0f);
+            giveFromBag = g.value(
+                "useActorInventory", g.value("fromActorInventory", false));
+        }
+        else if (choice.contains("grantItem"))
+        {
+            if (choice["grantItem"].is_string())
+                giveItemId = choice["grantItem"].get<std::string>();
+            else if (choice["grantItem"].is_object())
+                giveItemId = choice["grantItem"].value("id", "");
+        }
+    }
+    if (!giveItemId.empty() || giveMoney > 0.0f)
     {
         const int itemNode = allocNode(
-            DialogNodeKind::GetItem, x + dx * 0.5f, y + dy * (responseId > 0 ? 2.0f : 1.0f));
+            DialogNodeKind::GiveItem,
+            x + dx * 0.5f,
+            y + dy * (responseId > 0 ? 2.0f : 1.0f));
         if (DialogFlowNode* n = findNode(itemNode))
         {
-            n->itemId = choice["grantItem"].get<std::string>();
-            n->jsonPointer = pointer + "/grantItem";
+            n->itemId = giveItemId;
+            n->exchangeQuantity = std::max(1, giveQty);
+            n->exchangeMoney = giveMoney;
+            n->useActorInventory = giveFromBag;
+            n->jsonPointer = pointer
+                + (choice.contains("giveToPlayer") ? "/giveToPlayer" : "/grantItem");
+            n->sourceChoiceId = choiceId;
+            n->title = giveItemId.empty() ? "Give $" : ("Give: " + giveItemId);
         }
         connectWithPorts(chainParent, itemNode);
         chainParent = itemNode;
+    }
+
+    if (choice.contains("takeFromPlayer") && choice["takeFromPlayer"].is_object())
+    {
+        const nlohmann::json& t = choice["takeFromPlayer"];
+        const std::string takeId = t.value("itemId", t.value("id", ""));
+        const float takeMoney = t.value("money", 0.0f);
+        if (!takeId.empty() || takeMoney > 0.0f)
+        {
+            const int takeNode = allocNode(
+                DialogNodeKind::TakeItem,
+                x + dx * 0.5f,
+                y + dy * (responseId > 0 ? 2.4f : 1.4f));
+            if (DialogFlowNode* n = findNode(takeNode))
+            {
+                n->itemId = takeId;
+                n->exchangeQuantity = std::max(1, t.value("quantity", 1));
+                n->exchangeMoney = takeMoney;
+                n->useActorInventory = t.value(
+                    "useActorInventory", t.value("toActorInventory", false));
+                n->jsonPointer = pointer + "/takeFromPlayer";
+                n->sourceChoiceId = choiceId;
+                n->title = takeId.empty() ? "Take $" : ("Take: " + takeId);
+            }
+            connectWithPorts(chainParent, takeNode);
+            chainParent = takeNode;
+        }
     }
     if (choice.contains("grantStoryFlag") && choice["grantStoryFlag"].is_string())
     {
@@ -2519,7 +2648,7 @@ void DialogFlowCanvas::migrateFromTreeSelection(
     }
 
     // Bump when migrate topology changes so an already-open scope remigrates.
-    constexpr const char* kMigrateRev = "|mgr6-inventoryTtsSeed";
+    constexpr const char* kMigrateRev = "|mgr7-giveTakeExchange";
     const std::string scoped = scope + kMigrateRev;
     if (scoped == migratedScope && !nodes.empty())
         return; // already showing this graph

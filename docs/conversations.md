@@ -63,12 +63,13 @@ Entry sketch: `{ stat, mode, amount }`.
 | **Actor Dialog** | 5 | `dialogText`, `dialogTts`, `defaultVoice` | — |
 | **Player Dialog** | 1 | `playerDialogText`, `defaultVoice` (**off** by default) | — |
 | **Event** | 2 (pass / fail) | `eventId` (e.g. `walletCash >= 4`, `walletCash >= actorTab:bartender`, `saloonRoomAvailable`) | Availability gates. Migrate: (1) same-label `requiresMoney` + `requiresInsufficientMoney` → one Player ask → Event → two bodies; (2) `requiresPayActorTabInFull` + `requiresInsufficientForActorTab` → Event → two player branches; (3) solo money/tab/room requires* → Player → Event (pass only) |
-| **Get item** | 1 | `itemId` | — |
+| **Give item** | 2 (success green / fail red) | `itemId`, qty, money (wallet $), `useActorInventory`; optional opening text/TTS | Actor → player (L→R). Fail if bag lacks stock / player already owns non-stackable. Money credits wallet. |
+| **Take item** | 2 (success green / fail red) | same fields | Player → actor (R→L). Fail if player lacks item/qty/cash. Optional push into actor bag. |
 | **Attack** | 2 (win / lose) | combatant (sketch); `playerDeathPossible` (else **10%** HP floor); win = **StatModifier** list | Combat algo; lose fields |
 | **Trigger event** | 1 | `eventId` | — |
 | **Actor inventory** | 1 | `inventoryActorId` (bag key); opening `dialogText` / TTS | Migrate collapses `openActorInventory` (no nested `browse_*` trees). Runtime synthesizes priced notebook choices from `actorInventories`. |
 
-_Phase 1 palette stubs these seven kinds. Flowchart layout remains editor-local until Phase 2 persist._
+_Phase 1 palette stubs these eight kinds. Top input ports accept **multiple parents** (fan-in). Flowchart layout remains editor-local until Phase 2 persist. Legacy **Get item** is now **Give item**._
 
 ### Phase 1 interactions
 
@@ -85,6 +86,31 @@ Icons live under `resources/ui/editor/dialog_nodes/` (speech bubbles opposing di
 Selecting a **phase** (or choice under a phase) migrates that phase only — cleaner for large scenes like the saloon. Selecting the **scene** root migrates all phases (Start wires to the first).
 
 The older **Dialog walkthrough** remains in the binary as a fallback compile path but is no longer the primary Conversations UI.
+
+## Give / Take exchange — runtime (#64)
+
+Explicit transfers without opening the inventory UI. Authored on choices:
+
+```json
+"giveToPlayer": {
+  "itemId": "fedora",
+  "quantity": 1,
+  "money": 0,
+  "useActorInventory": false
+},
+"takeFromPlayer": {
+  "itemId": "crampons",
+  "quantity": 1,
+  "money": 2.5,
+  "useActorInventory": true
+}
+```
+
+- **Money** is wallet cash (`PlayerStats.walletCash`), not an item id.
+- **Quantity** stacks when `ItemDef.quantity.stackable`; otherwise qty &gt; 1 still removes/adds as a whole non-stackable unit rules apply.
+- `useActorInventory`: Give consumes actor bag stock; Take can push into the actor bag. `false` = narrative grant / sink.
+- Shop buys keep `grantItem` + `purchaseFromActor` + Actor inventory UI — do not replace those with Give/Take.
+- Flowchart: green bottom-left = success, red bottom-right = fail. Fail does not apply the transfer (logged). Dual-wire playthrough until topology persist is editor-intent + runtime flag.
 
 ## Actor inventories (shops) — runtime (#60)
 

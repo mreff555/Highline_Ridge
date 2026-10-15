@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iomanip>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -218,12 +219,36 @@ void DialogNodeDetails::draw(Rectangle bounds)
             rows.push_back(
                 {"Ports", "pass (0) / fail (1)", true});
             break;
-        case DialogNodeKind::GetItem:
+        case DialogNodeKind::GiveItem:
+        case DialogNodeKind::TakeItem:
+        {
+            appendRow(
+                rows,
+                "Direction",
+                n->kind == DialogNodeKind::GiveItem ? "Actor → player"
+                                                    : "Player → actor");
             if (!n->itemId.empty())
                 appendRow(rows, "Item", n->itemId);
             else
-                appendEmptyHint(rows, "Item", "(unset)");
+                appendEmptyHint(rows, "Item", "(none — money-only ok)");
+            appendRow(rows, "Qty", std::to_string(std::max(1, n->exchangeQuantity)));
+            {
+                std::ostringstream oss;
+                oss << "$" << std::fixed << std::setprecision(2) << n->exchangeMoney;
+                appendRow(rows, "Money", oss.str());
+            }
+            appendRow(
+                rows,
+                "Actor bag",
+                n->useActorInventory ? "yes" : "no");
+            if (!n->dialogText.empty())
+                appendRow(rows, "Opening", firstLinePreview(n->dialogText));
+            rows.push_back(
+                {"",
+                 "Bottom ports: green = success, red = fail.",
+                 true});
             break;
+        }
         case DialogNodeKind::ActorInventory:
             if (!n->inventoryActorId.empty())
                 appendRow(rows, "Actor", n->inventoryActorId);

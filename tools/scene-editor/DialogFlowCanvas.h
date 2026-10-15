@@ -55,6 +55,10 @@ struct DialogFlowNode
     std::string inventoryActorId;
     std::string eventId;
     std::string itemId;
+    /** Give/Take exchange (#64). */
+    int exchangeQuantity = 1;
+    float exchangeMoney = 0.0f;
+    bool useActorInventory = false;
     std::string combatantId;
     bool playerDeathPossible = false;
     std::vector<DialogStatModifier> winModifiers;
@@ -80,6 +84,9 @@ enum DialogFlowMenuAction
     kFlowMenuEditPlayerText,
     kFlowMenuEditEventId,
     kFlowMenuEditItemId,
+    kFlowMenuEditExchangeQty,
+    kFlowMenuEditExchangeMoney,
+    kFlowMenuToggleActorInventory,
     kFlowMenuEditInventoryActor,
     kFlowMenuEditCombatant,
     kFlowMenuToggleDeathPossible,

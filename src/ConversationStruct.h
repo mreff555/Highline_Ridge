@@ -146,6 +146,26 @@ struct ActorInventorySlot
     bool isInStock() const { return infinite || quantity > 0; }
 };
 
+/**
+ * Explicit actor↔player exchange (#64). Money is wallet cash, not an item id.
+ * giveToPlayer: actor → player (L→R). takeFromPlayer: player → actor (R→L).
+ */
+struct ItemExchangeDef
+{
+    std::string itemId;
+    int quantity = 1;
+    float money = 0.0f;
+    /**
+     * Give: consume from actorInventories when true; narrative grant when false.
+     * Take: push into actorInventories when true; sink (remove only) when false.
+     */
+    bool useActorInventory = false;
+    /** Empty = phase / spoken actor. */
+    std::string actorId;
+
+    bool isValid() const { return !itemId.empty() || money > 0.0f; }
+};
+
 struct ConversationChoiceDef
 {
     std::string id;
@@ -193,6 +213,10 @@ struct ConversationChoiceDef
      * grantItem.id (#60).
      */
     std::string purchaseFromActor;
+    /** Actor → player exchange (#64). Applied after response; fail → no transfer. */
+    ItemExchangeDef giveToPlayer;
+    /** Player → actor exchange (#64). */
+    ItemExchangeDef takeFromPlayer;
     std::vector<OverlaySequenceStep> overlaySequence;
     std::vector<ConversationChoiceDef> followUpChoices;
 
@@ -353,6 +377,13 @@ struct SpeakResult
     std::string spokenActorId;
     /** When set with grantItem, GameSession depletes this actor's stock (#60). */
     std::string purchaseFromActor;
+    ItemExchangeDef giveToPlayer;
+    ItemExchangeDef takeFromPlayer;
+    /**
+     * Set by GameSession after applying give/take. True when no exchange was
+     * requested, or when the exchange succeeded (#64).
+     */
+    bool exchangeSucceeded = true;
 };
 
 }

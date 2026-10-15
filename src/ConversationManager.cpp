@@ -1152,6 +1152,8 @@ SpeakResult ConversationManager::resolveScriptedChoice(
             result.statusEffects.push_back(choice.status);
         if (choice.grantItem.isValid())
             result.grantItem = choice.grantItem;
+        result.giveToPlayer = choice.giveToPlayer;
+        result.takeFromPlayer = choice.takeFromPlayer;
         result.grantStoryFlag = choice.grantStoryFlag;
         appendDialogAudioTrack(result, choice.responseAudio);
         applyTtsFields(
@@ -1193,6 +1195,8 @@ SpeakResult ConversationManager::resolveScriptedChoice(
             result.statusEffects.push_back(choice.status);
         if (choice.grantItem.isValid())
             result.grantItem = choice.grantItem;
+        result.giveToPlayer = choice.giveToPlayer;
+        result.takeFromPlayer = choice.takeFromPlayer;
         result.grantStoryFlag = choice.grantStoryFlag;
         if (!choice.purchaseFromActor.empty())
             result.purchaseFromActor = choice.purchaseFromActor;
@@ -1258,6 +1262,8 @@ SpeakResult ConversationManager::resolveScriptedChoice(
     result.overlaySequence = choice.overlaySequence;
     if (!choice.purchaseFromActor.empty())
         result.purchaseFromActor = choice.purchaseFromActor;
+    result.giveToPlayer = choice.giveToPlayer;
+    result.takeFromPlayer = choice.takeFromPlayer;
     applyTtsFields(
         result,
         choice.tts,

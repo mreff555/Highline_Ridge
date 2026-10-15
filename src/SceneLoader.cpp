@@ -336,6 +336,24 @@ bool parseGrantedInventoryItem(const nlohmann::json& item, GrantedInventoryItemD
     return true;
 }
 
+bool parseItemExchange(const nlohmann::json& node, ItemExchangeDef& out)
+{
+    out = ItemExchangeDef{};
+    if (!node.is_object())
+        return true;
+
+    out.itemId = node.value("itemId", node.value("id", ""));
+    out.quantity = node.value("quantity", 1);
+    if (out.quantity < 1)
+        out.quantity = 1;
+    out.money = node.value("money", 0.0f);
+    out.useActorInventory = node.value(
+        "useActorInventory",
+        node.value("fromActorInventory", node.value("toActorInventory", false)));
+    out.actorId = node.value("actorId", "");
+    return true;
+}
+
 void parseDialogRequirementFields(const nlohmann::json& node, DialogRequirementFields& out)
 {
     out.minDay = node.value("minDay", 0);
@@ -414,6 +432,10 @@ bool parseConversationChoice(const nlohmann::json& choice, ConversationChoiceDef
     out.exitSceneId = choice.value("exitSceneId", "");
     out.openActorInventory = choice.value("openActorInventory", "");
     out.purchaseFromActor = choice.value("purchaseFromActor", "");
+    if (!parseItemExchange(choice.value("giveToPlayer", nlohmann::json::object()), out.giveToPlayer))
+        return false;
+    if (!parseItemExchange(choice.value("takeFromPlayer", nlohmann::json::object()), out.takeFromPlayer))
+        return false;
 
     if (!parseOverlaySequence(choice.value("overlaySequence", nlohmann::json::array()), out.overlaySequence))
         return false;

@@ -86,6 +86,17 @@ class WorldState
     const std::vector<ActorInventorySlot>* actorInventory(const std::string& actorId) const;
     /** Decrement finite stock for defId; returns false if missing / out of stock. */
     bool consumeActorInventoryItem(const std::string& actorId, const std::string& itemId);
+    /**
+     * Add or increment an unpriced bag slot (player→actor take). Returns false
+     * on empty ids (#64).
+     */
+    bool addActorInventoryItem(
+        const std::string& actorId,
+        const std::string& itemId,
+        int quantity = 1,
+        float price = 0.0f);
+    /** Finite stock count for actor bag item (0 if missing; INT_MAX if infinite). */
+    int actorInventoryQuantity(const std::string& actorId, const std::string& itemId) const;
 
     SavedGameState snapshot(
         const ConversationManager& conversationMgr,
