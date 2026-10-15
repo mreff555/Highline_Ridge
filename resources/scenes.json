@@ -96,8 +96,8 @@
           "volume": 0.22
         }
       },
-      "description": "You haul yourself onto the summit through deep snow that lies in hard wind-packed drifts across the small peak. The top is modest — a cramped crown of ice and stone barely wide enough for two men to stand — but the world it opens is not. Mountains fill the horizon in every direction, white and blue and enormous. On the opposite face, about five feet below the crown, a sawtoothed ridge runs away into the distance like the spine of some buried beast, each tooth catching light and shadow. The air is so thin it feels borrowed. Beauty and menace share the same breath up here.",
-      "examineDetails": "You turn slowly, boots planted in the crust, and let the altitude take its inventory of you.\n\nSnow lies deep everywhere the wind allows it to rest — sastrugi along the crown, soft powder in the lee of the peak's small shoulders. The summit itself is not grand. A man could cross it in twenty paces. But no one comes here for grandeur of floor space. They come for what the floor reveals.\n\nEvery compass point delivers mountains. Ridge upon ridge, glacier and rock, the valley a distant rumor far below timberline. The sky is pale and close. Your thoughts feel thin, as though the height is editing them.\n\nOn the far side, the ground drops roughly five feet to a sawtoothed ridge that marches into the distance — jagged teeth of rock and ice, each point sharp enough to cut the light. Old crampon marks cross the lip where someone else stood and chose not to go farther today.\n\nYou shield your eyes against the glare and study the ridge longer than comfort allows. Far along the opposite face, where the snow lies thick in the lee of a tooth, something breaks the white field — dark, stiff, and wrong in its angle. You cannot make out detail at this distance, but the shape resembles a boot sticking out of the drift, sole skyward, as though the mountain swallowed a man to the knee and grew bored with the rest.\n\nBelow and behind you, the face you climbed falls away toward the high alpine trail. No other way off the crown presents itself yet.",
+      "description": "You haul yourself onto the summit through deep snow that lies in hard wind-packed drifts across the small peak. The top is modest \u2014 a cramped crown of ice and stone barely wide enough for two men to stand \u2014 but the world it opens is not. Mountains fill the horizon in every direction, white and blue and enormous. On the opposite face, about five feet below the crown, a sawtoothed ridge runs away into the distance like the spine of some buried beast, each tooth catching light and shadow. The air is so thin it feels borrowed. Beauty and menace share the same breath up here.",
+      "examineDetails": "You turn slowly, boots planted in the crust, and let the altitude take its inventory of you.\n\nSnow lies deep everywhere the wind allows it to rest \u2014 sastrugi along the crown, soft powder in the lee of the peak's small shoulders. The summit itself is not grand. A man could cross it in twenty paces. But no one comes here for grandeur of floor space. They come for what the floor reveals.\n\nEvery compass point delivers mountains. Ridge upon ridge, glacier and rock, the valley a distant rumor far below timberline. The sky is pale and close. Your thoughts feel thin, as though the height is editing them.\n\nOn the far side, the ground drops roughly five feet to a sawtoothed ridge that marches into the distance \u2014 jagged teeth of rock and ice, each point sharp enough to cut the light. Old crampon marks cross the lip where someone else stood and chose not to go farther today.\n\nYou shield your eyes against the glare and study the ridge longer than comfort allows. Far along the opposite face, where the snow lies thick in the lee of a tooth, something breaks the white field \u2014 dark, stiff, and wrong in its angle. You cannot make out detail at this distance, but the shape resembles a boot sticking out of the drift, sole skyward, as though the mountain swallowed a man to the knee and grew bored with the rest.\n\nBelow and behind you, the face you climbed falls away toward the high alpine trail. No other way off the crown presents itself yet.",
       "exits": {
         "backward": "high_alpine_trail",
         "forward": "sawtooth_ridge_body"
@@ -170,8 +170,8 @@
       ],
       "layout": {
         "level": 0,
-        "x": 616.0,
-        "y": 293.0
+        "x": 730.289306640625,
+        "y": 173.0
       },
       "movement": {
         "backward": true,
@@ -202,7 +202,7 @@
       "exitRequirements": {
         "down": {
           "blockBadge": "light",
-          "blockedDetails": "You set your boot on the top rung and stop. The darkness below swallows even the thin warmth from the hatch. You are not climbing down without a light you can carry — something that still lets you see your hands on the ladder.",
+          "blockedDetails": "You set your boot on the top rung and stop. The darkness below swallows even the thin warmth from the hatch. You are not climbing down without a light you can carry \u2014 something that still lets you see your hands on the ladder.",
           "requiresLightSource": true
         }
       },
@@ -264,7 +264,7 @@
         ]
       },
       "description": "You step in from the porch into a warm kitchen of pine boards and copper. A cast-iron wood stove crouches against the far wall, its glass door showing coals still alive; a black coffee pot sits on the cooktop, steaming faintly. Copper pots and pans hang from a rail above the stove, catching lamplight. Behind you the heavy door leads back to the snowy plateau. Ahead, an open doorway spills into the living room where hearth light waits.",
-      "examineDetails": "The porch door is thick hand-planed plank, fitted tight against the mountain cold, its iron box latch recently oiled. Along the left wall a work counter holds ceramic jars, stacked bowls, and a stone mortar — the tools of a kitchen that feeds one life without fuss. Above the stove a copper rail carries pans and kettles in a neat row, seasoned dark where fire has kissed them often.\n\nThe wood stove is the room's heart: black iron, a glass fire door, coals still breathing orange. Heat radiates in steady waves. On the cooktop sits a black enamel coffee pot, warm to the touch, as though someone set it there and stepped away only moments ago. Beside the stove, cast-iron cookware waits within reach.\n\nYou open the lower cabinets carefully. Ordinary dry goods: flour in a paper sack, sugar, salt, a tin of crackers, rice in a cloth bag, canned goods lined along the back. Tucked behind the flour, a mason jar brims with dark roasted coffee beans, their oily skins catching the lamp. Beside it, another jar sits heavy with pale rendered lard, waxed lid sealed tight. A window over the sink looks out on snow and ridge. Whoever keeps this kitchen eats simply, but keeps the stove fed and the coffee pot ready. The living room lies forward. The plateau and mountain trail wait behind you through the porch door.",
+      "examineDetails": "The porch door is thick hand-planed plank, fitted tight against the mountain cold, its iron box latch recently oiled. Along the left wall a work counter holds ceramic jars, stacked bowls, and a stone mortar \u2014 the tools of a kitchen that feeds one life without fuss. Above the stove a copper rail carries pans and kettles in a neat row, seasoned dark where fire has kissed them often.\n\nThe wood stove is the room's heart: black iron, a glass fire door, coals still breathing orange. Heat radiates in steady waves. On the cooktop sits a black enamel coffee pot, warm to the touch, as though someone set it there and stepped away only moments ago. Beside the stove, cast-iron cookware waits within reach.\n\nYou open the lower cabinets carefully. Ordinary dry goods: flour in a paper sack, sugar, salt, a tin of crackers, rice in a cloth bag, canned goods lined along the back. Tucked behind the flour, a mason jar brims with dark roasted coffee beans, their oily skins catching the lamp. Beside it, another jar sits heavy with pale rendered lard, waxed lid sealed tight. A window over the sink looks out on snow and ridge. Whoever keeps this kitchen eats simply, but keeps the stove fed and the coffee pot ready. The living room lies forward. The plateau and mountain trail wait behind you through the porch door.",
       "exits": {
         "backward": "ridge_cabin_exterior",
         "forward": "cabin"
@@ -272,8 +272,8 @@
       "image": "resources/images/cabin_kitchen.png",
       "layout": {
         "level": 0,
-        "x": 616.0,
-        "y": 533.0
+        "x": 730.0787963867188,
+        "y": 457.0
       },
       "movement": {
         "backward": true,
@@ -291,7 +291,7 @@
           "name": "Lard"
         }
       ],
-      "useDetails": "You scoop beans from the mason jar and grind them coarse in the mortar. Water from the kettle goes into the black coffee pot on the wood stove; you settle it over the live coals and wait while the iron ticks and the grounds bloom. The brew comes up dark and honest — no machine hum, only stove heat and patience. The first sip is bitter, then opens into warmth that spreads through your chest and limbs. The cabin seems less cold afterward, and your thoughts sharpen as the fatigue lifts.",
+      "useDetails": "You scoop beans from the mason jar and grind them coarse in the mortar. Water from the kettle goes into the black coffee pot on the wood stove; you settle it over the live coals and wait while the iron ticks and the grounds bloom. The brew comes up dark and honest \u2014 no machine hum, only stove heat and patience. The first sip is bitter, then opens into warmth that spreads through your chest and limbs. The cabin seems less cold afterward, and your thoughts sharpen as the fatigue lifts.",
       "useEnergyDelta": 30,
       "useHealthDelta": 0
     },
@@ -406,11 +406,11 @@
           "volume": 0.08
         }
       },
-      "description": "You descend the ladder into a narrow underground shaft. Massive timber braces span the passage at regular intervals, biting into rough fieldstone walls that sweat a faint mineral chill. The floor underfoot is packed rammed earth, hard and dry. Iron hooks on the posts hold glass lanterns with cold wicks — unlit sentries waiting in the dark. Your crude lantern throws a small honest circle of light, but the passage ahead stays dim between the posts.",
-      "examineDetails": "The shaft was not dug in haste. Each timber is hewn square and set with deliberate wedges, the grain still smelling of pitch and mountain pine. Fieldstone is fitted dry without mortar in places, the gaps packed with smaller shards. The rammed earth floor is beaten flat enough to roll a barrel across. Every post carries a lantern on a wrought-iron arm, wicks trimmed but never lit in your presence — until you choose otherwise. The passage runs straight ahead into deeper dark.",
+      "description": "You descend the ladder into a narrow underground shaft. Massive timber braces span the passage at regular intervals, biting into rough fieldstone walls that sweat a faint mineral chill. The floor underfoot is packed rammed earth, hard and dry. Iron hooks on the posts hold glass lanterns with cold wicks \u2014 unlit sentries waiting in the dark. Your crude lantern throws a small honest circle of light, but the passage ahead stays dim between the posts.",
+      "examineDetails": "The shaft was not dug in haste. Each timber is hewn square and set with deliberate wedges, the grain still smelling of pitch and mountain pine. Fieldstone is fitted dry without mortar in places, the gaps packed with smaller shards. The rammed earth floor is beaten flat enough to roll a barrel across. Every post carries a lantern on a wrought-iron arm, wicks trimmed but never lit in your presence \u2014 until you choose otherwise. The passage runs straight ahead into deeper dark.",
       "exitRequirements": {
         "forward": {
-          "blockedDetails": "You take a step into the dark between the posts and stop. Your crude lantern throws a small circle of light, but the passage ahead stays a throat of black timber and stone. The wall lamps are trimmed and waiting — you will need to light them before you trust your footing forward.",
+          "blockedDetails": "You take a step into the dark between the posts and stop. Your crude lantern throws a small circle of light, but the passage ahead stays a throat of black timber and stone. The wall lamps are trimmed and waiting \u2014 you will need to light them before you trust your footing forward.",
           "requiresStoryFlag": "cellar_passage:lanterns_lit"
         }
       },
@@ -426,7 +426,7 @@
           "label": "Light the wall lanterns.",
           "repeat": false,
           "requiresExamine": false,
-          "useDetails": "You lift your crude lantern to each glass lamp along the shaft, touching flame to wick until the passage blooms with steady yellow light. One post, then the next — the glow catches on wet stone and oiled timber and races ahead of you, waking every lantern in the underground run as though the mountain itself drew breath. The shaft is no longer a throat of darkness. It is a lit corridor, and you can see your way forward.",
+          "useDetails": "You lift your crude lantern to each glass lamp along the shaft, touching flame to wick until the passage blooms with steady yellow light. One post, then the next \u2014 the glow catches on wet stone and oiled timber and races ahead of you, waking every lantern in the underground run as though the mountain itself drew breath. The shaft is no longer a throat of darkness. It is a lit corridor, and you can see your way forward.",
           "useFlag": "cellar_passage:lanterns_lit"
         }
       ],
@@ -462,8 +462,8 @@
         }
       },
       "defaultSubScene": "unlit",
-      "description": "The shaft opens into a modest underground chamber — larger than most rooms in the cabin, roughly fifteen feet square. The same heavy beams and fitted fieldstone define the space, but here the ceiling rises enough to stand without ducking. A lantern hangs from a central beam, its wick cold until you tend it. In the center of the floor someone laid a worn rug over the rammed earth, an eleven-by-nine-foot island of wool that softens the room's utilitarian bones. To the right, rough wooden shelves are loaded with canned goods, sacks of flour, rice, beans, and coffee. To the left, a crude desk and chair face the room. A letter lies flat on the desk beside an ink quill and a small desk lamp. On the far wall, a heavy wooden door with broad iron hinges and an iron lock waits without apology.",
-      "examineDetails": "You take the room in properly. The construction matches the shaft — big beams, dry-laid stone, earth floor — but the proportions feel deliberate, as though someone needed storage and a place to write underground. The ceiling lantern hangs from a forged hook driven into the main beam; its glass is clean, the reservoir half full. The rug is Persian work, faded but serviceable, centered with care. The shelves on the right are stockpiled for winter: labeled tins, cloth sacks cinched with twine, a burlap bag of coffee beans. On the left, the desk is plain pine scarred by use. A cream letter lies pinned to the blotter by a large knife driven clear through the paper and into the wood — a violent punctuation that left a matching gouge in the scarred pine beneath. The handwriting is sloppy cursive, still legible if you lean close. The quill rests in a chipped ceramic tray. The desk lamp is brass, small, with a turned reservoir. The far door is oak planks banded in iron, hinges black with age, lock face thick enough to resist a shoulder. Whatever lies beyond has not been opened to you.",
+      "description": "The shaft opens into a modest underground chamber \u2014 larger than most rooms in the cabin, roughly fifteen feet square. The same heavy beams and fitted fieldstone define the space, but here the ceiling rises enough to stand without ducking. A lantern hangs from a central beam, its wick cold until you tend it. In the center of the floor someone laid a worn rug over the rammed earth, an eleven-by-nine-foot island of wool that softens the room's utilitarian bones. To the right, rough wooden shelves are loaded with canned goods, sacks of flour, rice, beans, and coffee. To the left, a crude desk and chair face the room. A letter lies flat on the desk beside an ink quill and a small desk lamp. On the far wall, a heavy wooden door with broad iron hinges and an iron lock waits without apology.",
+      "examineDetails": "You take the room in properly. The construction matches the shaft \u2014 big beams, dry-laid stone, earth floor \u2014 but the proportions feel deliberate, as though someone needed storage and a place to write underground. The ceiling lantern hangs from a forged hook driven into the main beam; its glass is clean, the reservoir half full. The rug is Persian work, faded but serviceable, centered with care. The shelves on the right are stockpiled for winter: labeled tins, cloth sacks cinched with twine, a burlap bag of coffee beans. On the left, the desk is plain pine scarred by use. A cream letter lies pinned to the blotter by a large knife driven clear through the paper and into the wood \u2014 a violent punctuation that left a matching gouge in the scarred pine beneath. The handwriting is sloppy cursive, still legible if you lean close. The quill rests in a chipped ceramic tray. The desk lamp is brass, small, with a turned reservoir. The far door is oak planks banded in iron, hinges black with age, lock face thick enough to resist a shoulder. Whatever lies beyond has not been opened to you.",
       "exits": {
         "backward": "cellar_passage_shaft#lit",
         "forward": "cellar_passage_beyond_door"
@@ -476,7 +476,7 @@
           "label": "Light the ceiling lantern.",
           "repeat": false,
           "requiresExamine": false,
-          "useDetails": "You touch your crude lantern to the ceiling lamp and the wick catches. Warm light spills down across the rug, the stocked shelves, and the desk — the same steady glow now running through every lantern in the underground passage behind and ahead of you.",
+          "useDetails": "You touch your crude lantern to the ceiling lamp and the wick catches. Warm light spills down across the rug, the stocked shelves, and the desk \u2014 the same steady glow now running through every lantern in the underground passage behind and ahead of you.",
           "useFlag": "cellar_passage:lanterns_lit"
         }
       ],
@@ -544,8 +544,8 @@
             "examine": true,
             "use": true
           },
-          "description": "You lean over the scarred pine desk. A cream letter lies flat on the green blotter beside a brass desk lamp and a chipped ink tray. Sloppy cursive covers the page — too fine to read from this distance, but clear enough that someone meant every word of it.",
-          "examineDetails": "The desk is plain pine, scarred by years of use. Warm lamplight pools across a green felt blotter, a feather quill in a chipped ceramic tray, and the letter itself — cream stock warmed at the edges, covered in sprawling cursive. The ink has dried to a deep blue-black. You would need to hold the page closer to make out individual words, but the hand is impatient and sure of itself. Hector's, you would wager, once you have seen the loops on the capital H.",
+          "description": "You lean over the scarred pine desk. A cream letter lies flat on the green blotter beside a brass desk lamp and a chipped ink tray. Sloppy cursive covers the page \u2014 too fine to read from this distance, but clear enough that someone meant every word of it.",
+          "examineDetails": "The desk is plain pine, scarred by years of use. Warm lamplight pools across a green felt blotter, a feather quill in a chipped ceramic tray, and the letter itself \u2014 cream stock warmed at the edges, covered in sprawling cursive. The ink has dried to a deep blue-black. You would need to hold the page closer to make out individual words, but the hand is impatient and sure of itself. Hector's, you would wager, once you have seen the loops on the capital H.",
           "flags": [
             "provides_light"
           ],
@@ -586,7 +586,7 @@
               "label": "Light the ceiling lantern.",
               "repeat": false,
               "requiresExamine": false,
-              "useDetails": "You touch your crude lantern to the ceiling lamp and the wick catches. Warm light spills down across the rug, the stocked shelves, and the desk — the same steady glow now running through every lantern in the underground passage behind and ahead of you.",
+              "useDetails": "You touch your crude lantern to the ceiling lamp and the wick catches. Warm light spills down across the rug, the stocked shelves, and the desk \u2014 the same steady glow now running through every lantern in the underground passage behind and ahead of you.",
               "useFlag": "cellar_passage:lanterns_lit"
             },
             {
@@ -791,11 +791,11 @@
           "volume": 0.2
         }
       },
-      "description": "The trail narrows as it climbs the mountain, a thin tread punched through snow far above the last timber. The air is so thin each breath feels borrowed. Drifts lie deep along the shoulders and in every lee, crusted white over bare rock. You are above tree line now, and the world has simplified to snow, stone, and sky. The mountains stack in every direction — beautiful and ominous because that is all you can see. Your sense of direction wavers at this height, as though the ridge is quietly rearranging itself behind your back. Above you, a steep route climbs the final rock-and-ice face toward the summit — old piton scars and worn crampon scratches marking a line someone trusted once. You will not survive that pitch without a pick and crampons.",
-      "examineDetails": "You force your lungs to work and study what the altitude is doing to you.\n\nThe trail here is not switchbacks cut into dirt. It is a narrow alpine track through deep snow, boot prints breaking the crust in places, wind scouring the tread bare in others. No trees. No shelter. Only the pale curve of the path and the peaks closing around you until horizon and ridgeline become the same word.\n\nThe disorientation is real. Slopes look steeper than they are. Distances lie. A summit that seemed an hour away might be half a day, or the reverse. The mountains are magnificent and they do not care whether you can name which one you are facing.\n\nAbove, the route steepens into the last face — rock band, glazed snow, and a line of old use: chipped steps, a piton head still bright in a crack, crampon gouges in the ice. The summit waits beyond. You are not climbing it without iron in your hands and steel on your boots.",
+      "description": "The trail narrows as it climbs the mountain, a thin tread punched through snow far above the last timber. The air is so thin each breath feels borrowed. Drifts lie deep along the shoulders and in every lee, crusted white over bare rock. You are above tree line now, and the world has simplified to snow, stone, and sky. The mountains stack in every direction \u2014 beautiful and ominous because that is all you can see. Your sense of direction wavers at this height, as though the ridge is quietly rearranging itself behind your back. Above you, a steep route climbs the final rock-and-ice face toward the summit \u2014 old piton scars and worn crampon scratches marking a line someone trusted once. You will not survive that pitch without a pick and crampons.",
+      "examineDetails": "You force your lungs to work and study what the altitude is doing to you.\n\nThe trail here is not switchbacks cut into dirt. It is a narrow alpine track through deep snow, boot prints breaking the crust in places, wind scouring the tread bare in others. No trees. No shelter. Only the pale curve of the path and the peaks closing around you until horizon and ridgeline become the same word.\n\nThe disorientation is real. Slopes look steeper than they are. Distances lie. A summit that seemed an hour away might be half a day, or the reverse. The mountains are magnificent and they do not care whether you can name which one you are facing.\n\nAbove, the route steepens into the last face \u2014 rock band, glazed snow, and a line of old use: chipped steps, a piton head still bright in a crack, crampon gouges in the ice. The summit waits beyond. You are not climbing it without iron in your hands and steel on your boots.",
       "exitRequirements": {
         "up": {
-          "blockedDetails": "You study the face above and know better than to try. The glazed snow and bare rock offer nothing for a boot alone. You need a pick to find purchase in the ice and crampons to hold what you gain — without both, you would slide a thousand feet before the mountain bothered to notice.",
+          "blockedDetails": "You study the face above and know better than to try. The glazed snow and bare rock offer nothing for a boot alone. You need a pick to find purchase in the ice and crampons to hold what you gain \u2014 without both, you would slide a thousand feet before the mountain bothered to notice.",
           "requiresInventoryItems": [
             "mining_pick",
             "crampons"
@@ -955,6 +955,66 @@
           "requiresStoryFlag": "ice_house_interior:ranger_badge_revealed"
         }
       ],
+      "useDetails": ""
+    },
+    "lake_cabin_ext": {
+      "actions": {
+        "examine": true,
+        "hit": false,
+        "speak": true,
+        "use": false
+      },
+      "audio": {
+        "ambient": [
+          {
+            "fade_in": 1.5,
+            "fade_out": 1.5,
+            "loop": true,
+            "path": "resources/audio/ambient/lake_cabin_ext.mp3",
+            "volume": 0.45
+          }
+        ],
+        "music": {
+          "fade_in": 3.0,
+          "fade_out": 2.5,
+          "loop": true,
+          "path": "resources/audio/music/lake_cabin_ext_theme.mp3",
+          "volume": 0.2
+        }
+      },
+      "description": "You approach the floor of the valley.  Ahead, nestled in a forrest of Douglas-fir and blue spruce trees, you see a cabin.  It is modest, but inviting.  It appears to be well maintained.  To your right, The mountain streams converge at a lake, adjacent to the cabin.  You see a small dock in the distance.  To your left the trail continues through the trees.",
+      "descriptionTts": {
+        "tts": true,
+        "ttsAudio": "resources/audio/tts/lake_cabin_ext/descriptionTts.mp3",
+        "ttsText": "You approach the floor of the valley. [pause] Ahead, nestled in a forest of Douglas-fir and blue spruce trees, you see a cabin. [pause] It is modest, but inviting. [soft] It appears to be well maintained. [long-pause] To your right, the mountain streams converge at a lake, adjacent to the cabin. [pause] You see a small dock in the distance. [long-pause] To your left the trail continues through the trees.",
+        "ttsVoice": ""
+      },
+      "examineDetails": "The rock lined gardens following the fieldstone walkway to the cabin have been meticulously maintained. Vibrant Colombines and Corsican Violets protrude among Dwarf Leadplant and purple mountain daisys.  There is a swing on the porch, big enough for two, with a folded blanket draped over the back.  There does not appear to be anyone home, however they couldn't have been gone long.  The plank cabin door sits slightly ajar.",
+      "examineTts": {
+        "tts": true,
+        "ttsAudio": "resources/audio/tts/lake_cabin_ext/examineTts.mp3",
+        "ttsText": "The rock-lined gardens following the fieldstone walkway to the cabin have been meticulously maintained. [pause] Vibrant columbines and Corsican violets protrude among dwarf leadplant and purple mountain daisies. [long-pause] There is a swing on the porch, big enough for two, with a folded blanket draped over the back. [pause] There does not appear to be anyone home, however they couldn't have been gone long. [pause] The plank cabin door sits slightly ajar.",
+        "ttsVoice": ""
+      },
+      "exits": {
+        "backward": "winding_trail"
+      },
+      "image": "resources/images/lake_cabin_ext.png",
+      "layout": {
+        "level": 0,
+        "x": 40.76165771484375,
+        "y": 577.5982666015625
+      },
+      "movement": {
+        "backward": true,
+        "forward": false,
+        "left": false,
+        "right": false
+      },
+      "speakDetails": "",
+      "start": false,
+      "ttsDefaultVoice": "leo",
+      "ttsEnabled": true,
       "useDetails": ""
     },
     "mining_camp": {
@@ -1284,7 +1344,7 @@
       "layout": {
         "level": 0,
         "x": 1480.0,
-        "y": 533.0
+        "y": 558.234375
       },
       "movement": {
         "backward": false,
@@ -1332,8 +1392,8 @@
       ],
       "layout": {
         "level": 0,
-        "x": 616.0,
-        "y": 48.0
+        "x": 561.5531005859375,
+        "y": 168.0
       },
       "movement": {
         "backward": false,
@@ -1459,8 +1519,8 @@
       "image": "resources/images/ridge_cabin_exterior.png",
       "layout": {
         "level": 0,
-        "x": 904.0,
-        "y": 528.0
+        "x": 730.0787963867188,
+        "y": 553.53125
       },
       "movement": {
         "backward": false,
@@ -1523,7 +1583,7 @@
       "examineTts": {
         "tts": true,
         "ttsAudio": "resources/audio/tts/ridge_haberdashery/examineTts.mp3",
-        "ttsText": "You take the measure of the room the way you would a witness statement: what is displayed, what is guarded, what is meant to impress. [pause]\n\nThe shopkeeper first. He holds himself with the posture of a man who learned tailoring before he learned commerce. Vest cut close, shirt collar pressed, tie knotted with the same attention he would give a lapel. His hands are clean. His gaze is courteous. And still, when he looks at you, surprise flickers at the edges—not disdain, not fear—simply the reflex of a tradesman who stocks for church Sundays and timber deeds and did not picture you at his counter. [pause]\n\nBehind him, cloistered shelves climb the wall in neat ranks. Glass bottles of potions and oils catch the lamplight. Badger brushes, ivory-handled combs, cuff links in small trays, straight razors laid edge-up in felt-lined boxes, strops and soaps and the whole masculine vocabulary of a man who shaves by mirror-light and means to be presentable at altitude. Nothing frivolous. Everything priced for men who still pretend the ridge is civilization. [long-pause]\n\nThe counter itself is long dark wood, scarred only where honest trade has worn it. At the left end, a glass display case holds bow ties and ascots folded with museum patience: silk, satin, grosgrain—patterns sober enough for a funeral and sharp enough for a wedding. At the right corner sits an old brass cash register, ornate and heavy, angled toward the shopkeeper as though the machine and the man share a private understanding. [pause]\n\nAlong the left wall, bolts of cloth hang from mounted rolls—fine material in a dozen weights and weaves: wool, worsted, tweed, summer linen pale as chalk. The rolls are fixed to the wall at working height so a customer can examine the drape and the shopkeeper can cut without ceremony. This is not dry goods. This is suit-making stock for men who intend to be taken seriously. [long-pause]\n\nTo the right, a lavish iron clothing rack on casters holds ready-made merchandise: suit jackets on hangers, dress shirts folded and pinned, colors chosen by someone who trusts navy and charcoal more than he trusts fashion. Against the right wall leans a full-length mirror in an elaborately carved walnut frame, the glass clear enough to show a man where his shoulders fail him. Beside it, a small round stool with three walnut legs waits with a cloth measuring tape coiled on the seat, as though someone was measured here recently and the room has not yet reset itself. [pause]\n\nThe air smells of wool, cedar, lamp oil, and faint lavender from a drawer you cannot see. Quiet. Orderly. A haberdashery built for men who dress like arguments.",
+        "ttsText": "You take the measure of the room the way you would a witness statement: what is displayed, what is guarded, what is meant to impress. [pause]\n\nThe shopkeeper first. He holds himself with the posture of a man who learned tailoring before he learned commerce. Vest cut close, shirt collar pressed, tie knotted with the same attention he would give a lapel. His hands are clean. His gaze is courteous. And still, when he looks at you, surprise flickers at the edges\u2014not disdain, not fear\u2014simply the reflex of a tradesman who stocks for church Sundays and timber deeds and did not picture you at his counter. [pause]\n\nBehind him, cloistered shelves climb the wall in neat ranks. Glass bottles of potions and oils catch the lamplight. Badger brushes, ivory-handled combs, cuff links in small trays, straight razors laid edge-up in felt-lined boxes, strops and soaps and the whole masculine vocabulary of a man who shaves by mirror-light and means to be presentable at altitude. Nothing frivolous. Everything priced for men who still pretend the ridge is civilization. [long-pause]\n\nThe counter itself is long dark wood, scarred only where honest trade has worn it. At the left end, a glass display case holds bow ties and ascots folded with museum patience: silk, satin, grosgrain\u2014patterns sober enough for a funeral and sharp enough for a wedding. At the right corner sits an old brass cash register, ornate and heavy, angled toward the shopkeeper as though the machine and the man share a private understanding. [pause]\n\nAlong the left wall, bolts of cloth hang from mounted rolls\u2014fine material in a dozen weights and weaves: wool, worsted, tweed, summer linen pale as chalk. The rolls are fixed to the wall at working height so a customer can examine the drape and the shopkeeper can cut without ceremony. This is not dry goods. This is suit-making stock for men who intend to be taken seriously. [long-pause]\n\nTo the right, a lavish iron clothing rack on casters holds ready-made merchandise: suit jackets on hangers, dress shirts folded and pinned, colors chosen by someone who trusts navy and charcoal more than he trusts fashion. Against the right wall leans a full-length mirror in an elaborately carved walnut frame, the glass clear enough to show a man where his shoulders fail him. Beside it, a small round stool with three walnut legs waits with a cloth measuring tape coiled on the seat, as though someone was measured here recently and the room has not yet reset itself. [pause]\n\nThe air smells of wool, cedar, lamp oil, and faint lavender from a drawer you cannot see. Quiet. Orderly. A haberdashery built for men who dress like arguments.",
         "ttsVoice": ""
       },
       "exits": {
@@ -1922,8 +1982,8 @@
             "speak": false,
             "use": false
           },
-          "description": "You sit at the blackjack table with whiskey glasses and cigar stubs crowded along the felt. Four men in trail-worn garb occupy the remaining chairs — sleeves rolled, hats on the floor, attention on the cards rather than on you. The lamp hangs low enough to warm the table and leave the rest of the saloon in peripheral smoke.",
-          "examineDetails": "The table is scarred pine under green felt that has gone shiny at the elbows. Chips are not uniform — some carved from bone, some stamped tin, one stack held together with a twine wrap. The men play without ceremony. No introductions. No house man watching the door. Just the soft slap of cards, the clink of glass, and the understanding that anyone who sits down is responsible for what they lose.",
+          "description": "You sit at the blackjack table with whiskey glasses and cigar stubs crowded along the felt. Four men in trail-worn garb occupy the remaining chairs \u2014 sleeves rolled, hats on the floor, attention on the cards rather than on you. The lamp hangs low enough to warm the table and leave the rest of the saloon in peripheral smoke.",
+          "examineDetails": "The table is scarred pine under green felt that has gone shiny at the elbows. Chips are not uniform \u2014 some carved from bone, some stamped tin, one stack held together with a twine wrap. The men play without ceremony. No introductions. No house man watching the door. Just the soft slap of cards, the clink of glass, and the understanding that anyone who sits down is responsible for what they lose.",
           "focus": true,
           "image": "resources/images/saloon_blackjack_table.png",
           "movement": {
@@ -2293,7 +2353,7 @@
         "ttsText": "The plain pine door gives into a supply closet barely wider than a man's shoulders.[pause] A single bare bulb throws hard light on rough-built shelves that occupy the center of the room like an island of unfinished carpentry. Mops and brooms lean along the left wall, their handles have grown dark with use. The shelves are crowded with the unglamorous machinery of keeping a saloon running. Glass bottles of cleaning chemicals with faded labels, spare kitchen tins, stacked boxes of nails, a tin of stove polish, coils of twine, and hand tools hung from nails.[long-pause] You notice a small stoppered jar of lamp oil here.",
         "ttsVoice": ""
       },
-      "examineDetails": "You take stock of the closet in practical terms.\n\nTop shelf: lye soap, stove blacking, unlabeled cleaning bottles sharp with ammonia, and kitchen overflow—enamel cups, a cracked bowl, flour gone hard at the corners.\n\nMiddle shelf: nails in rough wooden boxes, a hand plane with a chipped iron, baling wire, and on the front edge a half-full mason jar of lamp oil. The cork is stained dark; the jar does not belong with the housekeeping kit.\n\nLower shelf: rags in a lidded bucket, liniment, spare lamp chimneys in newsprint, and a match tin with a worn striker.\n\nMops and brooms lean along the left wall; one mop head is still damp. The floor is swept but stained where chemicals have dripped. The air is soap, metal, oil, and old mop water. Only muffled kitchen noise reaches in from the wall.",
+      "examineDetails": "You take stock of the closet in practical terms.\n\nTop shelf: lye soap, stove blacking, unlabeled cleaning bottles sharp with ammonia, and kitchen overflow\u2014enamel cups, a cracked bowl, flour gone hard at the corners.\n\nMiddle shelf: nails in rough wooden boxes, a hand plane with a chipped iron, baling wire, and on the front edge a half-full mason jar of lamp oil. The cork is stained dark; the jar does not belong with the housekeeping kit.\n\nLower shelf: rags in a lidded bucket, liniment, spare lamp chimneys in newsprint, and a match tin with a worn striker.\n\nMops and brooms lean along the left wall; one mop head is still damp. The floor is swept but stained where chemicals have dripped. The air is soap, metal, oil, and old mop water. Only muffled kitchen noise reaches in from the wall.",
       "exits": {
         "left": "saloon_service_hall"
       },
@@ -2357,7 +2417,7 @@
           "volume": 0.2
         }
       },
-      "description": "Snow is coming down hard now — not the dry powder of the summit but wet, insistent flakes that stick and erase your tracks as fast as you make them. You pick your way out along the sawtoothed ridge, boot sinking to the knee in the lee of each tooth. The ridge is barely eight feet wide here, a knife-edge of snow between drops that do not forgive a misstep. What you saw from the peak becomes undeniable with every step: a man in rancher's clothes half-buried in the drift, blood darkening the snow around him in a frozen fan.\n\nHe lies on his side, one arm thrown out, snow piled where no one cleared it. A battered felt hat rests against his neck and shoulders, covering most of what would have been his face. The wind keeps trying to bury him again. The mountain does not care that you found him.",
+      "description": "Snow is coming down hard now \u2014 not the dry powder of the summit but wet, insistent flakes that stick and erase your tracks as fast as you make them. You pick your way out along the sawtoothed ridge, boot sinking to the knee in the lee of each tooth. The ridge is barely eight feet wide here, a knife-edge of snow between drops that do not forgive a misstep. What you saw from the peak becomes undeniable with every step: a man in rancher's clothes half-buried in the drift, blood darkening the snow around him in a frozen fan.\n\nHe lies on his side, one arm thrown out, snow piled where no one cleared it. A battered felt hat rests against his neck and shoulders, covering most of what would have been his face. The wind keeps trying to bury him again. The mountain does not care that you found him.",
       "examineDetails": "The body is cold and is at peak rigidity.  Given the extreme temperature, you place the time of death, about 48 hours ago.  You begin a field examination.\n\nSex: male. \nRace: white. \nStature: roughly five foot eleven, judging from leg length and the span of his frame in the snow. \nAge is difficult given the condition of the body but you estimate mid-thirties.\n\nClothing: canvas work coat over a wool union shirt, both ridge-worn and patched at the elbows. Heavy wool trousers, brace suspenders, leather belt with an empty brass buckle tongue. Lace-up snow boots, one still on the foot that broke the drift, laces frozen stiff. Fingerless gloves on both hands, one soaked through with old blood.  He wears a hunting knife on his belt.\n\nIdentifying marks: a full sleeve of tattoos on the left arm, black ink vines wound with thorns from wrist to shoulder.  Rather uncommon out here in the west.  Scars everywhere the coat and shirt allow you to see: knuckle lines, a pale furrow across the ribs, an old burn patch on the right forearm. It would take all day to document every scar. One is fresh.  At most a few days old, still closed with a linen bandage over the left upper thigh.\n\nJudging by the marks on the trowsers, this appears to be a gunshot wound.   It is unlikely that this is what killed him.  The trouser leg is cut away and packed with bloody dressing frozen stiff to the wool. You work two gloved fingers into the wound channel and meet cold metal an inch below the bone. It is very possible that the bullet that struck him is still lodged in the leg.\n\nCause of death: not exposure alone.  His skull has been severly damaged by  bludgeoning.  Possibly the butt of a rifle or a rock.\n\nOn his person: a flattened leather wallet with no cash, a fixed-blade hunting knife in a dark leather sheath tucked into his belt, a folded mining claim map creased to ruin by melt and blood, and a brass pocket watch stopped at ten seventeen. Nothing gives a name. Nothing explains why he died on this ridge with the summit in sight.",
       "examineLucidityDelta": -3,
       "exits": {
@@ -2379,7 +2439,7 @@
             "straight_razor"
           ],
           "requiresExamine": true,
-          "useDetails": "You clear the frozen dressing with the edge of your blade and work by touch alone, keeping the autopsy to the leg. The tissue is stiff with cold but gives way in layers — wool, muscle, the hard kiss of bone. An inch below the femur you find what your examination promised: a nine-millimeter slug seated in the channel, copper jacket split, lead nose mushroomed from impact. You lever it free with the knife tip, wipe it on snow, and palm it before the wind can take the evidence. The body does not object. The ridge does not comment.",
+          "useDetails": "You clear the frozen dressing with the edge of your blade and work by touch alone, keeping the autopsy to the leg. The tissue is stiff with cold but gives way in layers \u2014 wool, muscle, the hard kiss of bone. An inch below the femur you find what your examination promised: a nine-millimeter slug seated in the channel, copper jacket split, lead nose mushroomed from impact. You lever it free with the knife tip, wipe it on snow, and palm it before the wind can take the evidence. The body does not object. The ridge does not comment.",
           "useFlag": "sawtooth_ridge:bullet_retrieved"
         }
       ],
@@ -2411,7 +2471,7 @@
       "start": false,
       "takeables": [
         {
-          "examineText": "A fixed-blade hunting knife in a dark leather sheath scuffed from carry. The wooden handle is smooth where a palm has worn it. When you ease the blade free, the edge catches the light—recently honed, and kept close at hand.",
+          "examineText": "A fixed-blade hunting knife in a dark leather sheath scuffed from carry. The wooden handle is smooth where a palm has worn it. When you ease the blade free, the edge catches the light\u2014recently honed, and kept close at hand.",
           "icon": "resources/icons/hunting_knife_icon.png",
           "id": "hunting_knife",
           "name": "Hunting Knife",
@@ -2460,7 +2520,7 @@
         "ttsText": "As you ascend further above treeline [pause] the wind whips harder and the cold bites with additional ferocity. [long-pause] The air is thin here. [pause] The thick basalt rock beneath your feet is slick with heavy frost. [pause] To your left [pause] a small cave. [long-pause] Ahead [pause] the ascent dramatically steepens.",
         "ttsVoice": ""
       },
-      "examineDetails": "You brace against the gust and take stock.\n\nForward, the alpine trail keeps climbing through snow above the last timber — steep, exposed, and honest about what it demands. Boot crust and wind-scoured patches mark where others passed and thought better of lingering.\n\nLeft, the cave entrance is barely shoulder-wide and low enough that you would have to duck. Snow has drifted across the threshold in a smooth lip, broken only by what might be old crampon scratches or might be imagination. The interior is absolute dark without a carried light. The rock lip weeps ice. You hear the wind change when it passes the mouth, as though the mountain has a second throat.\n\nBehind you, the trail falls away toward the steep switchbacks and, far below, the timberline. There is no shelter here. Only height, snow, and the feeling that the cave has been waiting longer than the trail has existed.",
+      "examineDetails": "You brace against the gust and take stock.\n\nForward, the alpine trail keeps climbing through snow above the last timber \u2014 steep, exposed, and honest about what it demands. Boot crust and wind-scoured patches mark where others passed and thought better of lingering.\n\nLeft, the cave entrance is barely shoulder-wide and low enough that you would have to duck. Snow has drifted across the threshold in a smooth lip, broken only by what might be old crampon scratches or might be imagination. The interior is absolute dark without a carried light. The rock lip weeps ice. You hear the wind change when it passes the mouth, as though the mountain has a second throat.\n\nBehind you, the trail falls away toward the steep switchbacks and, far below, the timberline. There is no shelter here. Only height, snow, and the feeling that the cave has been waiting longer than the trail has existed.",
       "exitRequirements": {
         "left": {
           "blockBadge": "light",
@@ -2564,7 +2624,7 @@
           "actions": {
             "examine": true
           },
-          "description": "You duck through the low entrance and the howling ridge falls away behind you — not gone, but muffled, as though the mountain were speaking through wool. Inside, the cold is worse. It does not bite the skin so much as settle in the bones and stay. Your lantern throws a small honest circle across wet stone and packed snow. Every sound you make comes back wrong: a drip, a boot scrape, your own breath — each returned from the dark with a thin eerie echo, as if the cave were listening.\n\nOn the floor before you, a pool of blood has frozen in a ragged fan, black-red in the lamplight. No body. No explanation. Only the stain and the feeling that someone left in a hurry.",
+          "description": "You duck through the low entrance and the howling ridge falls away behind you \u2014 not gone, but muffled, as though the mountain were speaking through wool. Inside, the cold is worse. It does not bite the skin so much as settle in the bones and stay. Your lantern throws a small honest circle across wet stone and packed snow. Every sound you make comes back wrong: a drip, a boot scrape, your own breath \u2014 each returned from the dark with a thin eerie echo, as if the cave were listening.\n\nOn the floor before you, a pool of blood has frozen in a ragged fan, black-red in the lamplight. No body. No explanation. Only the stain and the feeling that someone left in a hurry.",
           "descriptionTts": {
             "tts": true,
             "ttsAudio": "resources/audio/tts/snow_cave_interior/chamber_description.mp3",
@@ -2572,7 +2632,7 @@
             "ttsTextSha256": "7a6935d24cf04aba6fd002fbb2836f3510e093bd211418f059dfa479016d961e",
             "ttsVoice": "leo"
           },
-          "examineDetails": "You keep the lantern low and work the scene the way altitude teaches you — slow, careful, unwilling to trust the walls.\n\nThe chamber is natural stone, basalt by the grain, slick with melt and frost. The ceiling drops low enough to force your shoulders inward. Sound behaves strangely here: the wind outside is a distant complaint, but your movements bounce back from the rear wall half a beat late.\n\nThe blood pool is recent enough that the cold has not made it entirely honest. Edges are sharp where it met stone. Nothing leads away in a trail — no drag marks, no footprints in the snow dust beyond your own.\n\nTo the right, pale daylight leaks through the entrance — a small opening barely wide enough for a man on his knees. It is your only way back out to the ridge.",
+          "examineDetails": "You keep the lantern low and work the scene the way altitude teaches you \u2014 slow, careful, unwilling to trust the walls.\n\nThe chamber is natural stone, basalt by the grain, slick with melt and frost. The ceiling drops low enough to force your shoulders inward. Sound behaves strangely here: the wind outside is a distant complaint, but your movements bounce back from the rear wall half a beat late.\n\nThe blood pool is recent enough that the cold has not made it entirely honest. Edges are sharp where it met stone. Nothing leads away in a trail \u2014 no drag marks, no footprints in the snow dust beyond your own.\n\nTo the right, pale daylight leaks through the entrance \u2014 a small opening barely wide enough for a man on his knees. It is your only way back out to the ridge.",
           "examineTts": {
             "tts": true,
             "ttsAudio": "resources/audio/tts/snow_cave_interior/chamber_examine.mp3",
@@ -2595,7 +2655,7 @@
           "actions": {
             "examine": true
           },
-          "description": "You come to in pain — a deep, sick ache behind your eyes and along your ribs, as though the mountain struck you and left you here to think about it. You are disoriented. You do not remember how you arrived, who brought you, or what day it is.\n\nThe dark behind you is absolute. Ahead, pale daylight cuts a low opening in the stone — the cave mouth, rimed with ice, barely wide enough for a man on your knees. On the frozen floor within arm's reach, a fan of blood has stiffened to black-red ice. No body. No witness. You stare at it long enough to understand, with a cold certainty that settles worse than the pain: it is yours.\n\nYou pull yourself to your knees and prepare to crawl out of this eerie little cave.",
+          "description": "You come to in pain \u2014 a deep, sick ache behind your eyes and along your ribs, as though the mountain struck you and left you here to think about it. You are disoriented. You do not remember how you arrived, who brought you, or what day it is.\n\nThe dark behind you is absolute. Ahead, pale daylight cuts a low opening in the stone \u2014 the cave mouth, rimed with ice, barely wide enough for a man on your knees. On the frozen floor within arm's reach, a fan of blood has stiffened to black-red ice. No body. No witness. You stare at it long enough to understand, with a cold certainty that settles worse than the pain: it is yours.\n\nYou pull yourself to your knees and prepare to crawl out of this eerie little cave.",
           "descriptionTts": {
             "tts": true,
             "ttsAudio": "resources/audio/tts/snow_cave_interior/toward_exit_description.mp3",
@@ -2603,7 +2663,7 @@
             "ttsTextSha256": "60aec4cd151c6af138186c10381cd8ecdfda5be65687b6c89aeece3433b9e262",
             "ttsVoice": "leo"
           },
-          "examineDetails": "You brace on the wet stone and force yourself to take inventory while the pain clears in slow, unwilling waves.\n\nThe cave is natural basalt, slick with melt and rimed where the cold holds. Sound behaves wrongly here — your breath returns from the dark a half beat late, as though the chamber were listening. The wind outside is a distant complaint through the mouth of the cave.\n\nThe blood is frozen in a ragged fan where you must have fallen. The edges are sharp against the stone. Nothing suggests a struggle beyond your own collapse — no drag marks, no second set of prints in the snow dust.\n\nThe only light is the pale day at the low entrance ahead. The rest of the cave stays black. You have one way out: crawl toward the rimed opening and the howling ridge beyond.",
+          "examineDetails": "You brace on the wet stone and force yourself to take inventory while the pain clears in slow, unwilling waves.\n\nThe cave is natural basalt, slick with melt and rimed where the cold holds. Sound behaves wrongly here \u2014 your breath returns from the dark a half beat late, as though the chamber were listening. The wind outside is a distant complaint through the mouth of the cave.\n\nThe blood is frozen in a ragged fan where you must have fallen. The edges are sharp against the stone. Nothing suggests a struggle beyond your own collapse \u2014 no drag marks, no second set of prints in the snow dust.\n\nThe only light is the pale day at the low entrance ahead. The rest of the cave stays black. You have one way out: crawl toward the rimed opening and the howling ridge beyond.",
           "examineTts": {
             "tts": true,
             "ttsAudio": "resources/audio/tts/snow_cave_interior/toward_exit_examine.mp3",
@@ -2626,7 +2686,7 @@
       "ttsDefaultVoice": "leo",
       "ttsEnabled": true,
       "useDetails": "",
-      "wakeNarrative": "You come to in fragments — pain first, then cold stone, then the thin daylight at the cave mouth. Your mouth tastes of iron. You fumble for the notebook in your coat. The handwriting is yours, cramped and urgent. Names and places swim up from the page: the saloon, the ridge, Graysmill somewhere below. You do not remember writing half of it. You remember enough to know you have been here before.",
+      "wakeNarrative": "You come to in fragments \u2014 pain first, then cold stone, then the thin daylight at the cave mouth. Your mouth tastes of iron. You fumble for the notebook in your coat. The handwriting is yours, cramped and urgent. Names and places swim up from the page: the saloon, the ridge, Graysmill somewhere below. You do not remember writing half of it. You remember enough to know you have been here before.",
       "wakeTts": {
         "tts": true,
         "ttsAudio": "resources/audio/tts/snow_cave_interior/lucidity_wake.mp3",
@@ -2679,7 +2739,7 @@
       "layout": {
         "level": 0,
         "x": 1192.0,
-        "y": 528.0
+        "y": 553.234375
       },
       "movement": {
         "backward": true,
@@ -2764,7 +2824,7 @@
       "image": "resources/images/white_baptist_church.png",
       "layout": {
         "level": 0,
-        "x": 904.0,
+        "x": 775.2000122070312,
         "y": 768.0
       },
       "movement": {
@@ -2863,8 +2923,8 @@
       "image": "resources/images/white_baptist_church_interior.png",
       "layout": {
         "level": 0,
-        "x": 616.0,
-        "y": 768.0
+        "x": 775.2000122070312,
+        "y": 888.0
       },
       "movement": {
         "backward": true,
@@ -2915,8 +2975,8 @@
       "image": "resources/images/white_baptist_church_vestry.png",
       "layout": {
         "level": 0,
-        "x": 616.0,
-        "y": 1008.0
+        "x": 585.5999755859375,
+        "y": 888.0
       },
       "movement": {
         "backward": false,
@@ -3030,17 +3090,18 @@
         "ttsVoice": ""
       },
       "exits": {
+        "forward": "lake_cabin_ext",
         "right": "white_baptist_church_cemetery"
       },
       "image": "resources/images/winding_trail.png",
       "layout": {
         "level": 0,
-        "x": 40.0,
+        "x": 40.76165771484375,
         "y": 773.0
       },
       "movement": {
         "backward": false,
-        "forward": false,
+        "forward": true,
         "left": false,
         "right": true
       },

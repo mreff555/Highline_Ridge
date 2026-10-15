@@ -1513,21 +1513,24 @@ bool sceneImageReferenceExists(
 namespace
 {
 
-/** Replace oldId with newId in the filename stem only (last path segment). */
+/**
+ * Replace oldId with newId anywhere it appears in a resource path (# rename bug).
+ * Needed for TTS bags under resources/audio/tts/<sceneId>/… — stem-only rewrite
+ * left the folder segment unchanged while JSON paths were later pointed at the
+ * new id, orphaning audio on disk.
+ */
 std::string rewritePathStemId(const std::string& relPath, const std::string& oldId, const std::string& newId)
 {
     if (relPath.empty() || oldId.empty() || newId.empty() || oldId == newId)
         return relPath;
-    const size_t slash = relPath.find_last_of("/\\");
-    const std::string dir =
-        (slash == std::string::npos) ? std::string{} : relPath.substr(0, slash + 1);
-    std::string base =
-        (slash == std::string::npos) ? relPath : relPath.substr(slash + 1);
-    const size_t pos = base.find(oldId);
-    if (pos == std::string::npos)
-        return relPath;
-    base.replace(pos, oldId.size(), newId);
-    return dir + base;
+    std::string out = relPath;
+    size_t pos = 0;
+    while ((pos = out.find(oldId, pos)) != std::string::npos)
+    {
+        out.replace(pos, oldId.size(), newId);
+        pos += newId.size();
+    }
+    return out;
 }
 
 bool renameAssetFilePair(
@@ -1679,17 +1682,9 @@ bool renameSceneAuthoring(
             }
         }
     }
-    auto rewriteTtsBag = [&](const char* key) {
-        if (!scene->contains(key) || !(*scene)[key].is_object())
-            return;
-        nlohmann::json& bag = (*scene)[key];
-        if (bag.contains("ttsAudio") && bag["ttsAudio"].is_string())
-        {
-            std::string p = bag["ttsAudio"].get<std::string>();
-            rewriteAndMaybeRenameFile(p);
-            bag["ttsAudio"] = p;
-        }
-        // Folder resources/audio/tts/<oldId>/… — rename directory if present.
+    // TTS lives under resources/audio/tts/<sceneId>/… — move the folder first,
+    // then rewrite JSON paths (filename stems often omit the scene id).
+    {
         const std::string oldDirRel = "resources/audio/tts/" + oldId;
         const std::string newDirRel = "resources/audio/tts/" + newId;
         const std::string oldDirAbs = pathJoin(root, oldDirRel);
@@ -1697,11 +1692,38 @@ bool renameSceneAuthoring(
         if (DirectoryExists(oldDirAbs.c_str()) && !DirectoryExists(newDirAbs.c_str()))
         {
             ensureParentDirectoryExists(newDirAbs);
-            std::rename(oldDirAbs.c_str(), newDirAbs.c_str());
+            if (std::rename(oldDirAbs.c_str(), newDirAbs.c_str()) != 0)
+            {
+                TraceLog(
+                    LOG_WARNING,
+                    "Scene rename: failed to move TTS dir %s -> %s",
+                    oldDirAbs.c_str(),
+                    newDirAbs.c_str());
+            }
+        }
+    }
+
+    auto rewriteTtsBagPaths = [&](const char* key) {
+        if (!scene->contains(key) || !(*scene)[key].is_object())
+            return;
+        nlohmann::json& bag = (*scene)[key];
+        if (bag.contains("ttsAudio") && bag["ttsAudio"].is_string())
+        {
+            // Path rewrite only — files already moved with the TTS directory.
+            bag["ttsAudio"] = rewritePathStemId(
+                bag["ttsAudio"].get<std::string>(), oldId, newId);
+        }
+        if (bag.contains("ttsAudioSegments") && bag["ttsAudioSegments"].is_array())
+        {
+            for (auto& seg : bag["ttsAudioSegments"])
+            {
+                if (seg.is_string())
+                    seg = rewritePathStemId(seg.get<std::string>(), oldId, newId);
+            }
         }
     };
-    rewriteTtsBag("descriptionTts");
-    rewriteTtsBag("examineTts");
+    rewriteTtsBagPaths("descriptionTts");
+    rewriteTtsBagPaths("examineTts");
 
     if (payloadToSync != nullptr)
     {
