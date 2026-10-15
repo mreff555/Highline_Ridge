@@ -52,6 +52,14 @@ struct SceneAuthoringDialog
     float formScrollGrabOffset = 0.0f;
 
     SceneAuthoringPayload payload{};
+    /**
+     * Session-sticky description↔examine mix for image prompts (#65).
+     * Survives open/close of Edit Scene; copied onto payload when opening.
+     * 1.0 = 100% description (slider left), 0.0 = 100% examine (slider right).
+     */
+    float sessionImageDescriptionWeight = 0.4f;
+    bool draggingImageWeightSlider = false;
+    Rectangle imageWeightSliderRect{0, 0, 0, 0};
     /** Shared session keys from Options → Configure API keys (#56). */
     EditorApiKeys* sessionKeys = nullptr;
     std::string status;

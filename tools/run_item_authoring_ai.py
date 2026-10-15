@@ -1730,18 +1730,8 @@ def soften_imagine_prompt(prompt: str) -> str:
     for pattern, repl in replacements:
         text = re.sub(pattern, repl, text, flags=re.IGNORECASE)
 
-    # Drop the most forensic examine paragraphs for image jobs — keep overview.
-    # If "Examine / detail notes:" is present, truncate after a short preview.
-    marker = "Examine / detail notes:"
-    idx = text.find(marker)
-    if idx >= 0:
-        head = text[:idx].rstrip()
-        # Keep a mild one-liner instead of the full autopsy-style notes.
-        text = (
-            head
-            + " A man in rancher's clothes lies still in the snow, hat covering "
-            "his face, no gore visible. Respectful distance."
-        )
+    # Soften rewrites phrasing in place — do NOT strip examine/detail notes or
+    # change description↔examine weights (#65). Weighted mix is built upstream.
 
     suffix = (
         " Strict visual rules for this image: PG-13, no gore, no blood, no open "

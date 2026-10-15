@@ -26,11 +26,17 @@ struct SceneAuthoringPayload
     std::string examineDetails;
     std::string imagePath;
     /**
-     * When true (default), Imagine prompts drop forensic examine notes and the
-     * runner softens gore language for API compliance. Toggle in Edit Scene
-     * under the image path field.
+     * When true (default), the Imagine runner softens gore/forensic phrasing
+     * on the *already weighted* image prompt (#65). Soften does not drop examine
+     * notes — it rewrites the combined prompt. Toggle under the image path.
      */
     bool softenImagePrompt = true;
+    /**
+     * Edit Scene image-prompt mix (#65): 1.0 = 100% description, 0.0 = 100%
+     * examine. UI slider: left = description, right = examine. Default 0.4
+     * (40% description / 60% examine). Session-sticky on the dialog.
+     */
+    float imagePromptDescriptionWeight = 0.4f;
     std::string ambientPath;
     std::string musicPath;
     /**

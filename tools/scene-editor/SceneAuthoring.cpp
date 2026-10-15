@@ -13,6 +13,7 @@
 #include <raylib.h>
 
 #include <cctype>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -400,23 +401,40 @@ std::vector<SceneAiJob> buildSceneAiJobs(
         job.type = SceneAiJobType::GenerateImage;
         job.outPath = paths.imagePath;
         job.softenPrompt = payload.softenImagePrompt;
-        // When softening: overview only + PG-13 rules (forensic examine notes
-        // often trip Imagine). When off: full description+examine context.
-        if (payload.softenImagePrompt)
+        // #65: always blend description + examine by slider weight, then optionally
+        // soften the combined prompt in the Imagine runner (never omit examine).
+        const std::string descPart =
+            payload.description.empty() ? overview : payload.description;
+        const std::string examPart = payload.examineDetails;
+        float descW = payload.imagePromptDescriptionWeight;
+        if (descW < 0.0f)
+            descW = 0.0f;
+        if (descW > 1.0f)
+            descW = 1.0f;
+        std::string imageCtx;
+        if (examPart.empty())
         {
-            const std::string imageCtx = "Scene overview: " + overview;
-            job.prompt = basePrompt
-                + "Wide establishing scene image of: " + imageCtx
-                + " Full-screen adventure game background, dimmable for UI. "
-                  "PG-13: no gore, no blood, no graphic injuries; if a person is "
-                  "present show them still and distant with face obscured.";
+            imageCtx = "Scene overview: " + descPart;
+        }
+        else if (payload.description.empty() && !examPart.empty())
+        {
+            imageCtx = "Examine / detail notes: " + examPart;
         }
         else
         {
-            job.prompt = basePrompt
-                + "Wide establishing scene image of: " + ctx
-                + " Full-screen adventure game background, dimmable for UI.";
+            const int descPct = static_cast<int>(std::lround(descW * 100.0f));
+            const int examPct = 100 - descPct;
+            imageCtx =
+                "Scene image reference mix — emphasize according to weights "
+                "(description ~"
+                + std::to_string(descPct) + "%, examine/detail notes ~"
+                + std::to_string(examPct) + "%):\n"
+                + "Overview: " + descPart + "\n"
+                + "Examine / detail notes: " + examPart;
         }
+        job.prompt = basePrompt
+            + "Wide establishing scene image of: " + imageCtx
+            + " Full-screen adventure game background, dimmable for UI.";
         jobs.push_back(job);
     }
     if (want(2))
