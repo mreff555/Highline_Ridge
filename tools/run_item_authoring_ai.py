@@ -1,21 +1,37 @@
 #!/usr/bin/env python3
 """
-Execute item authoring AI jobs written by the scene-editor.
+Execute item/scene authoring AI jobs written by the scene-editor.
 
-Reads resources/.authoring/<itemId>_ai_jobs.json and generates:
-  - generate_image / generate_icon  → PNG via xAI Grok Imagine API, then .xz
-  - generate_examine_sound / generate_use_sound / enter / exit → ElevenLabs SFX MP3, then .xz
+Reads resources/.authoring/<id>_ai_jobs.json and runs typed jobs. Which key
+each job needs:
 
-API key resolution (first match):
+  xAI (--key / XAI_API_KEY / ~/.config/highline-ridge/xai_api_key):
+    generate_image, generate_icon, chat/TTS text jobs, legacy xai_video ambient
+
+  ElevenLabs (--elevenlabs-key / ELEVENLABS_API_KEY /
+              ~/.config/highline-ridge/elevenlabs_api_key):
+    generate_music, generate_ambient_sound, generate_examine_sound,
+    generate_use_sound, enter/exit transition SFX
+
+xAI key resolution (first match):
   1. --key=
-  2. $XAI_API_KEY
-  3. ~/.config/highline-ridge/xai_api_key
+  2. $XAI_API_KEY (also xAI_API_KEY, GROK_API_KEY)
+  3. Path.home()/.config/highline-ridge/xai_api_key
+     (macOS/Linux: ~/.config/...; Windows: %USERPROFILE%\\.config\\...)
   4. <asset-root>/resources/xai_api_key (legacy; prefer user config)
   5. <asset-root>/xai_api_key (legacy)
 
+ElevenLabs key resolution (first match):
+  1. --elevenlabs-key=
+  2. $ELEVENLABS_API_KEY (also ELEVEN_API_KEY, XI_API_KEY)
+  3. Path.home()/.config/highline-ridge/elevenlabs_api_key
+
+See docs/api-keys.md for the full action→key matrix and editor menu setup.
+
 Usage:
   python3 tools/run_item_authoring_ai.py --asset-root . --jobs-file resources/.authoring/foo_ai_jobs.json
-  python3 tools/run_item_authoring_ai.py --asset-root . --item-id foo
+  python3 tools/run_item_authoring_ai.py --asset-root . --item-id foo \\
+      --key=... --elevenlabs-key=...
 """
 
 from __future__ import annotations
@@ -115,7 +131,7 @@ def resolve_api_key(asset_root: Path, cli_key: str | None) -> str:
 def resolve_elevenlabs_api_key(
     asset_root: Path, cli_key: str | None = None
 ) -> str:
-    """ElevenLabs Music key — never fall back to the xAI key."""
+    """ElevenLabs key (music / ambient / SFX) — never fall back to the xAI key."""
     if cli_key and cli_key.strip():
         return cli_key.strip()
     for env_name in ("ELEVENLABS_API_KEY", "ELEVEN_API_KEY", "XI_API_KEY"):
@@ -2317,12 +2333,24 @@ def main() -> int:
     )
     parser.add_argument("--jobs-file", type=Path, default=None)
     parser.add_argument("--item-id", type=str, default=None)
-    parser.add_argument("--key", type=str, default=None, help="xAI API key override")
+    parser.add_argument(
+        "--key",
+        type=str,
+        default=None,
+        help=(
+            "xAI API key override (images, chat/TTS text, legacy xai_video ambient). "
+            "Else XAI_API_KEY or ~/.config/highline-ridge/xai_api_key"
+        ),
+    )
     parser.add_argument(
         "--elevenlabs-key",
         type=str,
         default=None,
-        help="ElevenLabs API key override (music only)",
+        help=(
+            "ElevenLabs API key override (music, ambient beds, enter/exit SFX, "
+            "item examine/use SFX). Else ELEVENLABS_API_KEY or "
+            "~/.config/highline-ridge/elevenlabs_api_key"
+        ),
     )
     parser.add_argument(
         "--translate-tts",

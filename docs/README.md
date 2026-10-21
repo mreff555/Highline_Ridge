@@ -16,12 +16,13 @@ Project overview, abstract, and architecture live in the root **[README.md](../R
 
 | Doc | Canonical for |
 |-----|----------------|
-| [api-keys.md](api-keys.md) | Where keys live (`Options → Configure API keys…`, `~/.config/highline-ridge/`, mode `600`), env vars, which Generate actions need xAI vs ElevenLabs |
+| [api-keys.md](api-keys.md) | Where keys live (`Options → Configure API keys…`, `$HOME/.config/highline-ridge/` on all OSes, mode `600`), env / CLI `--key` / `--elevenlabs-key`, which Generate actions need xAI vs ElevenLabs |
 | [scene-editor-tutorial.md](scene-editor-tutorial.md) | Editor walkthrough (map, Variables, Conversations, Items, screenshots) |
 | [scene-map-exits.md](scene-map-exits.md) | Compass / floors / Use wires / Exit Requirements / place-item vs Inventory |
 | [scene-audio.md](scene-audio.md) | Ambient + music backends, style presets, backup rotation (not key setup) |
 | [tts.md](tts.md) | Voice ids, markup, editor highlighting, `--refresh-voices` packaging loop |
 | [conversations.md](conversations.md) | Speak / `speakPhases`, choice flow fields, `exitSceneId` leave rules |
+| [combat.md](combat.md) | Fight scrape: stat weights, actor edge, roll threshold, debug env |
 | [dialog-tokens.md](dialog-tokens.md) | Runtime `{tab_amount}`-style world tokens (not TTS markup) |
 | [display-aspect.md](display-aspect.md) | Display aspect preferences and scene plate ratios |
 | [dev-vs-release.md](dev-vs-release.md) | Dev vs release matrix and authoring → ship loop |

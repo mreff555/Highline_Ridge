@@ -115,7 +115,7 @@ struct SceneExitRequirementsDialog
     std::mutex generateMutex;
     std::string generateResultStatus;
     bool generateResultPending = false;
-    /** 0=none, 1=Generate TTS dialog, 2=Generate Voice */
+    /** 0=none, 1=Generate TTS dialog, 2=Generate voice */
     int generateKind = 0;
     std::string pendingTtsJobsPath;
     std::thread generateThread;

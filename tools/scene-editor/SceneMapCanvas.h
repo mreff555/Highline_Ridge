@@ -188,6 +188,12 @@ struct SceneMapCanvas
     EditorPreferencesDialog* preferences = nullptr;
     /** Options → Configure API keys (#56). */
     ApiKeysDialog* apiKeysDialog = nullptr;
+    /** Conversations-tab Fight authoring (owned by SceneEditorApp). */
+    struct FightAuthoringDialog* fightAuthoring = nullptr;
+    /** Conversations-tab Actor Dialog authoring (owned by SceneEditorApp). */
+    struct ActorDialogAuthoringDialog* actorDialogAuthoring = nullptr;
+    /** Conversations-tab Trigger Event authoring (owned by SceneEditorApp). */
+    struct EventAuthoringDialog* eventAuthoring = nullptr;
     std::function<void()> openPreferences;
     std::string* selectionSceneId = nullptr;
     float* variablesScroll = nullptr;

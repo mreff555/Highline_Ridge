@@ -31,6 +31,9 @@
 #include "EditorApiKeys.h"
 #include "EditorLayout.h"
 #include "EditorPreferencesDialog.h"
+#include "ActorDialogAuthoringDialog.h"
+#include "EventAuthoringDialog.h"
+#include "FightAuthoringDialog.h"
 #include "FullscreenParchmentEditor.h"
 #include "ItemEditor.h"
 #include "SceneGraphModel.h"
@@ -65,6 +68,9 @@ struct SceneEditorApp
     EditorApiKeys sessionApiKeys;
     ApiKeysDialog apiKeysDialog;
     FullscreenParchmentEditor parchmentEditor;
+    FightAuthoringDialog fightAuthoring;
+    ActorDialogAuthoringDialog actorDialogAuthoring;
+    EventAuthoringDialog eventAuthoring;
 
     std::string selectedSceneId;
     float variablesScroll = 0.0f;

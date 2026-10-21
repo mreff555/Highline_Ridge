@@ -18,6 +18,7 @@
  ******************************************************************************/
 
 #include <GameSession.h>
+#include <CombatResolver.h>
 #include <ConditionMarkup.h>
 #include <DisplayAspect.h>
 #include <ImageCompression.h>
@@ -37,6 +38,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <memory>
+#include <random>
 
 namespace timberline_engine
 {
@@ -126,6 +128,43 @@ namespace
         context.currentDay = worldState.day;
         context.saloonRoomPurchasedDay = worldState.saloonRoomPurchasedDay;
         return context;
+    }
+
+    /** Attack button gates from authored attackEncounters availability. */
+    bool isCombatEncounterOfferable(
+        const AttackEncounterDef& encounter,
+        const WorldState& worldState,
+        const InventoryMgr& inventory,
+        const ItemDatabase& items)
+    {
+        if (!encounter.isAvailable(makeChoiceContext(worldState)))
+            return false;
+        if (!meetsDialogRequirements(
+                encounter.requirements,
+                ConversationRequirementContext{
+                    worldState.day,
+                    worldState.playerStats.lucidity,
+                    worldState.lastLucidityCollapseDay,
+                    worldState.lastSleepDay,
+                    &worldState.flagGrantedDay,
+                    &worldState.actorOpinions}))
+            return false;
+        if (encounter.requiresLightSource)
+        {
+            MaskEvalContext maskCtx;
+            maskCtx.inventoryMgr = &inventory;
+            maskCtx.itemDatabase = &items;
+            maskCtx.storyFlags = &worldState.storyFlags;
+            if (!playerHasTopLevelItemFlag(maskCtx, "light_source"))
+                return false;
+        }
+        if (!encounter.requiresInventoryItem.empty()
+            && !inventory.hasItem(encounter.requiresInventoryItem))
+            return false;
+        if (!encounter.requiresStoryFlag.empty()
+            && worldState.storyFlags.count(encounter.requiresStoryFlag) == 0)
+            return false;
+        return true;
     }
 
     void augmentChoiceStatusEffects(
@@ -1955,86 +1994,157 @@ namespace
         if (conversationMgr.getCombatEncounterId() != encounterId)
             return;
 
-        const std::vector<ConversationChoiceDef> choicesToStrip = conversationMgr.getPendingChoices();
+        const SceneSpeakConfig& speak =
+            sceneDatabase.getSpeakConfig(worldState.currentSceneId);
+        const AttackEncounterDef* encounter = speak.findAttackEncounter(encounterId);
+        if (encounter == nullptr)
+        {
+            TraceLog(
+                LOG_WARNING,
+                "Attack encounter '%s' missing from speakConfig.attackEncounters",
+                encounterId.c_str());
+            return;
+        }
+
+        const std::vector<ConversationChoiceDef> choicesToStrip =
+            conversationMgr.getPendingChoices();
         narrativeNotebook.getChoiceHitAreas().clear();
         stripDialogChoiceLinesFromNarrative(choicesToStrip);
 
-        std::string responseText;
-        StatusEffect effect;
+        auto appendBag = [&](const AttackDialogBag& bag) {
+            if (bag.text.empty())
+                return;
+            narrativeNotebook.getNarrativeText() += "\n\n";
+            narrativeNotebook.getNarrativeText() += bag.text;
+        };
 
-        if (encounterId == "drunk_patron")
+        auto collectAudio = [](const AttackDialogBag& bag) {
+            std::vector<std::string> paths;
+            if (!bag.ttsAudioSegments.empty())
+                paths = bag.ttsAudioSegments;
+            else if (!bag.ttsAudio.empty())
+                paths.push_back(bag.ttsAudio);
+            return paths;
+        };
+
+        // 1) Lead-up text + TTS
+        appendBag(encounter->leadUp);
+
+        // 2) Scrape
+        CombatActorEdge edge;
+        edge.health = encounter->actorEdgeHealth;
+        edge.energy = encounter->actorEdgeEnergy;
+        edge.resolve = encounter->actorEdgeResolve;
+        edge.lucidity = encounter->actorEdgeLucidity;
+        edge.charisma = encounter->actorEdgeCharisma;
+
+        static thread_local std::mt19937 combatRng{std::random_device{}()};
+        const CombatResolution scrape = resolveScrapeFight(
+            worldState.playerStats,
+            edge,
+            encounter->cannotLose,
+            combatRng);
+        if (std::getenv("TIMBERLINE_DEBUG_COMBAT") != nullptr)
         {
-            if (worldState.playerStats.resolve > 65.0f)
-            {
-                responseText =
-                    "You do not think. You move.\n\n"
-                    "The drunk man's shove becomes the opening he did not intend. You catch his wrist on the way past, "
-                    "step inside his reach, and drive your shoulder into his sternum hard enough to lift him off the "
-                    "foot rail. His breath leaves in a wet bark. The tumbler flies, spinning amber through the lamp "
-                    "smoke. He hits the sawdust on his back with a thud that stops the piano mid-phrase.\n\n"
-                    "For one heartbeat the saloon is silent. Then the room detonates into laughter, applause, and "
-                    "the hungry whistle of men who have paid good money to see violence that is not their own. "
-                    "Someone shouts for another round. A woman on the balcony leans over the rail and fans herself "
-                    "with deliberate slowness. The faro dealer does not look up, but his mouth curves.\n\n"
-                    "The drunk man wheezes and tries to rise. You put a boot lightly on his chest and hold him there "
-                    "long enough for the point to settle. Not cruel. Measured. Then you step back and let the bartender "
-                    "take over.\n\n"
-                    "\"All right,\" the bartender says, not angry, not impressed. Simply in charge. \"Show's over. "
-                    "Drinks still cost money.\"";
-                effect.key = "saloon_interior:drunk_patron_win";
-                effect.health = -5.0f;
-                effect.energy = -10.0f;
-                effect.lucidity = 10.0f;
-                effect.charisma = 10.0f;
-                effect.actor = "drunk_patron";
-                effect.actorOpinion = -3;
-            }
-            else
-            {
-                responseText =
-                    "You swing before you think and that is the first mistake.\n\n"
-                    "The drunk man is faster than a man that soaked has any right to be. He slips your grab, "
-                    "catches you across the jaw with a ringed knuckle, and drives you sideways into the bar edge. "
-                    "Your ribs meet polished pine. The room blurs into lamp halos and laughing mouths. A second shove "
-                    "puts you on the floor, cheek in sawdust, the taste of whiskey and blood mixing under your tongue.\n\n"
-                    "The saloon does not stop. It watches. Delighted. A miner hoots. The piano player finds the same "
-                    "broken phrase and plays it louder, as though the music is part of the joke. Someone calls you "
-                    "green. Someone else calls for odds on whether you will stand up again.\n\n"
-                    "Boots cross the sawdust. The bartender hauls you up by the collar with practiced efficiency, "
-                    "props you against the bar long enough to see straight, and shoves a wet rag into your hand.\n\n"
-                    "\"Out of my floor,\" he tells the drunk man. \"Go sleep it off before I throw you off the ridge.\"\n\n"
-                    "The drunk man laughs, spits sawdust, and stumbles toward the door with the triumphant swagger of "
-                    "a man who won nothing but the room's attention. The bartender does not apologize for you. "
-                    "He does not need to. The bar has already filed the scene under entertainment and moved on.";
-                effect.key = "saloon_interior:drunk_patron_lose";
-                effect.health = -30.0f;
-                effect.energy = -20.0f;
-                effect.charisma = -5.0f;
-                effect.actor = "drunk_patron";
-                effect.actorOpinion = -3;
-            }
+            std::fprintf(
+                stderr,
+                "[combat] %s player=%.1f actor=%.1f margin=%.1f roll=%.1f "
+                "check=%.1f → %s\n",
+                encounterId.c_str(),
+                static_cast<double>(scrape.playerScore),
+                static_cast<double>(scrape.actorScore),
+                static_cast<double>(scrape.margin),
+                static_cast<double>(scrape.roll),
+                static_cast<double>(scrape.check),
+                scrape.playerWon ? "WIN" : "LOSE");
+        }
+
+        // 3) Result bag
+        const AttackDialogBag& resultBag =
+            scrape.playerWon ? encounter->win : encounter->lose;
+        appendBag(resultBag);
+
+        trimNarrativeBuffer();
+        narrativeNotebook.invalidateLayout();
+
+        std::vector<std::string> audioPaths = collectAudio(encounter->leadUp);
+        {
+            const std::vector<std::string> resultAudio = collectAudio(resultBag);
+            audioPaths.insert(audioPaths.end(), resultAudio.begin(), resultAudio.end());
+        }
+        if (!audioPaths.empty())
+            audioManager.playDialogAssetSequence(audioPaths);
+
+        // Loss results / reputation (lose path, or always-on reputation)
+        StatusEffect effect;
+        effect.key = worldState.currentSceneId + ":" + encounterId
+            + (scrape.playerWon ? "_win" : "_lose");
+
+        auto applyPctLoss = [](float& stat, const AttackStatLoss& loss) {
+            if (!loss.enabled)
+                return;
+            const float pct = std::clamp(loss.percentOfCurrent, 0.0f, 100.0f);
+            const float before = stat;
+            stat = before * (1.0f - pct / 100.0f);
+            // StatusEffect uses absolute deltas — encode as before→after.
+        };
+
+        if (!scrape.playerWon)
+        {
+            PlayerStats& ps = worldState.playerStats;
+            const float h0 = ps.health;
+            const float e0 = ps.energy;
+            const float r0 = ps.resolve;
+            const float l0 = ps.lucidity;
+            const float c0 = ps.charisma;
+            applyPctLoss(ps.health, encounter->lossHealth);
+            applyPctLoss(ps.energy, encounter->lossEnergy);
+            applyPctLoss(ps.resolve, encounter->lossResolve);
+            applyPctLoss(ps.lucidity, encounter->lossLucidity);
+            applyPctLoss(ps.charisma, encounter->lossCharisma);
+            if (encounter->playerDeath)
+                ps.health = 0.0f;
+            effect.health = ps.health - h0;
+            effect.energy = ps.energy - e0;
+            effect.resolve = ps.resolve - r0;
+            effect.lucidity = ps.lucidity - l0;
+            effect.charisma = ps.charisma - c0;
+            // Stats already applied; still route through applyStatusEffects for
+            // actor opinion / notebooks — zero player deltas if already applied.
+            // Simpler: build effect deltas and re-apply via applyStatusEffects only
+            // for opinion; restore stats from effect. Use effect-only path:
+            ps.health = h0;
+            ps.energy = e0;
+            ps.resolve = r0;
+            ps.lucidity = l0;
+            ps.charisma = c0;
         }
         else
         {
-            return;
+            // Mild win cost defaults if no loss flags (authored win can still
+            // leave stats untouched).
+            effect.health = 0.0f;
+            effect.energy = 0.0f;
+        }
+
+        if (encounter->reputationChange)
+        {
+            effect.actor = encounter->combatantId.empty() ? encounterId
+                                                          : encounter->combatantId;
+            effect.actorOpinion = encounter->reputationDelta;
         }
 
         conversationMgr.clearPendingEncounter();
 
-        if (!responseText.empty())
-        {
-            narrativeNotebook.getNarrativeText() += "\n\n";
-            narrativeNotebook.getNarrativeText() += responseText;
-            trimNarrativeBuffer();
-            narrativeNotebook.invalidateLayout();
-        }
+        if (effect.hasDelta() || !effect.key.empty())
+            applyStatusEffects({ effect });
 
-        applyStatusEffects({ effect });
-
-        if (!responseText.empty())
+        rebuildNarrativeLayout();
+        const std::string scrollSrc =
+            !encounter->leadUp.text.empty() ? encounter->leadUp.text : resultBag.text;
+        if (!scrollSrc.empty())
         {
-            rebuildNarrativeLayout();
-            std::istringstream responseStream(responseText);
+            std::istringstream responseStream(scrollSrc);
             std::string firstLine;
             if (std::getline(responseStream, firstLine) && !firstLine.empty())
                 scrollNarrativeToLine(firstLine, true);
@@ -2965,7 +3075,17 @@ namespace
             movement.backward = false;
             movement.left = false;
             movement.right = false;
-            actions.hit = conversationMgr.isCombatAttackAllowed();
+            actions.hit = false;
+            if (conversationMgr.isCombatAttackAllowed())
+            {
+                const SceneSpeakConfig& speak =
+                    sceneDatabase.getSpeakConfig(worldState.currentSceneId);
+                const AttackEncounterDef* encounter =
+                    speak.findAttackEncounter(conversationMgr.getCombatEncounterId());
+                actions.hit = encounter != nullptr
+                    && isCombatEncounterOfferable(
+                           *encounter, worldState, inventoryMgr, itemDatabase);
+            }
         }
         else if (isUnderConstruction)
         {

@@ -146,6 +146,9 @@ set(EDITOR_SOURCES
     SceneEffectsDialog.cpp
     SceneTransitionDialog.cpp
     SceneExitRequirementsDialog.cpp
+    FightAuthoringDialog.cpp
+    ActorDialogAuthoringDialog.cpp
+    EventAuthoringDialog.cpp
     SceneUseTransitionDialog.cpp
     SceneFloorConnectDialog.cpp
     EditorPreferencesDialog.cpp

@@ -8,9 +8,9 @@
   "display": {
     "aspectPreference": "auto",
     "fullscreen": true,
-    "height": 1440,
-    "monitor": 0,
-    "width": 2560,
+    "height": 1080,
+    "monitor": 1,
+    "width": 1920,
     "x": -1742,
     "y": 248
   },

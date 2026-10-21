@@ -424,7 +424,7 @@ SpeakResult ConversationManager::buildNarrativeResult(
     result.action = SpeakResult::Action::ShowNarrative;
     result.narrative = text;
     if (status.hasDelta())
-        result.statusEffects.push_back(status);
+        appendExpandedStatusEffects(status, result.statusEffects);
     if (grantItem.isValid())
         result.grantItem = grantItem;
     result.dialogAudioTracks = dialogAudioTracks;
@@ -518,7 +518,7 @@ SpeakResult ConversationManager::resumeScriptedPhase(
     result.action = SpeakResult::Action::ShowChoices;
     result.narrative = responseText;
     if (status.hasDelta())
-        result.statusEffects.push_back(status);
+        appendExpandedStatusEffects(status, result.statusEffects);
 
     appendDialogAudioTrack(result, responseAudio);
 
@@ -648,10 +648,11 @@ SpeakResult ConversationManager::pickSpecificRandomLine(
     if (line->once && !line->id.empty())
         completedRandomLineIds.insert(line->id);
 
-    if (!line->choices.empty())
+    if (!line->choices.empty() || line->allowAttack)
     {
         SpeakResult result;
-        result.action = SpeakResult::Action::ShowChoices;
+        result.action = line->choices.empty() ? SpeakResult::Action::ShowNarrative
+                                              : SpeakResult::Action::ShowChoices;
         result.narrative = line->text;
         result.sketchPath = line->sketchPath;
         result.choices = line->choices;
@@ -672,6 +673,7 @@ SpeakResult ConversationManager::pickSpecificRandomLine(
             line->ttsAfterAudio,
             line->ttsAfterAudioSegments,
             line->text);
+        // Await so Attack stays armed (even when there are no companion choices).
         awaitingChoice = true;
         activeScriptPhaseId = phase.id;
         pendingChoices = line->choices;
@@ -783,10 +785,11 @@ SpeakResult ConversationManager::pickRandomLine(
     if (line.once && !line.id.empty())
         completedRandomLineIds.insert(line.id);
 
-    if (!line.choices.empty())
+    if (!line.choices.empty() || line.allowAttack)
     {
         SpeakResult result;
-        result.action = SpeakResult::Action::ShowChoices;
+        result.action = line.choices.empty() ? SpeakResult::Action::ShowNarrative
+                                             : SpeakResult::Action::ShowChoices;
         result.narrative = line.text;
         result.sketchPath = line.sketchPath;
         result.choices = line.choices;
@@ -807,6 +810,7 @@ SpeakResult ConversationManager::pickRandomLine(
             line.ttsAfterAudio,
             line.ttsAfterAudioSegments,
             line.text);
+        // Await so Attack stays armed (even when there are no companion choices).
         awaitingChoice = true;
         activeScriptPhaseId = phase.id;
         pendingChoices = line.choices;
@@ -1069,7 +1073,7 @@ SpeakResult ConversationManager::resolveScriptedChoice(
             result.action = SpeakResult::Action::ShowChoices;
             result.narrative = choice.response;
             if (choice.status.hasDelta())
-                result.statusEffects.push_back(choice.status);
+                appendExpandedStatusEffects(choice.status, result.statusEffects);
             appendDialogAudioTrack(result, choice.responseAudio);
             applyTtsFields(
                 result,
@@ -1149,7 +1153,7 @@ SpeakResult ConversationManager::resolveScriptedChoice(
         result.narrative = choice.response;
         result.choices = nextChoices;
         if (choice.status.hasDelta())
-            result.statusEffects.push_back(choice.status);
+            appendExpandedStatusEffects(choice.status, result.statusEffects);
         if (choice.grantItem.isValid())
             result.grantItem = choice.grantItem;
         result.giveToPlayer = choice.giveToPlayer;
@@ -1192,7 +1196,7 @@ SpeakResult ConversationManager::resolveScriptedChoice(
         result.narrative = responseText;
         result.choices = nextChoices;
         if (choice.status.hasDelta())
-            result.statusEffects.push_back(choice.status);
+            appendExpandedStatusEffects(choice.status, result.statusEffects);
         if (choice.grantItem.isValid())
             result.grantItem = choice.grantItem;
         result.giveToPlayer = choice.giveToPlayer;

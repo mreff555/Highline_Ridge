@@ -88,6 +88,30 @@ void SceneEditorApp::wireModules()
     dialogFlow.parchment = &parchmentEditor;
     dialogPalette.flow = &dialogFlow;
     dialogDetails.flow = &dialogFlow;
+    dialogDetails.onEditFight = [this](DialogFlowNode* n) {
+        if (n != nullptr)
+            fightAuthoring.openForFight(selectedSceneId, n);
+    };
+    dialogFlow.onEditFight = [this](DialogFlowNode* n) {
+        if (n != nullptr)
+            fightAuthoring.openForFight(selectedSceneId, n);
+    };
+    dialogDetails.onEditActorDialog = [this](DialogFlowNode* n) {
+        if (n != nullptr)
+            actorDialogAuthoring.openForActorDialog(selectedSceneId, n);
+    };
+    dialogFlow.onEditActorDialog = [this](DialogFlowNode* n) {
+        if (n != nullptr)
+            actorDialogAuthoring.openForActorDialog(selectedSceneId, n);
+    };
+    dialogDetails.onEditEvent = [this](DialogFlowNode* n) {
+        if (n != nullptr)
+            eventAuthoring.openForEvent(selectedSceneId, n);
+    };
+    dialogFlow.onEditEvent = [this](DialogFlowNode* n) {
+        if (n != nullptr)
+            eventAuthoring.openForEvent(selectedSceneId, n);
+    };
     dialogMedia.docs = &document;
     dialogMedia.flow = &dialogFlow;
     dialogMedia.thumbnails = &thumbnails;
@@ -209,6 +233,20 @@ void SceneEditorApp::wireModules()
     mapCanvas.sceneAssist.sessionKeys = &sessionApiKeys;
     mapCanvas.sceneExitRequirements.sessionKeys = &sessionApiKeys;
     itemEditor.sessionKeys = &sessionApiKeys;
+    fightAuthoring.docs = &document;
+    fightAuthoring.parchment = &parchmentEditor;
+    fightAuthoring.sessionKeys = &sessionApiKeys;
+    fightAuthoring.onSaved = [this]() { document.markDirty(); };
+    mapCanvas.fightAuthoring = &fightAuthoring;
+    actorDialogAuthoring.docs = &document;
+    actorDialogAuthoring.flow = &dialogFlow;
+    actorDialogAuthoring.parchment = &parchmentEditor;
+    actorDialogAuthoring.sessionKeys = &sessionApiKeys;
+    actorDialogAuthoring.onSaved = [this]() { document.markDirty(); };
+    mapCanvas.actorDialogAuthoring = &actorDialogAuthoring;
+    eventAuthoring.docs = &document;
+    eventAuthoring.onSaved = [this]() { document.markDirty(); };
+    mapCanvas.eventAuthoring = &eventAuthoring;
 
     // Temporary: seed session from env / ~/.config/highline-ridge/*_api_key.
     sessionApiKeys.bootstrapFromEnvAndFiles();
@@ -258,6 +296,20 @@ void SceneEditorApp::syncModuleFonts()
     mapCanvas.sceneExitRequirements.parchment = &parchmentEditor;
     mapCanvas.sceneExitRequirements.uiFont = uiFont;
     mapCanvas.sceneExitRequirements.uiFontBold = uiFontBold;
+    fightAuthoring.docs = &document;
+    fightAuthoring.parchment = &parchmentEditor;
+    fightAuthoring.sessionKeys = &sessionApiKeys;
+    fightAuthoring.uiFont = uiFont;
+    fightAuthoring.uiFontBold = uiFontBold;
+    actorDialogAuthoring.docs = &document;
+    actorDialogAuthoring.flow = &dialogFlow;
+    actorDialogAuthoring.parchment = &parchmentEditor;
+    actorDialogAuthoring.sessionKeys = &sessionApiKeys;
+    actorDialogAuthoring.uiFont = uiFont;
+    actorDialogAuthoring.uiFontBold = uiFontBold;
+    eventAuthoring.docs = &document;
+    eventAuthoring.uiFont = uiFont;
+    eventAuthoring.uiFontBold = uiFontBold;
     mapCanvas.sceneUseTransition.uiFont = uiFont;
     mapCanvas.sceneUseTransition.uiFontBold = uiFontBold;
     mapCanvas.sceneFloorConnect.uiFont = uiFont;
@@ -513,6 +565,9 @@ void SceneEditorApp::handleShortcuts()
         || mapCanvas.sceneEffects.blocksInput()
         || mapCanvas.sceneTransition.blocksInput()
         || mapCanvas.sceneExitRequirements.blocksInput()
+        || fightAuthoring.blocksInput()
+        || actorDialogAuthoring.blocksInput()
+        || eventAuthoring.blocksInput()
         || mapCanvas.sceneUseTransition.blocksInput()
         || mapCanvas.sceneFloorConnect.blocksInput()
         || mapCanvas.confirmMode != SceneMapCanvas::ConfirmMode::None
@@ -569,6 +624,9 @@ void SceneEditorApp::update()
             && !mapCanvas.sceneEffects.blocksInput()
             && !mapCanvas.sceneTransition.blocksInput()
             && !mapCanvas.sceneExitRequirements.blocksInput()
+            && !fightAuthoring.blocksInput()
+            && !actorDialogAuthoring.blocksInput()
+            && !eventAuthoring.blocksInput()
             && !mapCanvas.sceneUseTransition.blocksInput()
             && !mapCanvas.sceneFloorConnect.blocksInput()
             && mapCanvas.confirmMode == SceneMapCanvas::ConfirmMode::None)
@@ -603,6 +661,24 @@ void SceneEditorApp::update()
         return;
     }
 
+    if (fightAuthoring.blocksInput())
+    {
+        fightAuthoring.handleInput(screenWidth, screenHeight);
+        return;
+    }
+
+    if (actorDialogAuthoring.blocksInput())
+    {
+        actorDialogAuthoring.handleInput(screenWidth, screenHeight);
+        return;
+    }
+
+    if (eventAuthoring.blocksInput())
+    {
+        eventAuthoring.handleInput(screenWidth, screenHeight);
+        return;
+    }
+
     if (!editorMouseDown(MOUSE_BUTTON_LEFT))
         layout.cancelDividerDrag();
 
@@ -616,6 +692,9 @@ void SceneEditorApp::update()
         && !mapCanvas.sceneEffects.blocksInput()
         && !mapCanvas.sceneTransition.blocksInput()
         && !mapCanvas.sceneExitRequirements.blocksInput()
+        && !fightAuthoring.blocksInput()
+        && !actorDialogAuthoring.blocksInput()
+        && !eventAuthoring.blocksInput()
         && !mapCanvas.sceneUseTransition.blocksInput()
         && !mapCanvas.sceneFloorConnect.blocksInput()
         && mapCanvas.confirmMode == SceneMapCanvas::ConfirmMode::None

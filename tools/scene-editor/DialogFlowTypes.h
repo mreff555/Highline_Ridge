@@ -25,6 +25,7 @@ enum class DialogNodeKind
     Attack,
     TriggerEvent,
     ActorInventory,
+    DialogEnd, // terminal leaf — optional line then end Speak
     Count
 };
 
@@ -46,11 +47,13 @@ inline const char* dialogNodeKindLabel(DialogNodeKind kind)
     case DialogNodeKind::TakeItem:
         return "Take item";
     case DialogNodeKind::Attack:
-        return "Attack";
+        return "Fight";
     case DialogNodeKind::TriggerEvent:
         return "Trigger event";
     case DialogNodeKind::ActorInventory:
         return "Actor inventory";
+    case DialogNodeKind::DialogEnd:
+        return "Dialog end";
     default:
         return "Node";
     }
@@ -61,7 +64,7 @@ inline const char* dialogNodeKindBrief(DialogNodeKind kind)
     switch (kind)
     {
     case DialogNodeKind::ActorDialog:
-        return "NPC line (5 outs)";
+        return "NPC line (1 or 5 outs)";
     case DialogNodeKind::PlayerDialog:
         return "Player line (1 out)";
     case DialogNodeKind::Event:
@@ -71,11 +74,13 @@ inline const char* dialogNodeKindBrief(DialogNodeKind kind)
     case DialogNodeKind::TakeItem:
         return "Player → actor (ok/fail)";
     case DialogNodeKind::Attack:
-        return "Fight (win/lose)";
+        return "Fight lead-up / win / lose (2 outs)";
     case DialogNodeKind::TriggerEvent:
         return "Fire story event";
     case DialogNodeKind::ActorInventory:
         return "Priced stock browse/buy";
+    case DialogNodeKind::DialogEnd:
+        return "End Speak (0 outs)";
     default:
         return "";
     }
@@ -97,11 +102,13 @@ inline const char* dialogNodeKindGlyph(DialogNodeKind kind)
     case DialogNodeKind::TakeItem:
         return "←";
     case DialogNodeKind::Attack:
-        return "X";
+        return "!";
     case DialogNodeKind::TriggerEvent:
         return "T";
     case DialogNodeKind::ActorInventory:
         return "$";
+    case DialogNodeKind::DialogEnd:
+        return "X";
     default:
         return "?";
     }
@@ -127,6 +134,8 @@ inline int dialogNodeChildCount(DialogNodeKind kind)
         return 1;
     case DialogNodeKind::ActorInventory:
         return 1;
+    case DialogNodeKind::DialogEnd:
+        return 0;
     default:
         return 0;
     }
@@ -153,6 +162,8 @@ inline const char* dialogNodeKindIconFile(DialogNodeKind kind)
         return "trigger_event.png";
     case DialogNodeKind::ActorInventory:
         return "actor_inventory.png";
+    case DialogNodeKind::DialogEnd:
+        return "dialog_end.png";
     default:
         return "";
     }
@@ -160,13 +171,41 @@ inline const char* dialogNodeKindIconFile(DialogNodeKind kind)
 
 /** Parent (in) port color — top center. */
 inline constexpr Color kDialogParentPort = {90, 160, 200, 255};
-/** Child (out) port color — bottom / sides. */
+/** Default child (out) port for non–Actor-Dialog kinds. */
 inline constexpr Color kDialogChildPort = {210, 120, 90, 255};
+/**
+ * Actor Dialog empty out-slot — neutral, not in the 5 response palette.
+ * Occupied slots use dialogActorResponsePortColor(index).
+ */
+inline constexpr Color kDialogEmptyChildPort = {120, 118, 128, 255};
 /** Give/Take success (green) / fail (red) child ports (#64). */
 inline constexpr Color kDialogExchangeOkPort = {70, 170, 90, 255};
 inline constexpr Color kDialogExchangeFailPort = {200, 70, 70, 255};
 /** Speak-graph wire (not gold MOVE / silver Use). */
 inline constexpr Color kDialogFlowWire = {200, 90, 100, 230};
+
+/**
+ * Per-slot colors for Actor Dialog player-response ports (0..4).
+ * Used on the map when the slot is wired, and as swatches in Dialog details.
+ */
+inline Color dialogActorResponsePortColor(int childIndex)
+{
+    switch (childIndex)
+    {
+    case 0:
+        return Color{70, 190, 210, 255}; // Bottom — cyan
+    case 1:
+        return Color{220, 160, 60, 255}; // BottomLeft — amber
+    case 2:
+        return Color{180, 110, 220, 255}; // BottomRight — violet
+    case 3:
+        return Color{90, 200, 120, 255}; // Left — green
+    case 4:
+        return Color{230, 100, 140, 255}; // Right — rose
+    default:
+        return kDialogEmptyChildPort;
+    }
+}
 
 /**
  * Child port slots 0..n-1 filled from bottom-center outward:

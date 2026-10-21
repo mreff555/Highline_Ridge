@@ -67,11 +67,11 @@ Human and AI contributions are welcome — especially **Windows** support, story
 |------|---------|
 | **Health** | At 0%, you die. Sleep restores it. |
 | **Energy** | Stamina for hard work. Sleep restores it. |
-| **Resolve** | Grit for demanding tasks; stimulants/booze can help. |
+| **Resolve** | Grit for demanding tasks and **fights** (heaviest scrape weight); stimulants/booze can help. |
 | **Lucidity** | Grip on reality; sleep helps; gates conversation/intellect. At **0%**, the game transitions back to waking in the cave. |
-| **Charisma** | Improves odds in conversation. |
+| **Charisma** | Improves odds in conversation and factors into **fights** (presence / intimidation). |
 
-Status effects can be one-shot or repeatable (`repeat` / `useRepeatStatus`). Scene **Effects** and interaction status deltas author these in the editor.
+Status effects can be one-shot or repeatable (`repeat` / `useRepeatStatus`). Scene **Effects** and interaction status deltas author these in the editor. Fight resolution (weighted scrape + actor edge): [docs/combat.md](docs/combat.md).
 
 ### Movement and Use
 

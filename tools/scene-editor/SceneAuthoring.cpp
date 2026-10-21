@@ -1011,17 +1011,40 @@ std::string synthesizeOneTtsMp3(
 #else
     const int status = code;
 #endif
+    auto readBodyPreview = [&]() -> std::string {
+        std::ifstream in(absPath.c_str(), std::ios::binary);
+        if (!in)
+            return {};
+        std::string body(
+            (std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        // Keep status lines short for the dialog chrome.
+        if (body.size() > 240)
+            body.resize(240);
+        for (char& ch : body)
+        {
+            if (ch == '\n' || ch == '\r' || ch == '\t')
+                ch = ' ';
+        }
+        return body;
+    };
+
     if (status != 0 || !FileExists(absPath.c_str()))
     {
         std::remove(absPath.c_str());
-        return "Generate voice failed (curl exit " + std::to_string(status)
-            + "). Check xAI key / network.";
+        return "Generate voice failed for '" + segmentVoiceId + "' (curl exit "
+            + std::to_string(status) + "). Check xAI key / network.";
     }
     if (httpCode != "200")
     {
+        const std::string body = readBodyPreview();
         std::remove(absPath.c_str());
-        return "Generate voice API error (HTTP " + httpCode
-            + "). Check voice id and key.";
+        std::string msg = "Generate voice API error for '" + segmentVoiceId
+            + "' (HTTP " + httpCode + ")";
+        if (!body.empty())
+            msg += ": " + body;
+        else
+            msg += ". Check voice id and key.";
+        return msg;
     }
     {
         std::ifstream in(absPath.c_str(), std::ios::binary);
@@ -1029,8 +1052,15 @@ std::string synthesizeOneTtsMp3(
         in.read(head, 1);
         if (in.gcount() == 1 && head[0] == '{')
         {
+            const std::string body = readBodyPreview();
             std::remove(absPath.c_str());
-            return "Generate voice returned an API error payload.";
+            std::string msg =
+                "Generate voice API error for '" + segmentVoiceId + "'";
+            if (!body.empty())
+                msg += ": " + body;
+            else
+                msg += " (JSON error payload).";
+            return msg;
         }
     }
     std::remove(compressedAssetPath(absPath).c_str());

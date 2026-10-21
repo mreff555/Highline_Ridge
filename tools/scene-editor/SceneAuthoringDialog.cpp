@@ -3196,7 +3196,7 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
         drawEditorButton(
             font,
             genVoiceDescBtn,
-            "Generate Voice data",
+            "Generate voice",
             canVoiceDesc,
             !busy && canVoiceDesc);
         drawEditorButton(
@@ -3260,7 +3260,7 @@ void SceneAuthoringDialog::draw(int screenW, int screenH)
         drawEditorButton(
             font,
             genVoiceExamBtn,
-            "Generate Voice data",
+            "Generate voice",
             canVoiceExam,
             !busy && canVoiceExam);
         drawEditorButton(

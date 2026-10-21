@@ -751,7 +751,7 @@ void SceneExitRequirementsDialog::startPreviewVoice()
         return;
     if (!blockedAudioExists())
     {
-        error = "No blocked TTS audio on disk yet — Generate Voice first.";
+        error = "No blocked TTS audio on disk yet — Generate voice first.";
         return;
     }
     stopPreviewVoice();
@@ -1015,7 +1015,7 @@ void SceneExitRequirementsDialog::pollGenerateResult()
                             if (blockedTtsAudio.empty())
                                 blockedTtsAudio = defaultBlockedAudioPath();
                             (void)applyChanges();
-                            status = "Blocked TTS dialog ready — Generate Voice next.";
+                            status = "Blocked TTS dialog ready — Generate voice next.";
                         }
                     }
                 }
@@ -1454,7 +1454,7 @@ void SceneExitRequirementsDialog::draw(int screenW, int screenH)
     drawEditorButton(
         font,
         genVoiceBtn,
-        (busy && generateKind == 2) ? "Working..." : "Generate Voice",
+        (busy && generateKind == 2) ? "Working..." : "Generate voice",
         canGen,
         canGen);
     drawEditorButton(
@@ -1649,7 +1649,7 @@ void SceneExitRequirementsDialog::draw(int screenW, int screenH)
         advance(80.0f);
         DrawTextEx(
             font,
-            "Save, then Generate Voice (scene refresh) to bake variant clips.",
+            "Save, then Generate voice (scene refresh) to bake variant clips.",
             {fieldX, rowY()},
             kFontTiny,
             1.0f,

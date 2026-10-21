@@ -6,12 +6,14 @@
  ******************************************************************************/
 
 #include "DialogNodeDetails.h"
+#include "EditorButton.h"
 #include "EditorInput.h"
 #include "EditorTheme.h"
 #include "EditorUiDraw.h"
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <iomanip>
 #include <sstream>
 #include <string>
@@ -64,23 +66,91 @@ std::string firstLinePreview(const std::string& text, size_t maxChars = 160)
     return out;
 }
 
-struct DetailRow
+std::string signedEdgeToken(const char* key, int value)
 {
-    std::string label;
-    std::string value;
-    bool muted = false;
-};
-
-void appendRow(std::vector<DetailRow>& rows, const char* label, const std::string& value)
-{
-    if (value.empty())
-        return;
-    rows.push_back({label, value, false});
+    if (value == 0)
+        return {};
+    return std::string(key) + (value > 0 ? "+" : "") + std::to_string(value);
 }
 
-void appendEmptyHint(std::vector<DetailRow>& rows, const char* label, const char* hint)
+std::string fightEdgeSummary(const DialogFlowNode& n)
 {
-    rows.push_back({label, hint, true});
+    std::string s;
+    auto add = [&](const std::string& part) {
+        if (part.empty())
+            return;
+        if (!s.empty())
+            s += "  ";
+        s += part;
+    };
+    add(signedEdgeToken("H", n.fightActorAdvHealth));
+    add(signedEdgeToken("E", n.fightActorAdvEnergy));
+    add(signedEdgeToken("R", n.fightActorAdvResolve));
+    add(signedEdgeToken("L", n.fightActorAdvLucidity));
+    add(signedEdgeToken("C", n.fightActorAdvCharisma));
+    return s.empty() ? "even (all 0)" : s;
+}
+
+std::string signedFloatToken(const char* key, float value)
+{
+    if (value == 0.0f)
+        return {};
+    char buf[32];
+    std::snprintf(buf, sizeof(buf), "%g", static_cast<double>(value));
+    std::string num = buf;
+    if (value > 0.0f)
+        num.insert(num.begin(), '+');
+    return std::string(key) + num;
+}
+
+std::string triggerEventDeltaPreview(const DialogFlowNode& n)
+{
+    std::string s;
+    auto add = [&](const std::string& part) {
+        if (part.empty())
+            return;
+        if (!s.empty())
+            s += "  ";
+        s += part;
+    };
+    add(signedFloatToken("H", n.eventStatusHealth));
+    add(signedFloatToken("E", n.eventStatusEnergy));
+    add(signedFloatToken("R", n.eventStatusResolve));
+    add(signedFloatToken("L", n.eventStatusLucidity));
+    add(signedFloatToken("C", n.eventStatusCharisma));
+    add(signedFloatToken("$", n.eventStatusMoney));
+    if (n.eventTabDelta != 0.0f && !n.eventTabActor.empty())
+    {
+        char buf[32];
+        std::snprintf(buf, sizeof(buf), "%g", static_cast<double>(n.eventTabDelta));
+        std::string num = buf;
+        if (n.eventTabDelta > 0.0f)
+            num.insert(num.begin(), '+');
+        add("tab " + n.eventTabActor + " " + num);
+    }
+    int opinionCount = 0;
+    for (const EventOpinionRow& row : n.eventOpinions)
+    {
+        if (!row.actorId.empty() && row.delta != 0)
+            ++opinionCount;
+    }
+    if (opinionCount == 1)
+    {
+        for (const EventOpinionRow& row : n.eventOpinions)
+        {
+            if (row.actorId.empty() || row.delta == 0)
+                continue;
+            add(row.actorId + " " + (row.delta > 0 ? "+" : "") + std::to_string(row.delta));
+            break;
+        }
+    }
+    else if (opinionCount > 1)
+        add(std::to_string(opinionCount) + " reputation");
+    if (!n.eventStatusKey.empty())
+        add("once " + n.eventStatusKey);
+    if (!n.eventOnZeroLucidity.empty())
+        add("on0L " + n.eventOnZeroLucidity);
+    return s;
 }
 } // namespace
 
@@ -106,10 +176,23 @@ DialogBottomSplit computeDialogBottomSplit(Rectangle bottomBounds)
     return out;
 }
 
+void DialogNodeDetails::clearHits()
+{
+    hitTargets.clear();
+}
+
+void DialogNodeDetails::addHit(HitKind kind, Rectangle rect, int nodeId)
+{
+    hitTargets.push_back({kind, rect, nodeId});
+}
+
 void DialogNodeDetails::handleInput(Rectangle bounds, bool allowInteraction)
 {
-    if (!allowInteraction)
+    if (!allowInteraction || flow == nullptr)
         return;
+    if (flow->parchment != nullptr && flow->parchment->blocksInput())
+        return;
+
     const Vector2 mouse = GetMousePosition();
     if (!CheckCollisionPointRec(mouse, bounds))
         return;
@@ -117,10 +200,126 @@ void DialogNodeDetails::handleInput(Rectangle bounds, bool allowInteraction)
     const float wheel = GetMouseWheelMove();
     if (std::fabs(wheel) > 0.001f)
         scrollY = std::max(0.0f, scrollY - wheel * 28.0f);
+
+    if (!CheckCollisionPointRec(mouse, lastClip) && lastClip.width > 1.0f)
+        return;
+
+    const bool right = IsMouseButtonPressed(MOUSE_BUTTON_RIGHT);
+    const bool left = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    if (!right && !left)
+        return;
+
+    for (const HitTarget& hit : hitTargets)
+    {
+        if (!CheckCollisionPointRec(mouse, hit.rect))
+            continue;
+
+        switch (hit.kind)
+        {
+        case HitKind::OpenText:
+            if (right)
+            {
+                if (DialogFlowNode* n = flow->findNode(hit.nodeId))
+                {
+                    const char* label =
+                        n->kind == DialogNodeKind::ActorInventory ? "Opening text"
+                        : n->kind == DialogNodeKind::DialogEnd    ? "Dialog end text"
+                                                                  : "Actor dialog text";
+                    flow->openDetailsParchment(
+                        hit.nodeId, &n->dialogText, false, label);
+                }
+            }
+            return;
+        case HitKind::OpenTts:
+            if (right)
+            {
+                if (DialogFlowNode* n = flow->findNode(hit.nodeId))
+                {
+                    const char* label =
+                        n->kind == DialogNodeKind::ActorInventory ? "Opening TTS"
+                        : n->kind == DialogNodeKind::DialogEnd    ? "Dialog end TTS"
+                                                                  : "Actor dialog TTS";
+                    flow->openDetailsParchment(
+                        hit.nodeId,
+                        &n->dialogTts,
+                        true,
+                        label,
+                        n->dialogText);
+                }
+            }
+            return;
+        case HitKind::OpenPlayerLine:
+            if (right)
+            {
+                if (DialogFlowNode* n = flow->findNode(hit.nodeId))
+                {
+                    flow->openDetailsParchment(
+                        hit.nodeId,
+                        &n->playerDialogText,
+                        false,
+                        "Player dialog text");
+                }
+            }
+            return;
+        case HitKind::AddPlayerResponse:
+            if (left)
+                flow->addPlayerResponseUnder(hit.nodeId);
+            return;
+        case HitKind::RemovePlayerResponse:
+            if (left)
+                flow->removePlayerResponse(flow->selectedNodeId, hit.nodeId);
+            return;
+        case HitKind::OpenEditFight:
+            if (left)
+            {
+                if (DialogFlowNode* n = flow->findNode(hit.nodeId))
+                {
+                    if (onEditFight)
+                        onEditFight(n);
+                    else if (flow->onEditFight)
+                        flow->onEditFight(n);
+                }
+            }
+            return;
+        case HitKind::OpenEditActorDialog:
+            if (left)
+            {
+                if (DialogFlowNode* n = flow->findNode(hit.nodeId))
+                {
+                    if (onEditActorDialog)
+                        onEditActorDialog(n);
+                    else if (flow->onEditActorDialog)
+                        flow->onEditActorDialog(n);
+                }
+            }
+            return;
+        case HitKind::OpenEditEvent:
+            if (left)
+            {
+                if (DialogFlowNode* n = flow->findNode(hit.nodeId))
+                {
+                    if (onEditEvent)
+                        onEditEvent(n);
+                    else if (flow->onEditEvent)
+                        flow->onEditEvent(n);
+                }
+            }
+            return;
+        default:
+            break;
+        }
+    }
 }
 
 void DialogNodeDetails::draw(Rectangle bounds)
 {
+    rebuildAndDraw(bounds);
+}
+
+void DialogNodeDetails::rebuildAndDraw(Rectangle bounds)
+{
+    clearHits();
+
     const Font font = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
     const Font bold = (uiFontBold.texture.id != 0 ? uiFontBold : font);
 
@@ -144,6 +343,7 @@ void DialogNodeDetails::draw(Rectangle bounds)
             kFontBody,
             1.0f,
             kTextMuted);
+        lastClip = {};
         return;
     }
 
@@ -154,157 +354,13 @@ void DialogNodeDetails::draw(Rectangle bounds)
         scrollY = 0.0f;
     }
 
-    std::vector<DetailRow> rows;
-
-    if (sel < 0)
-    {
-        rows.push_back({"", "Select a node on the flowchart", true});
-    }
-    else if (sel == 0)
-    {
-        rows.push_back({"Kind", "Start", false});
-        rows.push_back(
-            {"", "Immobile entry compass — one child port down into the speak graph.", true});
-    }
-    else if (const DialogFlowNode* n = flow->findNode(sel))
-    {
-        rows.push_back({"Kind", dialogNodeKindLabel(n->kind), false});
-        rows.push_back({"", dialogNodeKindBrief(n->kind), true});
-
-        switch (n->kind)
-        {
-        case DialogNodeKind::ActorDialog:
-            if (!n->dialogText.empty())
-                appendRow(rows, "Text", firstLinePreview(n->dialogText));
-            else
-                appendEmptyHint(rows, "Text", "(empty)");
-            if (!n->dialogTts.empty())
-                appendRow(rows, "TTS", firstLinePreview(n->dialogTts));
-            appendRow(
-                rows,
-                "Voice",
-                n->defaultVoice.empty() ? "Off" : n->defaultVoice);
-            appendRow(rows, "Audio", n->dialogTtsAudio);
-            if (!n->resumeIntroText.empty())
-            {
-                appendRow(rows, "Resume", firstLinePreview(n->resumeIntroText));
-                if (!n->resumeIntroTts.empty())
-                    appendRow(rows, "Resume TTS", firstLinePreview(n->resumeIntroTts));
-                appendRow(
-                    rows,
-                    "Resume voice",
-                    n->resumeIntroVoice.empty() ? "Off" : n->resumeIntroVoice);
-                rows.push_back(
-                    {"",
-                     "Resume plays only when revisiting remaining top-level choices — not on first Speak.",
-                     true});
-            }
-            break;
-        case DialogNodeKind::PlayerDialog:
-            if (!n->playerDialogText.empty())
-                appendRow(rows, "Line", firstLinePreview(n->playerDialogText));
-            else
-                appendEmptyHint(rows, "Line", "(empty)");
-            appendRow(
-                rows,
-                "Voice",
-                n->defaultVoice.empty() ? "Off" : n->defaultVoice);
-            appendRow(rows, "Audio", n->dialogTtsAudio);
-            break;
-        case DialogNodeKind::Event:
-            if (!n->eventId.empty())
-                appendRow(rows, "Gate", n->eventId);
-            else
-                appendEmptyHint(rows, "Gate", "(unset event id)");
-            rows.push_back(
-                {"Ports", "pass (0) / fail (1)", true});
-            break;
-        case DialogNodeKind::GiveItem:
-        case DialogNodeKind::TakeItem:
-        {
-            appendRow(
-                rows,
-                "Direction",
-                n->kind == DialogNodeKind::GiveItem ? "Actor → player"
-                                                    : "Player → actor");
-            if (!n->itemId.empty())
-                appendRow(rows, "Item", n->itemId);
-            else
-                appendEmptyHint(rows, "Item", "(none — money-only ok)");
-            appendRow(rows, "Qty", std::to_string(std::max(1, n->exchangeQuantity)));
-            {
-                std::ostringstream oss;
-                oss << "$" << std::fixed << std::setprecision(2) << n->exchangeMoney;
-                appendRow(rows, "Money", oss.str());
-            }
-            appendRow(
-                rows,
-                "Actor bag",
-                n->useActorInventory ? "yes" : "no");
-            if (!n->dialogText.empty())
-                appendRow(rows, "Opening", firstLinePreview(n->dialogText));
-            rows.push_back(
-                {"",
-                 "Bottom ports: green = success, red = fail.",
-                 true});
-            break;
-        }
-        case DialogNodeKind::ActorInventory:
-            if (!n->inventoryActorId.empty())
-                appendRow(rows, "Actor", n->inventoryActorId);
-            else
-                appendEmptyHint(rows, "Actor", "(unset bag id)");
-            if (!n->dialogText.empty())
-                appendRow(rows, "Opening", firstLinePreview(n->dialogText));
-            if (!n->dialogTts.empty())
-                appendRow(rows, "TTS", firstLinePreview(n->dialogTts));
-            appendRow(rows, "Audio", n->dialogTtsAudio);
-            rows.push_back(
-                {"",
-                 "Runtime synthesizes priced browse/buy choices from actorInventories.",
-                 true});
-            break;
-        case DialogNodeKind::Attack:
-            if (!n->combatantId.empty())
-                appendRow(rows, "Combatant", n->combatantId);
-            else
-                appendEmptyHint(rows, "Combatant", "(unset)");
-            appendRow(
-                rows,
-                "Death",
-                n->playerDeathPossible ? "possible" : "10% HP floor");
-            if (!n->winModifiers.empty())
-            {
-                std::ostringstream oss;
-                oss << n->winModifiers.size() << " modifier"
-                    << (n->winModifiers.size() == 1 ? "" : "s");
-                appendRow(rows, "Win", oss.str());
-            }
-            break;
-        case DialogNodeKind::TriggerEvent:
-            if (!n->eventId.empty())
-                appendRow(rows, "Event", n->eventId);
-            else
-                appendEmptyHint(rows, "Event", "(unset)");
-            break;
-        default:
-            break;
-        }
-
-        appendRow(rows, "Phase", n->sourcePhaseId);
-        appendRow(rows, "Choice", n->sourceChoiceId);
-        appendRow(rows, "Pointer", n->jsonPointer);
-    }
-    else
-    {
-        rows.push_back({"", "Select a node on the flowchart", true});
-    }
-
     const Rectangle clip = {
         bounds.x + 1.0f,
         bounds.y + kHeader,
         bounds.width - 2.0f,
         std::max(1.0f, bounds.height - kHeader - 4.0f)};
+    lastClip = clip;
+
     BeginScissorMode(
         static_cast<int>(clip.x),
         static_cast<int>(clip.y),
@@ -315,10 +371,82 @@ void DialogNodeDetails::draw(Rectangle bounds)
     float y = clip.y + 4.0f - scrollY;
     float contentH = 0.0f;
 
-    // Kind icon badge when a real node is selected.
-    if (sel > 0)
+    auto advance = [&](float h) {
+        y += h;
+        contentH += h;
+    };
+
+    auto drawMutedLine = [&](const std::string& text) {
+        drawWrappedText(
+            font,
+            text,
+            {clip.x + kPad, y},
+            maxW,
+            kFontSmall,
+            kLineGap,
+            kTextMuted);
+        const float approxLines = std::max(
+            1.0f,
+            std::ceil(
+                measureUiTextWidth(font, text, kFontSmall)
+                / std::max(1.0f, maxW)));
+        advance(approxLines * (kFontSmall + kLineGap) + 6.0f);
+    };
+
+    auto drawLabeledRow =
+        [&](const char* label,
+            const std::string& value,
+            bool muted,
+            HitKind hitKind,
+            int nodeId) {
+            const std::string lab = std::string(label) + ": ";
+            const float labelW = measureUiTextWidth(font, lab, kFontSmall);
+            DrawTextEx(
+                font,
+                lab.c_str(),
+                {clip.x + kPad, y},
+                kFontSmall,
+                1.0f,
+                kTextMuted);
+
+            const float valueMax = std::max(20.0f, maxW - labelW);
+            const std::string shown =
+                ellipsize(font, value, valueMax, kFontSmall);
+            DrawTextEx(
+                font,
+                shown.c_str(),
+                {clip.x + kPad + labelW, y},
+                kFontSmall,
+                1.0f,
+                muted ? kTextMuted : kTextPrimary);
+
+            if (hitKind != HitKind::None && nodeId > 0)
+            {
+                const Rectangle hit = {
+                    clip.x + kPad,
+                    y - 1.0f,
+                    maxW,
+                    kFontSmall + 4.0f};
+                addHit(hitKind, hit, nodeId);
+            }
+            advance(kFontSmall + 8.0f);
+        };
+
+    if (sel < 0)
     {
-        if (const DialogFlowNode* n = flow->findNode(sel))
+        drawMutedLine("Select a node on the flowchart");
+    }
+    else if (sel == 0)
+    {
+        drawLabeledRow("Interaction type", "Start", false, HitKind::None, 0);
+        drawMutedLine(
+            "Immobile entry compass — one child port down into the speak graph.");
+    }
+    else if (const DialogFlowNode* nConst = flow->findNode(sel))
+    {
+        // Non-const for fight toggles during draw? We only read here.
+        const DialogFlowNode* n = nConst;
+
         {
             flow->ensureIconsLoaded();
             const float icon = 36.0f;
@@ -354,57 +482,311 @@ void DialogNodeDetails::draw(Rectangle bounds)
                     1.0f,
                     kTextPrimary);
             }
-            y += icon + 8.0f;
-            contentH += icon + 8.0f;
+            advance(icon + 8.0f);
         }
-    }
 
-    for (const DetailRow& row : rows)
-    {
-        if (row.label.empty())
+        drawLabeledRow(
+            "Interaction type",
+            dialogNodeKindLabel(n->kind),
+            false,
+            HitKind::None,
+            0);
         {
-            drawWrappedText(
-                font,
-                row.value,
-                {clip.x + kPad, y},
-                maxW,
-                kFontSmall,
-                kLineGap,
-                row.muted ? kTextMuted : kTextPrimary);
-            // Approximate height for scroll (wrapped lines ~ font + gap).
-            const float approxLines = std::max(
-                1.0f,
-                std::ceil(
-                    measureUiTextWidth(font, row.value, kFontSmall)
-                    / std::max(1.0f, maxW)));
-            const float h = approxLines * (kFontSmall + kLineGap) + 6.0f;
-            y += h;
-            contentH += h;
-            continue;
+            const char* brief = dialogNodeKindBrief(n->kind);
+            if (brief != nullptr && brief[0] != '\0')
+                drawMutedLine(brief);
         }
 
-        const std::string label = row.label + ": ";
-        const float labelW = measureUiTextWidth(font, label, kFontSmall);
-        DrawTextEx(
-            font,
-            label.c_str(),
-            {clip.x + kPad, y},
-            kFontSmall,
-            1.0f,
-            kTextMuted);
+        switch (n->kind)
+        {
+        case DialogNodeKind::ActorDialog:
+        {
+            const std::string idLabel = n->lineId.empty()
+                ? (n->sourcePhaseId.empty() ? "(unset)" : n->sourcePhaseId)
+                : n->lineId;
+            drawLabeledRow("Id", idLabel, n->lineId.empty() && n->sourcePhaseId.empty(),
+                HitKind::None, 0);
+            if (!n->actorId.empty() || !n->actorName.empty())
+            {
+                const std::string actor = n->actorName.empty()
+                    ? n->actorId
+                    : (n->actorId.empty() ? n->actorName
+                                          : n->actorName + " (" + n->actorId + ")");
+                drawLabeledRow("Actor", actor, false, HitKind::None, 0);
+            }
+            drawLabeledRow(
+                "Text",
+                n->dialogText.empty() ? "(empty)" : firstLinePreview(n->dialogText),
+                n->dialogText.empty(),
+                HitKind::None,
+                0);
+            drawLabeledRow(
+                "Voice",
+                n->defaultVoice.empty() ? "Off" : n->defaultVoice,
+                false,
+                HitKind::None,
+                0);
+            if (!n->resumeIntroText.empty())
+                drawLabeledRow(
+                    "Resume",
+                    firstLinePreview(n->resumeIntroText),
+                    false,
+                    HitKind::None,
+                    0);
+            {
+                const auto responses = flow->playerResponsesUnder(n->id);
+                const std::string resp = n->playerResponsesEnabled
+                    ? ("On (" + std::to_string(responses.size()) + " wired, 5 ports)")
+                    : "Off (1 port)";
+                drawLabeledRow("Player responses", resp, false, HitKind::None, 0);
+            }
+            const Rectangle editBtn = {
+                clip.x + kPad, y, std::max(80.0f, maxW), 28.0f};
+            drawEditorButton(font, editBtn, "Edit Actor Dialog...", true, true);
+            addHit(HitKind::OpenEditActorDialog, editBtn, n->id);
+            advance(36.0f);
+            drawMutedLine(
+                n->playerResponsesEnabled
+                    ? "Ports: 5 player responses. Dual-writes conversations.json."
+                    : "Ports: 1 out. Dual-writes conversations.json.");
+            break;
+        }
+        case DialogNodeKind::DialogEnd:
+        {
+            const std::string textPrev =
+                n->dialogText.empty() ? "(empty)"
+                                      : firstLinePreview(n->dialogText);
+            drawLabeledRow(
+                "Text",
+                textPrev,
+                n->dialogText.empty(),
+                HitKind::OpenText,
+                n->id);
+            drawLabeledRow(
+                "TTS",
+                n->dialogTts.empty() ? "(empty — right-click to edit)"
+                                     : firstLinePreview(n->dialogTts),
+                n->dialogTts.empty(),
+                HitKind::OpenTts,
+                n->id);
+            drawLabeledRow(
+                "Voice",
+                n->defaultVoice.empty() ? "Off" : n->defaultVoice,
+                false,
+                HitKind::None,
+                0);
+            if (!n->dialogTtsAudio.empty())
+                drawLabeledRow("Audio", n->dialogTtsAudio, false, HitKind::None, 0);
+            drawMutedLine(
+                "Ends the conversation after the optional line (0 out ports).");
+            break;
+        }
+        case DialogNodeKind::PlayerDialog:
+        {
+            const std::string linePrev =
+                n->playerDialogText.empty() ? "(empty)"
+                                            : firstLinePreview(n->playerDialogText);
+            drawLabeledRow(
+                "Line",
+                linePrev,
+                n->playerDialogText.empty(),
+                HitKind::OpenPlayerLine,
+                n->id);
+            drawLabeledRow(
+                "TTS",
+                n->dialogTts.empty() ? "(empty — right-click to edit)"
+                                     : firstLinePreview(n->dialogTts),
+                n->dialogTts.empty(),
+                HitKind::OpenTts,
+                n->id);
+            drawLabeledRow(
+                "Voice",
+                n->defaultVoice.empty() ? "Off" : n->defaultVoice,
+                false,
+                HitKind::None,
+                0);
+            if (!n->dialogTtsAudio.empty())
+                drawLabeledRow("Audio", n->dialogTtsAudio, false, HitKind::None, 0);
+            if (!flow->nodeHasOutgoing(n->id))
+                drawMutedLine("No follow-on wired from this player line.");
+            break;
+        }
+        case DialogNodeKind::Event:
+            if (!n->eventId.empty())
+                drawLabeledRow("Gate", n->eventId, false, HitKind::None, 0);
+            else
+                drawLabeledRow("Gate", "(unset event id)", true, HitKind::None, 0);
+            drawMutedLine("Ports: pass (0) / fail (1)");
+            break;
+        case DialogNodeKind::GiveItem:
+        case DialogNodeKind::TakeItem:
+        {
+            drawLabeledRow(
+                "Direction",
+                n->kind == DialogNodeKind::GiveItem ? "Actor → player"
+                                                    : "Player → actor",
+                false,
+                HitKind::None,
+                0);
+            if (!n->itemId.empty())
+                drawLabeledRow("Item", n->itemId, false, HitKind::None, 0);
+            else
+                drawLabeledRow("Item", "(none — money-only ok)", true, HitKind::None, 0);
+            drawLabeledRow(
+                "Qty",
+                std::to_string(std::max(1, n->exchangeQuantity)),
+                false,
+                HitKind::None,
+                0);
+            {
+                std::ostringstream oss;
+                oss << "$" << std::fixed << std::setprecision(2) << n->exchangeMoney;
+                drawLabeledRow("Money", oss.str(), false, HitKind::None, 0);
+            }
+            drawLabeledRow(
+                "Actor bag",
+                n->useActorInventory ? "yes" : "no",
+                false,
+                HitKind::None,
+                0);
+            if (!n->dialogText.empty())
+            {
+                drawLabeledRow(
+                    "Opening",
+                    firstLinePreview(n->dialogText),
+                    false,
+                    HitKind::OpenText,
+                    n->id);
+            }
+            drawMutedLine("Bottom ports: green = success, red = fail.");
+            break;
+        }
+        case DialogNodeKind::ActorInventory:
+            if (!n->inventoryActorId.empty())
+                drawLabeledRow(
+                    "Actor", n->inventoryActorId, false, HitKind::None, 0);
+            else
+                drawLabeledRow("Actor", "(unset bag id)", true, HitKind::None, 0);
+            {
+                const std::string openPrev =
+                    n->dialogText.empty() ? "(empty)"
+                                          : firstLinePreview(n->dialogText);
+                drawLabeledRow(
+                    "Opening",
+                    openPrev,
+                    n->dialogText.empty(),
+                    HitKind::OpenText,
+                    n->id);
+                drawLabeledRow(
+                    "TTS",
+                    n->dialogTts.empty() ? "(empty)"
+                                         : firstLinePreview(n->dialogTts),
+                    n->dialogTts.empty(),
+                    HitKind::OpenTts,
+                    n->id);
+            }
+            if (!n->dialogTtsAudio.empty())
+                drawLabeledRow("Audio", n->dialogTtsAudio, false, HitKind::None, 0);
+            drawMutedLine(
+                "Runtime synthesizes priced browse/buy choices from actorInventories.");
+            break;
+        case DialogNodeKind::Attack:
+        {
+            const std::string enc =
+                n->fightEncounterId.empty() ? n->combatantId : n->fightEncounterId;
+            drawLabeledRow(
+                "Combatant",
+                n->combatantId.empty() ? "(unset)" : n->combatantId,
+                n->combatantId.empty(),
+                HitKind::None,
+                0);
+            drawLabeledRow(
+                "Encounter",
+                enc.empty() ? "(unset)" : enc,
+                enc.empty(),
+                HitKind::None,
+                0);
+            drawLabeledRow(
+                "Lead-up",
+                n->fightLeadText.empty() ? "(empty)"
+                                         : firstLinePreview(n->fightLeadText),
+                n->fightLeadText.empty(),
+                HitKind::None,
+                0);
+            drawLabeledRow(
+                "Win",
+                n->fightWinText.empty() ? "(empty)"
+                                        : firstLinePreview(n->fightWinText),
+                n->fightWinText.empty(),
+                HitKind::None,
+                0);
+            drawLabeledRow(
+                "Lose",
+                n->fightLoseText.empty() ? "(empty)"
+                                         : firstLinePreview(n->fightLoseText),
+                n->fightLoseText.empty(),
+                HitKind::None,
+                0);
+            drawLabeledRow(
+                "Actor edge", fightEdgeSummary(*n), false, HitKind::None, 0);
+            if (n->fightCannotLose)
+                drawMutedLine("Cannot lose.");
+            else if (n->fightPlayerDeath)
+                drawMutedLine("Player death on lose.");
+            if (n->fightReputationChange)
+                drawLabeledRow(
+                    "Reputation",
+                    std::to_string(n->fightReputationDelta),
+                    false,
+                    HitKind::None,
+                    0);
+            const Rectangle editBtn = {
+                clip.x + kPad, y, std::max(80.0f, maxW), 28.0f};
+            drawEditorButton(font, editBtn, "Edit Fight...", true, true);
+            addHit(HitKind::OpenEditFight, editBtn, n->id);
+            advance(36.0f);
+            drawMutedLine("Ports: win (0) / lose (1). Dual-writes attackEncounters.");
+            break;
+        }
+        case DialogNodeKind::TriggerEvent:
+        {
+            if (!n->eventId.empty())
+                drawLabeledRow("Flag", n->eventId, false, HitKind::None, 0);
+            else
+                drawLabeledRow("Flag", "(unset)", true, HitKind::None, 0);
+            {
+                const std::string preview = triggerEventDeltaPreview(*n);
+                drawLabeledRow(
+                    "Effects",
+                    preview.empty() ? "(none)" : preview,
+                    preview.empty(),
+                    HitKind::None,
+                    0);
+            }
+            const Rectangle editBtn = {
+                clip.x + kPad, y, std::max(80.0f, maxW), 28.0f};
+            drawEditorButton(font, editBtn, "Edit Event...", true, true);
+            addHit(HitKind::OpenEditEvent, editBtn, n->id);
+            advance(36.0f);
+            drawMutedLine(
+                "Fires grantStoryFlag and applies status on the parent choice/line.");
+            break;
+        }
+        default:
+            break;
+        }
 
-        const float valueMax = std::max(20.0f, maxW - labelW);
-        const std::string value =
-            ellipsize(font, row.value, valueMax, kFontSmall);
-        DrawTextEx(
-            font,
-            value.c_str(),
-            {clip.x + kPad + labelW, y},
-            kFontSmall,
-            1.0f,
-            row.muted ? kTextMuted : kTextPrimary);
-        y += kFontSmall + 8.0f;
-        contentH += kFontSmall + 8.0f;
+        if (!n->sourcePhaseId.empty())
+            drawLabeledRow(
+                "Source phase", n->sourcePhaseId, false, HitKind::None, 0);
+        if (!n->sourceChoiceId.empty())
+            drawLabeledRow("Choice", n->sourceChoiceId, false, HitKind::None, 0);
+        if (!n->jsonPointer.empty())
+            drawLabeledRow("Pointer", n->jsonPointer, false, HitKind::None, 0);
+    }
+    else
+    {
+        drawMutedLine("Select a node on the flowchart");
     }
 
     EndScissorMode();

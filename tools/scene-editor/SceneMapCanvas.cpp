@@ -35,6 +35,9 @@
 #include "SceneEffectsDialog.h"
 #include "ApiKeysDialog.h"
 #include "EditorPreferencesDialog.h"
+#include "ActorDialogAuthoringDialog.h"
+#include "EventAuthoringDialog.h"
+#include "FightAuthoringDialog.h"
 #include "ImageCompression.h"
 #include "PlatformPath.h"
 #include "RaylibCompat.h"
@@ -2526,6 +2529,9 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         || sceneEffects.blocksInput()
         || sceneTransition.blocksInput()
         || sceneExitRequirements.blocksInput()
+        || (fightAuthoring && fightAuthoring->blocksInput())
+        || (actorDialogAuthoring && actorDialogAuthoring->blocksInput())
+        || (eventAuthoring && eventAuthoring->blocksInput())
         || sceneUseTransition.blocksInput()
         || sceneFloorConnect.blocksInput()
         || (preferences && preferences->blocksInput())
@@ -3290,6 +3296,9 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         || sceneEffects.blocksInput()
         || sceneTransition.blocksInput()
         || sceneExitRequirements.blocksInput()
+        || (fightAuthoring && fightAuthoring->blocksInput())
+        || (actorDialogAuthoring && actorDialogAuthoring->blocksInput())
+        || (eventAuthoring && eventAuthoring->blocksInput())
         || sceneUseTransition.blocksInput()
         || sceneFloorConnect.blocksInput()
         || (preferences && preferences->blocksInput())
@@ -3340,6 +3349,9 @@ bool SceneMapCanvas::anyAuthoringModalOpen() const
         || sceneEffects.blocksInput()
         || sceneTransition.blocksInput()
         || sceneExitRequirements.blocksInput()
+        || (fightAuthoring && fightAuthoring->blocksInput())
+        || (actorDialogAuthoring && actorDialogAuthoring->blocksInput())
+        || (eventAuthoring && eventAuthoring->blocksInput())
         || sceneUseTransition.blocksInput()
         || sceneFloorConnect.blocksInput()
         || (preferences != nullptr && preferences->blocksInput())
@@ -4334,6 +4346,9 @@ void SceneMapCanvas::drawSceneList(Rectangle listBounds)
         && !sceneEffects.blocksInput()
         && !sceneTransition.blocksInput()
         && !sceneExitRequirements.blocksInput()
+        && !(fightAuthoring && fightAuthoring->blocksInput())
+        && !(actorDialogAuthoring && actorDialogAuthoring->blocksInput())
+        && !(eventAuthoring && eventAuthoring->blocksInput())
         && !sceneUseTransition.blocksInput()
         && !sceneFloorConnect.blocksInput()
         && !(preferences && preferences->blocksInput())
@@ -4452,6 +4467,9 @@ void SceneMapCanvas::drawSceneList(Rectangle listBounds)
         && !sceneEffects.blocksInput()
         && !sceneTransition.blocksInput()
         && !sceneExitRequirements.blocksInput()
+        && !(fightAuthoring && fightAuthoring->blocksInput())
+        && !(actorDialogAuthoring && actorDialogAuthoring->blocksInput())
+        && !(eventAuthoring && eventAuthoring->blocksInput())
         && !sceneUseTransition.blocksInput()
         && !sceneFloorConnect.blocksInput()
         && !(preferences && preferences->blocksInput())
@@ -4933,6 +4951,9 @@ void SceneMapCanvas::drawScenePreviewPane(Rectangle paneBounds)
         && !sceneEffects.blocksInput()
         && !sceneTransition.blocksInput()
         && !sceneExitRequirements.blocksInput()
+        && !(fightAuthoring && fightAuthoring->blocksInput())
+        && !(actorDialogAuthoring && actorDialogAuthoring->blocksInput())
+        && !(eventAuthoring && eventAuthoring->blocksInput())
         && !sceneUseTransition.blocksInput()
         && !sceneFloorConnect.blocksInput()
         && !(preferences && preferences->blocksInput())
@@ -5187,6 +5208,9 @@ void SceneMapCanvas::drawBottomPane(Rectangle bottomBounds)
         && !sceneEffects.blocksInput()
         && !sceneTransition.blocksInput()
         && !sceneExitRequirements.blocksInput()
+        && !(fightAuthoring && fightAuthoring->blocksInput())
+        && !(actorDialogAuthoring && actorDialogAuthoring->blocksInput())
+        && !(eventAuthoring && eventAuthoring->blocksInput())
         && !sceneUseTransition.blocksInput()
         && !sceneFloorConnect.blocksInput()
         && !(preferences && preferences->blocksInput())
@@ -5273,6 +5297,9 @@ void SceneMapCanvas::drawStatusBar(int screenWidth, int screenHeight)
         && !sceneEffects.blocksInput()
         && !sceneTransition.blocksInput()
         && !sceneExitRequirements.blocksInput()
+        && !(fightAuthoring && fightAuthoring->blocksInput())
+        && !(actorDialogAuthoring && actorDialogAuthoring->blocksInput())
+        && !(eventAuthoring && eventAuthoring->blocksInput())
         && !sceneUseTransition.blocksInput()
         && !sceneFloorConnect.blocksInput()
         && confirmMode == ConfirmMode::None;
@@ -5439,6 +5466,12 @@ void SceneMapCanvas::draw()
     sceneEffects.draw(screenWidth, screenHeight);
     sceneTransition.draw(screenWidth, screenHeight);
     sceneExitRequirements.draw(screenWidth, screenHeight);
+    if (fightAuthoring)
+        fightAuthoring->draw(screenWidth, screenHeight);
+    if (actorDialogAuthoring)
+        actorDialogAuthoring->draw(screenWidth, screenHeight);
+    if (eventAuthoring)
+        eventAuthoring->draw(screenWidth, screenHeight);
     sceneUseTransition.draw(screenWidth, screenHeight);
     sceneFloorConnect.draw(screenWidth, screenHeight);
     if (preferences)

@@ -29,6 +29,13 @@
 namespace timberline_engine
 {
 
+/** Extra per-actor reputation rows on a status bag (in addition to legacy actor/actorOpinion). */
+struct ActorOpinionDelta
+{
+    std::string actor;
+    int delta = 0;
+};
+
 struct StatusEffect
 {
     std::string key;
@@ -43,6 +50,8 @@ struct StatusEffect
     float actorTab = 0.0f;
     bool repeat = false;
     std::string onZeroLucidity;
+    /** Multi-actor reputation; when non-empty, prefer these over a single actorOpinion apply. */
+    std::vector<ActorOpinionDelta> opinions;
 
     bool hasPlayerDelta() const
     {
@@ -52,6 +61,15 @@ struct StatusEffect
 
     bool hasActorOpinionDelta() const
     {
+        if (!opinions.empty())
+        {
+            for (const ActorOpinionDelta& row : opinions)
+            {
+                if (!row.actor.empty() && row.delta != 0)
+                    return true;
+            }
+            return false;
+        }
         return !actor.empty() && actorOpinion != 0;
     }
 
@@ -65,6 +83,46 @@ struct StatusEffect
         return hasPlayerDelta() || hasActorOpinionDelta() || hasActorTabDelta();
     }
 };
+
+/**
+ * Expand an authored status bag into one or more apply-ready StatusEffect entries
+ * (player/tab/key on one; each opinions[] row as its own actorOpinion effect).
+ */
+inline void appendExpandedStatusEffects(
+    const StatusEffect& authored,
+    std::vector<StatusEffect>& out)
+{
+    StatusEffect player = authored;
+    player.opinions.clear();
+    player.actorOpinion = 0;
+    // Keep actor/actorTab on the player bag for tab ledger; strip opinion so it
+    // is not double-applied when opinions[] is also present.
+    if (!authored.opinions.empty())
+        player.actorOpinion = 0;
+
+    const bool playerUseful = player.hasPlayerDelta() || player.hasActorTabDelta()
+        || !player.key.empty() || !player.onZeroLucidity.empty();
+    // Legacy single opinion with no opinions[] still rides on the player bag.
+    if (authored.opinions.empty() && authored.hasActorOpinionDelta())
+    {
+        player.actorOpinion = authored.actorOpinion;
+        out.push_back(player);
+    }
+    else if (playerUseful)
+    {
+        out.push_back(player);
+    }
+
+    for (const ActorOpinionDelta& row : authored.opinions)
+    {
+        if (row.actor.empty() || row.delta == 0)
+            continue;
+        StatusEffect opinion;
+        opinion.actor = row.actor;
+        opinion.actorOpinion = row.delta;
+        out.push_back(opinion);
+    }
+}
 
 struct DialogRequirementFields
 {
@@ -338,13 +396,103 @@ struct ConversationPhase
     bool avoidRepeat = true;
 };
 
+/** One spoken bag for fight lead-up / win / lose. */
+struct AttackDialogBag
+{
+    std::string text;
+    bool tts = false;
+    std::string ttsVoice;
+    std::string ttsText;
+    std::string ttsAudio;
+    std::vector<std::string> ttsAudioSegments;
+};
+
+struct AttackStatLoss
+{
+    bool enabled = false;
+    float percentOfCurrent = 50.0f;
+};
+
+/**
+ * Authored fight encounter. Lines set allowAttack + attackEncounterId to arm
+ * the Attack button; clicking Attack plays leadUp → scrape → win/lose.
+ */
+struct AttackEncounterDef
+{
+    std::string id;
+    std::string combatantId;
+    AttackDialogBag leadUp;
+    AttackDialogBag win;
+    AttackDialogBag lose;
+
+    int actorEdgeHealth = 0;
+    int actorEdgeEnergy = 0;
+    int actorEdgeResolve = 0;
+    int actorEdgeLucidity = 0;
+    int actorEdgeCharisma = 0;
+
+    bool cannotLose = false;
+    bool playerDeath = false;
+    AttackStatLoss lossHealth;
+    AttackStatLoss lossEnergy;
+    AttackStatLoss lossResolve;
+    AttackStatLoss lossLucidity;
+    AttackStatLoss lossCharisma;
+
+    bool reputationChange = false;
+    int reputationDelta = 0;
+
+    /** When Attack may be offered (choice-style money/tab/room + dialog requirements). */
+    DialogRequirementFields requirements;
+    float requiresMoney = 0.0f;
+    float requiresInsufficientMoney = 0.0f;
+    bool requiresPositiveActorTab = false;
+    bool requiresPayActorTabInFull = false;
+    bool requiresInsufficientForActorTab = false;
+    bool requiresSaloonRoomAvailable = false;
+    std::string tabActor;
+    bool requiresLightSource = false;
+    std::string requiresInventoryItem;
+    std::string requiresStoryFlag;
+
+    /** Money / tab / room gates — same semantics as ConversationChoiceDef::isAvailable. */
+    bool isAvailable(const ChoiceAvailabilityContext& context) const
+    {
+        if (requiresMoney > 0.0f && context.walletCash < requiresMoney)
+            return false;
+        if (requiresInsufficientMoney > 0.0f && context.walletCash >= requiresInsufficientMoney)
+            return false;
+        const std::string actorId = tabActor;
+        const float tabOwed = context.actorTabOwedTo(actorId);
+        if (requiresPositiveActorTab && tabOwed <= 0.0f)
+            return false;
+        if (requiresPayActorTabInFull && (tabOwed <= 0.0f || context.walletCash < tabOwed))
+            return false;
+        if (requiresInsufficientForActorTab && (tabOwed <= 0.0f || context.walletCash >= tabOwed))
+            return false;
+        if (requiresSaloonRoomAvailable && context.hasSaloonRoomTonight())
+            return false;
+        return true;
+    }
+};
+
 struct SceneSpeakConfig
 {
     std::vector<ConversationPhase> phases;
     /** Default bags keyed by actor id (seeded into WorldState on first use). */
     std::map<std::string, std::vector<ActorInventorySlot>> actorInventories;
+    /** Fight defs keyed by attackEncounterId. */
+    std::map<std::string, AttackEncounterDef> attackEncounters;
 
     bool hasPhases() const { return !phases.empty(); }
+
+    const AttackEncounterDef* findAttackEncounter(const std::string& id) const
+    {
+        if (id.empty())
+            return nullptr;
+        const auto it = attackEncounters.find(id);
+        return it == attackEncounters.end() ? nullptr : &it->second;
+    }
 };
 
 struct SpeakResult

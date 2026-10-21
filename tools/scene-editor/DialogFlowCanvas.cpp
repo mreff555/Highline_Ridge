@@ -10,6 +10,8 @@
 #include "EditorInput.h"
 #include "EditorTheme.h"
 #include "EditorUiDraw.h"
+#include "EventAuthoringDialog.h"
+#include "FightAuthoringDialog.h"
 #include "PlatformPath.h"
 #include "TtsVoiceMarkup.h"
 
@@ -104,6 +106,7 @@ void DialogFlowCanvas::clearGraph()
     edges.clear();
     nextNodeId = 1;
     selectedNodeId = -1;
+    selectedEdgeIndex = -1;
     placingFromPalette = false;
     wiring = false;
     draggingNode = false;
@@ -371,7 +374,9 @@ bool DialogFlowCanvas::hitPort(
             outIsParent = true;
             return true;
         }
-        const int kids = dialogNodeChildCount(n.kind);
+        const int kids = n.kind == DialogNodeKind::ActorDialog
+            ? actorOutPortCount(n)
+            : dialogNodeChildCount(n.kind);
         for (int c = 0; c < kids; ++c)
         {
             if (nearPort(childPortWorld(n.id, c)))
@@ -419,19 +424,18 @@ void DialogFlowCanvas::tryFinishWire(Vector2 screen)
         return;
     }
 
-    // Fan-in allowed: multiple parents may wire into the same top port (#64).
-    // Only reject an exact duplicate of the same from→to link.
-    for (const DialogFlowEdge& existing : edges)
-    {
-        if (existing.fromId == wireFromId
-            && existing.fromChildIndex == wireFromChild
-            && existing.toId == toId)
-        {
-            wiring = false;
-            status = "Already connected";
-            return;
-        }
-    }
+    // Fan-in allowed on parent ports (#64). One out-port → one child wire:
+    // replacing clears the prior link so Actor→Player list/colors stay in sync.
+    edges.erase(
+        std::remove_if(
+            edges.begin(),
+            edges.end(),
+            [this](const DialogFlowEdge& existing) {
+                return existing.fromId == wireFromId
+                    && existing.fromChildIndex == wireFromChild;
+            }),
+        edges.end());
+    selectedEdgeIndex = -1;
 
     DialogFlowEdge edge;
     edge.fromId = wireFromId;
@@ -439,7 +443,103 @@ void DialogFlowCanvas::tryFinishWire(Vector2 screen)
     edge.toId = toId;
     edges.push_back(edge);
     wiring = false;
+    selectedEdgeIndex = static_cast<int>(edges.size()) - 1;
+
+    if (const DialogFlowNode* from = findNode(wireFromId))
+    {
+        if (from->kind == DialogNodeKind::ActorDialog)
+        {
+            if (const DialogFlowNode* to = findNode(toId))
+            {
+                if (to->kind == DialogNodeKind::PlayerDialog)
+                {
+                    status = "Player response wired (port "
+                        + std::to_string(wireFromChild) + ")";
+                    return;
+                }
+            }
+        }
+    }
     status = "Connected";
+}
+
+namespace
+{
+float distPointToSegment2(Vector2 p, Vector2 a, Vector2 b)
+{
+    const float abx = b.x - a.x;
+    const float aby = b.y - a.y;
+    const float apx = p.x - a.x;
+    const float apy = p.y - a.y;
+    const float ab2 = abx * abx + aby * aby;
+    float t = 0.0f;
+    if (ab2 > 1e-6f)
+        t = std::clamp((apx * abx + apy * aby) / ab2, 0.0f, 1.0f);
+    const float cx = a.x + abx * t;
+    const float cy = a.y + aby * t;
+    const float dx = p.x - cx;
+    const float dy = p.y - cy;
+    return dx * dx + dy * dy;
+}
+} // namespace
+
+int DialogFlowCanvas::hitEdgeIndex(Vector2 screen) const
+{
+    constexpr float kHitSlop = 8.0f;
+    const float slop2 = kHitSlop * kHitSlop;
+    int best = -1;
+    float bestD = slop2;
+    for (size_t i = 0; i < edges.size(); ++i)
+    {
+        const DialogFlowEdge& e = edges[i];
+        const Vector2 fromW = childPortWorld(e.fromId, e.fromChildIndex);
+        const DialogFlowNode* to = findNode(e.toId);
+        if (to == nullptr)
+            continue;
+        const Vector2 toW = parentPortWorld(*to);
+        const Vector2 a = screenFromWorld(fromW);
+        const Vector2 b = screenFromWorld(toW);
+        const float midY = (a.y + b.y) * 0.5f;
+        const Vector2 midA = {a.x, midY};
+        const Vector2 midB = {b.x, midY};
+        const float d0 = distPointToSegment2(screen, a, midA);
+        const float d1 = distPointToSegment2(screen, midA, midB);
+        const float d2 = distPointToSegment2(screen, midB, b);
+        const float d = std::min(d0, std::min(d1, d2));
+        if (d <= bestD)
+        {
+            bestD = d;
+            best = static_cast<int>(i);
+        }
+    }
+    return best;
+}
+
+void DialogFlowCanvas::removeEdgeAt(int edgeIndex)
+{
+    if (edgeIndex < 0 || edgeIndex >= static_cast<int>(edges.size()))
+        return;
+    const DialogFlowEdge removed = edges[static_cast<size_t>(edgeIndex)];
+    edges.erase(edges.begin() + edgeIndex);
+    selectedEdgeIndex = -1;
+
+    // Actor→Player disconnect: slot returns to default; details list drops the row.
+    if (const DialogFlowNode* from = findNode(removed.fromId))
+    {
+        if (from->kind == DialogNodeKind::ActorDialog)
+        {
+            if (const DialogFlowNode* to = findNode(removed.toId))
+            {
+                if (to->kind == DialogNodeKind::PlayerDialog)
+                {
+                    status = "Player response unlinked (port "
+                        + std::to_string(removed.fromChildIndex) + ")";
+                    return;
+                }
+            }
+        }
+    }
+    status = "Wire removed";
 }
 
 void DialogFlowCanvas::closeVoiceMenu()
@@ -479,14 +579,17 @@ void DialogFlowCanvas::buildContextMenuItems(const DialogFlowNode& n)
     switch (n.kind)
     {
     case DialogNodeKind::ActorDialog:
-        add("Edit text...", kFlowMenuEditText);
+        add("Edit Actor Dialog...", kFlowMenuEditActorDialog);
+        break;
+    case DialogNodeKind::PlayerDialog:
+        add("Edit text...", kFlowMenuEditPlayerText);
         add("Edit TTS...", kFlowMenuEditTts);
         add(
             "Default voice: " + formatDefaultVoiceLabel(n.defaultVoice) + "  ▸",
             kFlowMenuOpenDefaultVoice);
         break;
-    case DialogNodeKind::PlayerDialog:
-        add("Edit text...", kFlowMenuEditPlayerText);
+    case DialogNodeKind::DialogEnd:
+        add("Edit text...", kFlowMenuEditText);
         add("Edit TTS...", kFlowMenuEditTts);
         add(
             "Default voice: " + formatDefaultVoiceLabel(n.defaultVoice) + "  ▸",
@@ -511,12 +614,10 @@ void DialogFlowCanvas::buildContextMenuItems(const DialogFlowNode& n)
         add("Edit opening TTS...", kFlowMenuEditTts);
         break;
     case DialogNodeKind::Attack:
-        add("Edit combatant...", kFlowMenuEditCombatant);
-        add(n.playerDeathPossible ? "Death possible: ON" : "Death possible: off",
-            kFlowMenuToggleDeathPossible);
+        add("Edit Fight...", kFlowMenuEditFight);
         break;
     case DialogNodeKind::TriggerEvent:
-        add("Edit event id...", kFlowMenuEditEventId);
+        add("Edit Event...", kFlowMenuEditEvent);
         break;
     default:
         break;
@@ -839,6 +940,231 @@ void DialogFlowCanvas::openParchmentForField(
     };
 }
 
+void DialogFlowCanvas::openDetailsParchment(
+    int nodeId,
+    std::string* field,
+    bool tts,
+    const std::string& label,
+    const std::string& companionPlain)
+{
+    if (nodeId <= 0 || field == nullptr)
+        return;
+    DialogFlowNode* n = findNode(nodeId);
+    if (n == nullptr)
+        return;
+    selectedNodeId = nodeId;
+    contextMenuNodeId = nodeId;
+
+    std::string companion = companionPlain;
+    if (companion.empty())
+    {
+        if (n->kind == DialogNodeKind::PlayerDialog)
+            companion = n->playerDialogText;
+        else
+            companion = n->dialogText;
+    }
+
+    std::string* audioBind = tts ? &n->dialogTtsAudio : nullptr;
+    std::vector<std::string>* segsBind =
+        tts ? &n->dialogTtsAudioSegments : nullptr;
+    openParchmentForField(
+        field,
+        tts,
+        label,
+        companion,
+        n->defaultVoice,
+        n->dialogTtsAudio,
+        audioBind,
+        segsBind);
+}
+
+std::vector<DialogFlowCanvas::PlayerResponseLink>
+DialogFlowCanvas::playerResponsesUnder(int actorNodeId) const
+{
+    std::vector<PlayerResponseLink> out;
+    if (actorNodeId <= 0)
+        return out;
+    for (const DialogFlowEdge& e : edges)
+    {
+        if (e.fromId != actorNodeId)
+            continue;
+        const DialogFlowNode* child = findNode(e.toId);
+        if (child == nullptr || child->kind != DialogNodeKind::PlayerDialog)
+            continue;
+        out.push_back({e.fromChildIndex, e.toId});
+    }
+    std::sort(
+        out.begin(),
+        out.end(),
+        [](const PlayerResponseLink& a, const PlayerResponseLink& b) {
+            return a.childIndex < b.childIndex;
+        });
+    return out;
+}
+
+bool DialogFlowCanvas::actorSlotHasPlayerResponse(int actorNodeId, int childIndex) const
+{
+    for (const DialogFlowEdge& e : edges)
+    {
+        if (e.fromId != actorNodeId || e.fromChildIndex != childIndex)
+            continue;
+        const DialogFlowNode* child = findNode(e.toId);
+        if (child != nullptr && child->kind == DialogNodeKind::PlayerDialog)
+            return true;
+    }
+    return false;
+}
+
+int DialogFlowCanvas::actorOutPortCount(const DialogFlowNode& n) const
+{
+    return n.playerResponsesEnabled ? 5 : 1;
+}
+
+int DialogFlowCanvas::firstFreeActorChildSlot(int actorNodeId) const
+{
+    // A slot is free for a new player response when it has no Player Dialog wire
+    // (and no other outgoing wire — one out-port, one child). Off → only slot 0.
+    const DialogFlowNode* actor = findNode(actorNodeId);
+    const int count = (actor != nullptr && actor->kind == DialogNodeKind::ActorDialog)
+        ? actorOutPortCount(*actor)
+        : 5;
+    bool used[5] = {false, false, false, false, false};
+    for (const DialogFlowEdge& e : edges)
+    {
+        if (e.fromId != actorNodeId)
+            continue;
+        if (e.fromChildIndex >= 0 && e.fromChildIndex < 5)
+            used[e.fromChildIndex] = true;
+    }
+    for (int i = 0; i < count; ++i)
+    {
+        if (!used[i])
+            return i;
+    }
+    return -1;
+}
+
+void DialogFlowCanvas::trimActorOutWiresToPortCount(int actorNodeId)
+{
+    const DialogFlowNode* actor = findNode(actorNodeId);
+    if (actor == nullptr || actor->kind != DialogNodeKind::ActorDialog)
+        return;
+    const int maxPorts = actorOutPortCount(*actor);
+    edges.erase(
+        std::remove_if(
+            edges.begin(),
+            edges.end(),
+            [&](const DialogFlowEdge& e) {
+                return e.fromId == actorNodeId && e.fromChildIndex >= maxPorts;
+            }),
+        edges.end());
+    selectedEdgeIndex = -1;
+}
+
+bool DialogFlowCanvas::nodeHasOutgoing(int nodeId) const
+{
+    for (const DialogFlowEdge& e : edges)
+    {
+        if (e.fromId == nodeId)
+            return true;
+    }
+    return false;
+}
+
+int DialogFlowCanvas::addPlayerResponseUnder(int actorNodeId)
+{
+    DialogFlowNode* actor = findNode(actorNodeId);
+    if (actor == nullptr || actor->kind != DialogNodeKind::ActorDialog)
+        return -1;
+    const int slot = firstFreeActorChildSlot(actorNodeId);
+    if (slot < 0)
+    {
+        status = actor->playerResponsesEnabled
+            ? "Actor Dialog already has 5 player responses"
+            : "Turn on Player responses for more than one out-port";
+        return -1;
+    }
+
+    // Create the Player Dialog icon immediately and wire Actor out-port → Player
+    // parent so map continuity matches Dialog details (slot color + list row).
+    const Vector2 port = childPortWorld(actorNodeId, slot);
+    const float ox = port.x - kNodeW * 0.5f;
+    const float oy = port.y + 36.0f;
+    const int id = allocNode(DialogNodeKind::PlayerDialog, ox, oy);
+    DialogFlowNode* player = findNode(id);
+    if (player == nullptr)
+        return -1;
+    player->playerDialogText.clear();
+    player->defaultVoice.clear(); // Off by default for player lines
+    addEdge(actorNodeId, slot, id);
+    selectedEdgeIndex = -1;
+
+    // Keep the new card in view when the Actor hub is scrolled off-screen.
+    if (lastBounds.width > 1.0f && lastBounds.height > 1.0f)
+    {
+        const Vector2 screen = screenFromWorld(
+            {ox + kNodeW * 0.5f, oy + kNodeH * 0.5f});
+        const float margin = 48.0f;
+        if (screen.x < lastBounds.x + margin)
+            scrollX -= (lastBounds.x + margin) - screen.x;
+        else if (screen.x > lastBounds.x + lastBounds.width - margin)
+            scrollX += screen.x - (lastBounds.x + lastBounds.width - margin);
+        if (screen.y < lastBounds.y + margin)
+            scrollY -= (lastBounds.y + margin) - screen.y;
+        else if (screen.y > lastBounds.y + lastBounds.height - margin)
+            scrollY += screen.y - (lastBounds.y + lastBounds.height - margin);
+        clampScroll();
+    }
+
+    selectedNodeId = actorNodeId;
+    status = "Player Dialog created and linked (port " + std::to_string(slot)
+        + ") — edit line, then Confirm";
+
+    // Open parchment so Confirm persists the spoken option text on the new node.
+    openDetailsParchment(
+        id, &player->playerDialogText, false, "New player response");
+    if (parchment != nullptr)
+    {
+        const auto prevClosed = parchment->onClosed;
+        parchment->onClosed = [this, actorNodeId, prevClosed]() {
+            if (prevClosed)
+                prevClosed();
+            // Return details focus to the Actor so Player Responses stays visible.
+            if (findNode(actorNodeId) != nullptr)
+                selectedNodeId = actorNodeId;
+            status = "Player response saved and linked on the flowchart";
+        };
+    }
+    return id;
+}
+
+void DialogFlowCanvas::removePlayerResponse(int actorNodeId, int playerNodeId)
+{
+    DialogFlowNode* player = findNode(playerNodeId);
+    if (player == nullptr || player->kind != DialogNodeKind::PlayerDialog)
+        return;
+    // Unlink only — leave the Player Dialog node on the map for rewiring.
+    int removed = 0;
+    edges.erase(
+        std::remove_if(
+            edges.begin(),
+            edges.end(),
+            [&](const DialogFlowEdge& e) {
+                if (e.fromId == actorNodeId && e.toId == playerNodeId)
+                {
+                    ++removed;
+                    return true;
+                }
+                return false;
+            }),
+        edges.end());
+    selectedEdgeIndex = -1;
+    if (removed > 0)
+        status = "Player response unlinked";
+    else
+        status = "No wire from Actor Dialog to that Player Dialog";
+}
+
 void DialogFlowCanvas::deleteNode(int id)
 {
     if (id <= 0)
@@ -859,6 +1185,7 @@ void DialogFlowCanvas::deleteNode(int id)
         nodes.end());
     if (selectedNodeId == id)
         selectedNodeId = -1;
+    selectedEdgeIndex = -1;
     status = "Deleted node";
 }
 
@@ -874,6 +1201,11 @@ void DialogFlowCanvas::applyContextMenuAction(int action)
     switch (action)
     {
     case kFlowMenuEditText:
+        if (n->kind == DialogNodeKind::Attack)
+        {
+            openParchmentForField(&n->fightLeadText, false, "Fight lead-up text");
+            return;
+        }
         openParchmentForField(
             &n->dialogText,
             false,
@@ -1022,9 +1354,27 @@ void DialogFlowCanvas::applyContextMenuAction(int action)
     case kFlowMenuEditCombatant:
         openParchmentForField(&n->combatantId, false, "Combatant id");
         return;
+    case kFlowMenuEditFight:
+        closeContextMenu();
+        if (onEditFight)
+            onEditFight(n);
+        return;
+    case kFlowMenuEditActorDialog:
+        closeContextMenu();
+        if (onEditActorDialog)
+            onEditActorDialog(n);
+        return;
+    case kFlowMenuEditEvent:
+        closeContextMenu();
+        if (onEditEvent)
+            onEditEvent(n);
+        return;
     case kFlowMenuToggleDeathPossible:
-        n->playerDeathPossible = !n->playerDeathPossible;
-        status = n->playerDeathPossible ? "Death possible: ON" : "Death possible: off";
+        n->fightPlayerDeath = !n->fightPlayerDeath;
+        if (n->fightPlayerDeath)
+            n->fightCannotLose = false;
+        n->playerDeathPossible = n->fightPlayerDeath;
+        status = n->fightPlayerDeath ? "Player death: ON" : "Player death: off";
         closeContextMenu();
         return;
     case kFlowMenuOpenDefaultVoice:
@@ -1365,29 +1715,48 @@ void DialogFlowCanvas::handleInput(Rectangle bounds, bool allowInteraction)
             wireFromId = portNode;
             wireFromChild = portChild;
             selectedNodeId = portNode;
+            selectedEdgeIndex = -1;
             status = "Drag to a parent (top) port";
             return;
         }
 
         const int hit = hitNodeCard(mouse);
-        selectedNodeId = hit;
-        if (hit > 0)
+        if (hit >= 0)
         {
-            const Vector2 world = worldFromScreen(mouse);
-            if (const DialogFlowNode* n = findNode(hit))
+            selectedNodeId = hit;
+            selectedEdgeIndex = -1;
+            if (hit > 0)
             {
-                draggingNode = true;
-                dragNodeId = hit;
-                dragGrabDX = world.x - n->x;
-                dragGrabDY = world.y - n->y;
+                const Vector2 world = worldFromScreen(mouse);
+                if (const DialogFlowNode* n = findNode(hit))
+                {
+                    draggingNode = true;
+                    dragNodeId = hit;
+                    dragGrabDX = world.x - n->x;
+                    dragGrabDY = world.y - n->y;
+                }
             }
+            return;
         }
+
+        // Click empty canvas / wire: select a wire if the cursor is on one.
+        const int edgeHit = hitEdgeIndex(mouse);
+        selectedEdgeIndex = edgeHit;
+        if (edgeHit >= 0)
+        {
+            selectedNodeId = -1;
+            status = "Wire selected — Delete to unlink";
+        }
+        else
+            selectedNodeId = -1;
     }
 
-    if (selectedNodeId > 0
-        && (IsKeyPressed(KEY_DELETE) || IsKeyPressed(KEY_BACKSPACE)))
+    if (IsKeyPressed(KEY_DELETE) || IsKeyPressed(KEY_BACKSPACE))
     {
-        deleteNode(selectedNodeId);
+        if (selectedEdgeIndex >= 0)
+            removeEdgeAt(selectedEdgeIndex);
+        else if (selectedNodeId > 0)
+            deleteNode(selectedNodeId);
     }
 }
 
@@ -1453,21 +1822,41 @@ void DialogFlowCanvas::draw(Rectangle bounds)
             DrawLineEx({bounds.x, y}, {bounds.x + bounds.width, y}, 1.0f, grid);
     }
 
-    auto drawWire = [&](Vector2 fromW, Vector2 toW) {
+    auto drawWire = [&](Vector2 fromW, Vector2 toW, Color color, float thick) {
         const Vector2 a = screenFromWorld(fromW);
         const Vector2 b = screenFromWorld(toW);
         const float midY = (a.y + b.y) * 0.5f;
-        DrawLineEx(a, {a.x, midY}, 2.0f, kDialogFlowWire);
-        DrawLineEx({a.x, midY}, {b.x, midY}, 2.0f, kDialogFlowWire);
-        DrawLineEx({b.x, midY}, b, 2.0f, kDialogFlowWire);
-        DrawCircleV(b, 3.0f, kDialogFlowWire);
+        DrawLineEx(a, {a.x, midY}, thick, color);
+        DrawLineEx({a.x, midY}, {b.x, midY}, thick, color);
+        DrawLineEx({b.x, midY}, b, thick, color);
+        DrawCircleV(b, 3.0f, color);
     };
 
-    for (const DialogFlowEdge& e : edges)
+    for (size_t ei = 0; ei < edges.size(); ++ei)
     {
+        const DialogFlowEdge& e = edges[ei];
         const Vector2 from = childPortWorld(e.fromId, e.fromChildIndex);
-        if (const DialogFlowNode* n = findNode(e.toId))
-            drawWire(from, parentPortWorld(*n));
+        const DialogFlowNode* toNode = findNode(e.toId);
+        if (toNode == nullptr)
+            continue;
+
+        Color wireColor = kDialogFlowWire;
+        float thick = 2.0f;
+        if (static_cast<int>(ei) == selectedEdgeIndex)
+        {
+            wireColor = Color{255, 210, 120, 255};
+            thick = 3.0f;
+        }
+        else if (const DialogFlowNode* fromNode = findNode(e.fromId))
+        {
+            if (fromNode->kind == DialogNodeKind::ActorDialog
+                && toNode->kind == DialogNodeKind::PlayerDialog
+                && e.fromChildIndex >= 0 && e.fromChildIndex < 5)
+            {
+                wireColor = dialogActorResponsePortColor(e.fromChildIndex);
+            }
+        }
+        drawWire(from, parentPortWorld(*toNode), wireColor, thick);
     }
 
     if (wiring)
@@ -1516,15 +1905,27 @@ void DialogFlowCanvas::draw(Rectangle bounds)
             DrawCircleV(p, kPortR, kDialogParentPort);
             DrawCircleLinesV(p, kPortR, Color{20, 30, 40, 255});
         }
-        const int kids = dialogNodeChildCount(n.kind);
+        const int kids = n.kind == DialogNodeKind::ActorDialog
+            ? actorOutPortCount(n)
+            : dialogNodeChildCount(n.kind);
         const bool exchangePorts = n.kind == DialogNodeKind::GiveItem
             || n.kind == DialogNodeKind::TakeItem;
+        const bool actorResponsePorts = n.kind == DialogNodeKind::ActorDialog;
         for (int c = 0; c < kids; ++c)
         {
             const Vector2 p = screenFromWorld(childPortWorld(n.id, c));
-            const Color fill = exchangePorts
-                ? (c == 0 ? kDialogExchangeOkPort : kDialogExchangeFailPort)
-                : kDialogChildPort;
+            Color fill = kDialogChildPort;
+            if (exchangePorts)
+            {
+                fill = (c == 0 ? kDialogExchangeOkPort : kDialogExchangeFailPort);
+            }
+            else if (actorResponsePorts)
+            {
+                // Color only when this slot is wired to a Player Dialog.
+                fill = actorSlotHasPlayerResponse(n.id, c)
+                    ? dialogActorResponsePortColor(c)
+                    : kDialogEmptyChildPort;
+            }
             DrawCircleV(p, kPortR, fill);
             DrawCircleLinesV(p, kPortR, Color{40, 30, 28, 255});
         }
@@ -1638,6 +2039,16 @@ int DialogFlowCanvas::migrateActorLine(
             {
                 if (obj->is_object())
                 {
+                    n->lineId = obj->value("id", n->lineId);
+                    n->actorId = obj->value("actorId", n->actorId);
+                    n->actorName = obj->value("actorName", n->actorName);
+                    const bool hasChoices = obj->contains("choices")
+                        && (*obj)["choices"].is_array()
+                        && !(*obj)["choices"].empty();
+                    n->playerResponsesEnabled =
+                        obj->value("playerResponsesEnabled", hasChoices);
+                    if (hasChoices)
+                        n->playerResponsesEnabled = true;
                     if (resumeLeaf)
                     {
                         n->dialogTtsAudio = obj->value("resumeTtsAudio", std::string());
@@ -1720,7 +2131,13 @@ void DialogFlowCanvas::connectWithPorts(int fromId, int toId)
     if (fromId == 0)
         maxChildren = 1;
     else if (const DialogFlowNode* from = findNode(fromId))
-        maxChildren = dialogNodeChildCount(from->kind);
+        maxChildren = from->kind == DialogNodeKind::ActorDialog
+            ? actorOutPortCount(*from)
+            : dialogNodeChildCount(from->kind);
+
+    // Dialog end (and any 0-out kind) cannot grow children or spill hubs.
+    if (maxChildren <= 0)
+        return;
 
     int used = 0;
     for (const DialogFlowEdge& e : edges)
@@ -1741,6 +2158,7 @@ void DialogFlowCanvas::connectWithPorts(int fromId, int toId)
         {
             h->dialogText = "(more branches)";
             h->title = "More";
+            h->playerResponsesEnabled = true;
         }
         // Use last child port of the original for the hub link.
         addEdge(fromId, std::max(0, maxChildren - 1), hub);
@@ -1751,7 +2169,10 @@ void DialogFlowCanvas::connectWithPorts(int fromId, int toId)
             if (e.fromId == attachFrom)
                 ++used;
         }
-        maxChildren = dialogNodeChildCount(DialogNodeKind::ActorDialog);
+        if (const DialogFlowNode* hubNode = findNode(hub))
+            maxChildren = actorOutPortCount(*hubNode);
+        else
+            maxChildren = 5;
     }
 
     const int childIndex = std::min(used, std::max(0, maxChildren - 1));
@@ -2021,6 +2442,8 @@ void DialogFlowCanvas::migrateChoiceTree(
         {
             n->eventId = choice["grantStoryFlag"].get<std::string>();
             n->jsonPointer = pointer + "/grantStoryFlag";
+            n->sourceChoiceId = choiceId;
+            fillEventNodeFromChoiceJson(*n, choice);
         }
         connectWithPorts(chainParent, flagNode);
         chainParent = flagNode;
@@ -2477,7 +2900,15 @@ void DialogFlowCanvas::migratePhase(
             originY,
             openerVoice);
         if (DialogFlowNode* n = findNode(openerId))
+        {
             n->sourcePhaseId = phaseId;
+            if (n->lineId.empty())
+                n->lineId = phaseId;
+            if (n->actorId.empty())
+                n->actorId = phase.value("actorId", std::string());
+            if (n->actorName.empty())
+                n->actorName = phase.value("actorName", std::string());
+        }
         if (!phaseId.empty())
             phaseIntroIds[phaseId] = openerId;
         if (connectFromStart)
@@ -2491,9 +2922,18 @@ void DialogFlowCanvas::migratePhase(
         {
             n->dialogText = phaseId.empty() ? "(phase)" : phaseId;
             n->sourcePhaseId = phaseId;
+            n->lineId = phaseId;
+            n->actorId = phase.value("actorId", std::string());
+            n->actorName = phase.value("actorName", std::string());
             n->jsonPointer = phasePtr;
             if (!openerVoice.empty() && isKnownBuiltinVoiceId(openerVoice))
                 n->defaultVoice = normalizeVoiceId(openerVoice);
+            const bool hasChoices = phase.contains("choices") && phase["choices"].is_array()
+                && !phase["choices"].empty();
+            n->playerResponsesEnabled =
+                phase.value("playerResponsesEnabled", hasChoices);
+            if (hasChoices)
+                n->playerResponsesEnabled = true;
         }
         if (!phaseId.empty())
             phaseIntroIds[phaseId] = openerId;
@@ -2557,8 +2997,27 @@ void DialogFlowCanvas::migratePhase(
                 const int atk = allocNode(DialogNodeKind::Attack, lx, ly + 100.0f);
                 if (DialogFlowNode* n = findNode(atk))
                 {
-                    n->combatantId = line.value("attackEncounterId", std::string());
+                    const std::string encId =
+                        line.value("attackEncounterId", std::string());
+                    n->combatantId = encId;
+                    n->fightEncounterId = encId;
                     n->jsonPointer = linePtr;
+                    if (docs != nullptr && !sceneId.empty()
+                        && docs->conversationsRoot.contains(sceneId)
+                        && docs->conversationsRoot[sceneId].is_object())
+                    {
+                        const nlohmann::json& sceneNode =
+                            docs->conversationsRoot[sceneId];
+                        if (sceneNode.contains("attackEncounters")
+                            && sceneNode["attackEncounters"].is_object()
+                            && !encId.empty()
+                            && sceneNode["attackEncounters"].contains(encId)
+                            && sceneNode["attackEncounters"][encId].is_object())
+                        {
+                            fillFightNodeFromEncounterJson(
+                                *n, sceneNode["attackEncounters"][encId]);
+                        }
+                    }
                 }
                 connectWithPorts(lineId, atk);
             }
@@ -2918,7 +3377,9 @@ void DialogFlowCanvas::relayoutGraph()
         if (kv.first == 0)
             maxChildren = 1;
         else if (const DialogFlowNode* from = findNode(kv.first))
-            maxChildren = dialogNodeChildCount(from->kind);
+            maxChildren = from->kind == DialogNodeKind::ActorDialog
+                ? actorOutPortCount(*from)
+                : dialogNodeChildCount(from->kind);
         for (size_t i = 0; i < outs.size(); ++i)
         {
             outs[i]->fromChildIndex = static_cast<int>(
