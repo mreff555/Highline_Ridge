@@ -46,6 +46,9 @@ class AudioManager
     void setGameplayPaused(bool paused, float fadeSeconds = 0.6f);
     bool isGameplayPaused() const { return gameplayPaused; }
     void update(float deltaSeconds);
+    /** Refill active music streams without advancing fades. Call during long
+     *  main-thread work (save apply, image load) so beds do not underrun. */
+    void pumpStreams();
 
     void onRoomEnter(const RoomAudioConfig& roomAudio, const std::string& fromRoom = "");
     void onRoomExit(const RoomAudioConfig& roomAudio, const std::string& toRoom = "");
@@ -76,6 +79,8 @@ class AudioManager
         float sourceClipVolume = 1.0f;
         float targetVolume = 1.0f;
         float currentVolume = 0.0f;
+        /** Volume at the start of the active fade-in / fade-out / volume ramp. */
+        float fadeFromVolume = 0.0f;
         float fadeInSeconds = 0.0f;
         float fadeOutSeconds = 0.0f;
         float fadeElapsed = 0.0f;
@@ -176,6 +181,8 @@ class AudioManager
     std::string assetRoot;
     AudioVolumeConfig volumes;
     bool deviceReady = false;
+    /** True after SetAudioStreamBufferSizeDefault for music-bed stall tolerance. */
+    bool streamBufferConfigured = false;
     std::map<std::string, CachedAmbientSample> ambientSampleCache;
     std::set<std::string> pendingAmbientLoads;
     std::uint64_t musicLoadGeneration = 0;

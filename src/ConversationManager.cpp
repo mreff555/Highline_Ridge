@@ -424,7 +424,7 @@ SpeakResult ConversationManager::buildNarrativeResult(
     result.action = SpeakResult::Action::ShowNarrative;
     result.narrative = text;
     if (status.hasDelta())
-        result.statusEffects.push_back(status);
+        appendExpandedStatusEffects(status, result.statusEffects);
     if (grantItem.isValid())
         result.grantItem = grantItem;
     result.dialogAudioTracks = dialogAudioTracks;
@@ -518,7 +518,7 @@ SpeakResult ConversationManager::resumeScriptedPhase(
     result.action = SpeakResult::Action::ShowChoices;
     result.narrative = responseText;
     if (status.hasDelta())
-        result.statusEffects.push_back(status);
+        appendExpandedStatusEffects(status, result.statusEffects);
 
     appendDialogAudioTrack(result, responseAudio);
 
@@ -648,10 +648,11 @@ SpeakResult ConversationManager::pickSpecificRandomLine(
     if (line->once && !line->id.empty())
         completedRandomLineIds.insert(line->id);
 
-    if (!line->choices.empty())
+    if (!line->choices.empty() || line->allowAttack)
     {
         SpeakResult result;
-        result.action = SpeakResult::Action::ShowChoices;
+        result.action = line->choices.empty() ? SpeakResult::Action::ShowNarrative
+                                              : SpeakResult::Action::ShowChoices;
         result.narrative = line->text;
         result.sketchPath = line->sketchPath;
         result.choices = line->choices;
@@ -672,6 +673,7 @@ SpeakResult ConversationManager::pickSpecificRandomLine(
             line->ttsAfterAudio,
             line->ttsAfterAudioSegments,
             line->text);
+        // Await so Attack stays armed (even when there are no companion choices).
         awaitingChoice = true;
         activeScriptPhaseId = phase.id;
         pendingChoices = line->choices;
@@ -783,10 +785,11 @@ SpeakResult ConversationManager::pickRandomLine(
     if (line.once && !line.id.empty())
         completedRandomLineIds.insert(line.id);
 
-    if (!line.choices.empty())
+    if (!line.choices.empty() || line.allowAttack)
     {
         SpeakResult result;
-        result.action = SpeakResult::Action::ShowChoices;
+        result.action = line.choices.empty() ? SpeakResult::Action::ShowNarrative
+                                             : SpeakResult::Action::ShowChoices;
         result.narrative = line.text;
         result.sketchPath = line.sketchPath;
         result.choices = line.choices;
@@ -807,6 +810,7 @@ SpeakResult ConversationManager::pickRandomLine(
             line.ttsAfterAudio,
             line.ttsAfterAudioSegments,
             line.text);
+        // Await so Attack stays armed (even when there are no companion choices).
         awaitingChoice = true;
         activeScriptPhaseId = phase.id;
         pendingChoices = line.choices;
@@ -1057,7 +1061,11 @@ SpeakResult ConversationManager::resolveScriptedChoice(
     {
         const ConversationChoiceDef* resumeChoice =
             findChoiceInPhase(phase, choice.resumeChoiceId, nullptr);
-        if (resumeChoice != nullptr && !resumeChoice->followUpChoices.empty())
+        const bool resumeInventory = resumeChoice != nullptr
+            && !resumeChoice->openActorInventory.empty()
+            && static_cast<bool>(actorInventoryChoiceBuilder);
+        if (resumeChoice != nullptr
+            && (!resumeChoice->followUpChoices.empty() || resumeInventory))
         {
             activeParentChoiceId = resumeChoice->id;
 
@@ -1065,7 +1073,7 @@ SpeakResult ConversationManager::resolveScriptedChoice(
             result.action = SpeakResult::Action::ShowChoices;
             result.narrative = choice.response;
             if (choice.status.hasDelta())
-                result.statusEffects.push_back(choice.status);
+                appendExpandedStatusEffects(choice.status, result.statusEffects);
             appendDialogAudioTrack(result, choice.responseAudio);
             applyTtsFields(
                 result,
@@ -1084,7 +1092,10 @@ SpeakResult ConversationManager::resolveScriptedChoice(
                 choice.ttsAfterAudioSegments,
                 "");
 
-            result.choices = resumeChoice->followUpChoices;
+            if (resumeInventory)
+                result.choices = actorInventoryChoiceBuilder(resumeChoice->openActorInventory);
+            else
+                result.choices = resumeChoice->followUpChoices;
             awaitingChoice = true;
             activeScriptPhaseId = phase.id;
             pendingChoices = result.choices;
@@ -1130,6 +1141,48 @@ SpeakResult ConversationManager::resolveScriptedChoice(
         return result;
     }
 
+    // Actor inventory (#60): synthesize browse/buy choices from the actor bag.
+    if (!choice.openActorInventory.empty() && actorInventoryChoiceBuilder)
+    {
+        const std::vector<ConversationChoiceDef> nextChoices =
+            actorInventoryChoiceBuilder(choice.openActorInventory);
+        activeParentChoiceId = choice.id;
+
+        SpeakResult result;
+        result.action = SpeakResult::Action::ShowChoices;
+        result.narrative = choice.response;
+        result.choices = nextChoices;
+        if (choice.status.hasDelta())
+            appendExpandedStatusEffects(choice.status, result.statusEffects);
+        if (choice.grantItem.isValid())
+            result.grantItem = choice.grantItem;
+        result.giveToPlayer = choice.giveToPlayer;
+        result.takeFromPlayer = choice.takeFromPlayer;
+        result.grantStoryFlag = choice.grantStoryFlag;
+        appendDialogAudioTrack(result, choice.responseAudio);
+        applyTtsFields(
+            result,
+            choice.tts,
+            choice.ttsText,
+            choice.ttsVoice,
+            choice.ttsAudio,
+            choice.ttsAudioSegments,
+            choice.response);
+        applyTtsAfterFields(
+            result,
+            choice.ttsAfter,
+            choice.ttsAfterText,
+            choice.ttsAfterVoice,
+            choice.ttsAfterAudio,
+            choice.ttsAfterAudioSegments,
+            "");
+        awaitingChoice = true;
+        activeScriptPhaseId = phase.id;
+        pendingChoices = nextChoices;
+        result.spokenActorId = phaseActorId(phase);
+        return result;
+    }
+
     if (!choice.followUpChoices.empty())
     {
         const std::vector<ConversationChoiceDef> nextChoices = choice.followUpChoices;
@@ -1143,10 +1196,14 @@ SpeakResult ConversationManager::resolveScriptedChoice(
         result.narrative = responseText;
         result.choices = nextChoices;
         if (choice.status.hasDelta())
-            result.statusEffects.push_back(choice.status);
+            appendExpandedStatusEffects(choice.status, result.statusEffects);
         if (choice.grantItem.isValid())
             result.grantItem = choice.grantItem;
+        result.giveToPlayer = choice.giveToPlayer;
+        result.takeFromPlayer = choice.takeFromPlayer;
         result.grantStoryFlag = choice.grantStoryFlag;
+        if (!choice.purchaseFromActor.empty())
+            result.purchaseFromActor = choice.purchaseFromActor;
         appendDialogAudioTrack(result, responseAudio);
         applyTtsFields(
             result,
@@ -1205,7 +1262,12 @@ SpeakResult ConversationManager::resolveScriptedChoice(
     result.grantStoryFlag = choice.grantStoryFlag;
     result.startPhaseId = choice.startPhase;
     result.skipIntroOnStartPhase = choice.skipIntroOnStartPhase;
+    result.exitSceneId = choice.exitSceneId;
     result.overlaySequence = choice.overlaySequence;
+    if (!choice.purchaseFromActor.empty())
+        result.purchaseFromActor = choice.purchaseFromActor;
+    result.giveToPlayer = choice.giveToPlayer;
+    result.takeFromPlayer = choice.takeFromPlayer;
     applyTtsFields(
         result,
         choice.tts,

@@ -8,10 +8,12 @@
 #include "EditorPrefs.h"
 #include "ImageCompression.h"
 #include "PlatformPath.h"
+#include "TtsVoiceMarkup.h"
 
 #include <raylib.h>
 
 #include <cctype>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -32,9 +34,12 @@
 #include <unistd.h>
 #endif
 
+using timberline_engine::buildSegmentAudioPaths;
 using timberline_engine::compressedAssetPath;
 using timberline_engine::ensureParentDirectoryExists;
+using timberline_engine::parseVoiceMarkup;
 using timberline_engine::pathJoin;
+using timberline_engine::TtsVoiceSegment;
 
 namespace timberline_editor
 {
@@ -135,6 +140,8 @@ nlohmann::json sceneAiJobToJson(const SceneAiJob& job)
         j["softenPrompt"] = job.softenPrompt;
     if (job.type == SceneAiJobType::GenerateMusic && !job.musicStylePreset.empty())
         j["musicStylePreset"] = job.musicStylePreset;
+    if (job.type == SceneAiJobType::GenerateMusic && job.musicLengthMs > 0)
+        j["musicLengthMs"] = job.musicLengthMs;
     return j;
 }
 
@@ -394,23 +401,40 @@ std::vector<SceneAiJob> buildSceneAiJobs(
         job.type = SceneAiJobType::GenerateImage;
         job.outPath = paths.imagePath;
         job.softenPrompt = payload.softenImagePrompt;
-        // When softening: overview only + PG-13 rules (forensic examine notes
-        // often trip Imagine). When off: full description+examine context.
-        if (payload.softenImagePrompt)
+        // #65: always blend description + examine by slider weight, then optionally
+        // soften the combined prompt in the Imagine runner (never omit examine).
+        const std::string descPart =
+            payload.description.empty() ? overview : payload.description;
+        const std::string examPart = payload.examineDetails;
+        float descW = payload.imagePromptDescriptionWeight;
+        if (descW < 0.0f)
+            descW = 0.0f;
+        if (descW > 1.0f)
+            descW = 1.0f;
+        std::string imageCtx;
+        if (examPart.empty())
         {
-            const std::string imageCtx = "Scene overview: " + overview;
-            job.prompt = basePrompt
-                + "Wide establishing scene image of: " + imageCtx
-                + " Full-screen adventure game background, dimmable for UI. "
-                  "PG-13: no gore, no blood, no graphic injuries; if a person is "
-                  "present show them still and distant with face obscured.";
+            imageCtx = "Scene overview: " + descPart;
+        }
+        else if (payload.description.empty() && !examPart.empty())
+        {
+            imageCtx = "Examine / detail notes: " + examPart;
         }
         else
         {
-            job.prompt = basePrompt
-                + "Wide establishing scene image of: " + ctx
-                + " Full-screen adventure game background, dimmable for UI.";
+            const int descPct = static_cast<int>(std::lround(descW * 100.0f));
+            const int examPct = 100 - descPct;
+            imageCtx =
+                "Scene image reference mix — emphasize according to weights "
+                "(description ~"
+                + std::to_string(descPct) + "%, examine/detail notes ~"
+                + std::to_string(examPct) + "%):\n"
+                + "Overview: " + descPart + "\n"
+                + "Examine / detail notes: " + examPart;
         }
+        job.prompt = basePrompt
+            + "Wide establishing scene image of: " + imageCtx
+            + " Full-screen adventure game background, dimmable for UI.";
         jobs.push_back(job);
     }
     if (want(2))
@@ -847,6 +871,289 @@ SceneUpsertResult upsertScene(
     return result;
 }
 
+std::string runTranslatePlainTextToTts(
+    const std::string& assetRootHint,
+    const std::string& resourceDirHint,
+    const std::string& sourcePlainText,
+    const std::string& sessionApiKey,
+    std::string& outTtsText)
+{
+    outTtsText.clear();
+    const std::string trimmed = [&]() {
+        size_t b = 0;
+        while (b < sourcePlainText.size()
+               && std::isspace(static_cast<unsigned char>(sourcePlainText[b])))
+            ++b;
+        size_t e = sourcePlainText.size();
+        while (e > b
+               && std::isspace(static_cast<unsigned char>(sourcePlainText[e - 1])))
+            --e;
+        return sourcePlainText.substr(b, e - b);
+    }();
+    if (trimmed.empty())
+        return "Nothing to translate — provide on-screen dialog text first.";
+
+    const std::string gameRoot = findGameRoot(assetRootHint, resourceDirHint);
+    const std::string runner =
+        pathJoin(gameRoot, "tools/run_item_authoring_ai.py");
+    if (!FileExists(runner.c_str()))
+        return "AI runner missing: tools/run_item_authoring_ai.py";
+
+    const std::string authDir = pathJoin(gameRoot, "resources/.authoring");
+#if !defined(_WIN32)
+    {
+        std::string mkdirCmd = "mkdir -p " + shellQuote(authDir);
+        std::system(mkdirCmd.c_str());
+    }
+#endif
+    const std::string inPath = pathJoin(authDir, "parchment_tts_in.txt");
+    const std::string outPath = pathJoin(authDir, "parchment_tts_out.txt");
+    {
+        std::ofstream out(inPath.c_str(), std::ios::binary | std::ios::trunc);
+        if (!out)
+            return "Could not write temp input:\n" + inPath;
+        out << trimmed;
+    }
+
+    auto runWith = [&](const char* pythonBin) -> int {
+        std::ostringstream command;
+        command << pythonBin << " \"" << runner << "\" --asset-root \"" << gameRoot
+                << "\" --translate-tts --in \"" << inPath << "\" --out \"" << outPath
+                << "\"";
+        if (!sessionApiKey.empty())
+            command << " --key " << shellQuote(sessionApiKey);
+        command << " 2>&1";
+        return std::system(command.str().c_str());
+    };
+
+    int code = runWith("python3");
+#if !defined(_WIN32)
+    const int python3Status =
+        (code >= 0 && WIFEXITED(code)) ? WEXITSTATUS(code) : code;
+#else
+    const int python3Status = code;
+#endif
+    if (python3Status == 127 || code == -1)
+        code = runWith("python");
+
+#if !defined(_WIN32)
+    const int status = (code >= 0 && WIFEXITED(code)) ? WEXITSTATUS(code) : code;
+#else
+    const int status = code;
+#endif
+    if (status != 0)
+    {
+        return "AI translate failed (exit "
+            + std::to_string(status)
+            + "). Check xAI key in Options → API keys.";
+    }
+
+    std::ifstream in(outPath.c_str(), std::ios::binary);
+    if (!in)
+        return "AI translate wrote no output:\n" + outPath;
+    std::ostringstream buf;
+    buf << in.rdbuf();
+    outTtsText = buf.str();
+    while (!outTtsText.empty()
+           && (outTtsText.back() == '\n' || outTtsText.back() == '\r'))
+        outTtsText.pop_back();
+    if (outTtsText.empty())
+        return "AI translate returned empty TTS text.";
+    return {};
+}
+
+namespace
+{
+
+std::string synthesizeOneTtsMp3(
+    const std::string& absPath,
+    const std::string& spokenText,
+    const std::string& segmentVoiceId,
+    const std::string& sessionApiKey)
+{
+    if (!ensureParentDirectoryExists(absPath))
+        return "Could not create audio folder for:\n" + absPath;
+
+    nlohmann::json payload;
+    payload["text"] = spokenText;
+    payload["voice_id"] = segmentVoiceId;
+    payload["language"] = "en";
+
+    const std::string payloadPath = absPath + ".json";
+    const std::string httpCodePath = absPath + ".http";
+    {
+        std::ofstream out(payloadPath.c_str(), std::ios::binary | std::ios::trunc);
+        if (!out)
+            return "Could not write TTS request JSON.";
+        out << payload.dump();
+    }
+
+    std::ostringstream command;
+    command << "/usr/bin/curl -sS -X POST https://api.x.ai/v1/tts "
+            << "-H " << shellQuote("Authorization: Bearer " + sessionApiKey) << " "
+            << "-H " << shellQuote("Content-Type: application/json") << " "
+            << "-d @" << shellQuote(payloadPath) << " "
+            << "-o " << shellQuote(absPath) << " "
+            << "-w \"%{http_code}\" > " << shellQuote(httpCodePath);
+    const int code = std::system(command.str().c_str());
+    std::remove(payloadPath.c_str());
+
+    std::string httpCode;
+    {
+        std::ifstream in(httpCodePath.c_str());
+        if (in)
+            std::getline(in, httpCode);
+    }
+    std::remove(httpCodePath.c_str());
+
+#if !defined(_WIN32)
+    const int status = (code >= 0 && WIFEXITED(code)) ? WEXITSTATUS(code) : code;
+#else
+    const int status = code;
+#endif
+    auto readBodyPreview = [&]() -> std::string {
+        std::ifstream in(absPath.c_str(), std::ios::binary);
+        if (!in)
+            return {};
+        std::string body(
+            (std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        // Keep status lines short for the dialog chrome.
+        if (body.size() > 240)
+            body.resize(240);
+        for (char& ch : body)
+        {
+            if (ch == '\n' || ch == '\r' || ch == '\t')
+                ch = ' ';
+        }
+        return body;
+    };
+
+    if (status != 0 || !FileExists(absPath.c_str()))
+    {
+        std::remove(absPath.c_str());
+        return "Generate voice failed for '" + segmentVoiceId + "' (curl exit "
+            + std::to_string(status) + "). Check xAI key / network.";
+    }
+    if (httpCode != "200")
+    {
+        const std::string body = readBodyPreview();
+        std::remove(absPath.c_str());
+        std::string msg = "Generate voice API error for '" + segmentVoiceId
+            + "' (HTTP " + httpCode + ")";
+        if (!body.empty())
+            msg += ": " + body;
+        else
+            msg += ". Check voice id and key.";
+        return msg;
+    }
+    {
+        std::ifstream in(absPath.c_str(), std::ios::binary);
+        char head[8] = {};
+        in.read(head, 1);
+        if (in.gcount() == 1 && head[0] == '{')
+        {
+            const std::string body = readBodyPreview();
+            std::remove(absPath.c_str());
+            std::string msg =
+                "Generate voice API error for '" + segmentVoiceId + "'";
+            if (!body.empty())
+                msg += ": " + body;
+            else
+                msg += " (JSON error payload).";
+            return msg;
+        }
+    }
+    std::remove(compressedAssetPath(absPath).c_str());
+    return {};
+}
+
+void removeStaleSegmentFiles(const std::string& gameRoot, const std::string& baseRel)
+{
+    // Clear a reasonable span of prior .segN leftovers after a re-bake.
+    const std::vector<std::string> paths = buildSegmentAudioPaths(baseRel, 16);
+    for (const std::string& rel : paths)
+    {
+        if (rel == baseRel)
+            continue;
+        const std::string abs =
+            (rel.size() >= 1 && rel[0] == '/') ? rel : pathJoin(gameRoot, rel);
+        std::remove(abs.c_str());
+        std::remove(compressedAssetPath(abs).c_str());
+    }
+}
+
+} // namespace
+
+std::string runSynthesizeTtsAudio(
+    const std::string& assetRootHint,
+    const std::string& resourceDirHint,
+    const std::string& ttsMarkupText,
+    const std::string& voiceId,
+    const std::string& sessionApiKey,
+    const std::string& audioRelPath,
+    std::string& outWrittenRel,
+    std::vector<std::string>* outSegmentRels)
+{
+    outWrittenRel.clear();
+    if (outSegmentRels != nullptr)
+        outSegmentRels->clear();
+
+    const std::string trimmed = [&]() {
+        size_t b = 0;
+        while (b < ttsMarkupText.size()
+               && std::isspace(static_cast<unsigned char>(ttsMarkupText[b])))
+            ++b;
+        size_t e = ttsMarkupText.size();
+        while (e > b
+               && std::isspace(static_cast<unsigned char>(ttsMarkupText[e - 1])))
+            --e;
+        return ttsMarkupText.substr(b, e - b);
+    }();
+    if (trimmed.empty())
+        return "Nothing to speak — add TTS markup first (Generate TTS).";
+    if (voiceId.empty())
+        return "Set a default voice first (Off cannot bake audio).";
+    if (sessionApiKey.empty())
+        return "Set an xAI key in Options → API keys.";
+
+    std::vector<TtsVoiceSegment> segments;
+    std::string markupError;
+    if (!parseVoiceMarkup(trimmed, voiceId, segments, markupError))
+        return "TTS markup error: " + markupError;
+    if (segments.empty())
+        return "TTS markup produced no spoken segments.";
+
+    const std::string gameRoot = findGameRoot(assetRootHint, resourceDirHint);
+    std::string baseRel = audioRelPath;
+    if (baseRel.empty())
+        baseRel = "resources/.authoring/parchment_voice.mp3";
+
+    removeStaleSegmentFiles(gameRoot, baseRel);
+
+    const std::vector<std::string> segmentRels =
+        buildSegmentAudioPaths(baseRel, segments.size());
+    for (size_t i = 0; i < segments.size(); ++i)
+    {
+        const std::string& rel = segmentRels[i];
+        const std::string absPath =
+            (rel.size() >= 1 && rel[0] == '/') ? rel : pathJoin(gameRoot, rel);
+        const std::string err = synthesizeOneTtsMp3(
+            absPath, segments[i].text, segments[i].voiceId, sessionApiKey);
+        if (!err.empty())
+            return err;
+    }
+
+    outWrittenRel = baseRel;
+    if (outSegmentRels != nullptr)
+    {
+        if (segments.size() > 1)
+            *outSegmentRels = segmentRels;
+        else
+            outSegmentRels->clear();
+    }
+    return {};
+}
+
 std::string runSceneAuthoringAiJobsFile(
     const std::string& assetRootHint,
     const std::string& resourceDirHint,
@@ -1236,21 +1543,24 @@ bool sceneImageReferenceExists(
 namespace
 {
 
-/** Replace oldId with newId in the filename stem only (last path segment). */
+/**
+ * Replace oldId with newId anywhere it appears in a resource path (# rename bug).
+ * Needed for TTS bags under resources/audio/tts/<sceneId>/… — stem-only rewrite
+ * left the folder segment unchanged while JSON paths were later pointed at the
+ * new id, orphaning audio on disk.
+ */
 std::string rewritePathStemId(const std::string& relPath, const std::string& oldId, const std::string& newId)
 {
     if (relPath.empty() || oldId.empty() || newId.empty() || oldId == newId)
         return relPath;
-    const size_t slash = relPath.find_last_of("/\\");
-    const std::string dir =
-        (slash == std::string::npos) ? std::string{} : relPath.substr(0, slash + 1);
-    std::string base =
-        (slash == std::string::npos) ? relPath : relPath.substr(slash + 1);
-    const size_t pos = base.find(oldId);
-    if (pos == std::string::npos)
-        return relPath;
-    base.replace(pos, oldId.size(), newId);
-    return dir + base;
+    std::string out = relPath;
+    size_t pos = 0;
+    while ((pos = out.find(oldId, pos)) != std::string::npos)
+    {
+        out.replace(pos, oldId.size(), newId);
+        pos += newId.size();
+    }
+    return out;
 }
 
 bool renameAssetFilePair(
@@ -1402,17 +1712,9 @@ bool renameSceneAuthoring(
             }
         }
     }
-    auto rewriteTtsBag = [&](const char* key) {
-        if (!scene->contains(key) || !(*scene)[key].is_object())
-            return;
-        nlohmann::json& bag = (*scene)[key];
-        if (bag.contains("ttsAudio") && bag["ttsAudio"].is_string())
-        {
-            std::string p = bag["ttsAudio"].get<std::string>();
-            rewriteAndMaybeRenameFile(p);
-            bag["ttsAudio"] = p;
-        }
-        // Folder resources/audio/tts/<oldId>/… — rename directory if present.
+    // TTS lives under resources/audio/tts/<sceneId>/… — move the folder first,
+    // then rewrite JSON paths (filename stems often omit the scene id).
+    {
         const std::string oldDirRel = "resources/audio/tts/" + oldId;
         const std::string newDirRel = "resources/audio/tts/" + newId;
         const std::string oldDirAbs = pathJoin(root, oldDirRel);
@@ -1420,11 +1722,38 @@ bool renameSceneAuthoring(
         if (DirectoryExists(oldDirAbs.c_str()) && !DirectoryExists(newDirAbs.c_str()))
         {
             ensureParentDirectoryExists(newDirAbs);
-            std::rename(oldDirAbs.c_str(), newDirAbs.c_str());
+            if (std::rename(oldDirAbs.c_str(), newDirAbs.c_str()) != 0)
+            {
+                TraceLog(
+                    LOG_WARNING,
+                    "Scene rename: failed to move TTS dir %s -> %s",
+                    oldDirAbs.c_str(),
+                    newDirAbs.c_str());
+            }
+        }
+    }
+
+    auto rewriteTtsBagPaths = [&](const char* key) {
+        if (!scene->contains(key) || !(*scene)[key].is_object())
+            return;
+        nlohmann::json& bag = (*scene)[key];
+        if (bag.contains("ttsAudio") && bag["ttsAudio"].is_string())
+        {
+            // Path rewrite only — files already moved with the TTS directory.
+            bag["ttsAudio"] = rewritePathStemId(
+                bag["ttsAudio"].get<std::string>(), oldId, newId);
+        }
+        if (bag.contains("ttsAudioSegments") && bag["ttsAudioSegments"].is_array())
+        {
+            for (auto& seg : bag["ttsAudioSegments"])
+            {
+                if (seg.is_string())
+                    seg = rewritePathStemId(seg.get<std::string>(), oldId, newId);
+            }
         }
     };
-    rewriteTtsBag("descriptionTts");
-    rewriteTtsBag("examineTts");
+    rewriteTtsBagPaths("descriptionTts");
+    rewriteTtsBagPaths("examineTts");
 
     if (payloadToSync != nullptr)
     {

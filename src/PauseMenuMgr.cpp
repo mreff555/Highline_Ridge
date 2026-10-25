@@ -755,13 +755,24 @@ void PauseMenuMgr::update(float deltaSeconds)
 void PauseMenuMgr::drawPanelFrame(const char* title) const
 {
     const Rectangle panel = getPanelBounds();
-    modalPanel.drawOverlay();
+    const bool titleMenu = (context == PauseMenuContext::Title);
+    // Title menu: lighter fullscreen dim + slightly see-through panel so the
+    // ridge backdrop remains visible.
+    if (titleMenu)
+        DrawRectangle(0, 0, screenWidth, screenHeight, Color{8, 8, 12, 90});
+    else
+        modalPanel.drawOverlay();
 
     const Color panelBorder = (uiBackdrop != nullptr) ? uiBackdrop->panelBorderColor() : kPanelBorder;
     if (uiBackdrop != nullptr)
-        uiBackdrop->drawPanel(panel, 0.05f, 12);
+        uiBackdrop->drawPanel(panel, 0.05f, 12, titleMenu ? 0.62f : 1.0f);
     else
-        DrawRectangleRounded(panel, 0.05f, 12, kPanelFill);
+    {
+        Color fill = kPanelFill;
+        if (titleMenu)
+            fill.a = 160;
+        DrawRectangleRounded(panel, 0.05f, 12, fill);
+    }
     DrawRoundedBorder(panel, 0.05f, 12, 3.0f, panelBorder);
 
     const Rectangle accentBar = {

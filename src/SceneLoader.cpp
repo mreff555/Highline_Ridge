@@ -274,6 +274,7 @@ bool parseStatusEffect(const nlohmann::json& status, StatusEffect& out)
     out.actorTab = status.value("actorTab", 0.0f);
     out.repeat = status.value("repeat", false);
     out.onZeroLucidity = status.value("onZeroLucidity", "");
+    out.opinions.clear();
 
     const nlohmann::json& actorNode = status.value("actor", nlohmann::json());
     if (actorNode.is_string())
@@ -281,6 +282,22 @@ bool parseStatusEffect(const nlohmann::json& status, StatusEffect& out)
     else if (actorNode.is_object())
         out.actor = actorNode.value("id", "");
 
+    if (status.contains("opinions") && status["opinions"].is_array())
+    {
+        for (const nlohmann::json& row : status["opinions"])
+        {
+            if (!row.is_object())
+                continue;
+            ActorOpinionDelta delta;
+            delta.actor = row.value("actor", "");
+            delta.delta = row.value("delta", row.value("actorOpinion", 0));
+            if (delta.actor.empty() || delta.delta == 0)
+                continue;
+            out.opinions.push_back(delta);
+        }
+    }
+
+    // If opinions[] omitted but legacy actorOpinion set, keep classic single-row path.
     return true;
 }
 
@@ -333,6 +350,24 @@ bool parseGrantedInventoryItem(const nlohmann::json& item, GrantedInventoryItemD
     out.iconPath = item.value("icon", "");
     out.examineImagePath = item.value("examineImage", "");
     out.examineText = item.value("examineText", "");
+    return true;
+}
+
+bool parseItemExchange(const nlohmann::json& node, ItemExchangeDef& out)
+{
+    out = ItemExchangeDef{};
+    if (!node.is_object())
+        return true;
+
+    out.itemId = node.value("itemId", node.value("id", ""));
+    out.quantity = node.value("quantity", 1);
+    if (out.quantity < 1)
+        out.quantity = 1;
+    out.money = node.value("money", 0.0f);
+    out.useActorInventory = node.value(
+        "useActorInventory",
+        node.value("fromActorInventory", node.value("toActorInventory", false)));
+    out.actorId = node.value("actorId", "");
     return true;
 }
 
@@ -411,6 +446,13 @@ bool parseConversationChoice(const nlohmann::json& choice, ConversationChoiceDef
     out.grantStoryFlag = choice.value("grantStoryFlag", "");
     out.startPhase = choice.value("startPhase", "");
     out.skipIntroOnStartPhase = choice.value("skipIntroOnStartPhase", false);
+    out.exitSceneId = choice.value("exitSceneId", "");
+    out.openActorInventory = choice.value("openActorInventory", "");
+    out.purchaseFromActor = choice.value("purchaseFromActor", "");
+    if (!parseItemExchange(choice.value("giveToPlayer", nlohmann::json::object()), out.giveToPlayer))
+        return false;
+    if (!parseItemExchange(choice.value("takeFromPlayer", nlohmann::json::object()), out.takeFromPlayer))
+        return false;
 
     if (!parseOverlaySequence(choice.value("overlaySequence", nlohmann::json::array()), out.overlaySequence))
         return false;
@@ -564,6 +606,66 @@ bool parseConversationPhase(const nlohmann::json& phase, ConversationPhase& out)
     return true;
 }
 
+bool parseActorInventorySlots(const nlohmann::json& items, std::vector<ActorInventorySlot>& out)
+{
+    out.clear();
+    if (!items.is_array())
+        return false;
+
+    for (const nlohmann::json& entry : items)
+    {
+        if (!entry.is_object())
+            return false;
+        ActorInventorySlot slot;
+        slot.id = entry.value("id", "");
+        if (slot.id.empty())
+            return false;
+        slot.price = entry.value("price", 0.0f);
+        if (entry.contains("quantity") && entry["quantity"].is_null())
+        {
+            slot.infinite = true;
+            slot.quantity = 0;
+        }
+        else if (entry.contains("infinite") && entry["infinite"].is_boolean() && entry["infinite"].get<bool>())
+        {
+            slot.infinite = true;
+            slot.quantity = 0;
+        }
+        else
+        {
+            slot.infinite = false;
+            slot.quantity = entry.value("quantity", 1);
+            if (slot.quantity < 0)
+                slot.quantity = 0;
+        }
+        out.push_back(slot);
+    }
+    return true;
+}
+
+bool parseActorInventories(
+    const nlohmann::json& inventories,
+    std::map<std::string, std::vector<ActorInventorySlot>>& out)
+{
+    out.clear();
+    if (!inventories.is_object())
+        return false;
+
+    for (auto it = inventories.begin(); it != inventories.end(); ++it)
+    {
+        if (it.key().empty() || !it.value().is_object())
+            return false;
+        std::vector<ActorInventorySlot> slots;
+        const nlohmann::json& items = it.value().contains("items")
+            ? it.value()["items"]
+            : it.value();
+        if (!parseActorInventorySlots(items, slots))
+            return false;
+        out[it.key()] = std::move(slots);
+    }
+    return true;
+}
+
 bool parseSpeakPhasesArray(const nlohmann::json& phases, SceneSpeakConfig& out)
 {
     if (!phases.is_array())
@@ -581,16 +683,131 @@ bool parseSpeakPhasesArray(const nlohmann::json& phases, SceneSpeakConfig& out)
     return true;
 }
 
+bool parseAttackDialogBag(const nlohmann::json& bag, AttackDialogBag& out)
+{
+    if (!bag.is_object())
+        return true;
+    out.text = bag.value("text", "");
+    out.tts = bag.value("tts", false);
+    out.ttsVoice = bag.value("ttsVoice", "");
+    out.ttsText = bag.value("ttsText", "");
+    out.ttsAudio = bag.value("ttsAudio", "");
+    out.ttsAudioSegments = parseStringArrayField(bag, "ttsAudioSegments");
+    if (!out.tts && (!out.ttsText.empty() || !out.ttsAudio.empty()))
+        out.tts = true;
+    return true;
+}
+
+bool parseAttackStatLoss(const nlohmann::json& node, AttackStatLoss& out)
+{
+    if (!node.is_object())
+        return true;
+    out.enabled = node.value("enabled", false);
+    out.percentOfCurrent = node.value("percentOfCurrent", 50.0f);
+    return true;
+}
+
+bool parseAttackEncounter(const nlohmann::json& node, AttackEncounterDef& out)
+{
+    if (!node.is_object())
+        return false;
+    out.id = node.value("id", "");
+    out.combatantId = node.value("combatantId", out.id);
+    parseAttackDialogBag(node.value("leadUp", nlohmann::json::object()), out.leadUp);
+    parseAttackDialogBag(node.value("win", nlohmann::json::object()), out.win);
+    parseAttackDialogBag(node.value("lose", nlohmann::json::object()), out.lose);
+
+    const nlohmann::json& edge = node.value("actorEdge", nlohmann::json::object());
+    if (edge.is_object())
+    {
+        out.actorEdgeHealth = edge.value("health", 0);
+        out.actorEdgeEnergy = edge.value("energy", 0);
+        out.actorEdgeResolve = edge.value("resolve", 0);
+        out.actorEdgeLucidity = edge.value("lucidity", 0);
+        out.actorEdgeCharisma = edge.value("charisma", 0);
+    }
+
+    out.cannotLose = node.value("cannotLose", false);
+    out.playerDeath = node.value("playerDeath", false);
+    if (out.cannotLose)
+        out.playerDeath = false;
+
+    const nlohmann::json& loss = node.value("loss", nlohmann::json::object());
+    if (loss.is_object())
+    {
+        parseAttackStatLoss(loss.value("health", nlohmann::json::object()), out.lossHealth);
+        parseAttackStatLoss(loss.value("energy", nlohmann::json::object()), out.lossEnergy);
+        parseAttackStatLoss(loss.value("resolve", nlohmann::json::object()), out.lossResolve);
+        parseAttackStatLoss(loss.value("lucidity", nlohmann::json::object()), out.lossLucidity);
+        parseAttackStatLoss(loss.value("charisma", nlohmann::json::object()), out.lossCharisma);
+    }
+
+    const nlohmann::json& rep = node.value("reputation", nlohmann::json::object());
+    if (rep.is_object())
+    {
+        out.reputationChange = rep.value("enabled", false);
+        out.reputationDelta = rep.value("delta", 0);
+    }
+
+    parseDialogRequirementFields(node, out.requirements);
+    const nlohmann::json& avail = node.value("availability", nlohmann::json::object());
+    const nlohmann::json& src = avail.is_object() ? avail : node;
+    out.requiresMoney = src.value("requiresMoney", 0.0f);
+    out.requiresInsufficientMoney = src.value("requiresInsufficientMoney", 0.0f);
+    out.requiresPositiveActorTab = src.value("requiresPositiveActorTab", false);
+    out.requiresPayActorTabInFull = src.value("requiresPayActorTabInFull", false);
+    out.requiresInsufficientForActorTab = src.value("requiresInsufficientForActorTab", false);
+    out.requiresSaloonRoomAvailable = src.value("requiresSaloonRoomAvailable", false);
+    out.tabActor = src.value("tabActor", "");
+    out.requiresLightSource = src.value("requiresLightSource", false);
+    out.requiresInventoryItem = src.value("requiresInventoryItem", "");
+    out.requiresStoryFlag = src.value("requiresStoryFlag", "");
+    return !out.id.empty();
+}
+
+bool parseAttackEncounters(const nlohmann::json& node, std::map<std::string, AttackEncounterDef>& out)
+{
+    out.clear();
+    if (!node.is_object())
+        return node.is_null() || node.empty();
+    for (auto it = node.begin(); it != node.end(); ++it)
+    {
+        AttackEncounterDef def;
+        if (!parseAttackEncounter(it.value(), def))
+            return false;
+        if (def.id.empty())
+            def.id = it.key();
+        if (def.combatantId.empty())
+            def.combatantId = def.id;
+        out[def.id] = def;
+    }
+    return true;
+}
+
 bool parseSpeakConfig(const nlohmann::json& sceneJson, SceneSpeakConfig& out)
 {
     out.phases.clear();
+    out.actorInventories.clear();
+    out.attackEncounters.clear();
 
-    if (sceneJson.contains("conversations") &&
-        sceneJson["conversations"].is_object() &&
-        sceneJson["conversations"].contains("speakPhases"))
+    const nlohmann::json* root = &sceneJson;
+    if (sceneJson.contains("conversations") && sceneJson["conversations"].is_object())
+        root = &sceneJson["conversations"];
+
+    if (root->contains("actorInventories"))
     {
-        return parseSpeakPhasesArray(sceneJson["conversations"]["speakPhases"], out);
+        if (!parseActorInventories((*root)["actorInventories"], out.actorInventories))
+            return false;
     }
+
+    if (root->contains("attackEncounters"))
+    {
+        if (!parseAttackEncounters((*root)["attackEncounters"], out.attackEncounters))
+            return false;
+    }
+
+    if (root->contains("speakPhases"))
+        return parseSpeakPhasesArray((*root)["speakPhases"], out);
 
     if (sceneJson.contains("speakPhases"))
         return parseSpeakPhasesArray(sceneJson["speakPhases"], out);

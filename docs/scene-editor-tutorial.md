@@ -1,6 +1,6 @@
 # Scene editor tutorial
 
-The **Timberline Resource Editor** (`scene-editor`) authors Highline Ridge content on disk under `resources/`.
+The **Timberline Resource Editor** (`scene-editor`) authors Highline Ridge content on disk under `resources/`. Docs index: [README.md](README.md).
 
 Build it with a normal dev configure (`HIGHLINE_BUILD_EDITOR` defaults **ON**):
 
@@ -10,6 +10,12 @@ cmake -S . -B build && cmake --build build --target scene-editor -j
 ```
 
 > **Screenshots:** drop PNGs into `docs/images/` using the filenames below. Until then, each step lists what to capture.
+
+---
+
+## 0. API keys (before Generate)
+
+AI Generate needs keys (players never do). **xAI** → images / TTS text; **ElevenLabs** → ambient / music / SFX. Setup (menu, disk paths, permissions, action matrix): **[api-keys.md](api-keys.md)**. Audio backends: [scene-audio.md](scene-audio.md).
 
 ---
 
@@ -26,7 +32,8 @@ You get a **left list** (scenes / conversations / items depending on tab), a **m
 1. Select a scene in the list (or click its card on the map).  
 2. Drag unplaced scenes from the list onto the map to assign layout.  
 3. Use floor chrome to change level; connect Above/Below with the floor-connect flow.  
-4. Right-click a card for Edit, Remove from map, Delete, etc.
+4. **Clean up** (map chrome) reorders the current floor to cut exit-wire crossings and stacked runs; the footprint may grow. Save to persist.  
+5. Right-click a card for Edit, Remove from map, Delete, etc.
 
 **Gold wires** (mid-edge) = compass exits. **Silver wires** (corners) = Use transitions to another scene. **Stair badges** (`^N` / `vN`) = floor up/down (no cross-floor wire).
 
@@ -38,36 +45,7 @@ See also [scene-map-exits.md](scene-map-exits.md) (floors, gates, place-item, #1
 
 ## 2b. Gates, floors, and special transitions
 
-### Floors
-
-1. Right-click a card → **Connect to floor…**, or drag one card onto another → Up/Down.  
-2. Switch floor chrome to see the other level.  
-3. **Right-click the stair badge** on the card for **Edit Transition Audio…** / **Exit Requirements…** (same as a gold wire).
-
-### Gated MOVE (locked / dark / story)
-
-1. Right-click a **gold wire** (same floor) or **stair badge** (floor link).  
-2. **Exit Requirements…**  
-3. Set light / room / inventory id(s) / story flag; blocked details + TTS; optional variants.  
-4. Use the **direction slider** for outbound vs return.  
-5. **Save**, then File → Save (⌘S).
-
-### Place item / takeables (not in Edit Scene)
-
-On the **Scene Variables** pane (select the scene first):
-
-| Button | Use for |
-|--------|---------|
-| **Interactions** | Use + `grantItem` (search nightstand / place key) |
-| **Inventory** | Take loot after examine (`+` / red **X** / examine slider) |
-
-### Mini recipe: key in drawer → locked hall door
-
-1. Use wire from bedroom → nightstand focus scene.  
-2. Nightstand scene → Variables → **Inventory** → **+** → your key item (or **Interactions** → Add place item…).  
-3. Hall scene → gold wire to locked room → Exit Requirements → require that item id, badge **lock**.
-
-Full detail: [scene-map-exits.md](scene-map-exits.md).
+Short path: floor connect / stair badges, **Exit Requirements…** on gold wires or badges, place-item via Variables → **Interactions** / **Inventory**. Full procedures and the key-in-drawer recipe: **[scene-map-exits.md](scene-map-exits.md)**.
 
 ---
 
@@ -136,16 +114,19 @@ Used for ice-house badge glint, vestry greeting, cottonwood departure, etc.
 
 ## 6. Conversations tab
 
-1. Switch to **Conversations**.  
-2. Tree: scene → speak phases / actors → choices.  
-3. Main pane: **Dialog walkthrough** — edit response / TTS text, shift-select, copy/paste.  
-4. TTS highlighting shows pauses, voices, and errors.  
+1. Switch to **Conversations** (narrow left tree, shorter bottom pane).  
+2. Tree: **scene → actor → conversation**.  
+3. Main pane: **dialog flowchart** — immobile Start compass; drag types from the lower-left palette; wire child → parent ports.  
+4. Lower right: **dialog media** preview (scene image / ambient / music fallback; play/pause).  
+5. Graph layout is **editor-local** in this shell — runtime still reads `conversations.json` speak phases until Phase 2 persist.
 
-**Delete** while editing text deletes characters — it does **not** delete the scene.
+**Delete** / **Backspace** removes a selected flowchart stub (not Start). It does **not** delete the scene.
 
-**Screenshot:** `docs/images/editor-conversations.png` — walkthrough with TTS-colored text.
+Schema, node catalog, and leave rules: **[conversations.md](conversations.md)**. Map MOVE/Use wires: [scene-map-exits.md](scene-map-exits.md).
 
-After changing spoken lines, refresh audio with a **dev** game binary ([tts.md](tts.md)), then rebuild release to embed.
+**Screenshot:** `docs/images/editor-conversations.png` — may still show the older walkthrough until refreshed.
+
+After changing spoken lines in JSON, refresh audio with a **dev** game binary ([tts.md](tts.md)), then rebuild release to embed.
 
 ---
 

@@ -95,6 +95,66 @@ void actorTabOwedFromJson(const nlohmann::json& object, std::map<std::string, fl
     }
 }
 
+nlohmann::json actorInventoriesToJson(
+    const std::map<std::string, std::vector<ActorInventorySlot>>& inventories)
+{
+    nlohmann::json root = nlohmann::json::object();
+    for (std::map<std::string, std::vector<ActorInventorySlot>>::const_iterator it =
+             inventories.begin();
+         it != inventories.end();
+         ++it)
+    {
+        nlohmann::json items = nlohmann::json::array();
+        for (const ActorInventorySlot& slot : it->second)
+        {
+            nlohmann::json entry = {
+                {"id", slot.id},
+                {"price", slot.price},
+                {"infinite", slot.infinite},
+                {"quantity", slot.quantity}};
+            items.push_back(entry);
+        }
+        root[it->first] = {{"items", items}};
+    }
+    return root;
+}
+
+void actorInventoriesFromJson(
+    const nlohmann::json& object,
+    std::map<std::string, std::vector<ActorInventorySlot>>& outInventories)
+{
+    outInventories.clear();
+    if (!object.is_object())
+        return;
+
+    for (auto it = object.begin(); it != object.end(); ++it)
+    {
+        if (it.key().empty() || !it.value().is_object())
+            continue;
+        const nlohmann::json& itemsJson = it.value().contains("items")
+            ? it.value()["items"]
+            : it.value();
+        if (!itemsJson.is_array())
+            continue;
+
+        std::vector<ActorInventorySlot> slots;
+        for (const nlohmann::json& entry : itemsJson)
+        {
+            if (!entry.is_object())
+                continue;
+            ActorInventorySlot slot;
+            slot.id = entry.value("id", "");
+            if (slot.id.empty())
+                continue;
+            slot.price = entry.value("price", 0.0f);
+            slot.infinite = entry.value("infinite", false);
+            slot.quantity = entry.value("quantity", slot.infinite ? 0 : 1);
+            slots.push_back(slot);
+        }
+        outInventories[it.key()] = std::move(slots);
+    }
+}
+
 template<typename Set>
 void jsonArrayToSet(const nlohmann::json& array, Set& outValues)
 {
@@ -720,6 +780,7 @@ bool writeSaveFile(const std::string& path, const SavedGameState& state, const S
     root["flagGrantedDay"] = actorOpinionsToJson(state.flagGrantedDay);
     root["actorOpinions"] = actorOpinionsToJson(state.actorOpinions);
     root["actorTabOwed"] = actorTabOwedToJson(state.actorTabOwed);
+    root["actorInventories"] = actorInventoriesToJson(state.actorInventories);
     root["knownActorIds"] = setToJsonArray(state.knownActorIds);
 
     std::ofstream file(path.c_str());
@@ -818,6 +879,9 @@ bool readSaveFile(const std::string& path, SavedGameState& state, SaveSlotMetada
     }
     actorOpinionsFromJson(root.value("actorOpinions", nlohmann::json::object()), state.actorOpinions);
     actorTabOwedFromJson(root.value("actorTabOwed", nlohmann::json::object()), state.actorTabOwed);
+    actorInventoriesFromJson(
+        root.value("actorInventories", nlohmann::json::object()),
+        state.actorInventories);
 
     if (saveVersion >= 8)
         jsonArrayToSet(root.value("knownActorIds", nlohmann::json::array()), state.knownActorIds);

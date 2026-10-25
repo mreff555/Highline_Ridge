@@ -72,6 +72,16 @@ struct SaveConfig
     int maxNamedSaves = 10;
 };
 
+/** Tunables that affect play rules (not display/audio prefs). */
+struct GameplayConfig
+{
+    /**
+     * Lucidity delta applied on each player action while the current scene
+     * has highAltitude: true. Default -1 (drain). 0 disables the effect.
+     */
+    float highAltitudeLucidityPerAction = -1.0f;
+};
+
 struct GameConfig
 {
     DisplayConfig display;
@@ -79,6 +89,7 @@ struct GameConfig
     InputConfig input;
     TtsConfig tts;
     SaveConfig saves;
+    GameplayConfig gameplay;
     UiConfig ui;
 };
 

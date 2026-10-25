@@ -90,11 +90,10 @@ ThumbnailEntry& ThumbnailCache::getOrLoad(
     const std::string& assetRoot,
     const std::string& resourceDir)
 {
-    ThumbnailEntry& entry = entries[sceneId];
-
     const std::string imagePath = scenes.getSceneImagePath(sceneId);
     if (imagePath.empty())
     {
+        ThumbnailEntry& entry = entries[sceneId];
         entry.missing = true;
         return entry;
     }
@@ -122,12 +121,22 @@ ThumbnailEntry& ThumbnailCache::getOrLoad(
             }
         }
     }
-    if (entry.loaded && !entry.loading && modTime > 0 && entry.sourceModTime > 0
-        && (modTime != entry.sourceModTime || resolvedPath != entry.sourcePath))
+
+    // If the on-disk plate changed (Generate image / backup rotate), drop the
+    // cached GPU texture. Must invalidate BEFORE taking a lasting reference —
+    // erase() would otherwise leave a dangling ThumbnailEntry&.
     {
-        invalidate(sceneId);
-        entry = entries[sceneId];
+        auto it = entries.find(sceneId);
+        if (it != entries.end() && it->second.loaded && !it->second.loading
+            && modTime > 0 && it->second.sourceModTime > 0
+            && (modTime != it->second.sourceModTime
+                || resolvedPath != it->second.sourcePath))
+        {
+            invalidate(sceneId);
+        }
     }
+
+    ThumbnailEntry& entry = entries[sceneId];
 
     if (entry.loaded || entry.missing || entry.loading)
         return entry;
@@ -228,6 +237,10 @@ void ThumbnailCache::clear()
 
 void ThumbnailCache::invalidate(const std::string& sceneId)
 {
+    // Drop GPU texture + map entry. In-flight JobSystem completions that still
+    // finish afterward see entries.find() == end and unload their Image only
+    // (see enqueueDecode completion). Do not bump `generation` here — that
+    // would cancel unrelated scene thumbnails still decoding.
     inFlight.erase(sceneId);
     auto it = entries.find(sceneId);
     if (it == entries.end())

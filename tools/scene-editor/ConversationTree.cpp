@@ -549,6 +549,11 @@ void ConversationTree::handleConversationTreeInput(Rectangle listBounds)
                 const ConversationTreeNode& node = *hit.node;
                 selectedKey = node.key;
 
+                auto notifyFlowSelection = [&](const std::string& sceneId) {
+                    if (onTreeSelection && !sceneId.empty())
+                        onTreeSelection(node.key, sceneId);
+                };
+
                 const float rowTop = treeBounds.y + 4.0f - (*leftScroll)
                     + static_cast<float>(index) * kTreeRowHeight;
                 const float toggleX =
@@ -566,6 +571,7 @@ void ConversationTree::handleConversationTreeInput(Rectangle listBounds)
                 {
                     if (onSelectScene)
                         onSelectScene(sceneFromKey);
+                    notifyFlowSelection(sceneFromKey);
                     if (!node.children.empty() && CheckCollisionPointRec(mouse, toggleBounds))
                         toggleConversationExpanded(node.key);
                     else if (!node.children.empty() && !isConversationExpanded(node.key))
@@ -623,6 +629,8 @@ void ConversationTree::handleConversationTreeInput(Rectangle listBounds)
                     if (!sceneId.empty() && onSelectScene
                         && (selectionSceneId->empty() || *selectionSceneId != sceneId))
                         onSelectScene(sceneId);
+                    if (!sceneId.empty())
+                        notifyFlowSelection(sceneId);
                 }
 
                 if (!node.children.empty() && CheckCollisionPointRec(mouse, toggleBounds))
@@ -643,6 +651,8 @@ void ConversationTree::handleConversationTreeInput(Rectangle listBounds)
                         text->closeVariableEditor();
                     walkthrough->selectTreeKey(node.key);
                     selectedKey = node.key;
+                    if (selectionSceneId != nullptr && !selectionSceneId->empty())
+                        notifyFlowSelection(*selectionSceneId);
                 }
                 else if (
                     node.editDoc != ConversationEditDoc::None
@@ -865,9 +875,23 @@ void ConversationTree::drawConversationTree(Rectangle listBounds)
         else
             labelColor = kTextMuted;
 
-        const std::string display = truncateForTree(node.label, 48);
+        // Labels target ~80% of the row width (10% margin each side of usable text).
+        const float maxLabelW = std::max(24.0f, rowBounds.width * 0.80f - (textX - rowBounds.x));
+        Font treeFont = (uiFont.texture.id != 0 ? uiFont : GetFontDefault());
+        std::string display = node.label;
+        while (display.size() > 3
+               && measureUiTextWidth(treeFont, display, kFontSmall) > maxLabelW)
+        {
+            display.resize(display.size() - 1);
+        }
+        if (display.size() + 3 < node.label.size())
+        {
+            if (display.size() > 3)
+                display.resize(display.size() - 3);
+            display += "...";
+        }
         DrawTextEx(
-            (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
+            treeFont,
             display.c_str(),
             {textX, rowTop + 4.0f},
             kFontSmall,
@@ -876,15 +900,30 @@ void ConversationTree::drawConversationTree(Rectangle listBounds)
 
         if (!node.detail.empty() && node.kind != ConversationNodeKind::Dialog)
         {
-            const float labelW = text->measureUiTextWidth(display, kFontSmall);
-            const std::string detail = truncateForTree(node.detail, 36);
-            DrawTextEx(
-                (uiFont.texture.id != 0 ? uiFont : GetFontDefault()),
-                detail.c_str(),
-                {textX + labelW + 8.0f, rowTop + 5.0f},
-                kFontTiny,
-                1.0f,
-                kTextMuted);
+            const float labelW = measureUiTextWidth(treeFont, display, kFontSmall);
+            const float detailMax = maxLabelW - labelW - 8.0f;
+            if (detailMax > 24.0f)
+            {
+                std::string detail = node.detail;
+                while (detail.size() > 3
+                       && measureUiTextWidth(treeFont, detail, kFontTiny) > detailMax)
+                {
+                    detail.resize(detail.size() - 1);
+                }
+                if (detail.size() + 3 < node.detail.size())
+                {
+                    if (detail.size() > 3)
+                        detail.resize(detail.size() - 3);
+                    detail += "...";
+                }
+                DrawTextEx(
+                    treeFont,
+                    detail.c_str(),
+                    {textX + labelW + 8.0f, rowTop + 5.0f},
+                    kFontTiny,
+                    1.0f,
+                    kTextMuted);
+            }
         }
 
         y += kTreeRowHeight;

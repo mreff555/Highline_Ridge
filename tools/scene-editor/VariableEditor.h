@@ -59,6 +59,8 @@ struct VariableEditor
     bool voiceDropdownOpen = false;
     Rectangle voiceDropdownBtn{0, 0, 0, 0};
     Rectangle voiceDropdownMenu{0, 0, 0, 0};
+    float voiceDropdownScroll = 0.0f;
+    static constexpr int kVoiceDropdownVisibleRows = 10;
 
     enum class TextTtsPairMode
     {

@@ -25,6 +25,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -98,6 +99,23 @@ AudioManager::~AudioManager()
     shutdown();
 }
 
+namespace
+{
+void configureMusicStreamBufferOnce(bool& configured)
+{
+    if (configured)
+        return;
+    // Raylib default is sampleRate/30 per half-buffer (~33ms, ~66ms double-buffered).
+    // Title → New Game / Load and async texture uploads routinely stall the main
+    // thread longer than that, which underruns UpdateMusicStream and sounds like
+    // a ~500ms cut before the bed "comes back" and fades (#58).
+    // 48000 frames ≈ 1s/half at 48kHz (≈2s double-buffered) — fine for looping beds.
+    SetAudioStreamBufferSizeDefault(48000);
+    configured = true;
+    TraceLog(LOG_INFO, "AUDIO: Music stream buffer default set to 48000 frames");
+}
+} // namespace
+
 bool AudioManager::initialize(const std::string& root, const AudioVolumeConfig& volumeConfig)
 {
     assetRoot = root;
@@ -105,7 +123,10 @@ bool AudioManager::initialize(const std::string& root, const AudioVolumeConfig& 
 
     deviceReady = IsAudioDeviceReady();
     if (deviceReady)
+    {
+        configureMusicStreamBufferOnce(streamBufferConfigured);
         SetMasterVolume(volumes.master);
+    }
 
     return true;
 }
@@ -113,7 +134,10 @@ bool AudioManager::initialize(const std::string& root, const AudioVolumeConfig& 
 bool AudioManager::ensureDeviceReady()
 {
     if (deviceReady)
+    {
+        configureMusicStreamBufferOnce(streamBufferConfigured);
         return true;
+    }
 
     InitAudioDevice();
     deviceReady = IsAudioDeviceReady();
@@ -123,6 +147,7 @@ bool AudioManager::ensureDeviceReady()
         return false;
     }
 
+    configureMusicStreamBufferOnce(streamBufferConfigured);
     SetMasterVolume(volumes.master);
     return true;
 }
@@ -154,6 +179,7 @@ void AudioManager::shutdown()
     {
         CloseAudioDevice();
         deviceReady = false;
+        streamBufferConfigured = false;
     }
 }
 
@@ -497,6 +523,8 @@ void AudioManager::fadeOutMusicTrack(FadingMusicTrack& track, float fadeOutSecon
     if (!track.loaded || !track.playing)
         return;
 
+    track.fadeFromVolume = track.currentVolume;
+    track.targetVolume = track.currentVolume;
     track.fadeOutSeconds = std::max(0.0f, fadeOutSeconds);
     track.fadeElapsed = 0.0f;
     track.fadingOut = track.fadeOutSeconds > 0.0f;
@@ -566,6 +594,7 @@ void AudioManager::startMusicTrackSync(FadingMusicTrack& track, const AudioClipD
     track.fadeElapsed = 0.0f;
     track.fadingIn = track.fadeInSeconds > 0.0f;
     track.fadingOut = false;
+    track.fadeFromVolume = 0.0f;
     track.currentVolume = track.fadingIn ? 0.0f : track.targetVolume;
     track.loop = clip.loop;
     track.music.looping = clip.loop;
@@ -836,7 +865,8 @@ void AudioManager::updateMusicTrack(FadingMusicTrack& track, float deltaSeconds)
         else
         {
             const float progress = std::min(1.0f, track.fadeElapsed / track.fadeInSeconds);
-            track.currentVolume = track.targetVolume * progress;
+            track.currentVolume =
+                track.fadeFromVolume + (track.targetVolume - track.fadeFromVolume) * progress;
             if (progress >= 1.0f)
                 track.fadingIn = false;
         }
@@ -854,8 +884,7 @@ void AudioManager::updateMusicTrack(FadingMusicTrack& track, float deltaSeconds)
         else
         {
             const float progress = std::min(1.0f, track.fadeElapsed / track.fadeOutSeconds);
-            const float startVolume = track.targetVolume;
-            track.currentVolume = startVolume * (1.0f - progress);
+            track.currentVolume = track.fadeFromVolume * (1.0f - progress);
             if (progress >= 1.0f)
             {
                 track.fadingOut = false;
@@ -1174,6 +1203,20 @@ void AudioManager::updateActiveSounds(float deltaSeconds)
     activeSounds.swap(remainingSounds);
 }
 
+void AudioManager::pumpStreams()
+{
+    if (!deviceReady)
+        return;
+
+    // Keep decoded music buffers fed while the main thread is busy elsewhere.
+    // Without this, LoadTexture / save apply stalls cause a short silence blip
+    // before UpdateMusicStream runs again (title → New Game / Load).
+    if (musicTrack.loaded && (musicTrack.playing || musicTrack.fadingOut))
+        UpdateMusicStream(musicTrack.music);
+    if (itemMusicTrack.loaded && (itemMusicTrack.playing || itemMusicTrack.fadingOut))
+        UpdateMusicStream(itemMusicTrack.music);
+}
+
 void AudioManager::update(float deltaSeconds)
 {
     if (!deviceReady)
@@ -1298,18 +1341,35 @@ bool AudioManager::isAmbientTrackActive(const FadingAmbientTrack& track) const
 
 void AudioManager::retainMusicTrack(FadingMusicTrack& track, const AudioClipDef& clip)
 {
-    track.fadingOut = false;
-    track.fadingIn = false;
-    track.fadeElapsed = 0.0f;
     track.sourceClipVolume = clip.volume;
-    track.targetVolume = effectiveVolume(AudioCategory::Music, clip.volume);
+    const float newTarget = effectiveVolume(AudioCategory::Music, clip.volume);
     track.fadeInSeconds = std::max(0.0f, attributeOrDefault(clip, "fade_in", clip.fadeIn));
     track.fadeOutSeconds = std::max(0.0f, attributeOrDefault(clip, "fade_out", clip.fadeOut));
     track.loop = clip.loop;
     track.music.looping = clip.loop;
 
-    if (track.playing)
-        track.currentVolume = track.targetVolume;
+    // Same path: ramp volume to the new scene level instead of snapping.
+    constexpr float kVolumeEpsilon = 0.01f;
+    if (track.playing && std::fabs(track.currentVolume - newTarget) > kVolumeEpsilon)
+    {
+        track.fadeFromVolume = track.currentVolume;
+        track.targetVolume = newTarget;
+        track.fadeElapsed = 0.0f;
+        track.fadingOut = false;
+        // Prefer the scene's fade_in as the ramp length; floor so short clips still ease.
+        if (track.fadeInSeconds < 0.5f)
+            track.fadeInSeconds = 2.0f;
+        track.fadingIn = true;
+    }
+    else
+    {
+        track.fadingOut = false;
+        track.fadingIn = false;
+        track.fadeElapsed = 0.0f;
+        track.targetVolume = newTarget;
+        if (track.playing)
+            track.currentVolume = newTarget;
+    }
 
     SetMusicVolume(track.music, appliedVolume(track.currentVolume));
 }
@@ -1374,7 +1434,10 @@ void AudioManager::syncRoomStreams(const RoomAudioConfig& roomAudio)
         }
         else if (isMusicStreamActive(musicTrack))
         {
-            fadeOutMusicTrack(musicTrack, musicTrack.fadeOutSeconds);
+            // Slow handoff into a different track: ease out at least as long as
+            // the outgoing fade_out, and prefer a gentle floor for title→scene.
+            const float outgoingFade = std::max(musicTrack.fadeOutSeconds, 2.5f);
+            fadeOutMusicTrack(musicTrack, outgoingFade);
             ++musicLoadGeneration; // cancel in-flight async loads for the old bed
             pendingMusicClip = roomAudio.music;
             pendingMusicStart = true;
@@ -1444,14 +1507,15 @@ void AudioManager::startTitleScreenBed()
     room.music.volume = 0.72f;
     room.music.loop = true;
     room.music.fadeIn = 1.8f;
-    room.music.fadeOut = 1.2f;
+    // Longer fade-out so New Game / Load can ease into scene music (#58).
+    room.music.fadeOut = 3.5f;
 
     AudioClipDef wind;
     wind.path = "resources/audio/ambient/wind.mp3";
     wind.volume = 0.14f; // soft ridge hush under the theme — keep music leading
     wind.loop = true;
     wind.fadeIn = 1.2f;
-    wind.fadeOut = 1.0f;
+    wind.fadeOut = 2.0f;
     room.ambient.push_back(wind);
 
     // Title bed should be audible even if gameplay was ducked.
@@ -1461,6 +1525,8 @@ void AudioManager::startTitleScreenBed()
 
 void AudioManager::stopTitleScreenBed()
 {
+    // Hard stop to silence (used when abandoning the title bed without a scene handoff).
+    // New Game / Load leave the bed playing and let syncRoomStreams crossfade instead.
     RoomAudioConfig empty;
     onRoomEnter(empty, "");
 }

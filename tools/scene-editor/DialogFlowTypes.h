@@ -1,0 +1,259 @@
+/*******************************************************************************
+ * Timberline engine
+ * Copyright (C) 2026 Dan Feerst
+ *
+ * Conversations flowchart: shared node kinds + port layout helpers (Phase 1 shell).
+ ******************************************************************************/
+
+#ifndef TIMBERLINE_DIALOG_FLOW_TYPES_H
+#define TIMBERLINE_DIALOG_FLOW_TYPES_H
+
+#include <raylib.h>
+#include <string>
+
+namespace timberline_editor
+{
+
+/** Palette / canvas node kinds (Phase 1 stubs). */
+enum class DialogNodeKind
+{
+    ActorDialog = 0,
+    PlayerDialog,
+    Event,
+    GiveItem, // actor → player (L→R); formerly GetItem (#64)
+    TakeItem, // player → actor (R→L) (#64)
+    Attack,
+    TriggerEvent,
+    ActorInventory,
+    DialogEnd, // terminal leaf — optional line then end Speak
+    Count
+};
+
+/** Legacy alias — same value as GiveItem. */
+inline constexpr DialogNodeKind DialogNodeKind_GetItem = DialogNodeKind::GiveItem;
+
+inline const char* dialogNodeKindLabel(DialogNodeKind kind)
+{
+    switch (kind)
+    {
+    case DialogNodeKind::ActorDialog:
+        return "Actor Dialog";
+    case DialogNodeKind::PlayerDialog:
+        return "Player Dialog";
+    case DialogNodeKind::Event:
+        return "Event";
+    case DialogNodeKind::GiveItem:
+        return "Give item";
+    case DialogNodeKind::TakeItem:
+        return "Take item";
+    case DialogNodeKind::Attack:
+        return "Fight";
+    case DialogNodeKind::TriggerEvent:
+        return "Trigger event";
+    case DialogNodeKind::ActorInventory:
+        return "Actor inventory";
+    case DialogNodeKind::DialogEnd:
+        return "Dialog end";
+    default:
+        return "Node";
+    }
+}
+
+inline const char* dialogNodeKindBrief(DialogNodeKind kind)
+{
+    switch (kind)
+    {
+    case DialogNodeKind::ActorDialog:
+        return "NPC line (1 or 5 outs)";
+    case DialogNodeKind::PlayerDialog:
+        return "Player line (1 out)";
+    case DialogNodeKind::Event:
+        return "Gate (pass / fail)";
+    case DialogNodeKind::GiveItem:
+        return "Actor → player (ok/fail)";
+    case DialogNodeKind::TakeItem:
+        return "Player → actor (ok/fail)";
+    case DialogNodeKind::Attack:
+        return "Fight lead-up / win / lose (2 outs)";
+    case DialogNodeKind::TriggerEvent:
+        return "Fire story event";
+    case DialogNodeKind::ActorInventory:
+        return "Priced stock browse/buy";
+    case DialogNodeKind::DialogEnd:
+        return "End Speak (0 outs)";
+    default:
+        return "";
+    }
+}
+
+/** Short badge letter drawn on stub icons. */
+inline const char* dialogNodeKindGlyph(DialogNodeKind kind)
+{
+    switch (kind)
+    {
+    case DialogNodeKind::ActorDialog:
+        return "A";
+    case DialogNodeKind::PlayerDialog:
+        return "P";
+    case DialogNodeKind::Event:
+        return "E";
+    case DialogNodeKind::GiveItem:
+        return "→";
+    case DialogNodeKind::TakeItem:
+        return "←";
+    case DialogNodeKind::Attack:
+        return "!";
+    case DialogNodeKind::TriggerEvent:
+        return "T";
+    case DialogNodeKind::ActorInventory:
+        return "$";
+    case DialogNodeKind::DialogEnd:
+        return "X";
+    default:
+        return "?";
+    }
+}
+
+inline int dialogNodeChildCount(DialogNodeKind kind)
+{
+    switch (kind)
+    {
+    case DialogNodeKind::ActorDialog:
+        return 5;
+    case DialogNodeKind::PlayerDialog:
+        return 1;
+    case DialogNodeKind::Event:
+        return 2; // pass (0) / fail (1)
+    case DialogNodeKind::GiveItem:
+        return 2; // success (0 green) / fail (1 red) (#64)
+    case DialogNodeKind::TakeItem:
+        return 2; // success (0 green) / fail (1 red) (#64)
+    case DialogNodeKind::Attack:
+        return 2;
+    case DialogNodeKind::TriggerEvent:
+        return 1;
+    case DialogNodeKind::ActorInventory:
+        return 1;
+    case DialogNodeKind::DialogEnd:
+        return 0;
+    default:
+        return 0;
+    }
+}
+
+/** Filename under resources/ui/editor/dialog_nodes/ */
+inline const char* dialogNodeKindIconFile(DialogNodeKind kind)
+{
+    switch (kind)
+    {
+    case DialogNodeKind::ActorDialog:
+        return "actor_dialog.png";
+    case DialogNodeKind::PlayerDialog:
+        return "player_dialog.png";
+    case DialogNodeKind::Event:
+        return "event.png";
+    case DialogNodeKind::GiveItem:
+        return "give_item.png";
+    case DialogNodeKind::TakeItem:
+        return "take_item.png";
+    case DialogNodeKind::Attack:
+        return "attack.png";
+    case DialogNodeKind::TriggerEvent:
+        return "trigger_event.png";
+    case DialogNodeKind::ActorInventory:
+        return "actor_inventory.png";
+    case DialogNodeKind::DialogEnd:
+        return "dialog_end.png";
+    default:
+        return "";
+    }
+}
+
+/** Parent (in) port color — top center. */
+inline constexpr Color kDialogParentPort = {90, 160, 200, 255};
+/** Default child (out) port for non–Actor-Dialog kinds. */
+inline constexpr Color kDialogChildPort = {210, 120, 90, 255};
+/**
+ * Actor Dialog empty out-slot — neutral, not in the 5 response palette.
+ * Occupied slots use dialogActorResponsePortColor(index).
+ */
+inline constexpr Color kDialogEmptyChildPort = {120, 118, 128, 255};
+/** Give/Take success (green) / fail (red) child ports (#64). */
+inline constexpr Color kDialogExchangeOkPort = {70, 170, 90, 255};
+inline constexpr Color kDialogExchangeFailPort = {200, 70, 70, 255};
+/** Speak-graph wire (not gold MOVE / silver Use). */
+inline constexpr Color kDialogFlowWire = {200, 90, 100, 230};
+
+/**
+ * Per-slot colors for Actor Dialog player-response ports (0..4).
+ * Used on the map when the slot is wired, and as swatches in Dialog details.
+ */
+inline Color dialogActorResponsePortColor(int childIndex)
+{
+    switch (childIndex)
+    {
+    case 0:
+        return Color{70, 190, 210, 255}; // Bottom — cyan
+    case 1:
+        return Color{220, 160, 60, 255}; // BottomLeft — amber
+    case 2:
+        return Color{180, 110, 220, 255}; // BottomRight — violet
+    case 3:
+        return Color{90, 200, 120, 255}; // Left — green
+    case 4:
+        return Color{230, 100, 140, 255}; // Right — rose
+    default:
+        return kDialogEmptyChildPort;
+    }
+}
+
+/**
+ * Child port slots 0..n-1 filled from bottom-center outward:
+ * 0 = bottom, then SW, SE, left, right (max 5).
+ * For Give/Take (2 outs): slot 0 = bottom-left success, slot 1 = bottom-right fail
+ * via dialogChildSlotForIndex — Bottom + BottomLeft. Prefer explicit placement
+ * in canvas draw for exchange kinds.
+ */
+enum class DialogChildSlot
+{
+    Bottom = 0,
+    BottomLeft,
+    BottomRight,
+    Left,
+    Right
+};
+
+inline DialogChildSlot dialogChildSlotForIndex(int index)
+{
+    switch (index)
+    {
+    case 0:
+        return DialogChildSlot::Bottom;
+    case 1:
+        return DialogChildSlot::BottomLeft;
+    case 2:
+        return DialogChildSlot::BottomRight;
+    case 3:
+        return DialogChildSlot::Left;
+    case 4:
+        return DialogChildSlot::Right;
+    default:
+        return DialogChildSlot::Bottom;
+    }
+}
+
+/**
+ * Stat modifier sketch (Phase 2). Documented for Attack awards etc.
+ * Modes: deltaValue | deltaPercent (of current) | setPercent (of max).
+ * Stats: health, energy, resolve, lucidity, charisma.
+ */
+struct DialogStatModifier
+{
+    std::string stat; // "health" | "energy" | ...
+    std::string mode; // "deltaValue" | "deltaPercent" | "setPercent"
+    float amount = 0.0f;
+};
+
+} // namespace timberline_editor
+
+#endif

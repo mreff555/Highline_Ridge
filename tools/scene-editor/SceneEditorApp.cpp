@@ -64,6 +64,10 @@ void SceneEditorApp::wireModules()
     {
         dialogWalkthrough.selectConversationScene(sceneId);
     };
+    conversation.onTreeSelection =
+        [this](const std::string& treeKey, const std::string& sceneId) {
+            dialogFlow.migrateFromTreeSelection(treeKey, sceneId);
+        };
 
     dialogWalkthrough.docs = &document;
     dialogWalkthrough.parchment = &parchmentEditor;
@@ -78,6 +82,40 @@ void SceneEditorApp::wireModules()
         if (!selectedSceneId.empty())
             conversation.expanded.insert("scene:" + selectedSceneId);
     };
+
+    dialogFlow.docs = &document;
+    dialogFlow.selectionSceneId = &selectedSceneId;
+    dialogFlow.parchment = &parchmentEditor;
+    dialogPalette.flow = &dialogFlow;
+    dialogDetails.flow = &dialogFlow;
+    dialogDetails.onEditFight = [this](DialogFlowNode* n) {
+        if (n != nullptr)
+            fightAuthoring.openForFight(selectedSceneId, n);
+    };
+    dialogFlow.onEditFight = [this](DialogFlowNode* n) {
+        if (n != nullptr)
+            fightAuthoring.openForFight(selectedSceneId, n);
+    };
+    dialogDetails.onEditActorDialog = [this](DialogFlowNode* n) {
+        if (n != nullptr)
+            actorDialogAuthoring.openForActorDialog(selectedSceneId, n);
+    };
+    dialogFlow.onEditActorDialog = [this](DialogFlowNode* n) {
+        if (n != nullptr)
+            actorDialogAuthoring.openForActorDialog(selectedSceneId, n);
+    };
+    dialogDetails.onEditEvent = [this](DialogFlowNode* n) {
+        if (n != nullptr)
+            eventAuthoring.openForEvent(selectedSceneId, n);
+    };
+    dialogFlow.onEditEvent = [this](DialogFlowNode* n) {
+        if (n != nullptr)
+            eventAuthoring.openForEvent(selectedSceneId, n);
+    };
+    dialogMedia.docs = &document;
+    dialogMedia.flow = &dialogFlow;
+    dialogMedia.thumbnails = &thumbnails;
+    dialogMedia.selectionSceneId = &selectedSceneId;
 
     itemEditor.docs = &document;
     itemEditor.text = &variableEditor;
@@ -98,6 +136,10 @@ void SceneEditorApp::wireModules()
     mapCanvas.variableEditor = &variableEditor;
     mapCanvas.conversation = &conversation;
     mapCanvas.dialogWalkthrough = &dialogWalkthrough;
+    mapCanvas.dialogFlow = &dialogFlow;
+    mapCanvas.dialogPalette = &dialogPalette;
+    mapCanvas.dialogDetails = &dialogDetails;
+    mapCanvas.dialogMedia = &dialogMedia;
     mapCanvas.itemEditor = &itemEditor;
     mapCanvas.selectionSceneId = &selectedSceneId;
     mapCanvas.variablesScroll = &variablesScroll;
@@ -107,7 +149,10 @@ void SceneEditorApp::wireModules()
     mapCanvas.sceneAuthoring.docs = &document;
     mapCanvas.sceneAuthoring.onCreated = [this](const std::string& id)
     {
-        thumbnails.clear();
+        // Only drop this scene's thumb — clear() raced with map draw while
+        // Generate image rotated/replaced the plate (dangling ThumbnailEntry).
+        if (!id.empty())
+            thumbnails.invalidate(id);
         // selectSceneForEditor is a no-op when id is already selected, so always
         // invalidate bottom-pane media. Otherwise a prior failed load (files not
         // on disk yet) keeps Play disabled after Generate/Confirm writes them.
@@ -188,6 +233,20 @@ void SceneEditorApp::wireModules()
     mapCanvas.sceneAssist.sessionKeys = &sessionApiKeys;
     mapCanvas.sceneExitRequirements.sessionKeys = &sessionApiKeys;
     itemEditor.sessionKeys = &sessionApiKeys;
+    fightAuthoring.docs = &document;
+    fightAuthoring.parchment = &parchmentEditor;
+    fightAuthoring.sessionKeys = &sessionApiKeys;
+    fightAuthoring.onSaved = [this]() { document.markDirty(); };
+    mapCanvas.fightAuthoring = &fightAuthoring;
+    actorDialogAuthoring.docs = &document;
+    actorDialogAuthoring.flow = &dialogFlow;
+    actorDialogAuthoring.parchment = &parchmentEditor;
+    actorDialogAuthoring.sessionKeys = &sessionApiKeys;
+    actorDialogAuthoring.onSaved = [this]() { document.markDirty(); };
+    mapCanvas.actorDialogAuthoring = &actorDialogAuthoring;
+    eventAuthoring.docs = &document;
+    eventAuthoring.onSaved = [this]() { document.markDirty(); };
+    mapCanvas.eventAuthoring = &eventAuthoring;
 
     // Temporary: seed session from env / ~/.config/highline-ridge/*_api_key.
     sessionApiKeys.bootstrapFromEnvAndFiles();
@@ -201,11 +260,20 @@ void SceneEditorApp::syncModuleFonts()
     conversation.uiFontBold = uiFontBold;
     dialogWalkthrough.uiFont = uiFont;
     dialogWalkthrough.uiFontBold = uiFontBold;
+    dialogFlow.uiFont = uiFont;
+    dialogFlow.uiFontBold = uiFontBold;
+    dialogPalette.uiFont = uiFont;
+    dialogPalette.uiFontBold = uiFontBold;
+    dialogDetails.uiFont = uiFont;
+    dialogDetails.uiFontBold = uiFontBold;
+    dialogMedia.uiFont = uiFont;
+    dialogMedia.uiFontBold = uiFontBold;
     itemEditor.uiFont = uiFont;
     itemEditor.uiFontBold = uiFontBold;
     mapCanvas.uiFont = uiFont;
     mapCanvas.uiFontBold = uiFontBold;
     mapCanvas.parchment = &parchmentEditor;
+    parchmentEditor.sessionKeys = &sessionApiKeys;
     mapCanvas.sceneAuthoring.parchment = &parchmentEditor;
     mapCanvas.sceneAuthoring.uiFont = uiFont;
     mapCanvas.sceneAuthoring.uiFontBold = uiFontBold;
@@ -228,6 +296,20 @@ void SceneEditorApp::syncModuleFonts()
     mapCanvas.sceneExitRequirements.parchment = &parchmentEditor;
     mapCanvas.sceneExitRequirements.uiFont = uiFont;
     mapCanvas.sceneExitRequirements.uiFontBold = uiFontBold;
+    fightAuthoring.docs = &document;
+    fightAuthoring.parchment = &parchmentEditor;
+    fightAuthoring.sessionKeys = &sessionApiKeys;
+    fightAuthoring.uiFont = uiFont;
+    fightAuthoring.uiFontBold = uiFontBold;
+    actorDialogAuthoring.docs = &document;
+    actorDialogAuthoring.flow = &dialogFlow;
+    actorDialogAuthoring.parchment = &parchmentEditor;
+    actorDialogAuthoring.sessionKeys = &sessionApiKeys;
+    actorDialogAuthoring.uiFont = uiFont;
+    actorDialogAuthoring.uiFontBold = uiFontBold;
+    eventAuthoring.docs = &document;
+    eventAuthoring.uiFont = uiFont;
+    eventAuthoring.uiFontBold = uiFontBold;
     mapCanvas.sceneUseTransition.uiFont = uiFont;
     mapCanvas.sceneUseTransition.uiFontBold = uiFontBold;
     mapCanvas.sceneFloorConnect.uiFont = uiFont;
@@ -321,6 +403,9 @@ bool SceneEditorApp::saveDocument()
 
 void SceneEditorApp::unloadThumbnails()
 {
+    dialogMedia.unloadAudio();
+    dialogFlow.unloadIcons();
+    mapCanvas.unloadScenePreviewMedia();
     thumbnails.clear();
 }
 
@@ -338,7 +423,11 @@ void SceneEditorApp::selectSceneForEditor(const std::string& id)
         dialogWalkthrough.ensureConversationSceneSelected();
         dialogWalkthrough.rebuildSteps();
         if (!selectedSceneId.empty())
+        {
             conversation.expanded.insert("scene:" + selectedSceneId);
+            dialogFlow.migrateFromTreeSelection(
+                "scene:" + selectedSceneId, selectedSceneId);
+        }
     }
 }
 
@@ -435,7 +524,11 @@ bool SceneEditorApp::loadActiveDocument()
         dialogWalkthrough.ensureConversationSceneSelected();
         dialogWalkthrough.rebuildSteps();
         if (!selectedSceneId.empty())
+        {
             conversation.expanded.insert("scene:" + selectedSceneId);
+            dialogFlow.migrateFromTreeSelection(
+                "scene:" + selectedSceneId, selectedSceneId);
+        }
         return true;
     }
 
@@ -472,6 +565,9 @@ void SceneEditorApp::handleShortcuts()
         || mapCanvas.sceneEffects.blocksInput()
         || mapCanvas.sceneTransition.blocksInput()
         || mapCanvas.sceneExitRequirements.blocksInput()
+        || fightAuthoring.blocksInput()
+        || actorDialogAuthoring.blocksInput()
+        || eventAuthoring.blocksInput()
         || mapCanvas.sceneUseTransition.blocksInput()
         || mapCanvas.sceneFloorConnect.blocksInput()
         || mapCanvas.confirmMode != SceneMapCanvas::ConfirmMode::None
@@ -528,6 +624,9 @@ void SceneEditorApp::update()
             && !mapCanvas.sceneEffects.blocksInput()
             && !mapCanvas.sceneTransition.blocksInput()
             && !mapCanvas.sceneExitRequirements.blocksInput()
+            && !fightAuthoring.blocksInput()
+            && !actorDialogAuthoring.blocksInput()
+            && !eventAuthoring.blocksInput()
             && !mapCanvas.sceneUseTransition.blocksInput()
             && !mapCanvas.sceneFloorConnect.blocksInput()
             && mapCanvas.confirmMode == SceneMapCanvas::ConfirmMode::None)
@@ -562,6 +661,24 @@ void SceneEditorApp::update()
         return;
     }
 
+    if (fightAuthoring.blocksInput())
+    {
+        fightAuthoring.handleInput(screenWidth, screenHeight);
+        return;
+    }
+
+    if (actorDialogAuthoring.blocksInput())
+    {
+        actorDialogAuthoring.handleInput(screenWidth, screenHeight);
+        return;
+    }
+
+    if (eventAuthoring.blocksInput())
+    {
+        eventAuthoring.handleInput(screenWidth, screenHeight);
+        return;
+    }
+
     if (!editorMouseDown(MOUSE_BUTTON_LEFT))
         layout.cancelDividerDrag();
 
@@ -575,6 +692,9 @@ void SceneEditorApp::update()
         && !mapCanvas.sceneEffects.blocksInput()
         && !mapCanvas.sceneTransition.blocksInput()
         && !mapCanvas.sceneExitRequirements.blocksInput()
+        && !fightAuthoring.blocksInput()
+        && !actorDialogAuthoring.blocksInput()
+        && !eventAuthoring.blocksInput()
         && !mapCanvas.sceneUseTransition.blocksInput()
         && !mapCanvas.sceneFloorConnect.blocksInput()
         && mapCanvas.confirmMode == SceneMapCanvas::ConfirmMode::None
@@ -691,11 +811,14 @@ void SceneEditorApp::update()
         const Rectangle main = layout.mainPaneBounds(screenWidth);
         const Rectangle canvasBounds = {
             main.x + 4.0f, main.y + 4.0f, main.width - 8.0f, main.height - 8.0f};
-        dialogWalkthrough.handleInput(canvasBounds);
-        if (CheckCollisionPointRec(GetMousePosition(), dialogWalkthrough.textField))
-            SetMouseCursor(MOUSE_CURSOR_IBEAM);
-        else
-            SetMouseCursor(MOUSE_CURSOR_DEFAULT);
+        const Rectangle bottom = layout.bottomPaneBounds(screenWidth, screenHeight);
+        const DialogBottomSplit split = computeDialogBottomSplit(bottom);
+        const bool paneInteract = !layout.isDraggingDivider();
+        dialogPalette.handleInput(split.types, paneInteract);
+        dialogDetails.handleInput(split.details, paneInteract);
+        dialogFlow.handleInput(canvasBounds, paneInteract);
+        dialogMedia.handleInput(split.media, paneInteract);
+        SetMouseCursor(MOUSE_CURSOR_DEFAULT);
     }
 
     layout.handleDividerInput(screenWidth, screenHeight);

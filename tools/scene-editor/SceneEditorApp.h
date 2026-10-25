@@ -22,11 +22,18 @@
 
 #include "ApiKeysDialog.h"
 #include "ConversationTree.h"
+#include "DialogFlowCanvas.h"
+#include "DialogMediaPreview.h"
+#include "DialogNodeDetails.h"
+#include "DialogNodePalette.h"
 #include "DialogWalkthrough.h"
 #include "DocumentWorkspace.h"
 #include "EditorApiKeys.h"
 #include "EditorLayout.h"
 #include "EditorPreferencesDialog.h"
+#include "ActorDialogAuthoringDialog.h"
+#include "EventAuthoringDialog.h"
+#include "FightAuthoringDialog.h"
 #include "FullscreenParchmentEditor.h"
 #include "ItemEditor.h"
 #include "SceneGraphModel.h"
@@ -50,6 +57,10 @@ struct SceneEditorApp
     VariableEditor variableEditor;
     ConversationTree conversation;
     DialogWalkthrough dialogWalkthrough;
+    DialogFlowCanvas dialogFlow;
+    DialogNodePalette dialogPalette;
+    DialogNodeDetails dialogDetails;
+    DialogMediaPreview dialogMedia;
     ItemEditor itemEditor;
     SceneGraphModel sceneGraph;
     SceneMapCanvas mapCanvas;
@@ -57,6 +68,9 @@ struct SceneEditorApp
     EditorApiKeys sessionApiKeys;
     ApiKeysDialog apiKeysDialog;
     FullscreenParchmentEditor parchmentEditor;
+    FightAuthoringDialog fightAuthoring;
+    ActorDialogAuthoringDialog actorDialogAuthoring;
+    EventAuthoringDialog eventAuthoring;
 
     std::string selectedSceneId;
     float variablesScroll = 0.0f;

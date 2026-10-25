@@ -85,6 +85,13 @@ class InventoryMgr
      */
     bool giveOrStackItem(const InventoryItem& item, std::string& message);
     bool removeItem(const std::string& id);
+    /**
+     * Remove quantity from a stack (or the whole slot when qty hits 0 / non-stackable).
+     * Returns false if missing or insufficient quantity (#64).
+     */
+    bool removeQuantity(const std::string& id, int quantity);
+    /** Current stack count for id (0 if missing). Non-stackable owned → 1. */
+    int itemQuantity(const std::string& id) const;
     std::vector<InventoryItem> exportItemSnapshots() const;
     void restoreFromSnapshots(const std::vector<InventoryItem>& savedItems);
 

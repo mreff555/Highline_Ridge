@@ -53,6 +53,16 @@ void setExitTarget(const std::string& sceneId, const std::string& direction, con
 void clearExitTarget(const std::string& sceneId, const std::string& direction);
 
 /**
+ * Clear every compass exit involving sceneId: its own exits[*], plus any
+ * neighbor exits[*] that target sceneId. Used by Remove from map so travel
+ * ports do not stay "linked" after the card disappears.
+ */
+void clearCompassLinksForScene(const std::string& sceneId);
+
+/** True when exits[dir] is non-empty and the target still has map placement. */
+bool isExitPortLinked(const std::string& sceneId, const std::string& direction) const;
+
+/**
  * Delete fromId --direction--> target. When clearReciprocal is true and the
  * reverse exit points back, clears that too. Does not touch audio.sfx.
  */
@@ -149,8 +159,9 @@ std::string cellKey(int col, int row) const;
 void autoLayoutLevel(int level);
 
 /**
- * Straighten wires on one floor without reshuffling: align mid-edge ports of
- * linked F/B/L/R pairs (shared X or Y), then gently separate overlaps.
+ * Crossing-aware Clean up for one floor: snap to a roomy grid, local search /
+ * swaps that penalize orthogonal wire crossings and stacked runs, then
+ * port-align F/B/L/R pairs. Footprint may grow (full layout gaps).
  */
 void cleanupLayoutLevel(int level);
 

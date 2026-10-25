@@ -129,6 +129,10 @@ set(EDITOR_SOURCES
     VariableEditor.cpp
     ConversationTree.cpp
     DialogWalkthrough.cpp
+    DialogFlowCanvas.cpp
+    DialogNodePalette.cpp
+    DialogNodeDetails.cpp
+    DialogMediaPreview.cpp
     ItemAuthoring.cpp
     ItemEditor.cpp
     ItemEditorAuthoring.cpp
@@ -142,6 +146,9 @@ set(EDITOR_SOURCES
     SceneEffectsDialog.cpp
     SceneTransitionDialog.cpp
     SceneExitRequirementsDialog.cpp
+    FightAuthoringDialog.cpp
+    ActorDialogAuthoringDialog.cpp
+    EventAuthoringDialog.cpp
     SceneUseTransitionDialog.cpp
     SceneFloorConnectDialog.cpp
     EditorPreferencesDialog.cpp

@@ -64,6 +64,7 @@ SavedGameState WorldState::snapshot(
     state.flagGrantedDay = flagGrantedDay;
     state.actorOpinions = actorOpinions;
     state.actorTabOwed = actorTabOwed;
+    state.actorInventories = actorInventories;
     state.knownActorIds = knownActorIds;
     conversationMgr.exportPersistState(state.conversation);
     milestoneMgr.exportPersistState(state.milestones);
@@ -109,6 +110,7 @@ bool WorldState::restore(
     flagGrantedDay = state.flagGrantedDay;
     actorOpinions = state.actorOpinions;
     actorTabOwed = state.actorTabOwed;
+    actorInventories = state.actorInventories;
     knownActorIds = state.knownActorIds;
 
     for (const std::string& flag : storyFlags)
@@ -175,6 +177,97 @@ void WorldState::applyActorTabDelta(const std::string& actorId, float delta)
     tab = std::max(0.0f, tab + delta);
     if (tab <= 0.0001f)
         actorTabOwed.erase(actorId);
+}
+
+void WorldState::ensureActorInventory(
+    const std::string& actorId,
+    const std::vector<ActorInventorySlot>& defaults)
+{
+    if (actorId.empty() || actorInventories.count(actorId) > 0)
+        return;
+    actorInventories[actorId] = defaults;
+}
+
+const std::vector<ActorInventorySlot>* WorldState::actorInventory(const std::string& actorId) const
+{
+    if (actorId.empty())
+        return nullptr;
+    std::map<std::string, std::vector<ActorInventorySlot>>::const_iterator it =
+        actorInventories.find(actorId);
+    if (it == actorInventories.end())
+        return nullptr;
+    return &it->second;
+}
+
+bool WorldState::consumeActorInventoryItem(const std::string& actorId, const std::string& itemId)
+{
+    if (actorId.empty() || itemId.empty())
+        return false;
+    std::map<std::string, std::vector<ActorInventorySlot>>::iterator bag =
+        actorInventories.find(actorId);
+    if (bag == actorInventories.end())
+        return false;
+
+    for (ActorInventorySlot& slot : bag->second)
+    {
+        if (slot.id != itemId)
+            continue;
+        if (slot.infinite)
+            return true;
+        if (slot.quantity <= 0)
+            return false;
+        --slot.quantity;
+        return true;
+    }
+    return false;
+}
+
+bool WorldState::addActorInventoryItem(
+    const std::string& actorId,
+    const std::string& itemId,
+    int quantity,
+    float price)
+{
+    if (actorId.empty() || itemId.empty())
+        return false;
+    const int addQty = std::max(1, quantity);
+    std::vector<ActorInventorySlot>& bag = actorInventories[actorId];
+    for (ActorInventorySlot& slot : bag)
+    {
+        if (slot.id != itemId)
+            continue;
+        if (slot.infinite)
+            return true;
+        slot.quantity += addQty;
+        if (price > 0.0f)
+            slot.price = price;
+        return true;
+    }
+    ActorInventorySlot slot;
+    slot.id = itemId;
+    slot.price = price;
+    slot.quantity = addQty;
+    slot.infinite = false;
+    bag.push_back(slot);
+    return true;
+}
+
+int WorldState::actorInventoryQuantity(
+    const std::string& actorId,
+    const std::string& itemId) const
+{
+    const std::vector<ActorInventorySlot>* bag = actorInventory(actorId);
+    if (bag == nullptr)
+        return 0;
+    for (const ActorInventorySlot& slot : *bag)
+    {
+        if (slot.id != itemId)
+            continue;
+        if (slot.infinite)
+            return 1000000;
+        return std::max(0, slot.quantity);
+    }
+    return 0;
 }
 
 }

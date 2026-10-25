@@ -35,6 +35,9 @@
 #include "SceneEffectsDialog.h"
 #include "ApiKeysDialog.h"
 #include "EditorPreferencesDialog.h"
+#include "ActorDialogAuthoringDialog.h"
+#include "EventAuthoringDialog.h"
+#include "FightAuthoringDialog.h"
 #include "ImageCompression.h"
 #include "PlatformPath.h"
 #include "RaylibCompat.h"
@@ -1420,7 +1423,9 @@ void SceneMapCanvas::drawDirectionPorts(Rectangle canvasBounds) const
         for (const char* dir : dirs)
         {
             const Rectangle port = directionPortBounds(card, dir);
-            const bool linked = graph && !graph->getExitTarget(id, dir).empty();
+            // Linked (gold) only when the exit target is still on the map —
+            // matches wire drawing, so Remove from map cannot leave orphan gold dots.
+            const bool linked = graph && graph->isExitPortLinked(id, dir);
             const bool active =
                 dragSource == DragSource::ExitPort
                 && portDragFromId == id
@@ -2034,12 +2039,12 @@ void SceneMapCanvas::drawLevelChrome(Rectangle canvasBounds)
         const Vector2 mouse = GetMousePosition();
         if (canClean && CheckCollisionPointRec(mouse, cleanBtn))
         {
-            // Port-align linked cards (keep neighborhood; straighten mid-runs).
+            // Crossing-aware reorder + roomy gaps, then port-align.
             graph->cleanupLayoutLevel(level);
             cancelLinkDrag();
             cancelPortDrag();
             cachedLinkRoutes.clear();
-            exitLinkFeedback = "Map cleaned up";
+            exitLinkFeedback = "Map cleaned up (fewer crossings)";
             exitLinkFeedbackUntil = GetTime() + 2.0;
         }
         if (canGoDown && CheckCollisionPointRec(mouse, levelDownBtn))
@@ -2427,6 +2432,26 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         static_cast<int>(contentView.width),
         static_cast<int>(contentView.height));
 
+    // Subtle grid (same language as Conversations flowchart) — scrolls with the map.
+    {
+        const float step = 32.0f;
+        const Color grid = {32, 30, 38, 255};
+        const float ox = contentView.x - std::fmod(scroll.x, step);
+        const float oy = contentView.y - std::fmod(scroll.y, step);
+        for (float x = ox; x < contentView.x + contentView.width; x += step)
+            DrawLineEx(
+                {x, contentView.y},
+                {x, contentView.y + contentView.height},
+                1.0f,
+                grid);
+        for (float y = oy; y < contentView.y + contentView.height; y += step)
+            DrawLineEx(
+                {contentView.x, y},
+                {contentView.x + contentView.width, y},
+                1.0f,
+                grid);
+    }
+
     // Draw cards first, then links on top so arrows are never half-hidden
     // under (*thumbnails).
     const std::vector<std::string> ids = docs->scenes.mapNodeIds();
@@ -2504,6 +2529,9 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         || sceneEffects.blocksInput()
         || sceneTransition.blocksInput()
         || sceneExitRequirements.blocksInput()
+        || (fightAuthoring && fightAuthoring->blocksInput())
+        || (actorDialogAuthoring && actorDialogAuthoring->blocksInput())
+        || (eventAuthoring && eventAuthoring->blocksInput())
         || sceneUseTransition.blocksInput()
         || sceneFloorConnect.blocksInput()
         || (preferences && preferences->blocksInput())
@@ -2542,7 +2570,7 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
             portDragDirection = portDir;
             portDragUseBinding.clear();
             portDragMovingExisting =
-                graph && !graph->getExitTarget(portScene, portDir).empty();
+                graph && graph->isExitPortLinked(portScene, portDir);
             dragSource = DragSource::ExitPort;
             linkDragHoverTarget.clear();
             if (selectSceneForEditor)
@@ -3268,6 +3296,9 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         || sceneEffects.blocksInput()
         || sceneTransition.blocksInput()
         || sceneExitRequirements.blocksInput()
+        || (fightAuthoring && fightAuthoring->blocksInput())
+        || (actorDialogAuthoring && actorDialogAuthoring->blocksInput())
+        || (eventAuthoring && eventAuthoring->blocksInput())
         || sceneUseTransition.blocksInput()
         || sceneFloorConnect.blocksInput()
         || (preferences && preferences->blocksInput())
@@ -3318,6 +3349,9 @@ bool SceneMapCanvas::anyAuthoringModalOpen() const
         || sceneEffects.blocksInput()
         || sceneTransition.blocksInput()
         || sceneExitRequirements.blocksInput()
+        || (fightAuthoring && fightAuthoring->blocksInput())
+        || (actorDialogAuthoring && actorDialogAuthoring->blocksInput())
+        || (eventAuthoring && eventAuthoring->blocksInput())
         || sceneUseTransition.blocksInput()
         || sceneFloorConnect.blocksInput()
         || (preferences != nullptr && preferences->blocksInput())
@@ -3563,8 +3597,14 @@ void SceneMapCanvas::performRemoveFromMap()
         return;
     }
     const std::string id = confirmSceneId;
+    // Clear compass exits first so neighbors do not keep gold travel ports
+    // (and invisible wires) pointing at an off-map scene.
+    if (graph != nullptr)
+        graph->clearCompassLinksForScene(id);
     docs->scenes.clearLayout(id);
     docs->markDirty();
+    cancelLinkDrag();
+    cancelPortDrag();
     cancelDragsForScene(id);
     confirmMode = ConfirmMode::None;
     confirmSceneId.clear();
@@ -3811,9 +3851,12 @@ void SceneMapCanvas::placeUnplacedSubViewsOnMap(const std::string& parentId)
         if (docs->scenes.hasMapPlacement(node))
             continue;
         SceneLayout layout = parentLayout;
+        // Same pitch language as ensureDefaultLayouts (card + gap), staggered down
+        // so alternate views don't sit on top of the parent or each other.
         layout.x = parentLayout.x
-            + static_cast<float>(placed + 1) * (kSceneCardWidth + 48.0f);
-        layout.y = parentLayout.y + 24.0f;
+            + static_cast<float>(placed + 1) * (kSceneCardWidth + kLayoutGapX);
+        layout.y = parentLayout.y
+            + static_cast<float>(placed + 1) * 36.0f;
         docs->scenes.setLayout(node, layout);
         ++placed;
     }
@@ -3978,7 +4021,7 @@ void SceneMapCanvas::drawConfirmDialogs(int screenWidth, int screenHeight)
     if (confirmMode == ConfirmMode::RemoveFromMap)
     {
         const float dialogW = 460.0f;
-        const float dialogH = 180.0f;
+        const float dialogH = 200.0f;
         const Rectangle dialog = {
             (static_cast<float>(screenWidth) - dialogW) * 0.5f,
             (static_cast<float>(screenHeight) - dialogH) * 0.5f,
@@ -3996,8 +4039,10 @@ void SceneMapCanvas::drawConfirmDialogs(int screenWidth, int screenHeight)
             kTextPrimary);
         drawWrappedText(
             font,
-            "Remove " + confirmSceneId + " from the map? Scene stays in the list.",
-            {dialog.x + 20.0f, dialog.y + 56.0f},
+            "Remove " + confirmSceneId
+                + " from the map? Scene stays in the list. Compass links to "
+                  "neighbors are cleared so travel ports do not stay connected.",
+            {dialog.x + 20.0f, dialog.y + 52.0f},
             dialogW - 40.0f,
             kFontBody,
             4.0f,
@@ -4301,6 +4346,9 @@ void SceneMapCanvas::drawSceneList(Rectangle listBounds)
         && !sceneEffects.blocksInput()
         && !sceneTransition.blocksInput()
         && !sceneExitRequirements.blocksInput()
+        && !(fightAuthoring && fightAuthoring->blocksInput())
+        && !(actorDialogAuthoring && actorDialogAuthoring->blocksInput())
+        && !(eventAuthoring && eventAuthoring->blocksInput())
         && !sceneUseTransition.blocksInput()
         && !sceneFloorConnect.blocksInput()
         && !(preferences && preferences->blocksInput())
@@ -4419,6 +4467,9 @@ void SceneMapCanvas::drawSceneList(Rectangle listBounds)
         && !sceneEffects.blocksInput()
         && !sceneTransition.blocksInput()
         && !sceneExitRequirements.blocksInput()
+        && !(fightAuthoring && fightAuthoring->blocksInput())
+        && !(actorDialogAuthoring && actorDialogAuthoring->blocksInput())
+        && !(eventAuthoring && eventAuthoring->blocksInput())
         && !sceneUseTransition.blocksInput()
         && !sceneFloorConnect.blocksInput()
         && !(preferences && preferences->blocksInput())
@@ -4900,6 +4951,9 @@ void SceneMapCanvas::drawScenePreviewPane(Rectangle paneBounds)
         && !sceneEffects.blocksInput()
         && !sceneTransition.blocksInput()
         && !sceneExitRequirements.blocksInput()
+        && !(fightAuthoring && fightAuthoring->blocksInput())
+        && !(actorDialogAuthoring && actorDialogAuthoring->blocksInput())
+        && !(eventAuthoring && eventAuthoring->blocksInput())
         && !sceneUseTransition.blocksInput()
         && !sceneFloorConnect.blocksInput()
         && !(preferences && preferences->blocksInput())
@@ -5144,18 +5198,7 @@ void SceneMapCanvas::drawBottomPane(Rectangle bottomBounds)
 {
     drawPanel(bottomBounds);
 
-    const float splitX = bottomBounds.x + bottomBounds.width * 0.55f;
-    const Rectangle variablesBounds = {bottomBounds.x, bottomBounds.y,
-                                       splitX - bottomBounds.x, bottomBounds.height};
-    const Rectangle previewBounds = {splitX + 2.0f, bottomBounds.y,
-                                    bottomBounds.x + bottomBounds.width - splitX - 2.0f,
-                                    bottomBounds.height};
-
-    DrawLineEx(
-        {splitX, bottomBounds.y + 12.0f},
-        {splitX, bottomBounds.y + bottomBounds.height - 12.0f},
-        1.5f,
-        kDividerGrip);
+    const bool conversationsTab = docs && docs->isConversationsTab();
 
     const bool paneInteract = !sceneAuthoring.blocksInput()
         && !sceneAssist.blocksInput()
@@ -5165,14 +5208,54 @@ void SceneMapCanvas::drawBottomPane(Rectangle bottomBounds)
         && !sceneEffects.blocksInput()
         && !sceneTransition.blocksInput()
         && !sceneExitRequirements.blocksInput()
+        && !(fightAuthoring && fightAuthoring->blocksInput())
+        && !(actorDialogAuthoring && actorDialogAuthoring->blocksInput())
+        && !(eventAuthoring && eventAuthoring->blocksInput())
         && !sceneUseTransition.blocksInput()
         && !sceneFloorConnect.blocksInput()
         && !(preferences && preferences->blocksInput())
         && !(itemEditor && itemEditor->blocksInput())
         && !(variableEditor && variableEditor->open)
         && confirmMode == ConfirmMode::None;
-    variableEditor->drawVariablesPane(variablesBounds, paneInteract);
-    drawScenePreviewPane(previewBounds);
+
+    if (conversationsTab && dialogPalette && dialogMedia)
+    {
+        const DialogBottomSplit split = computeDialogBottomSplit(bottomBounds);
+        auto drawGrip = [&](float x) {
+            DrawLineEx(
+                {x, bottomBounds.y + 12.0f},
+                {x, bottomBounds.y + bottomBounds.height - 12.0f},
+                1.5f,
+                kDividerGrip);
+        };
+        drawGrip(split.types.x + split.types.width);
+        drawGrip(split.details.x + split.details.width);
+        dialogPalette->draw(split.types);
+        if (dialogDetails)
+            dialogDetails->draw(split.details);
+        dialogMedia->draw(split.media);
+    }
+    else
+    {
+        const float splitX = bottomBounds.x + bottomBounds.width * 0.55f;
+        const Rectangle leftBottom = {
+            bottomBounds.x,
+            bottomBounds.y,
+            splitX - bottomBounds.x,
+            bottomBounds.height};
+        const Rectangle rightBottom = {
+            splitX + 2.0f,
+            bottomBounds.y,
+            bottomBounds.x + bottomBounds.width - splitX - 2.0f,
+            bottomBounds.height};
+        DrawLineEx(
+            {splitX, bottomBounds.y + 12.0f},
+            {splitX, bottomBounds.y + bottomBounds.height - 12.0f},
+            1.5f,
+            kDividerGrip);
+        variableEditor->drawVariablesPane(leftBottom, paneInteract);
+        drawScenePreviewPane(rightBottom);
+    }
 }
 
 
@@ -5214,6 +5297,9 @@ void SceneMapCanvas::drawStatusBar(int screenWidth, int screenHeight)
         && !sceneEffects.blocksInput()
         && !sceneTransition.blocksInput()
         && !sceneExitRequirements.blocksInput()
+        && !(fightAuthoring && fightAuthoring->blocksInput())
+        && !(actorDialogAuthoring && actorDialogAuthoring->blocksInput())
+        && !(eventAuthoring && eventAuthoring->blocksInput())
         && !sceneUseTransition.blocksInput()
         && !sceneFloorConnect.blocksInput()
         && confirmMode == ConfirmMode::None;
@@ -5285,7 +5371,11 @@ void SceneMapCanvas::draw()
     const int screenWidth = GetScreenWidth();
     const int screenHeight = GetScreenHeight();
     if (layout)
+    {
+        const bool conversations = docs && docs->isConversationsTab();
+        layout->applyChromeForTab(conversations, screenWidth, screenHeight);
         layout->syncToWindow(screenWidth, screenHeight);
+    }
 
     BeginDrawing();
     ClearBackground(Color{14, 13, 18, 255});
@@ -5314,8 +5404,13 @@ void SceneMapCanvas::draw()
         main.y + 4.0f,
         main.width - 8.0f,
         main.height - 8.0f};
-    if (docs && docs->isConversationsTab() && dialogWalkthrough)
+    if (docs && docs->isConversationsTab() && dialogFlow)
     {
+        dialogFlow->draw(canvasBounds);
+    }
+    else if (docs && docs->isConversationsTab() && dialogWalkthrough)
+    {
+        // Fallback if flowchart module is not wired.
         dialogWalkthrough->draw(canvasBounds);
     }
     else if (docs && docs->isItemsTab())
@@ -5371,6 +5466,12 @@ void SceneMapCanvas::draw()
     sceneEffects.draw(screenWidth, screenHeight);
     sceneTransition.draw(screenWidth, screenHeight);
     sceneExitRequirements.draw(screenWidth, screenHeight);
+    if (fightAuthoring)
+        fightAuthoring->draw(screenWidth, screenHeight);
+    if (actorDialogAuthoring)
+        actorDialogAuthoring->draw(screenWidth, screenHeight);
+    if (eventAuthoring)
+        eventAuthoring->draw(screenWidth, screenHeight);
     sceneUseTransition.draw(screenWidth, screenHeight);
     sceneFloorConnect.draw(screenWidth, screenHeight);
     if (preferences)

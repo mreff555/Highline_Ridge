@@ -48,7 +48,12 @@ class UiBackdrop
     bool load(const UiConfig& config, const std::string& assetRoot);
     bool isActive() const { return backgroundId != UiBackgroundId::None && textureReady; }
 
-    void drawPanel(Rectangle bounds, float roundness = 0.04f, int segments = 10) const;
+    /** opacity 1 = opaque panel; lower values let the scene show through (title menu). */
+    void drawPanel(
+        Rectangle bounds,
+        float roundness = 0.04f,
+        int segments = 10,
+        float opacity = 1.0f) const;
     void drawAccentBar(Rectangle bar) const;
 
     ButtonStyle contrastedButtonStyle(const ButtonStyle& base) const;

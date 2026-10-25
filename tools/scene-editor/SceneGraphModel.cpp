@@ -127,6 +127,54 @@ void SceneGraphModel::clearExitTarget(const std::string& sceneId, const std::str
         (*scene)["exitRequirements"].erase(direction);
 }
 
+void SceneGraphModel::clearCompassLinksForScene(const std::string& sceneId)
+{
+    if (!docs || !docs->scenes.isLoaded() || sceneId.empty())
+        return;
+
+    // Compass exits live on parent scene JSON only.
+    const std::string parentId = parentSceneIdForExits(sceneId);
+    static const char* kDirs[] = {"forward", "backward", "left", "right", "up", "down"};
+
+    // Clear outbound exits on this scene (and matching reciprocals when present).
+    for (const char* dir : kDirs)
+    {
+        const std::string target = getExitTarget(parentId, dir);
+        if (target.empty())
+            continue;
+        deleteExitLink(parentId, dir, true);
+    }
+
+    // Clear inbound compass exits that still name this scene (exact id match,
+    // same rule as SceneDocument::removeScene).
+    const std::vector<std::string> ids = docs->scenes.sceneIds();
+    for (const std::string& otherId : ids)
+    {
+        if (otherId == parentId)
+            continue;
+        for (const char* dir : kDirs)
+        {
+            if (getExitTarget(otherId, dir) == parentId)
+                clearExitTarget(otherId, dir);
+        }
+    }
+
+    docs->markDirty();
+}
+
+bool SceneGraphModel::isExitPortLinked(
+    const std::string& sceneId,
+    const std::string& direction) const
+{
+    if (!docs || !docs->scenes.isLoaded())
+        return false;
+    const std::string target = getExitTarget(sceneId, direction);
+    if (target.empty())
+        return false;
+    // Match wire visibility: a target without map placement is not "linked".
+    return docs->scenes.hasMapPlacement(target);
+}
+
 nlohmann::json SceneGraphModel::readExitRequirement(
     const std::string& sceneId,
     const std::string& direction) const
@@ -443,10 +491,20 @@ bool SceneGraphModel::retargetExitLink(
 
     if (hadReciprocal)
     {
-        // Reverse slot on the new target must be free (or already back to fromId).
+        // Reverse slot on the new target must be free, already back to fromId,
+        // or a stale pointer at an off-map / missing scene.
         const std::string existingReverse = getExitTarget(newToId, reverseDir);
         if (!existingReverse.empty() && existingReverse != fromId)
-            return false;
+        {
+            const bool reverseStale =
+                !docs->scenes.hasMapNode(existingReverse)
+                || !docs->scenes.hasMapPlacement(existingReverse);
+            if (!reverseStale)
+                return false;
+            if (getExitTarget(existingReverse, direction) == newToId)
+                clearExitTarget(existingReverse, direction);
+            clearExitTarget(newToId, reverseDir);
+        }
     }
 
     clearExitTarget(fromId, direction);
@@ -503,8 +561,25 @@ bool SceneGraphModel::createExitLink(
     if (reciprocalIfFree && !reverseDir.empty())
     {
         const std::string reverseExisting = getExitTarget(toId, reverseDir);
-        if (reverseExisting.empty() || reverseExisting == fromId)
+        // Treat reverse as free when empty, already reciprocal, or pointing at a
+        // scene that is missing / off the map (stale after Remove from map).
+        const bool reverseFree = reverseExisting.empty() || reverseExisting == fromId;
+        const bool reverseStale =
+            !reverseExisting.empty()
+            && reverseExisting != fromId
+            && (!docs->scenes.hasMapNode(reverseExisting)
+                || !docs->scenes.hasMapPlacement(reverseExisting));
+        if (reverseFree || reverseStale)
+        {
+            if (reverseStale)
+            {
+                // Drop the unplaced neighbor's reciprocal if it still points here.
+                if (getExitTarget(reverseExisting, direction) == toId)
+                    clearExitTarget(reverseExisting, direction);
+                clearExitTarget(toId, reverseDir);
+            }
             setExitTarget(toId, reverseDir, fromId);
+        }
     }
 
     docs->markDirty();
@@ -772,26 +847,23 @@ void SceneGraphModel::cleanupLayoutLevel(int level)
     if (levelIds.empty())
         return;
 
-    // Continuous positions — do not re-grid / reshuffle the floor.
-    std::map<std::string, Vector2> pos;
+    // Strong Clean up: snap to a roomy grid, crossing-aware local search / swaps,
+    // then port-align. Footprint may grow (full layout gaps, not the old 0.35×).
     std::map<std::string, float> height;
+    float maxCardH = kSceneCardMinHeight;
     for (const std::string& id : levelIds)
     {
-        const SceneLayout layout = docs->scenes.getLayout(id);
-        pos[id] = {layout.x, layout.y};
         float h = kSceneCardMinHeight;
         if (canvas != nullptr)
             h = canvas->measureSceneCard(id).height;
         height[id] = h;
+        maxCardH = std::max(maxCardH, h);
     }
 
     const float cardW = kSceneCardWidth;
-    auto midX = [&](const std::string& id) {
-        return pos[id].x + cardW * 0.5f;
-    };
-    auto midY = [&](const std::string& id) {
-        return pos[id].y + height[id] * 0.5f;
-    };
+    // Slightly roomier than auto-layout so orthogonal runs have corridor space.
+    const float pitchX = cardW + kLayoutGapX * 1.25f;
+    const float pitchY = maxCardH + kLayoutGapY * 1.25f;
 
     struct Link
     {
@@ -802,15 +874,17 @@ void SceneGraphModel::cleanupLayoutLevel(int level)
         int dRow = 0;
     };
     std::vector<Link> links;
+    std::vector<std::pair<std::string, std::string>> usePairs;
+    std::set<std::string> levelSet(levelIds.begin(), levelIds.end());
     const char* dirs[] = {"forward", "backward", "left", "right"};
     for (const std::string& id : levelIds)
     {
         for (const char* dir : dirs)
         {
             const std::string target = getExitTarget(id, dir);
-            if (target.empty() || pos.count(target) == 0)
+            if (target.empty())
                 continue;
-            if (!isSameLevelLink(id, target))
+            if (levelSet.count(target) == 0 || !isSameLevelLink(id, target))
                 continue;
             Link link;
             link.from = id;
@@ -820,56 +894,382 @@ void SceneGraphModel::cleanupLayoutLevel(int level)
                 continue;
             links.push_back(link);
         }
+
+        const std::vector<UseBinding> useRows = enumerateUseBindings(id);
+        for (size_t u = 0; u < useRows.size(); ++u)
+        {
+            const std::string& target = useRows[u].target;
+            if (target.empty() || levelSet.count(target) == 0)
+                continue;
+            if (!isSameLevelLink(id, target))
+                continue;
+            if (id < target)
+                usePairs.push_back({id, target});
+            else if (target < id)
+                usePairs.push_back({target, id});
+        }
+    }
+    std::sort(usePairs.begin(), usePairs.end());
+    usePairs.erase(std::unique(usePairs.begin(), usePairs.end()), usePairs.end());
+
+    // Seed grid from current pixel positions (preserve relative order as a guess).
+    std::map<std::string, std::pair<int, int>> grid;
+    std::set<std::string> occupied;
+    auto occupyKey = [](int col, int row) {
+        return std::to_string(col) + "," + std::to_string(row);
+    };
+
+    std::vector<std::pair<std::string, std::pair<float, float>>> sortedByPos;
+    sortedByPos.reserve(levelIds.size());
+    for (const std::string& id : levelIds)
+    {
+        const SceneLayout layout = docs->scenes.getLayout(id);
+        sortedByPos.push_back({id, {layout.x, layout.y}});
+    }
+    std::sort(
+        sortedByPos.begin(),
+        sortedByPos.end(),
+        [](const auto& a, const auto& b) {
+            if (a.second.second != b.second.second)
+                return a.second.second < b.second.second;
+            return a.second.first < b.second.first;
+        });
+
+    float originX = sortedByPos.empty() ? kLayoutOriginX : sortedByPos.front().second.first;
+    float originY = sortedByPos.empty() ? kLayoutOriginY : sortedByPos.front().second.second;
+    for (const auto& entry : sortedByPos)
+    {
+        originX = std::min(originX, entry.second.first);
+        originY = std::min(originY, entry.second.second);
     }
 
-    // Align ports on linked pairs so orthogonal stubs share an axis (straight mid-run).
-    // L/R → match mid-Y; F/B → match mid-X. Preserve neighborhood; average both cards.
-    for (int iter = 0; iter < 8; ++iter)
+    for (const auto& entry : sortedByPos)
     {
-        bool changed = false;
-        for (const Link& link : links)
+        const std::string& id = entry.first;
+        int col = static_cast<int>(std::lround((entry.second.first - originX) / pitchX));
+        int row = static_cast<int>(std::lround((entry.second.second - originY) / pitchY));
+        // Resolve collisions by spiraling outward.
+        bool placed = false;
+        for (int radius = 0; radius <= 48 && !placed; ++radius)
         {
-            if (link.dCol != 0)
+            for (int dCol = -radius; dCol <= radius && !placed; ++dCol)
             {
-                // Horizontal exit: align vertical centers.
-                const float a = midY(link.from);
-                const float b = midY(link.to);
-                const float avg = 0.5f * (a + b);
-                const float newFromY = avg - height[link.from] * 0.5f;
-                const float newToY = avg - height[link.to] * 0.5f;
-                if (std::fabs(newFromY - pos[link.from].y) > 0.25f
-                    || std::fabs(newToY - pos[link.to].y) > 0.25f)
+                for (int dRow = -radius; dRow <= radius && !placed; ++dRow)
                 {
-                    pos[link.from].y = newFromY;
-                    pos[link.to].y = newToY;
-                    changed = true;
-                }
-            }
-            else if (link.dRow != 0)
-            {
-                // Vertical exit: align horizontal centers (width is uniform).
-                const float a = midX(link.from);
-                const float b = midX(link.to);
-                const float avg = 0.5f * (a + b);
-                const float newFromX = avg - cardW * 0.5f;
-                const float newToX = avg - cardW * 0.5f;
-                if (std::fabs(newFromX - pos[link.from].x) > 0.25f
-                    || std::fabs(newToX - pos[link.to].x) > 0.25f)
-                {
-                    pos[link.from].x = newFromX;
-                    pos[link.to].x = newToX;
-                    changed = true;
+                    if (radius > 0 && std::abs(dCol) != radius && std::abs(dRow) != radius)
+                        continue;
+                    const int c = col + dCol;
+                    const int r = row + dRow;
+                    const std::string key = occupyKey(c, r);
+                    if (occupied.count(key) != 0)
+                        continue;
+                    grid[id] = {c, r};
+                    occupied.insert(key);
+                    placed = true;
                 }
             }
         }
-        if (!changed)
+        if (!placed)
+        {
+            grid[id] = {col, row};
+            occupied.insert(occupyKey(col, row));
+        }
+    }
+
+    auto midXOf = [&](const std::string& id) {
+        return static_cast<float>(grid[id].first) + 0.5f;
+    };
+    auto midYOf = [&](const std::string& id) {
+        return static_cast<float>(grid[id].second) + 0.5f;
+    };
+
+    // Stub-axis wire model on the grid (L/R → horizontal mid-run; F/B → vertical).
+    struct Seg
+    {
+        float x0 = 0;
+        float y0 = 0;
+        float x1 = 0;
+        float y1 = 0;
+        bool horiz = false;
+        std::string from;
+        std::string to;
+    };
+    auto buildSegs = [&]() -> std::vector<Seg> {
+        std::vector<Seg> segs;
+        segs.reserve(links.size());
+        for (const Link& link : links)
+        {
+            if (grid.count(link.from) == 0 || grid.count(link.to) == 0)
+                continue;
+            Seg s;
+            s.from = link.from;
+            s.to = link.to;
+            if (link.dCol != 0)
+            {
+                s.horiz = true;
+                s.y0 = s.y1 = 0.5f * (midYOf(link.from) + midYOf(link.to));
+                s.x0 = midXOf(link.from);
+                s.x1 = midXOf(link.to);
+            }
+            else
+            {
+                s.horiz = false;
+                s.x0 = s.x1 = 0.5f * (midXOf(link.from) + midXOf(link.to));
+                s.y0 = midYOf(link.from);
+                s.y1 = midYOf(link.to);
+            }
+            segs.push_back(s);
+        }
+        return segs;
+    };
+
+    auto segmentsCross = [](const Seg& a, const Seg& b) -> bool {
+        if (a.horiz == b.horiz)
+            return false;
+        const Seg& h = a.horiz ? a : b;
+        const Seg& v = a.horiz ? b : a;
+        const float y = h.y0;
+        const float x = v.x0;
+        const float hMin = std::min(h.x0, h.x1);
+        const float hMax = std::max(h.x0, h.x1);
+        const float vMin = std::min(v.y0, v.y1);
+        const float vMax = std::max(v.y0, v.y1);
+        // Require a proper interior crossing (not endpoint kisses).
+        const float eps = 0.05f;
+        return x > hMin + eps && x < hMax - eps && y > vMin + eps && y < vMax - eps;
+    };
+
+    auto countCrossings = [&](const std::vector<Seg>& segs) -> int {
+        int n = 0;
+        for (size_t i = 0; i < segs.size(); ++i)
+        {
+            for (size_t j = i + 1; j < segs.size(); ++j)
+            {
+                // Skip if they share an endpoint (port fan) — not a true mid-run cross.
+                if (segs[i].from == segs[j].from || segs[i].from == segs[j].to
+                    || segs[i].to == segs[j].from || segs[i].to == segs[j].to)
+                    continue;
+                if (segmentsCross(segs[i], segs[j]))
+                    ++n;
+            }
+        }
+        return n;
+    };
+
+    auto countStackedRuns = [&](const std::vector<Seg>& segs) -> int {
+        int n = 0;
+        for (size_t i = 0; i < segs.size(); ++i)
+        {
+            for (size_t j = i + 1; j < segs.size(); ++j)
+            {
+                if (segs[i].horiz != segs[j].horiz)
+                    continue;
+                if (segs[i].horiz)
+                {
+                    if (std::fabs(segs[i].y0 - segs[j].y0) > 0.15f)
+                        continue;
+                    const float a0 = std::min(segs[i].x0, segs[i].x1);
+                    const float a1 = std::max(segs[i].x0, segs[i].x1);
+                    const float b0 = std::min(segs[j].x0, segs[j].x1);
+                    const float b1 = std::max(segs[j].x0, segs[j].x1);
+                    if (std::min(a1, b1) - std::max(a0, b0) > 0.25f)
+                        ++n;
+                }
+                else
+                {
+                    if (std::fabs(segs[i].x0 - segs[j].x0) > 0.15f)
+                        continue;
+                    const float a0 = std::min(segs[i].y0, segs[i].y1);
+                    const float a1 = std::max(segs[i].y0, segs[i].y1);
+                    const float b0 = std::min(segs[j].y0, segs[j].y1);
+                    const float b1 = std::max(segs[j].y0, segs[j].y1);
+                    if (std::min(a1, b1) - std::max(a0, b0) > 0.25f)
+                        ++n;
+                }
+            }
+        }
+        return n;
+    };
+
+    auto layoutScore = [&]() -> long long {
+        const std::vector<Seg> segs = buildSegs();
+        long long score = 0;
+        for (const Link& link : links)
+        {
+            if (grid.count(link.from) == 0 || grid.count(link.to) == 0)
+                continue;
+            const int dc = grid[link.to].first - grid[link.from].first;
+            const int dr = grid[link.to].second - grid[link.from].second;
+            const int dist = std::abs(dc) + std::abs(dr);
+            score += 10LL * dist * dist;
+            // Prefer the compass-ideal neighbor cell.
+            score += 25LL
+                * (std::abs(dc - link.dCol) + std::abs(dr - link.dRow));
+        }
+        // Soft pull for Use partners — stops silver destinations parking far right.
+        for (size_t u = 0; u < usePairs.size(); ++u)
+        {
+            if (grid.count(usePairs[u].first) == 0 || grid.count(usePairs[u].second) == 0)
+                continue;
+            const int dist =
+                std::abs(grid[usePairs[u].first].first - grid[usePairs[u].second].first)
+                + std::abs(grid[usePairs[u].first].second - grid[usePairs[u].second].second);
+            score += 18LL * dist * dist;
+        }
+        score += 120LL * countCrossings(segs);
+        score += 80LL * countStackedRuns(segs);
+        return score;
+    };
+
+    auto placeAt = [&](const std::string& id, int col, int row) {
+        const auto old = grid[id];
+        occupied.erase(occupyKey(old.first, old.second));
+        grid[id] = {col, row};
+        occupied.insert(occupyKey(col, row));
+    };
+
+    auto isFree = [&](int col, int row) {
+        return occupied.count(occupyKey(col, row)) == 0;
+    };
+
+    // Local search: slide onto free cells; prefer fewer crossings even if longer.
+    for (int iter = 0; iter < 64; ++iter)
+    {
+        bool improved = false;
+        long long bestGlobal = layoutScore();
+        for (const std::string& id : levelIds)
+        {
+            const auto cur = grid[id];
+            int bestCol = cur.first;
+            int bestRow = cur.second;
+            long long bestScore = bestGlobal;
+            std::string bestSwapWith;
+
+            for (int dCol = -5; dCol <= 5; ++dCol)
+            {
+                for (int dRow = -5; dRow <= 5; ++dRow)
+                {
+                    if (dCol == 0 && dRow == 0)
+                        continue;
+                    const int col = cur.first + dCol;
+                    const int row = cur.second + dRow;
+                    if (!isFree(col, row))
+                        continue;
+                    placeAt(id, col, row);
+                    const long long score = layoutScore();
+                    if (score < bestScore)
+                    {
+                        bestScore = score;
+                        bestCol = col;
+                        bestRow = row;
+                        bestSwapWith.clear();
+                    }
+                    placeAt(id, cur.first, cur.second);
+                }
+            }
+
+            // Try swapping with another card (reorders without expanding).
+            for (const std::string& other : levelIds)
+            {
+                if (other == id)
+                    continue;
+                const auto otherPos = grid[other];
+                placeAt(id, otherPos.first, otherPos.second);
+                placeAt(other, cur.first, cur.second);
+                const long long score = layoutScore();
+                if (score < bestScore)
+                {
+                    bestScore = score;
+                    bestCol = otherPos.first;
+                    bestRow = otherPos.second;
+                    bestSwapWith = other;
+                }
+                placeAt(id, cur.first, cur.second);
+                placeAt(other, otherPos.first, otherPos.second);
+            }
+
+            if (bestCol != cur.first || bestRow != cur.second)
+            {
+                if (!bestSwapWith.empty())
+                {
+                    const auto otherPos = grid[bestSwapWith];
+                    placeAt(bestSwapWith, cur.first, cur.second);
+                    placeAt(id, otherPos.first, otherPos.second);
+                }
+                else if (isFree(bestCol, bestRow))
+                {
+                    placeAt(id, bestCol, bestRow);
+                }
+                improved = true;
+                bestGlobal = layoutScore();
+            }
+        }
+        if (!improved)
             break;
     }
 
-    // Minimal overlap separation so cards do not stack after alignment.
-    const float gapX = kLayoutGapX * 0.35f;
-    const float gapY = kLayoutGapY * 0.35f;
-    for (int iter = 0; iter < 16; ++iter)
+    // Pixel positions from grid (roomy pitch).
+    std::map<std::string, Vector2> pos;
+    int minCol = 0;
+    int minRow = 0;
+    bool any = false;
+    for (const auto& kv : grid)
+    {
+        if (!any)
+        {
+            minCol = kv.second.first;
+            minRow = kv.second.second;
+            any = true;
+        }
+        else
+        {
+            minCol = std::min(minCol, kv.second.first);
+            minRow = std::min(minRow, kv.second.second);
+        }
+    }
+    for (const std::string& id : levelIds)
+    {
+        const auto cell = grid[id];
+        const float yPad = std::max(0.0f, (maxCardH - height[id]) * 0.5f);
+        pos[id] = {
+            kLayoutOriginX + static_cast<float>(cell.first - minCol) * pitchX,
+            kLayoutOriginY + static_cast<float>(cell.second - minRow) * pitchY + yPad};
+    }
+
+    auto midX = [&](const std::string& id) {
+        return pos[id].x + cardW * 0.5f;
+    };
+    auto midY = [&](const std::string& id) {
+        return pos[id].y + height[id] * 0.5f;
+    };
+
+    auto alignPorts = [&](int passes) {
+        for (int iter = 0; iter < passes; ++iter)
+        {
+            for (const Link& link : links)
+            {
+                if (link.dCol != 0)
+                {
+                    const float avg = 0.5f * (midY(link.from) + midY(link.to));
+                    pos[link.from].y = avg - height[link.from] * 0.5f;
+                    pos[link.to].y = avg - height[link.to] * 0.5f;
+                }
+                else if (link.dRow != 0)
+                {
+                    const float avg = 0.5f * (midX(link.from) + midX(link.to));
+                    pos[link.from].x = avg - cardW * 0.5f;
+                    pos[link.to].x = avg - cardW * 0.5f;
+                }
+            }
+        }
+    };
+
+    alignPorts(6);
+
+    // Full-gap AABB separation (allows footprint to expand).
+    const float gapX = kLayoutGapX;
+    const float gapY = kLayoutGapY;
+    for (int iter = 0; iter < 24; ++iter)
     {
         bool moved = false;
         for (size_t i = 0; i < levelIds.size(); ++i)
@@ -887,16 +1287,22 @@ void SceneGraphModel::cleanupLayoutLevel(int level)
                 const float bx1 = bx0 + cardW;
                 const float by1 = by0 + height[b];
 
-                const float overlapX = std::min(ax1, bx1) - std::max(ax0, bx0);
-                const float overlapY = std::min(ay1, by1) - std::max(ay0, by0);
-                if (overlapX <= 0.0f || overlapY <= 0.0f)
+                // Require at least gapX/gapY clearance between card AABBs.
+                const float rawOverlapX = std::min(ax1, bx1) - std::max(ax0, bx0);
+                const float rawOverlapY = std::min(ay1, by1) - std::max(ay0, by0);
+                // Separated enough on either axis already.
+                if (rawOverlapX <= -gapX || rawOverlapY <= -gapY)
                     continue;
 
-                // Push apart along the shallower penetration, plus a small gap.
-                if (overlapX < overlapY)
+                const float sepX = 0.5f * (rawOverlapX + gapX);
+                const float sepY = 0.5f * (rawOverlapY + gapY);
+                if (sepX <= 0.0f && sepY <= 0.0f)
+                    continue;
+
+                if (sepY <= 0.0f || (sepX > 0.0f && sepX <= sepY))
                 {
-                    const float push = (overlapX + gapX) * 0.5f;
-                    if (ax0 + cardW * 0.5f <= bx0 + cardW * 0.5f)
+                    const float push = std::max(sepX, 0.5f);
+                    if (midX(a) <= midX(b))
                     {
                         pos[a].x -= push;
                         pos[b].x += push;
@@ -906,11 +1312,12 @@ void SceneGraphModel::cleanupLayoutLevel(int level)
                         pos[a].x += push;
                         pos[b].x -= push;
                     }
+                    moved = true;
                 }
                 else
                 {
-                    const float push = (overlapY + gapY) * 0.5f;
-                    if (ay0 + height[a] * 0.5f <= by0 + height[b] * 0.5f)
+                    const float push = std::max(sepY, 0.5f);
+                    if (midY(a) <= midY(b))
                     {
                         pos[a].y -= push;
                         pos[b].y += push;
@@ -920,33 +1327,15 @@ void SceneGraphModel::cleanupLayoutLevel(int level)
                         pos[a].y += push;
                         pos[b].y -= push;
                     }
+                    moved = true;
                 }
-                moved = true;
             }
         }
         if (!moved)
             break;
     }
 
-    // Re-run a couple of port-align passes after separation (separation can skew mids).
-    for (int iter = 0; iter < 4; ++iter)
-    {
-        for (const Link& link : links)
-        {
-            if (link.dCol != 0)
-            {
-                const float avg = 0.5f * (midY(link.from) + midY(link.to));
-                pos[link.from].y = avg - height[link.from] * 0.5f;
-                pos[link.to].y = avg - height[link.to] * 0.5f;
-            }
-            else if (link.dRow != 0)
-            {
-                const float avg = 0.5f * (midX(link.from) + midX(link.to));
-                pos[link.from].x = avg - cardW * 0.5f;
-                pos[link.to].x = avg - cardW * 0.5f;
-            }
-        }
-    }
+    alignPorts(4);
 
     for (const std::string& id : levelIds)
     {
@@ -971,6 +1360,9 @@ void SceneGraphModel::autoLayoutLevel(int level)
     std::map<std::string, std::vector<std::pair<std::string, std::string> > > neighbors;
     // Undirected adjacency for shortest-path distances on this floor.
     std::map<std::string, std::vector<std::string> > undirected;
+    // Same-floor Use transitions (no compass direction) — keep silver partners nearby.
+    std::map<std::string, std::vector<std::string> > useNeighbors;
+    std::set<std::string> levelSet(levelIds.begin(), levelIds.end());
     for (const std::string& id : levelIds)
     {
         const char* dirs[] = {"forward", "backward", "left", "right"};
@@ -983,9 +1375,31 @@ void SceneGraphModel::autoLayoutLevel(int level)
             undirected[id].push_back(target);
             undirected[target].push_back(id);
         }
+
+        const std::vector<UseBinding> useRows = enumerateUseBindings(id);
+        for (size_t u = 0; u < useRows.size(); ++u)
+        {
+            const std::string& target = useRows[u].target;
+            if (target.empty() || levelSet.count(target) == 0)
+                continue;
+            if (!isSameLevelLink(id, target))
+                continue;
+            useNeighbors[id].push_back(target);
+            useNeighbors[target].push_back(id);
+            undirected[id].push_back(target);
+            undirected[target].push_back(id);
+        }
     }
     for (std::map<std::string, std::vector<std::string> >::iterator it = undirected.begin();
          it != undirected.end();
+         ++it)
+    {
+        std::vector<std::string>& list = it->second;
+        std::sort(list.begin(), list.end());
+        list.erase(std::unique(list.begin(), list.end()), list.end());
+    }
+    for (std::map<std::string, std::vector<std::string> >::iterator it = useNeighbors.begin();
+         it != useNeighbors.end();
          ++it)
     {
         std::vector<std::string>& list = it->second;
@@ -1328,6 +1742,26 @@ void SceneGraphModel::autoLayoutLevel(int level)
                 placeAt(nextId, freeCol, freeRow);
                 queue.push(nextId);
             }
+
+            // Place Use partners beside the current card (no compass ideal cell).
+            const std::vector<std::string>& useLinks = useNeighbors[current];
+            for (size_t u = 0; u < useLinks.size(); ++u)
+            {
+                const std::string& nextId = useLinks[u];
+                if (placed.count(nextId) != 0)
+                    continue;
+                if (std::find(component.begin(), component.end(), nextId) == component.end())
+                    continue;
+                // Prefer an adjacent free cell (right, then around).
+                int preferredCol = currentCell.first + 1;
+                int preferredRow = currentCell.second;
+                int freeCol = preferredCol;
+                int freeRow = preferredRow;
+                if (!findBestCell(nextId, preferredCol, preferredRow, freeCol, freeRow))
+                    continue;
+                placeAt(nextId, freeCol, freeRow);
+                queue.push(nextId);
+            }
         }
 
         // Place remaining component members (unreachable via directed exits only).
@@ -1335,12 +1769,24 @@ void SceneGraphModel::autoLayoutLevel(int level)
         {
             if (placed.count(component[i]) != 0)
                 continue;
+            // Prefer beside any already-placed Use partner.
+            int preferredCol = componentOffsetCol;
+            int preferredRow = 0;
+            const std::vector<std::string>& useLinks = useNeighbors[component[i]];
+            for (size_t u = 0; u < useLinks.size(); ++u)
+            {
+                if (placed.count(useLinks[u]) == 0)
+                    continue;
+                preferredCol = grid[useLinks[u]].first + 1;
+                preferredRow = grid[useLinks[u]].second;
+                break;
+            }
             int freeCol = 0;
             int freeRow = 0;
-            if (!findBestCell(component[i], componentOffsetCol, 0, freeCol, freeRow))
+            if (!findBestCell(component[i], preferredCol, preferredRow, freeCol, freeRow))
             {
-                freeCol = componentOffsetCol;
-                freeRow = 0;
+                freeCol = preferredCol;
+                freeRow = preferredRow;
                 while (!isFree(freeCol, freeRow))
                     ++freeCol;
             }
@@ -1355,7 +1801,8 @@ void SceneGraphModel::autoLayoutLevel(int level)
             if (it->second.first > maxCol)
                 maxCol = it->second.first;
         }
-        componentOffsetCol = maxCol + 3;
+        // Tighter packing between true disconnected components.
+        componentOffsetCol = maxCol + 2;
     }
 
     // Local search: slide scenes on free cells to minimize total wire length
@@ -1407,6 +1854,16 @@ void SceneGraphModel::autoLayoutLevel(int level)
                 }
             }
         }
+        // Soft pull toward Use partners (no compass ideal — just stay nearby).
+        const std::vector<std::string>& useLinks = useNeighbors[id];
+        for (size_t u = 0; u < useLinks.size(); ++u)
+        {
+            if (placed.count(useLinks[u]) == 0)
+                continue;
+            const std::pair<int, int> other = grid[useLinks[u]];
+            const int dist = std::abs(col - other.first) + std::abs(row - other.second);
+            cost += 8 * dist * dist;
+        }
         return cost;
     };
 
@@ -1454,6 +1911,227 @@ void SceneGraphModel::autoLayoutLevel(int level)
             break;
     }
 
+    // Crossing-aware refinement: stub-axis H∩V model (same as Clean up).
+    {
+        struct AutoLink
+        {
+            std::string from;
+            std::string to;
+            int dCol = 0;
+            int dRow = 0;
+        };
+        std::vector<AutoLink> autoLinks;
+        for (const std::string& id : levelIds)
+        {
+            const std::vector<std::pair<std::string, std::string> >& outLinks = neighbors[id];
+            for (size_t i = 0; i < outLinks.size(); ++i)
+            {
+                if (placed.count(outLinks[i].first) == 0)
+                    continue;
+                AutoLink link;
+                link.from = id;
+                link.to = outLinks[i].first;
+                if (!directionDelta(outLinks[i].second, link.dCol, link.dRow))
+                    continue;
+                autoLinks.push_back(link);
+            }
+        }
+
+        auto midX = [&](const std::string& id) {
+            return static_cast<float>(grid[id].first) + 0.5f;
+        };
+        auto midY = [&](const std::string& id) {
+            return static_cast<float>(grid[id].second) + 0.5f;
+        };
+
+        auto crossingScore = [&]() -> long long {
+            struct Seg
+            {
+                float x0, y0, x1, y1;
+                bool horiz;
+                std::string from, to;
+            };
+            std::vector<Seg> segs;
+            for (const AutoLink& link : autoLinks)
+            {
+                Seg s;
+                s.from = link.from;
+                s.to = link.to;
+                if (link.dCol != 0)
+                {
+                    s.horiz = true;
+                    s.y0 = s.y1 = 0.5f * (midY(link.from) + midY(link.to));
+                    s.x0 = midX(link.from);
+                    s.x1 = midX(link.to);
+                }
+                else
+                {
+                    s.horiz = false;
+                    s.x0 = s.x1 = 0.5f * (midX(link.from) + midX(link.to));
+                    s.y0 = midY(link.from);
+                    s.y1 = midY(link.to);
+                }
+                segs.push_back(s);
+            }
+
+            long long score = 0;
+            for (const AutoLink& link : autoLinks)
+            {
+                const int dc = grid[link.to].first - grid[link.from].first;
+                const int dr = grid[link.to].second - grid[link.from].second;
+                const int dist = std::abs(dc) + std::abs(dr);
+                score += 10LL * dist * dist;
+                score += 25LL * (std::abs(dc - link.dCol) + std::abs(dr - link.dRow));
+            }
+            // Soft Use proximity (avoid parking silver targets far right).
+            for (std::map<std::string, std::vector<std::string> >::const_iterator it =
+                     useNeighbors.begin();
+                 it != useNeighbors.end();
+                 ++it)
+            {
+                if (placed.count(it->first) == 0)
+                    continue;
+                for (size_t u = 0; u < it->second.size(); ++u)
+                {
+                    if (placed.count(it->second[u]) == 0)
+                        continue;
+                    // Count each undirected pair once.
+                    if (it->first >= it->second[u])
+                        continue;
+                    const int dist = std::abs(grid[it->first].first - grid[it->second[u]].first)
+                        + std::abs(grid[it->first].second - grid[it->second[u]].second);
+                    score += 18LL * dist * dist;
+                }
+            }
+            for (size_t i = 0; i < segs.size(); ++i)
+            {
+                for (size_t j = i + 1; j < segs.size(); ++j)
+                {
+                    if (segs[i].from == segs[j].from || segs[i].from == segs[j].to
+                        || segs[i].to == segs[j].from || segs[i].to == segs[j].to)
+                        continue;
+                    if (segs[i].horiz == segs[j].horiz)
+                    {
+                        // Stacked parallel runs.
+                        if (segs[i].horiz)
+                        {
+                            if (std::fabs(segs[i].y0 - segs[j].y0) > 0.15f)
+                                continue;
+                            const float a0 = std::min(segs[i].x0, segs[i].x1);
+                            const float a1 = std::max(segs[i].x0, segs[i].x1);
+                            const float b0 = std::min(segs[j].x0, segs[j].x1);
+                            const float b1 = std::max(segs[j].x0, segs[j].x1);
+                            if (std::min(a1, b1) - std::max(a0, b0) > 0.25f)
+                                score += 80;
+                        }
+                        else
+                        {
+                            if (std::fabs(segs[i].x0 - segs[j].x0) > 0.15f)
+                                continue;
+                            const float a0 = std::min(segs[i].y0, segs[i].y1);
+                            const float a1 = std::max(segs[i].y0, segs[i].y1);
+                            const float b0 = std::min(segs[j].y0, segs[j].y1);
+                            const float b1 = std::max(segs[j].y0, segs[j].y1);
+                            if (std::min(a1, b1) - std::max(a0, b0) > 0.25f)
+                                score += 80;
+                        }
+                        continue;
+                    }
+                    const Seg& h = segs[i].horiz ? segs[i] : segs[j];
+                    const Seg& v = segs[i].horiz ? segs[j] : segs[i];
+                    const float y = h.y0;
+                    const float x = v.x0;
+                    const float hMin = std::min(h.x0, h.x1);
+                    const float hMax = std::max(h.x0, h.x1);
+                    const float vMin = std::min(v.y0, v.y1);
+                    const float vMax = std::max(v.y0, v.y1);
+                    if (x > hMin + 0.05f && x < hMax - 0.05f && y > vMin + 0.05f
+                        && y < vMax - 0.05f)
+                        score += 120;
+                }
+            }
+            return score;
+        };
+
+        for (int iter = 0; iter < 48; ++iter)
+        {
+            bool improved = false;
+            long long bestGlobal = crossingScore();
+            for (size_t i = 0; i < levelIds.size(); ++i)
+            {
+                const std::string& id = levelIds[i];
+                if (placed.count(id) == 0)
+                    continue;
+                const std::pair<int, int> cur = grid[id];
+                int bestCol = cur.first;
+                int bestRow = cur.second;
+                long long bestScore = bestGlobal;
+                std::string bestSwapWith;
+
+                for (int dCol = -4; dCol <= 4; ++dCol)
+                {
+                    for (int dRow = -4; dRow <= 4; ++dRow)
+                    {
+                        if (dCol == 0 && dRow == 0)
+                            continue;
+                        const int col = cur.first + dCol;
+                        const int row = cur.second + dRow;
+                        if (!isFree(col, row))
+                            continue;
+                        placeAt(id, col, row);
+                        const long long score = crossingScore();
+                        if (score < bestScore)
+                        {
+                            bestScore = score;
+                            bestCol = col;
+                            bestRow = row;
+                            bestSwapWith.clear();
+                        }
+                        placeAt(id, cur.first, cur.second);
+                    }
+                }
+
+                for (size_t j = 0; j < levelIds.size(); ++j)
+                {
+                    const std::string& other = levelIds[j];
+                    if (other == id || placed.count(other) == 0)
+                        continue;
+                    const std::pair<int, int> otherPos = grid[other];
+                    placeAt(id, otherPos.first, otherPos.second);
+                    placeAt(other, cur.first, cur.second);
+                    const long long score = crossingScore();
+                    if (score < bestScore)
+                    {
+                        bestScore = score;
+                        bestCol = otherPos.first;
+                        bestRow = otherPos.second;
+                        bestSwapWith = other;
+                    }
+                    placeAt(id, cur.first, cur.second);
+                    placeAt(other, otherPos.first, otherPos.second);
+                }
+
+                if (bestCol != cur.first || bestRow != cur.second)
+                {
+                    if (!bestSwapWith.empty())
+                    {
+                        const std::pair<int, int> otherPos = grid[bestSwapWith];
+                        placeAt(bestSwapWith, cur.first, cur.second);
+                        placeAt(id, otherPos.first, otherPos.second);
+                    }
+                    else if (isFree(bestCol, bestRow))
+                    {
+                        placeAt(id, bestCol, bestRow);
+                    }
+                    improved = true;
+                    bestGlobal = crossingScore();
+                }
+            }
+            if (!improved)
+                break;
+        }
+    }
+
     int minCol = 0;
     int minRow = 0;
     bool any = false;
@@ -1486,8 +2164,8 @@ void SceneGraphModel::autoLayoutLevel(int level)
             cellHeight = h;
     }
 
-    const float pitchX = kSceneCardWidth + kLayoutGapX;
-    const float pitchY = cellHeight + kLayoutGapY;
+    const float pitchX = kSceneCardWidth + kLayoutGapX * 1.25f;
+    const float pitchY = cellHeight + kLayoutGapY * 1.25f;
     for (std::map<std::string, std::pair<int, int> >::const_iterator it = grid.begin();
          it != grid.end();
          ++it)

@@ -10,6 +10,7 @@
 
 #include "DocumentWorkspace.h"
 #include "EditorApiKeys.h"
+#include "EditorTheme.h"
 #include "FullscreenParchmentEditor.h"
 #include "SceneAuthoring.h"
 
@@ -52,6 +53,14 @@ struct SceneAuthoringDialog
     float formScrollGrabOffset = 0.0f;
 
     SceneAuthoringPayload payload{};
+    /**
+     * Session-sticky description↔examine mix for image prompts (#65).
+     * Survives open/close of Edit Scene; copied onto payload when opening.
+     * 1.0 = 100% description (slider left), 0.0 = 100% examine (slider right).
+     */
+    float sessionImageDescriptionWeight = 0.4f;
+    bool draggingImageWeightSlider = false;
+    Rectangle imageWeightSliderRect{0, 0, 0, 0};
     /** Shared session keys from Options → Configure API keys (#56). */
     EditorApiKeys* sessionKeys = nullptr;
     std::string status;
@@ -102,6 +111,26 @@ struct SceneAuthoringDialog
     bool voiceMenuOpen = false;
     Rectangle voiceBtnRect{0, 0, 0, 0};
     Rectangle voiceMenuRect{0, 0, 0, 0};
+    float voiceMenuScroll = 0.0f;
+    static constexpr int kVoiceMenuVisibleRows = 10;
+
+    /** Music style dropdown (Edit Scene path row). */
+    bool musicStyleMenuOpen = false;
+    Rectangle musicStyleBtnRect{0, 0, 0, 0};
+    Rectangle musicStyleMenuRect{0, 0, 0, 0};
+    Rectangle musicPreviewBtnRect{0, 0, 0, 0};
+    float musicStyleMenuScroll = 0.0f;
+    static constexpr int kMusicStyleMenuVisibleRows = 8;
+
+    /** Short style-preview bed (ElevenLabs); separate from TTS voice preview. */
+    Music previewStyleMusic{};
+    bool previewStyleMusicLoaded = false;
+    bool previewStyleMusicPlaying = false;
+    std::string previewStyleMusicTempFile;
+    std::string previewStyleMusicPreset;
+    bool pendingMusicStylePreviewPlay = false;
+    std::string pendingMusicStylePreviewPath;
+
     Rectangle ttsSwitchTrack{0, 0, 0, 0};
     Rectangle alternateSwitchTrack{0, 0, 0, 0};
     Rectangle focusViewSwitchTrack{0, 0, 0, 0};
@@ -146,6 +175,10 @@ private:
     void stopPreviewVoice();
     void updatePreviewVoice();
     void startPreviewVoice(const char* bagKey);
+    void stopPreviewStyleMusic();
+    void updatePreviewStyleMusic();
+    void playPreviewStyleMusicFile(const std::string& relOrAbsPath);
+    void startMusicStylePreview();
     void drawWorkingOverlay(int screenW, int screenH, Font font, Font bold);
     void typeIntoFocusedField();
     void handleMultilineNavigation(std::string& buffer, MultilineState& state, Font font, float fontSize);
@@ -168,7 +201,8 @@ private:
         const char* placeholder,
         SingleLineState& state,
         bool focused,
-        float fontSize) const;
+        float fontSize,
+        Color textColor = kTextPrimary) const;
     void ensureMultilineCursorVisible(
         Font font,
         const std::string& buffer,
@@ -182,6 +216,8 @@ private:
     void syncSpeakWithTts();
     bool handleVoiceMenuClick(Vector2 mouse);
     void drawVoiceMenu(Font font);
+    bool handleMusicStyleMenuClick(Vector2 mouse);
+    void drawMusicStyleMenu(Font font);
 };
 
 } // namespace timberline_editor

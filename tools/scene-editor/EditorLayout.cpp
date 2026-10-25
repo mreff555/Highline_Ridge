@@ -31,13 +31,49 @@ float EditorLayout::contentHeight(int screenHeight) const
 
 void EditorLayout::applyDefaultTopSplit(int screenHeight)
 {
-    // Upper browser + canvas occupy 2/3 of the content area (above the status bar).
-    topAreaHeight = contentHeight(screenHeight) * kTopAreaRatio;
+    // Upper browser + canvas (ratio depends on active tab chrome).
+    topAreaHeight = contentHeight(screenHeight) * activeTopRatio;
+}
+
+void EditorLayout::applyChromeForTab(bool conversations, int screenWidth, int screenHeight)
+{
+    // Size changes are handled by syncToWindow; only re-apply when the tab mode flips.
+    if (conversations == conversationsChrome)
+        return;
+
+    conversationsChrome = conversations;
+    if (conversations)
+    {
+        activeLeftRatio = kConversationsLeftPaneRatio;
+        activeTopRatio = kConversationsTopAreaRatio;
+        activeMinLeftWidth = kConversationsMinLeftWidth;
+        activeMinBottomHeight = kConversationsMinBottomHeight;
+    }
+    else
+    {
+        activeLeftRatio = kLeftPaneRatio;
+        activeTopRatio = kTopAreaRatio;
+        activeMinLeftWidth = kMinLeftWidth;
+        activeMinBottomHeight = kMinBottomHeight;
+    }
+
+    leftPaneWidth = static_cast<float>(screenWidth) * activeLeftRatio;
+    applyDefaultTopSplit(screenHeight);
+    userResizedLeftSplit = false;
+    userResizedTopSplit = false;
+    lastScreenWidth = screenWidth;
+    lastScreenHeight = screenHeight;
+    clamp(screenWidth, screenHeight);
 }
 
 void EditorLayout::init(int screenWidth, int screenHeight)
 {
-    leftPaneWidth = static_cast<float>(screenWidth) * kLeftPaneRatio;
+    conversationsChrome = false;
+    activeLeftRatio = kLeftPaneRatio;
+    activeTopRatio = kTopAreaRatio;
+    activeMinLeftWidth = kMinLeftWidth;
+    activeMinBottomHeight = kMinBottomHeight;
+    leftPaneWidth = static_cast<float>(screenWidth) * activeLeftRatio;
     applyDefaultTopSplit(screenHeight);
     userResizedLeftSplit = false;
     userResizedTopSplit = false;
@@ -58,13 +94,15 @@ void EditorLayout::syncToWindow(int screenWidth, int screenHeight)
     else
     {
         const float previousContent = contentHeight(lastScreenHeight);
-        const float ratio = previousContent > 1.0f ? (topAreaHeight / previousContent) : kTopAreaRatio;
+        const float ratio = previousContent > 1.0f
+            ? (topAreaHeight / previousContent)
+            : activeTopRatio;
         topAreaHeight = contentHeight(screenHeight) * ratio;
     }
 
     if (!userResizedLeftSplit || lastScreenWidth <= 0)
     {
-        leftPaneWidth = static_cast<float>(screenWidth) * kLeftPaneRatio;
+        leftPaneWidth = static_cast<float>(screenWidth) * activeLeftRatio;
     }
     else
     {
@@ -80,19 +118,19 @@ void EditorLayout::clamp(int screenWidth, int screenHeight)
 {
     const float maxLeft =
         static_cast<float>(screenWidth) - kMinMainWidth - kDividerSize;
-    if (leftPaneWidth < kMinLeftWidth)
-        leftPaneWidth = kMinLeftWidth;
+    if (leftPaneWidth < activeMinLeftWidth)
+        leftPaneWidth = activeMinLeftWidth;
     if (leftPaneWidth > maxLeft)
         leftPaneWidth = maxLeft;
 
     const float contentH = contentHeight(screenHeight);
-    const float maxTop = contentH - kMinBottomHeight - kDividerSize;
+    const float maxTop = contentH - activeMinBottomHeight - kDividerSize;
     if (topAreaHeight < kMinTopHeight)
         topAreaHeight = kMinTopHeight;
     if (topAreaHeight > maxTop)
         topAreaHeight = maxTop;
     if (topAreaHeight < 1.0f)
-        topAreaHeight = contentH * kTopAreaRatio;
+        topAreaHeight = contentH * activeTopRatio;
 }
 
 Rectangle EditorLayout::expandHitRect(Rectangle bounds, float pad, bool vertical)

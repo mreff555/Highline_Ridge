@@ -32,6 +32,7 @@
 #include <DropConfirmMgr.h>
 #include <SaveLoadMenuMgr.h>
 #include <MainMenuBackdrop.h>
+#include <IntroVideoPlayer.h>
 #include <PauseMenuMgr.h>
 #include <SaveGame.h>
 #include <TakeMgr.h>
@@ -112,6 +113,15 @@ class GameSession
     void refreshContinueAvailability();
     void enterTitleScreen();
     void leaveTitleScreen();
+    /** Cold-boot intro video → title reveal (once per process). */
+    void beginBootTitleSequence();
+    void beginTitleBedIfNeeded();
+    void showTitleMenu();
+    void skipIntroToTitleMenu();
+    void advanceBootTitleFromVideo();
+    bool pollBootSkipInput() const;
+    void updateBootTitleSequence(float dt);
+    void drawBootTitleSequence() const;
     bool startNewGame();
     bool continueMostRecentSave();
     bool isTitleScreenActive() const { return titleScreenActive; }
@@ -147,9 +157,17 @@ class GameSession
     void updateTransientMessage(float deltaSeconds);
     void drawTransientMessage() const;
     void resolveDialogChoice(const std::string& choiceId);
+    /** Synthesize priced browse/buy choices from an actor's inventory bag (#60). */
+    std::vector<ConversationChoiceDef> buildActorInventoryChoices(const std::string& actorId);
     void resolveCombatEncounter(const std::string& encounterId);
-    void processSpeakResult(const SpeakResult& result);
+    void processSpeakResult(SpeakResult result);
     void grantConversationItem(const GrantedInventoryItemDef& granted);
+    /**
+     * Apply giveToPlayer / takeFromPlayer on a SpeakResult (#64).
+     * Sets result.exchangeSucceeded. Returns false when an exchange was
+     * requested and failed (no partial apply).
+     */
+    bool applyItemExchanges(SpeakResult& result);
     InventoryItem buildInventoryItem(
         const std::string& defId,
         const ItemDefOverrides& overrides = {}) const;
@@ -189,7 +207,11 @@ class GameSession
         const std::string& fromRoom = "",
         bool playDescriptionTts = true,
         bool preserveNarrative = false);
-    void transitionToScene(const std::string& sceneId, const std::string& subSceneId = "");
+    /** Default kind is Use (pushes return). Pass false for MOVE-like Speak leaves. */
+    void transitionToScene(
+        const std::string& sceneId,
+        const std::string& subSceneId = "",
+        bool asUseTransition = true);
     void syncActiveSubScene();
     void tryMove(const std::string& direction);
     bool tryFireStoryEvents(StoryEventWhen when, const std::string& direction = "");
@@ -292,6 +314,32 @@ class GameSession
     bool quitRequested = false;
     bool titleScreenActive = false;
     bool openingHypoxiaArmed = false;
+
+    enum class TitleBootPhase
+    {
+        IntroVideo,
+        FadeToBlack,
+        HoldBlack,
+        TitleFadeIn,
+        TitleIdle,
+        TitlePrompt,
+        /** Fade title plate to black, then open the menu. */
+        MenuFadeOut,
+        TitleMenu
+    };
+    TitleBootPhase titleBootPhase = TitleBootPhase::TitleMenu;
+    IntroVideoPlayer introVideo;
+    bool titleBedStarted = false;
+    bool bootIntroAttempted = false;
+    double titlePhaseStartTime = 0.0;
+    double titleRevealStartTime = 0.0;
+    float bootFadeAlpha = 1.0f;
+    float titleBackdropAlpha = 0.0f;
+    float pressKeyAlpha = 0.0f;
+    float menuRevealAlpha = 1.0f;
+
+    /** From title idle/prompt: fade out, then show menu. */
+    void requestTitleMenuWithFade();
 
     Texture2D locationImage{};
     bool ownsLocationImage = false;

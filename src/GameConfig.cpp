@@ -126,6 +126,14 @@ bool loadGameConfig(const std::string& configPath, GameConfig& outConfig)
             outConfig.saves.maxNamedSaves = 0;
     }
 
+    if (config.contains("gameplay") && config["gameplay"].is_object())
+    {
+        const nlohmann::json& gameplay = config["gameplay"];
+        outConfig.gameplay.highAltitudeLucidityPerAction = gameplay.value(
+            "highAltitudeLucidityPerAction",
+            outConfig.gameplay.highAltitudeLucidityPerAction);
+    }
+
     if (config.contains("ui") && config["ui"].is_object())
     {
         const std::string background = config["ui"].value("background", "morris");
@@ -182,6 +190,10 @@ bool saveGameConfig(const std::string& configPath, const GameConfig& config)
     };
     root["saves"] = {
         {"maxNamedSaves", config.saves.maxNamedSaves}
+    };
+    root["gameplay"] = {
+        {"highAltitudeLucidityPerAction",
+         config.gameplay.highAltitudeLucidityPerAction}
     };
 
     std::ofstream out(configPath.c_str());

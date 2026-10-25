@@ -18,6 +18,7 @@
  ******************************************************************************/
 
 #include <GameSession.h>
+#include <CombatResolver.h>
 #include <ConditionMarkup.h>
 #include <DisplayAspect.h>
 #include <ImageCompression.h>
@@ -25,16 +26,20 @@
 #include <MaskEvaluator.h>
 #include <MovementBlockReason.h>
 #include <MovementMappingDef.h>
+#include <PlatformPath.h>
 #include <PlayerStats.h>
 #include <RaylibCompat.h>
 #include <raylib.h>
+#include <iomanip>
 #include <sstream>
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
 #include <memory>
+#include <random>
 
 namespace timberline_engine
 {
@@ -124,6 +129,43 @@ namespace
         context.currentDay = worldState.day;
         context.saloonRoomPurchasedDay = worldState.saloonRoomPurchasedDay;
         return context;
+    }
+
+    /** Attack button gates from authored attackEncounters availability. */
+    bool isCombatEncounterOfferable(
+        const AttackEncounterDef& encounter,
+        const WorldState& worldState,
+        const InventoryMgr& inventory,
+        const ItemDatabase& items)
+    {
+        if (!encounter.isAvailable(makeChoiceContext(worldState)))
+            return false;
+        if (!meetsDialogRequirements(
+                encounter.requirements,
+                ConversationRequirementContext{
+                    worldState.day,
+                    worldState.playerStats.lucidity,
+                    worldState.lastLucidityCollapseDay,
+                    worldState.lastSleepDay,
+                    &worldState.flagGrantedDay,
+                    &worldState.actorOpinions}))
+            return false;
+        if (encounter.requiresLightSource)
+        {
+            MaskEvalContext maskCtx;
+            maskCtx.inventoryMgr = &inventory;
+            maskCtx.itemDatabase = &items;
+            maskCtx.storyFlags = &worldState.storyFlags;
+            if (!playerHasTopLevelItemFlag(maskCtx, "light_source"))
+                return false;
+        }
+        if (!encounter.requiresInventoryItem.empty()
+            && !inventory.hasItem(encounter.requiresInventoryItem))
+            return false;
+        if (!encounter.requiresStoryFlag.empty()
+            && worldState.storyFlags.count(encounter.requiresStoryFlag) == 0)
+            return false;
+        return true;
     }
 
     void augmentChoiceStatusEffects(
@@ -402,6 +444,10 @@ namespace
         narrativeNotebook.getNarrativeText() = locationStruct.locationDescription;
         narrativeNotebook.setAssetRoot(assetRoot);
         conversationMgr.setProgressionService(&progressionService);
+        conversationMgr.setActorInventoryChoiceBuilder(
+            [this](const std::string& actorId) {
+                return buildActorInventoryChoices(actorId);
+            });
         saveLoadMenu.setSaveGameService(&saveGameService);
         conversationMgr.onEnterScene(worldState.currentSceneId, sceneDatabase.getSpeakConfig(worldState.currentSceneId));
         evaluateMilestones();
@@ -412,7 +458,7 @@ namespace
         updateActionAvailability();
 
         mainMenuBackdrop.load(assetRoot);
-        enterTitleScreen();
+        beginBootTitleSequence();
     }
 
     void GameSession::syncWalletInventoryDisplay()
@@ -1244,7 +1290,7 @@ namespace
 
     void GameSession::grantConversationItem(const GrantedInventoryItemDef& granted)
     {
-        if (!granted.isValid() || inventoryMgr.hasItem(granted.id))
+        if (!granted.isValid())
             return;
 
         ItemDefOverrides overrides;
@@ -1267,8 +1313,375 @@ namespace
                 displayName);
         }
 
-        inventoryMgr.addItem(item);
+        std::string message;
+        if (!inventoryMgr.giveOrStackItem(item, message))
+        {
+            TraceLog(
+                LOG_WARNING,
+                "Conversation grant skipped for '%s': %s",
+                granted.id.c_str(),
+                message.c_str());
+            return;
+        }
         evaluateMilestones();
+    }
+
+    bool GameSession::applyItemExchanges(SpeakResult& result)
+    {
+        result.exchangeSucceeded = true;
+        const bool hasGive = result.giveToPlayer.isValid();
+        const bool hasTake = result.takeFromPlayer.isValid();
+        if (!hasGive && !hasTake)
+            return true;
+
+        auto resolveActor = [&](const ItemExchangeDef& ex) -> std::string {
+            if (!ex.actorId.empty())
+                return ex.actorId;
+            return result.spokenActorId;
+        };
+
+        // Validate both before mutating (atomic: fail → no partial apply).
+        if (hasGive)
+        {
+            const ItemExchangeDef& g = result.giveToPlayer;
+            const std::string actor = resolveActor(g);
+            if (g.money < 0.0f)
+            {
+                result.exchangeSucceeded = false;
+                TraceLog(LOG_WARNING, "giveToPlayer: invalid money amount");
+                return false;
+            }
+            if (!g.itemId.empty())
+            {
+                if (g.useActorInventory)
+                {
+                    const SceneSpeakConfig& speak =
+                        sceneDatabase.getSpeakConfig(worldState.currentSceneId);
+                    auto defIt = speak.actorInventories.find(actor);
+                    if (defIt != speak.actorInventories.end())
+                        worldState.ensureActorInventory(actor, defIt->second);
+                    if (worldState.actorInventoryQuantity(actor, g.itemId) < g.quantity)
+                    {
+                        result.exchangeSucceeded = false;
+                        TraceLog(
+                            LOG_WARNING,
+                            "giveToPlayer failed: actor '%s' lacks '%s' x%d",
+                            actor.c_str(),
+                            g.itemId.c_str(),
+                            g.quantity);
+                        return false;
+                    }
+                }
+                const ItemDef* def = itemDatabase.getDef(g.itemId);
+                const bool stackable = def != nullptr && def->quantity.stackable;
+                if (!stackable && inventoryMgr.hasItem(g.itemId))
+                {
+                    result.exchangeSucceeded = false;
+                    TraceLog(
+                        LOG_WARNING,
+                        "giveToPlayer failed: player already owns non-stackable '%s'",
+                        g.itemId.c_str());
+                    return false;
+                }
+            }
+        }
+
+        if (hasTake)
+        {
+            const ItemExchangeDef& t = result.takeFromPlayer;
+            if (t.money > 0.0f && worldState.playerStats.walletCash + 0.0001f < t.money)
+            {
+                result.exchangeSucceeded = false;
+                TraceLog(
+                    LOG_WARNING,
+                    "takeFromPlayer failed: wallet $%.2f < $%.2f",
+                    worldState.playerStats.walletCash,
+                    t.money);
+                return false;
+            }
+            if (!t.itemId.empty()
+                && inventoryMgr.itemQuantity(t.itemId) < t.quantity)
+            {
+                result.exchangeSucceeded = false;
+                TraceLog(
+                    LOG_WARNING,
+                    "takeFromPlayer failed: player lacks '%s' x%d",
+                    t.itemId.c_str(),
+                    t.quantity);
+                return false;
+            }
+        }
+
+        if (hasGive)
+        {
+            const ItemExchangeDef& g = result.giveToPlayer;
+            const std::string actor = resolveActor(g);
+            if (!g.itemId.empty())
+            {
+                if (g.useActorInventory)
+                {
+                    for (int i = 0; i < g.quantity; ++i)
+                    {
+                        if (!worldState.consumeActorInventoryItem(actor, g.itemId))
+                        {
+                            result.exchangeSucceeded = false;
+                            TraceLog(
+                                LOG_WARNING,
+                                "giveToPlayer failed mid-consume for '%s'",
+                                g.itemId.c_str());
+                            return false;
+                        }
+                    }
+                }
+                GrantedInventoryItemDef granted;
+                granted.id = g.itemId;
+                InventoryItem item = buildInventoryItem(g.itemId, {});
+                item.instance.quantity = std::max(1, g.quantity);
+                std::string message;
+                if (!inventoryMgr.giveOrStackItem(item, message))
+                {
+                    result.exchangeSucceeded = false;
+                    TraceLog(
+                        LOG_WARNING,
+                        "giveToPlayer failed: %s",
+                        message.c_str());
+                    return false;
+                }
+            }
+            if (g.money > 0.0f)
+            {
+                StatusEffect pay;
+                pay.money = g.money;
+                applyStatusEffects({pay});
+            }
+        }
+
+        if (hasTake)
+        {
+            const ItemExchangeDef& t = result.takeFromPlayer;
+            const std::string actor = resolveActor(t);
+            if (!t.itemId.empty())
+            {
+                if (!inventoryMgr.removeQuantity(t.itemId, t.quantity))
+                {
+                    result.exchangeSucceeded = false;
+                    TraceLog(
+                        LOG_WARNING,
+                        "takeFromPlayer failed removing '%s' x%d",
+                        t.itemId.c_str(),
+                        t.quantity);
+                    return false;
+                }
+                if (t.useActorInventory)
+                    worldState.addActorInventoryItem(actor, t.itemId, t.quantity, 0.0f);
+            }
+            if (t.money > 0.0f)
+            {
+                StatusEffect pay;
+                pay.money = -t.money;
+                applyStatusEffects({pay});
+            }
+        }
+
+        evaluateMilestones();
+        result.exchangeSucceeded = true;
+        return true;
+    }
+
+    namespace
+    {
+        std::string formatShopPriceLabel(float price)
+        {
+            // Match tools/shop_utils.format_price: whole dollars without cents.
+            const float rounded = std::round(price);
+            if (std::fabs(price - rounded) < 0.001f)
+            {
+                std::ostringstream oss;
+                oss << static_cast<int>(rounded);
+                return oss.str();
+            }
+            std::ostringstream oss;
+            oss << std::fixed << std::setprecision(2) << price;
+            return oss.str();
+        }
+
+        std::string shopOnesWord(int n)
+        {
+            static const char* const ones[] = {
+                "zero", "one", "two", "three", "four", "five", "six", "seven",
+                "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen",
+                "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"};
+            if (n >= 0 && n < 20)
+                return ones[n];
+            return std::to_string(n);
+        }
+
+        std::string shopUnderHundred(int n)
+        {
+            if (n < 20)
+                return shopOnesWord(n);
+            static const char* const tens[] = {
+                "", "", "twenty", "thirty", "forty", "fifty",
+                "sixty", "seventy", "eighty", "ninety"};
+            const int t = n / 10;
+            const int o = n % 10;
+            if (o == 0)
+                return tens[t];
+            return std::string(tens[t]) + "-" + shopOnesWord(o);
+        }
+
+        /** Spoken money phrase — keep in sync with tools/shop_utils.price_words. */
+        std::string shopPriceWords(float amount)
+        {
+            const int centsTotal = static_cast<int>(std::lround(static_cast<double>(amount) * 100.0));
+            const int dollars = centsTotal / 100;
+            const int cents = centsTotal % 100;
+            std::string dollarText;
+            if (dollars == 1)
+                dollarText = "one dollar";
+            else if (dollars > 1)
+                dollarText = shopUnderHundred(dollars) + " dollars";
+            std::string centText;
+            if (cents == 1)
+                centText = "one cent";
+            else if (cents > 1)
+                centText = shopUnderHundred(cents) + " cents";
+            if (!dollarText.empty() && !centText.empty())
+                return dollarText + " and " + centText;
+            if (!dollarText.empty())
+                return dollarText;
+            if (!centText.empty())
+                return centText;
+            return "nothing";
+        }
+
+        std::string toLowerCopy(std::string value)
+        {
+            for (char& ch : value)
+                ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+            return value;
+        }
+    }
+
+    std::vector<ConversationChoiceDef> GameSession::buildActorInventoryChoices(
+        const std::string& actorId)
+    {
+        std::vector<ConversationChoiceDef> out;
+        if (actorId.empty())
+            return out;
+
+        const SceneSpeakConfig& speak = sceneDatabase.getSpeakConfig(worldState.currentSceneId);
+        std::map<std::string, std::vector<ActorInventorySlot>>::const_iterator defIt =
+            speak.actorInventories.find(actorId);
+        if (defIt != speak.actorInventories.end())
+            worldState.ensureActorInventory(actorId, defIt->second);
+
+        const std::vector<ActorInventorySlot>* bag = worldState.actorInventory(actorId);
+        if (bag == nullptr)
+            return out;
+
+        const std::string ttsDir =
+            "resources/audio/tts/" + worldState.currentSceneId + "/";
+
+        // Shared post-tx / catalog-done copy matches tools/shop_utils hardware tone
+        // so existing alpine_hardware TTS stays in sync (#60).
+        ConversationChoiceDef lookAgain;
+        lookAgain.id = "shop_look_again";
+        lookAgain.label = "Let me take another look.";
+        lookAgain.closePhase = false;
+        lookAgain.resumeChoiceId = "what_on_offer";
+        lookAgain.response = "\"Take your time,\" he says, nodding toward the stock.";
+        lookAgain.ttsAudio = ttsDir + "shop_look_again.mp3";
+        lookAgain.responseAudio = lookAgain.ttsAudio;
+        lookAgain.tts = true;
+
+        ConversationChoiceDef noThanks;
+        noThanks.id = "shop_no_thanks";
+        noThanks.label = "No, thanks.";
+        noThanks.closePhase = true;
+        noThanks.response = "\"Fair enough,\" he says. \"Door's open when you need us.\"";
+        noThanks.ttsAudio = ttsDir + "shop_no_thanks.mp3";
+        noThanks.responseAudio = noThanks.ttsAudio;
+        noThanks.tts = true;
+
+        for (const ActorInventorySlot& slot : *bag)
+        {
+            if (!slot.isInStock() || inventoryMgr.hasItem(slot.id))
+                continue;
+
+            const ItemDef* def = itemDatabase.getDef(slot.id);
+            const std::string displayName =
+                (def != nullptr && !def->name.empty()) ? def->name : slot.id;
+            const std::string spokenName = toLowerCopy(displayName);
+
+            ConversationChoiceDef browse;
+            browse.id = "browse_" + slot.id;
+            browse.label = displayName + " - $" + formatShopPriceLabel(slot.price);
+            browse.closePhase = false;
+            browse.response =
+                "\"Solid choice,\" he says. \"That'll be "
+                + shopPriceWords(slot.price) + ".\"";
+            const std::string browseAudio = ttsDir + "browse_" + slot.id + ".mp3";
+            browse.ttsAudio = browseAudio;
+            browse.responseAudio = browseAudio;
+            browse.tts = true;
+
+            ConversationChoiceDef buy;
+            buy.id = "buy_" + slot.id;
+            buy.label = "I'll take it.";
+            buy.closePhase = false;
+            buy.requiresMoney = slot.price;
+            buy.status.money = -slot.price;
+            buy.purchaseFromActor = actorId;
+            buy.grantItem.id = slot.id;
+            if (def != nullptr)
+            {
+                buy.grantItem.name = def->name;
+                buy.grantItem.iconPath = def->icons.icon;
+                buy.grantItem.examineImagePath = def->visuals.image;
+                buy.grantItem.examineText = def->description;
+            }
+            buy.response =
+                "He sets the " + spokenName
+                + " on the counter with both hands, the way a man handles weight he respects. "
+                  "\"Good iron. It'll serve you.\"\n\n"
+                  "\"Need anything else while you're here?\"";
+            buy.ttsAudio = ttsDir + "buy_" + slot.id + ".mp3";
+            buy.responseAudio = buy.ttsAudio;
+            buy.tts = true;
+
+            ConversationChoiceDef decline;
+            decline.id = "decline_" + slot.id;
+            decline.label = "Thanks, maybe next time.";
+            decline.closePhase = false;
+            decline.response =
+                "\"No trouble,\" he says. \"Stock's not going nowhere.\"\n\n"
+                "\"Need anything else while you're here?\"";
+            decline.ttsAudio = ttsDir + "decline_" + slot.id + ".mp3";
+            decline.responseAudio = decline.ttsAudio;
+            decline.tts = true;
+
+            buy.followUpChoices.push_back(lookAgain);
+            buy.followUpChoices.push_back(noThanks);
+            decline.followUpChoices.push_back(lookAgain);
+            decline.followUpChoices.push_back(noThanks);
+            browse.followUpChoices.push_back(buy);
+            browse.followUpChoices.push_back(decline);
+            out.push_back(browse);
+        }
+
+        ConversationChoiceDef done;
+        done.id = "catalog_done";
+        done.label = "Thanks, just browsing.";
+        done.closePhase = true;
+        done.response =
+            "\"Suit yourself,\" he says, not unkindly. "
+            "\"Walk the aisles. Holler if you need a hand.\"";
+        done.ttsAudio = ttsDir + "catalog_done.mp3";
+        done.responseAudio = done.ttsAudio;
+        done.tts = true;
+        out.push_back(done);
+        return out;
     }
 
     bool GameSession::isCurrentSceneTtsEnabled() const
@@ -1389,7 +1802,7 @@ namespace
         delayedSceneNarrativeTtsPaths.clear();
     }
 
-    void GameSession::processSpeakResult(const SpeakResult& result)
+    void GameSession::processSpeakResult(SpeakResult result)
     {
         if (result.action == SpeakResult::Action::None
             && result.narrative.empty()
@@ -1406,6 +1819,11 @@ namespace
         {
             applyStatusEffects(result.statusEffects);
             grantConversationItem(result.grantItem);
+            if (!result.purchaseFromActor.empty() && result.grantItem.isValid())
+                worldState.consumeActorInventoryItem(
+                    result.purchaseFromActor,
+                    result.grantItem.id);
+            applyItemExchanges(result);
             playDialogAudio(result);
             const std::vector<ConversationChoiceDef>& pending = conversationMgr.getPendingChoices();
             appendChoiceLinesToNarrative(!pending.empty() ? pending : result.choices);
@@ -1419,6 +1837,11 @@ namespace
 
         applyStatusEffects(result.statusEffects);
         grantConversationItem(result.grantItem);
+        if (!result.purchaseFromActor.empty() && result.grantItem.isValid())
+            worldState.consumeActorInventoryItem(
+                result.purchaseFromActor,
+                result.grantItem.id);
+        applyItemExchanges(result);
         playDialogAudio(result);
         evaluateMilestones();
         refreshSceneImage();
@@ -1494,6 +1917,11 @@ namespace
         {
             applyStatusEffects(effects);
             grantConversationItem(result.grantItem);
+            if (!result.purchaseFromActor.empty() && result.grantItem.isValid())
+                worldState.consumeActorInventoryItem(
+                    result.purchaseFromActor,
+                    result.grantItem.id);
+            applyItemExchanges(result);
             playDialogAudio(result);
             const std::vector<ConversationChoiceDef>& pending = conversationMgr.getPendingChoices();
             appendChoiceLinesToNarrative(
@@ -1509,6 +1937,11 @@ namespace
 
         applyStatusEffects(effects);
         grantConversationItem(result.grantItem);
+        if (!result.purchaseFromActor.empty() && result.grantItem.isValid())
+            worldState.consumeActorInventoryItem(
+                result.purchaseFromActor,
+                result.grantItem.id);
+        applyItemExchanges(result);
         playDialogAudio(result);
 
         if (!selectedLineText.empty())
@@ -1532,7 +1965,14 @@ namespace
         evaluateMilestones();
         refreshSceneImage();
 
-        if (!result.startPhaseId.empty())
+        // Speak→scene leave wins over startPhase (MOVE-like; no Use return stack).
+        if (!result.exitSceneId.empty())
+        {
+            const MovementTarget leaveTarget = parseMovementTarget(result.exitSceneId);
+            if (!leaveTarget.sceneId.empty())
+                transitionToScene(leaveTarget.sceneId, leaveTarget.subSceneId, false);
+        }
+        else if (!result.startPhaseId.empty())
         {
             SpeakResult chained = conversationMgr.startScriptedPhase(
                 speakConfig,
@@ -1555,86 +1995,157 @@ namespace
         if (conversationMgr.getCombatEncounterId() != encounterId)
             return;
 
-        const std::vector<ConversationChoiceDef> choicesToStrip = conversationMgr.getPendingChoices();
+        const SceneSpeakConfig& speak =
+            sceneDatabase.getSpeakConfig(worldState.currentSceneId);
+        const AttackEncounterDef* encounter = speak.findAttackEncounter(encounterId);
+        if (encounter == nullptr)
+        {
+            TraceLog(
+                LOG_WARNING,
+                "Attack encounter '%s' missing from speakConfig.attackEncounters",
+                encounterId.c_str());
+            return;
+        }
+
+        const std::vector<ConversationChoiceDef> choicesToStrip =
+            conversationMgr.getPendingChoices();
         narrativeNotebook.getChoiceHitAreas().clear();
         stripDialogChoiceLinesFromNarrative(choicesToStrip);
 
-        std::string responseText;
-        StatusEffect effect;
+        auto appendBag = [&](const AttackDialogBag& bag) {
+            if (bag.text.empty())
+                return;
+            narrativeNotebook.getNarrativeText() += "\n\n";
+            narrativeNotebook.getNarrativeText() += bag.text;
+        };
 
-        if (encounterId == "drunk_patron")
+        auto collectAudio = [](const AttackDialogBag& bag) {
+            std::vector<std::string> paths;
+            if (!bag.ttsAudioSegments.empty())
+                paths = bag.ttsAudioSegments;
+            else if (!bag.ttsAudio.empty())
+                paths.push_back(bag.ttsAudio);
+            return paths;
+        };
+
+        // 1) Lead-up text + TTS
+        appendBag(encounter->leadUp);
+
+        // 2) Scrape
+        CombatActorEdge edge;
+        edge.health = encounter->actorEdgeHealth;
+        edge.energy = encounter->actorEdgeEnergy;
+        edge.resolve = encounter->actorEdgeResolve;
+        edge.lucidity = encounter->actorEdgeLucidity;
+        edge.charisma = encounter->actorEdgeCharisma;
+
+        static thread_local std::mt19937 combatRng{std::random_device{}()};
+        const CombatResolution scrape = resolveScrapeFight(
+            worldState.playerStats,
+            edge,
+            encounter->cannotLose,
+            combatRng);
+        if (std::getenv("TIMBERLINE_DEBUG_COMBAT") != nullptr)
         {
-            if (worldState.playerStats.resolve > 65.0f)
-            {
-                responseText =
-                    "You do not think. You move.\n\n"
-                    "The drunk man's shove becomes the opening he did not intend. You catch his wrist on the way past, "
-                    "step inside his reach, and drive your shoulder into his sternum hard enough to lift him off the "
-                    "foot rail. His breath leaves in a wet bark. The tumbler flies, spinning amber through the lamp "
-                    "smoke. He hits the sawdust on his back with a thud that stops the piano mid-phrase.\n\n"
-                    "For one heartbeat the saloon is silent. Then the room detonates into laughter, applause, and "
-                    "the hungry whistle of men who have paid good money to see violence that is not their own. "
-                    "Someone shouts for another round. A woman on the balcony leans over the rail and fans herself "
-                    "with deliberate slowness. The faro dealer does not look up, but his mouth curves.\n\n"
-                    "The drunk man wheezes and tries to rise. You put a boot lightly on his chest and hold him there "
-                    "long enough for the point to settle. Not cruel. Measured. Then you step back and let the bartender "
-                    "take over.\n\n"
-                    "\"All right,\" the bartender says, not angry, not impressed. Simply in charge. \"Show's over. "
-                    "Drinks still cost money.\"";
-                effect.key = "saloon_interior:drunk_patron_win";
-                effect.health = -5.0f;
-                effect.energy = -10.0f;
-                effect.lucidity = 10.0f;
-                effect.charisma = 10.0f;
-                effect.actor = "drunk_patron";
-                effect.actorOpinion = -3;
-            }
-            else
-            {
-                responseText =
-                    "You swing before you think and that is the first mistake.\n\n"
-                    "The drunk man is faster than a man that soaked has any right to be. He slips your grab, "
-                    "catches you across the jaw with a ringed knuckle, and drives you sideways into the bar edge. "
-                    "Your ribs meet polished pine. The room blurs into lamp halos and laughing mouths. A second shove "
-                    "puts you on the floor, cheek in sawdust, the taste of whiskey and blood mixing under your tongue.\n\n"
-                    "The saloon does not stop. It watches. Delighted. A miner hoots. The piano player finds the same "
-                    "broken phrase and plays it louder, as though the music is part of the joke. Someone calls you "
-                    "green. Someone else calls for odds on whether you will stand up again.\n\n"
-                    "Boots cross the sawdust. The bartender hauls you up by the collar with practiced efficiency, "
-                    "props you against the bar long enough to see straight, and shoves a wet rag into your hand.\n\n"
-                    "\"Out of my floor,\" he tells the drunk man. \"Go sleep it off before I throw you off the ridge.\"\n\n"
-                    "The drunk man laughs, spits sawdust, and stumbles toward the door with the triumphant swagger of "
-                    "a man who won nothing but the room's attention. The bartender does not apologize for you. "
-                    "He does not need to. The bar has already filed the scene under entertainment and moved on.";
-                effect.key = "saloon_interior:drunk_patron_lose";
-                effect.health = -30.0f;
-                effect.energy = -20.0f;
-                effect.charisma = -5.0f;
-                effect.actor = "drunk_patron";
-                effect.actorOpinion = -3;
-            }
+            std::fprintf(
+                stderr,
+                "[combat] %s player=%.1f actor=%.1f margin=%.1f roll=%.1f "
+                "check=%.1f → %s\n",
+                encounterId.c_str(),
+                static_cast<double>(scrape.playerScore),
+                static_cast<double>(scrape.actorScore),
+                static_cast<double>(scrape.margin),
+                static_cast<double>(scrape.roll),
+                static_cast<double>(scrape.check),
+                scrape.playerWon ? "WIN" : "LOSE");
+        }
+
+        // 3) Result bag
+        const AttackDialogBag& resultBag =
+            scrape.playerWon ? encounter->win : encounter->lose;
+        appendBag(resultBag);
+
+        trimNarrativeBuffer();
+        narrativeNotebook.invalidateLayout();
+
+        std::vector<std::string> audioPaths = collectAudio(encounter->leadUp);
+        {
+            const std::vector<std::string> resultAudio = collectAudio(resultBag);
+            audioPaths.insert(audioPaths.end(), resultAudio.begin(), resultAudio.end());
+        }
+        if (!audioPaths.empty())
+            audioManager.playDialogAssetSequence(audioPaths);
+
+        // Loss results / reputation (lose path, or always-on reputation)
+        StatusEffect effect;
+        effect.key = worldState.currentSceneId + ":" + encounterId
+            + (scrape.playerWon ? "_win" : "_lose");
+
+        auto applyPctLoss = [](float& stat, const AttackStatLoss& loss) {
+            if (!loss.enabled)
+                return;
+            const float pct = std::clamp(loss.percentOfCurrent, 0.0f, 100.0f);
+            const float before = stat;
+            stat = before * (1.0f - pct / 100.0f);
+            // StatusEffect uses absolute deltas — encode as before→after.
+        };
+
+        if (!scrape.playerWon)
+        {
+            PlayerStats& ps = worldState.playerStats;
+            const float h0 = ps.health;
+            const float e0 = ps.energy;
+            const float r0 = ps.resolve;
+            const float l0 = ps.lucidity;
+            const float c0 = ps.charisma;
+            applyPctLoss(ps.health, encounter->lossHealth);
+            applyPctLoss(ps.energy, encounter->lossEnergy);
+            applyPctLoss(ps.resolve, encounter->lossResolve);
+            applyPctLoss(ps.lucidity, encounter->lossLucidity);
+            applyPctLoss(ps.charisma, encounter->lossCharisma);
+            if (encounter->playerDeath)
+                ps.health = 0.0f;
+            effect.health = ps.health - h0;
+            effect.energy = ps.energy - e0;
+            effect.resolve = ps.resolve - r0;
+            effect.lucidity = ps.lucidity - l0;
+            effect.charisma = ps.charisma - c0;
+            // Stats already applied; still route through applyStatusEffects for
+            // actor opinion / notebooks — zero player deltas if already applied.
+            // Simpler: build effect deltas and re-apply via applyStatusEffects only
+            // for opinion; restore stats from effect. Use effect-only path:
+            ps.health = h0;
+            ps.energy = e0;
+            ps.resolve = r0;
+            ps.lucidity = l0;
+            ps.charisma = c0;
         }
         else
         {
-            return;
+            // Mild win cost defaults if no loss flags (authored win can still
+            // leave stats untouched).
+            effect.health = 0.0f;
+            effect.energy = 0.0f;
+        }
+
+        if (encounter->reputationChange)
+        {
+            effect.actor = encounter->combatantId.empty() ? encounterId
+                                                          : encounter->combatantId;
+            effect.actorOpinion = encounter->reputationDelta;
         }
 
         conversationMgr.clearPendingEncounter();
 
-        if (!responseText.empty())
-        {
-            narrativeNotebook.getNarrativeText() += "\n\n";
-            narrativeNotebook.getNarrativeText() += responseText;
-            trimNarrativeBuffer();
-            narrativeNotebook.invalidateLayout();
-        }
+        if (effect.hasDelta() || !effect.key.empty())
+            applyStatusEffects({ effect });
 
-        applyStatusEffects({ effect });
-
-        if (!responseText.empty())
+        rebuildNarrativeLayout();
+        const std::string scrollSrc =
+            !encounter->leadUp.text.empty() ? encounter->leadUp.text : resultBag.text;
+        if (!scrollSrc.empty())
         {
-            rebuildNarrativeLayout();
-            std::istringstream responseStream(responseText);
+            std::istringstream responseStream(scrollSrc);
             std::string firstLine;
             if (std::getline(responseStream, firstLine) && !firstLine.empty())
                 scrollNarrativeToLine(firstLine, true);
@@ -1893,9 +2404,14 @@ namespace
         if (!sceneDatabase.isHighAltitudeScene(worldState.currentSceneId))
             return;
 
+        const float lucidityDelta =
+            gameConfig.gameplay.highAltitudeLucidityPerAction;
+        if (lucidityDelta == 0.0f)
+            return;
+
         StatusEffect altitudeEffect;
         altitudeEffect.key = "high_altitude:count:" + std::to_string(worldState.actionCount);
-        altitudeEffect.lucidity = -1.0f;
+        altitudeEffect.lucidity = lucidityDelta;
         if (!tryApplyStatusEffect(altitudeEffect, false))
             return;
 
@@ -1940,7 +2456,10 @@ namespace
         return applied;
     }
 
-    void GameSession::transitionToScene(const std::string& nextSceneId, const std::string& nextSubSceneId)
+    void GameSession::transitionToScene(
+        const std::string& nextSceneId,
+        const std::string& nextSubSceneId,
+        bool asUseTransition)
     {
         const std::string fromSceneId = worldState.currentSceneId;
         const std::string fromSubSceneId = worldState.activeSubSceneId;
@@ -1960,7 +2479,8 @@ namespace
                 {
                     return conversationMgr.isPhaseComplete(phaseId);
                 },
-                SceneController::TransitionKind::Use))
+                asUseTransition ? SceneController::TransitionKind::Use
+                                : SceneController::TransitionKind::Movement))
         {
             return;
         }
@@ -2556,7 +3076,17 @@ namespace
             movement.backward = false;
             movement.left = false;
             movement.right = false;
-            actions.hit = conversationMgr.isCombatAttackAllowed();
+            actions.hit = false;
+            if (conversationMgr.isCombatAttackAllowed())
+            {
+                const SceneSpeakConfig& speak =
+                    sceneDatabase.getSpeakConfig(worldState.currentSceneId);
+                const AttackEncounterDef* encounter =
+                    speak.findAttackEncounter(conversationMgr.getCombatEncounterId());
+                actions.hit = encounter != nullptr
+                    && isCombatEncounterOfferable(
+                           *encounter, worldState, inventoryMgr, itemDatabase);
+            }
         }
         else if (isUnderConstruction)
         {
@@ -3435,6 +3965,7 @@ namespace
         LocationStruct locationStruct;
         const std::string fromSceneId = worldState.currentSceneId;
         const std::string fromSubSceneId = worldState.activeSubSceneId;
+        const bool handoffFromTitle = titleScreenActive;
 
         // Cut off any dialog/TTS still playing from the live session before the load.
         cancelDelayedSceneNarrativeTts();
@@ -3443,6 +3974,18 @@ namespace
         audioManager.onRoomExit(
             sceneDatabase.getSceneAudio(fromSceneId, fromSubSceneId),
             state.sceneId);
+
+        // From the title screen: arm the intro→scene music ease *before* the heavy
+        // restore/image work so a main-thread stall cannot underrun a still-static bed
+        // and then "blip" right as the fade begins (#58).
+        if (handoffFromTitle && !state.sceneId.empty())
+        {
+            audioManager.onRoomEnter(
+                sceneDatabase.getSceneAudio(state.sceneId, state.activeSubSceneId),
+                fromSceneId);
+            deferInitialRoomAudio = true; // re-assert after hypoxia / settle
+        }
+        audioManager.pumpStreams();
 
         if (!worldState.restore(state, conversationMgr, milestoneMgr, inventoryMgr))
             return false;
@@ -3465,6 +4008,7 @@ namespace
         {
             return false;
         }
+        audioManager.pumpStreams();
 
         sceneController.getActiveScene().loadFromStruct(worldState.currentSceneId, locationStruct);
         syncFromActiveScene();
@@ -3489,13 +4033,23 @@ namespace
             conversationSnapshot,
             [this](const std::string& itemId) { return inventoryMgr.hasItem(itemId); });
         evaluateMilestones();
+        audioManager.pumpStreams();
 
-        audioManager.onRoomEnter(
-            sceneDatabase.getSceneAudio(worldState.currentSceneId, worldState.activeSubSceneId),
-            fromSceneId);
+        // Title handoff already armed onRoomEnter above. In-game loads apply now.
+        if (handoffFromTitle)
+        {
+            deferInitialRoomAudio = true;
+        }
+        else
+        {
+            audioManager.onRoomEnter(
+                sceneDatabase.getSceneAudio(worldState.currentSceneId, worldState.activeSubSceneId),
+                fromSceneId);
+        }
         trimNarrativeBuffer();
         resetDevSceneImagePreview();
         refreshSceneImage();
+        audioManager.pumpStreams();
         updateInventoryLayout();
         syncWalletInventoryDisplay();
         updateActionAvailability();
@@ -3992,12 +4546,120 @@ namespace
         pauseMenu.setContinueAvailable(!slots.empty());
     }
 
-    void GameSession::enterTitleScreen()
+    void GameSession::beginTitleBedIfNeeded()
     {
+        if (titleBedStarted)
+            return;
+        // Idempotent if the same path is already streaming (retainMusicTrack).
+        audioManager.startTitleScreenBed();
+        audioManager.setGameplayPaused(false);
+        titleBedStarted = true;
+    }
+
+    void GameSession::showTitleMenu()
+    {
+        titleBootPhase = TitleBootPhase::TitleMenu;
         titleScreenActive = true;
+        bootFadeAlpha = 0.0f;
+        titleBackdropAlpha = 1.0f;
+        pressKeyAlpha = 0.0f;
+        // Immediate by default (skip during video / return-to-title).
+        // MenuFadeOut overrides these to fade in from black.
+        menuRevealAlpha = 1.0f;
+        titlePhaseStartTime = GetTime();
+        introVideo.close();
+        beginTitleBedIfNeeded();
         refreshContinueAvailability();
         pauseMenu.openTitleMenu();
-        audioManager.startTitleScreenBed();
+    }
+
+    void GameSession::requestTitleMenuWithFade()
+    {
+        if (titleBootPhase == TitleBootPhase::TitleMenu
+            || titleBootPhase == TitleBootPhase::MenuFadeOut)
+            return;
+        titleBootPhase = TitleBootPhase::MenuFadeOut;
+        titlePhaseStartTime = GetTime();
+        // Keep current plate visible; fade covers it.
+        if (bootFadeAlpha < 0.0f)
+            bootFadeAlpha = 0.0f;
+    }
+
+    void GameSession::skipIntroToTitleMenu()
+    {
+        introVideo.close();
+        beginTitleBedIfNeeded();
+        showTitleMenu();
+    }
+
+    void GameSession::advanceBootTitleFromVideo()
+    {
+        introVideo.close();
+        beginTitleBedIfNeeded();
+        titleBootPhase = TitleBootPhase::FadeToBlack;
+        titlePhaseStartTime = GetTime();
+        // Keep current fade alpha (may already be mid fade-out).
+        if (bootFadeAlpha < 0.01f)
+            bootFadeAlpha = 0.0f;
+    }
+
+    bool GameSession::pollBootSkipInput() const
+    {
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
+            || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)
+            || IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE))
+            return true;
+        if (GetKeyPressed() != 0)
+            return true;
+        if (IsGestureDetected(GESTURE_TAP) || IsGestureDetected(GESTURE_DOUBLETAP))
+            return true;
+        return false;
+    }
+
+    void GameSession::beginBootTitleSequence()
+    {
+        titleScreenActive = true;
+        titleBedStarted = false;
+        bootIntroAttempted = true;
+        bootFadeAlpha = 0.0f;
+        titleBackdropAlpha = 0.0f;
+        pressKeyAlpha = 0.0f;
+        pauseMenu.closeMenu();
+
+        const std::string& assetRoot = sceneDatabase.getAssetRoot();
+        const std::string relative = "resources/video/timberline_intro.mp4";
+        std::string videoPath = pathJoin(assetRoot, relative);
+        if (!FileExists(videoPath.c_str()))
+            videoPath = relative;
+        if (!FileExists(videoPath.c_str()))
+            videoPath = pathJoin("..", relative);
+
+        if (introVideo.open(videoPath))
+        {
+            titleBootPhase = TitleBootPhase::IntroVideo;
+            titlePhaseStartTime = GetTime();
+            titleRevealStartTime = 0.0;
+            TraceLog(LOG_INFO, "Boot intro video: %s", videoPath.c_str());
+            return;
+        }
+
+        TraceLog(LOG_WARNING, "Boot intro video unavailable — opening title menu");
+        showTitleMenu();
+    }
+
+    void GameSession::enterTitleScreen()
+    {
+        // Return-to-title (quit to menu): skip intro, show menu + bed.
+        titleScreenActive = true;
+        introVideo.close();
+        titleBootPhase = TitleBootPhase::TitleMenu;
+        bootFadeAlpha = 0.0f;
+        titleBackdropAlpha = 1.0f;
+        pressKeyAlpha = 0.0f;
+        menuRevealAlpha = 1.0f;
+        beginTitleBedIfNeeded();
+        refreshContinueAvailability();
+        pauseMenu.openTitleMenu();
         audioManager.setGameplayPaused(false);
     }
 
@@ -4006,7 +4668,12 @@ namespace
         if (!titleScreenActive)
             return;
         titleScreenActive = false;
-        audioManager.stopTitleScreenBed();
+        introVideo.close();
+        titleBootPhase = TitleBootPhase::TitleMenu;
+        // Allow a later enterTitleScreen to re-assert the bed after scene music.
+        titleBedStarted = false;
+        // Keep the title bed playing — deferred onRoomEnter crossfades into scene
+        // music (same track → volume ramp; different track → slow fade out/in) (#58).
         closeAllUiPanels();
         audioManager.setGameplayPaused(false);
         if (openingHypoxiaArmed)
@@ -4015,6 +4682,259 @@ namespace
             openingHypoxiaArmed = false;
         }
         deferInitialRoomAudio = true;
+    }
+
+    void GameSession::updateBootTitleSequence(float dt)
+    {
+        const double now = GetTime();
+        constexpr float kMusicDelaySec = 1.0f;
+        constexpr float kVideoFadeSec = 0.75f;
+        constexpr float kHoldBlackSec = 0.35f;
+        constexpr float kTitleFadeInSec = 0.9f;
+        constexpr float kPromptDelaySec = 1.0f;
+        constexpr float kPromptFadeSec = 0.4f;
+        constexpr float kMenuAutoSec = 10.0f;
+        constexpr float kMenuFadeOutSec = 0.55f;
+        constexpr float kMenuFadeInSec = 0.45f;
+
+        switch (titleBootPhase)
+        {
+        case TitleBootPhase::IntroVideo:
+        {
+            introVideo.update(dt);
+            if (!titleBedStarted && introVideo.timeSeconds() >= kMusicDelaySec)
+                beginTitleBedIfNeeded();
+
+            const float dur = introVideo.durationSeconds();
+            const float t = introVideo.timeSeconds();
+            if (dur > 0.2f && t >= dur - kVideoFadeSec)
+            {
+                const float intoFade = t - (dur - kVideoFadeSec);
+                bootFadeAlpha = std::clamp(intoFade / kVideoFadeSec, 0.0f, 1.0f);
+            }
+
+            if (pollBootSkipInput())
+            {
+                skipIntroToTitleMenu();
+                break;
+            }
+            if (introVideo.finished() || bootFadeAlpha >= 0.999f)
+            {
+                if (bootFadeAlpha < 1.0f)
+                    bootFadeAlpha = 1.0f;
+                advanceBootTitleFromVideo();
+            }
+            break;
+        }
+        case TitleBootPhase::FadeToBlack:
+        {
+            beginTitleBedIfNeeded();
+            bootFadeAlpha = std::min(1.0f, bootFadeAlpha + dt / kVideoFadeSec);
+            if (bootFadeAlpha >= 0.999f)
+            {
+                bootFadeAlpha = 1.0f;
+                titleBootPhase = TitleBootPhase::HoldBlack;
+                titlePhaseStartTime = now;
+            }
+            if (pollBootSkipInput())
+                skipIntroToTitleMenu();
+            break;
+        }
+        case TitleBootPhase::HoldBlack:
+        {
+            bootFadeAlpha = 1.0f;
+            titleBackdropAlpha = 0.0f;
+            if (now - titlePhaseStartTime >= kHoldBlackSec)
+            {
+                titleBootPhase = TitleBootPhase::TitleFadeIn;
+                titlePhaseStartTime = now;
+                titleRevealStartTime = now;
+            }
+            if (pollBootSkipInput())
+                skipIntroToTitleMenu();
+            break;
+        }
+        case TitleBootPhase::TitleFadeIn:
+        {
+            mainMenuBackdrop.update(dt);
+            const float u = std::clamp(
+                static_cast<float>((now - titlePhaseStartTime) / kTitleFadeInSec),
+                0.0f,
+                1.0f);
+            titleBackdropAlpha = u;
+            bootFadeAlpha = 1.0f - u;
+            if (u >= 0.999f)
+            {
+                titleBackdropAlpha = 1.0f;
+                bootFadeAlpha = 0.0f;
+                titleBootPhase = TitleBootPhase::TitleIdle;
+                titlePhaseStartTime = now;
+            }
+            if (pollBootSkipInput())
+                requestTitleMenuWithFade();
+            else if (titleRevealStartTime > 0.0 && now - titleRevealStartTime >= kMenuAutoSec)
+                requestTitleMenuWithFade();
+            break;
+        }
+        case TitleBootPhase::TitleIdle:
+        {
+            mainMenuBackdrop.update(dt);
+            titleBackdropAlpha = 1.0f;
+            bootFadeAlpha = 0.0f;
+            if (now - titlePhaseStartTime >= kPromptDelaySec)
+            {
+                titleBootPhase = TitleBootPhase::TitlePrompt;
+                titlePhaseStartTime = now;
+                pressKeyAlpha = 0.0f;
+            }
+            if (pollBootSkipInput())
+                requestTitleMenuWithFade();
+            else if (titleRevealStartTime > 0.0 && now - titleRevealStartTime >= kMenuAutoSec)
+                requestTitleMenuWithFade();
+            break;
+        }
+        case TitleBootPhase::TitlePrompt:
+        {
+            mainMenuBackdrop.update(dt);
+            pressKeyAlpha = std::min(
+                1.0f,
+                static_cast<float>((now - titlePhaseStartTime) / kPromptFadeSec));
+            if (pollBootSkipInput())
+                requestTitleMenuWithFade();
+            else if (titleRevealStartTime > 0.0 && now - titleRevealStartTime >= kMenuAutoSec)
+                requestTitleMenuWithFade();
+            break;
+        }
+        case TitleBootPhase::MenuFadeOut:
+        {
+            mainMenuBackdrop.update(dt);
+            titleBackdropAlpha = 1.0f;
+            const float u = std::clamp(
+                static_cast<float>((now - titlePhaseStartTime) / kMenuFadeOutSec),
+                0.0f,
+                1.0f);
+            bootFadeAlpha = u;
+            pressKeyAlpha = std::max(0.0f, pressKeyAlpha * (1.0f - u));
+            if (u >= 0.999f)
+            {
+                bootFadeAlpha = 1.0f;
+                showTitleMenu();
+                // Start menu reveal from black.
+                bootFadeAlpha = 1.0f;
+                menuRevealAlpha = 0.0f;
+            }
+            break;
+        }
+        case TitleBootPhase::TitleMenu:
+        default:
+            mainMenuBackdrop.update(dt);
+            if (menuRevealAlpha < 0.999f)
+            {
+                menuRevealAlpha = std::min(
+                    1.0f,
+                    static_cast<float>((now - titlePhaseStartTime) / kMenuFadeInSec));
+                bootFadeAlpha = 1.0f - menuRevealAlpha;
+            }
+            else
+            {
+                menuRevealAlpha = 1.0f;
+                bootFadeAlpha = 0.0f;
+            }
+            break;
+        }
+    }
+
+    void GameSession::drawBootTitleSequence() const
+    {
+        ClearBackground(BLACK);
+
+        if (titleBootPhase == TitleBootPhase::IntroVideo
+            || titleBootPhase == TitleBootPhase::FadeToBlack)
+        {
+            if (introVideo.isOpen())
+                introVideo.draw(screenWidth, screenHeight);
+            if (bootFadeAlpha > 0.001f)
+            {
+                DrawRectangle(
+                    0,
+                    0,
+                    screenWidth,
+                    screenHeight,
+                    Fade(BLACK, bootFadeAlpha));
+            }
+            return;
+        }
+
+        if (titleBootPhase == TitleBootPhase::HoldBlack)
+        {
+            ClearBackground(BLACK);
+            return;
+        }
+
+        // Title backdrop (dimmed plate + snow), gated by reveal alpha.
+        if (titleBackdropAlpha > 0.001f)
+        {
+            mainMenuBackdrop.draw(screenWidth, screenHeight, 0.45f);
+            if (titleBackdropAlpha < 0.999f)
+            {
+                DrawRectangle(
+                    0,
+                    0,
+                    screenWidth,
+                    screenHeight,
+                    Fade(BLACK, 1.0f - titleBackdropAlpha));
+            }
+        }
+        else if (bootFadeAlpha > 0.001f)
+        {
+            DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, bootFadeAlpha));
+        }
+
+        if ((titleBootPhase == TitleBootPhase::TitlePrompt
+                || titleBootPhase == TitleBootPhase::MenuFadeOut)
+            && pressKeyAlpha > 0.001f)
+        {
+            const char* prompt = "Press any key to continue";
+            const float fontSize = 20.0f;
+            const Font& font = descriptionFont;
+            const Vector2 size = MeasureTextEx(font, prompt, fontSize, 1.0f);
+            const float x = (static_cast<float>(screenWidth) - size.x) * 0.5f;
+            const float y = static_cast<float>(screenHeight) * 0.82f;
+            DrawTextEx(
+                font,
+                prompt,
+                {x, y},
+                fontSize,
+                1.0f,
+                Fade(RAYWHITE, pressKeyAlpha));
+        }
+
+        if (titleBootPhase == TitleBootPhase::MenuFadeOut && bootFadeAlpha > 0.001f)
+        {
+            DrawRectangle(
+                0,
+                0,
+                screenWidth,
+                screenHeight,
+                Fade(BLACK, bootFadeAlpha));
+        }
+
+        if (titleBootPhase == TitleBootPhase::TitleMenu)
+        {
+            pauseMenu.draw();
+            saveLoadMenu.draw();
+            if (bootFadeAlpha > 0.001f)
+            {
+                DrawRectangle(
+                    0,
+                    0,
+                    screenWidth,
+                    screenHeight,
+                    Fade(BLACK, bootFadeAlpha));
+            }
+        }
+
+        drawTransientMessage();
     }
 
     bool GameSession::continueMostRecentSave()
@@ -4058,7 +4978,26 @@ namespace
             overlayMgr.setHypoxiaOpacity(1.0f);
             openingHypoxiaArmed = true;
         }
-        leaveTitleScreen();
+
+        // Title New Game: leaveTitleScreen unmutes, arms hypoxia fade, and
+        // defers room audio so the title bed can crossfade into scene music.
+        // Pause → New Game already ran applySaveState/onRoomEnter and
+        // leaveTitleScreen is a no-op when titleScreenActive is false — still
+        // unmute and arm the opening fade.
+        if (titleScreenActive)
+        {
+            leaveTitleScreen();
+        }
+        else
+        {
+            closeAllUiPanels();
+            audioManager.setGameplayPaused(false);
+            if (openingHypoxiaArmed)
+            {
+                pendingOpeningHypoxiaSequence = true;
+                openingHypoxiaArmed = false;
+            }
+        }
         return true;
     }
 
@@ -4182,16 +5121,22 @@ namespace
 
         if (titleScreenActive)
         {
-            mainMenuBackdrop.update(dt);
-            audioManager.update(dt);
             trackDisplayConfigChanges();
             updateTransientMessage(dt);
-            handlePauseMenuInput();
-            if (saveLoadMenu.isOpen())
+            updateBootTitleSequence(dt);
+            if (titleBootPhase == TitleBootPhase::TitleMenu)
             {
-                saveLoadMenu.update();
-                handleSaveLoadMenuInput();
+                // Handle New Game / Load before pumping audio: applySaveState can stall
+                // the main thread for hundreds of ms. Updating streams afterward (and
+                // pumps inside applySaveState) avoids a title-bed underrun blip (#58).
+                handlePauseMenuInput();
+                if (saveLoadMenu.isOpen())
+                {
+                    saveLoadMenu.update();
+                    handleSaveLoadMenuInput();
+                }
             }
+            audioManager.update(dt);
             return;
         }
 
@@ -4473,10 +5418,7 @@ namespace
 
         if (titleScreenActive)
         {
-            mainMenuBackdrop.draw(screenWidth, screenHeight, 0.45f);
-            pauseMenu.draw();
-            saveLoadMenu.draw();
-            drawTransientMessage();
+            drawBootTitleSequence();
             return;
         }
 

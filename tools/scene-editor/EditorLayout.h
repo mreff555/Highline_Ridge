@@ -39,8 +39,17 @@ struct EditorLayout
     bool draggingVerticalDivider = false;
     bool draggingHorizontalDivider = false;
 
+    /** When true, Conversations ratios / min widths apply. */
+    bool conversationsChrome = false;
+    float activeLeftRatio = kLeftPaneRatio;
+    float activeTopRatio = kTopAreaRatio;
+    float activeMinLeftWidth = kMinLeftWidth;
+    float activeMinBottomHeight = kMinBottomHeight;
+
     float contentHeight(int screenHeight) const;
     void applyDefaultTopSplit(int screenHeight);
+    /** Switch Scenes vs Conversations default splits (resets user resize). */
+    void applyChromeForTab(bool conversations, int screenWidth, int screenHeight);
     void init(int screenWidth, int screenHeight);
     void syncToWindow(int screenWidth, int screenHeight);
     void clamp(int screenWidth, int screenHeight);

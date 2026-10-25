@@ -90,6 +90,8 @@ struct SceneExitRequirementsDialog
     bool voiceMenuOpen = false;
     Rectangle voiceBtnRect{0, 0, 0, 0};
     Rectangle voiceMenuRect{0, 0, 0, 0};
+    float voiceMenuScroll = 0.0f;
+    static constexpr int kVoiceMenuVisibleRows = 10;
     Rectangle directionSliderRect{0, 0, 0, 0};
 
     /** Inventory-item id autocomplete (#47). */
@@ -113,7 +115,7 @@ struct SceneExitRequirementsDialog
     std::mutex generateMutex;
     std::string generateResultStatus;
     bool generateResultPending = false;
-    /** 0=none, 1=Generate TTS dialog, 2=Generate Voice */
+    /** 0=none, 1=Generate TTS dialog, 2=Generate voice */
     int generateKind = 0;
     std::string pendingTtsJobsPath;
     std::thread generateThread;
