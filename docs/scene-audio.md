@@ -61,6 +61,10 @@ Copy `_1` back over the live file if a regen goes wrong.
 
 Default Generate length ~24s loopable bed. Title screen (`resources/audio/music/title_theme.mp3`) prefers `scarlet_whispers`.
 
+### Boot intro → title
+
+Cold boot plays muted `resources/video/timberline_intro.mp4` (macOS AVFoundation). Title theme **fades in ~1s** after the video starts and **never restarts** through video→black→title→menu (or skip-to-menu). After the title backdrop fades in: 1s pause, then “Press any key to continue”; on input or **10s** after title reveal starts, the title plate **fades to black** then the game menu fades in (slightly transparent panel over the ridge backdrop). Click/key during the video skips straight to the title menu. Return-to-title from in-game skips the intro. Non-Apple builds skip the video if no decoder is present.
+
 ## Runtime
 
 `AudioManager` crossfades `audio.music` and loops `audio.ambient[]` on scene enter. Dialog ducks room beds. See `src/AudioManager.cpp` and `docs/platform-parallelism.md` (async bed experiments are parked).

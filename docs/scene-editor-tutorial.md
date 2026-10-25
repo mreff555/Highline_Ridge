@@ -32,7 +32,8 @@ You get a **left list** (scenes / conversations / items depending on tab), a **m
 1. Select a scene in the list (or click its card on the map).  
 2. Drag unplaced scenes from the list onto the map to assign layout.  
 3. Use floor chrome to change level; connect Above/Below with the floor-connect flow.  
-4. Right-click a card for Edit, Remove from map, Delete, etc.
+4. **Clean up** (map chrome) reorders the current floor to cut exit-wire crossings and stacked runs; the footprint may grow. Save to persist.  
+5. Right-click a card for Edit, Remove from map, Delete, etc.
 
 **Gold wires** (mid-edge) = compass exits. **Silver wires** (corners) = Use transitions to another scene. **Stair badges** (`^N` / `vN`) = floor up/down (no cross-floor wire).
 

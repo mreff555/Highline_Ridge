@@ -26,6 +26,7 @@
 #include <MaskEvaluator.h>
 #include <MovementBlockReason.h>
 #include <MovementMappingDef.h>
+#include <PlatformPath.h>
 #include <PlayerStats.h>
 #include <RaylibCompat.h>
 #include <raylib.h>
@@ -457,7 +458,7 @@ namespace
         updateActionAvailability();
 
         mainMenuBackdrop.load(assetRoot);
-        enterTitleScreen();
+        beginBootTitleSequence();
     }
 
     void GameSession::syncWalletInventoryDisplay()
@@ -4545,12 +4546,120 @@ namespace
         pauseMenu.setContinueAvailable(!slots.empty());
     }
 
-    void GameSession::enterTitleScreen()
+    void GameSession::beginTitleBedIfNeeded()
     {
+        if (titleBedStarted)
+            return;
+        // Idempotent if the same path is already streaming (retainMusicTrack).
+        audioManager.startTitleScreenBed();
+        audioManager.setGameplayPaused(false);
+        titleBedStarted = true;
+    }
+
+    void GameSession::showTitleMenu()
+    {
+        titleBootPhase = TitleBootPhase::TitleMenu;
         titleScreenActive = true;
+        bootFadeAlpha = 0.0f;
+        titleBackdropAlpha = 1.0f;
+        pressKeyAlpha = 0.0f;
+        // Immediate by default (skip during video / return-to-title).
+        // MenuFadeOut overrides these to fade in from black.
+        menuRevealAlpha = 1.0f;
+        titlePhaseStartTime = GetTime();
+        introVideo.close();
+        beginTitleBedIfNeeded();
         refreshContinueAvailability();
         pauseMenu.openTitleMenu();
-        audioManager.startTitleScreenBed();
+    }
+
+    void GameSession::requestTitleMenuWithFade()
+    {
+        if (titleBootPhase == TitleBootPhase::TitleMenu
+            || titleBootPhase == TitleBootPhase::MenuFadeOut)
+            return;
+        titleBootPhase = TitleBootPhase::MenuFadeOut;
+        titlePhaseStartTime = GetTime();
+        // Keep current plate visible; fade covers it.
+        if (bootFadeAlpha < 0.0f)
+            bootFadeAlpha = 0.0f;
+    }
+
+    void GameSession::skipIntroToTitleMenu()
+    {
+        introVideo.close();
+        beginTitleBedIfNeeded();
+        showTitleMenu();
+    }
+
+    void GameSession::advanceBootTitleFromVideo()
+    {
+        introVideo.close();
+        beginTitleBedIfNeeded();
+        titleBootPhase = TitleBootPhase::FadeToBlack;
+        titlePhaseStartTime = GetTime();
+        // Keep current fade alpha (may already be mid fade-out).
+        if (bootFadeAlpha < 0.01f)
+            bootFadeAlpha = 0.0f;
+    }
+
+    bool GameSession::pollBootSkipInput() const
+    {
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
+            || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)
+            || IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE))
+            return true;
+        if (GetKeyPressed() != 0)
+            return true;
+        if (IsGestureDetected(GESTURE_TAP) || IsGestureDetected(GESTURE_DOUBLETAP))
+            return true;
+        return false;
+    }
+
+    void GameSession::beginBootTitleSequence()
+    {
+        titleScreenActive = true;
+        titleBedStarted = false;
+        bootIntroAttempted = true;
+        bootFadeAlpha = 0.0f;
+        titleBackdropAlpha = 0.0f;
+        pressKeyAlpha = 0.0f;
+        pauseMenu.closeMenu();
+
+        const std::string& assetRoot = sceneDatabase.getAssetRoot();
+        const std::string relative = "resources/video/timberline_intro.mp4";
+        std::string videoPath = pathJoin(assetRoot, relative);
+        if (!FileExists(videoPath.c_str()))
+            videoPath = relative;
+        if (!FileExists(videoPath.c_str()))
+            videoPath = pathJoin("..", relative);
+
+        if (introVideo.open(videoPath))
+        {
+            titleBootPhase = TitleBootPhase::IntroVideo;
+            titlePhaseStartTime = GetTime();
+            titleRevealStartTime = 0.0;
+            TraceLog(LOG_INFO, "Boot intro video: %s", videoPath.c_str());
+            return;
+        }
+
+        TraceLog(LOG_WARNING, "Boot intro video unavailable — opening title menu");
+        showTitleMenu();
+    }
+
+    void GameSession::enterTitleScreen()
+    {
+        // Return-to-title (quit to menu): skip intro, show menu + bed.
+        titleScreenActive = true;
+        introVideo.close();
+        titleBootPhase = TitleBootPhase::TitleMenu;
+        bootFadeAlpha = 0.0f;
+        titleBackdropAlpha = 1.0f;
+        pressKeyAlpha = 0.0f;
+        menuRevealAlpha = 1.0f;
+        beginTitleBedIfNeeded();
+        refreshContinueAvailability();
+        pauseMenu.openTitleMenu();
         audioManager.setGameplayPaused(false);
     }
 
@@ -4559,6 +4668,10 @@ namespace
         if (!titleScreenActive)
             return;
         titleScreenActive = false;
+        introVideo.close();
+        titleBootPhase = TitleBootPhase::TitleMenu;
+        // Allow a later enterTitleScreen to re-assert the bed after scene music.
+        titleBedStarted = false;
         // Keep the title bed playing — deferred onRoomEnter crossfades into scene
         // music (same track → volume ramp; different track → slow fade out/in) (#58).
         closeAllUiPanels();
@@ -4569,6 +4682,259 @@ namespace
             openingHypoxiaArmed = false;
         }
         deferInitialRoomAudio = true;
+    }
+
+    void GameSession::updateBootTitleSequence(float dt)
+    {
+        const double now = GetTime();
+        constexpr float kMusicDelaySec = 1.0f;
+        constexpr float kVideoFadeSec = 0.75f;
+        constexpr float kHoldBlackSec = 0.35f;
+        constexpr float kTitleFadeInSec = 0.9f;
+        constexpr float kPromptDelaySec = 1.0f;
+        constexpr float kPromptFadeSec = 0.4f;
+        constexpr float kMenuAutoSec = 10.0f;
+        constexpr float kMenuFadeOutSec = 0.55f;
+        constexpr float kMenuFadeInSec = 0.45f;
+
+        switch (titleBootPhase)
+        {
+        case TitleBootPhase::IntroVideo:
+        {
+            introVideo.update(dt);
+            if (!titleBedStarted && introVideo.timeSeconds() >= kMusicDelaySec)
+                beginTitleBedIfNeeded();
+
+            const float dur = introVideo.durationSeconds();
+            const float t = introVideo.timeSeconds();
+            if (dur > 0.2f && t >= dur - kVideoFadeSec)
+            {
+                const float intoFade = t - (dur - kVideoFadeSec);
+                bootFadeAlpha = std::clamp(intoFade / kVideoFadeSec, 0.0f, 1.0f);
+            }
+
+            if (pollBootSkipInput())
+            {
+                skipIntroToTitleMenu();
+                break;
+            }
+            if (introVideo.finished() || bootFadeAlpha >= 0.999f)
+            {
+                if (bootFadeAlpha < 1.0f)
+                    bootFadeAlpha = 1.0f;
+                advanceBootTitleFromVideo();
+            }
+            break;
+        }
+        case TitleBootPhase::FadeToBlack:
+        {
+            beginTitleBedIfNeeded();
+            bootFadeAlpha = std::min(1.0f, bootFadeAlpha + dt / kVideoFadeSec);
+            if (bootFadeAlpha >= 0.999f)
+            {
+                bootFadeAlpha = 1.0f;
+                titleBootPhase = TitleBootPhase::HoldBlack;
+                titlePhaseStartTime = now;
+            }
+            if (pollBootSkipInput())
+                skipIntroToTitleMenu();
+            break;
+        }
+        case TitleBootPhase::HoldBlack:
+        {
+            bootFadeAlpha = 1.0f;
+            titleBackdropAlpha = 0.0f;
+            if (now - titlePhaseStartTime >= kHoldBlackSec)
+            {
+                titleBootPhase = TitleBootPhase::TitleFadeIn;
+                titlePhaseStartTime = now;
+                titleRevealStartTime = now;
+            }
+            if (pollBootSkipInput())
+                skipIntroToTitleMenu();
+            break;
+        }
+        case TitleBootPhase::TitleFadeIn:
+        {
+            mainMenuBackdrop.update(dt);
+            const float u = std::clamp(
+                static_cast<float>((now - titlePhaseStartTime) / kTitleFadeInSec),
+                0.0f,
+                1.0f);
+            titleBackdropAlpha = u;
+            bootFadeAlpha = 1.0f - u;
+            if (u >= 0.999f)
+            {
+                titleBackdropAlpha = 1.0f;
+                bootFadeAlpha = 0.0f;
+                titleBootPhase = TitleBootPhase::TitleIdle;
+                titlePhaseStartTime = now;
+            }
+            if (pollBootSkipInput())
+                requestTitleMenuWithFade();
+            else if (titleRevealStartTime > 0.0 && now - titleRevealStartTime >= kMenuAutoSec)
+                requestTitleMenuWithFade();
+            break;
+        }
+        case TitleBootPhase::TitleIdle:
+        {
+            mainMenuBackdrop.update(dt);
+            titleBackdropAlpha = 1.0f;
+            bootFadeAlpha = 0.0f;
+            if (now - titlePhaseStartTime >= kPromptDelaySec)
+            {
+                titleBootPhase = TitleBootPhase::TitlePrompt;
+                titlePhaseStartTime = now;
+                pressKeyAlpha = 0.0f;
+            }
+            if (pollBootSkipInput())
+                requestTitleMenuWithFade();
+            else if (titleRevealStartTime > 0.0 && now - titleRevealStartTime >= kMenuAutoSec)
+                requestTitleMenuWithFade();
+            break;
+        }
+        case TitleBootPhase::TitlePrompt:
+        {
+            mainMenuBackdrop.update(dt);
+            pressKeyAlpha = std::min(
+                1.0f,
+                static_cast<float>((now - titlePhaseStartTime) / kPromptFadeSec));
+            if (pollBootSkipInput())
+                requestTitleMenuWithFade();
+            else if (titleRevealStartTime > 0.0 && now - titleRevealStartTime >= kMenuAutoSec)
+                requestTitleMenuWithFade();
+            break;
+        }
+        case TitleBootPhase::MenuFadeOut:
+        {
+            mainMenuBackdrop.update(dt);
+            titleBackdropAlpha = 1.0f;
+            const float u = std::clamp(
+                static_cast<float>((now - titlePhaseStartTime) / kMenuFadeOutSec),
+                0.0f,
+                1.0f);
+            bootFadeAlpha = u;
+            pressKeyAlpha = std::max(0.0f, pressKeyAlpha * (1.0f - u));
+            if (u >= 0.999f)
+            {
+                bootFadeAlpha = 1.0f;
+                showTitleMenu();
+                // Start menu reveal from black.
+                bootFadeAlpha = 1.0f;
+                menuRevealAlpha = 0.0f;
+            }
+            break;
+        }
+        case TitleBootPhase::TitleMenu:
+        default:
+            mainMenuBackdrop.update(dt);
+            if (menuRevealAlpha < 0.999f)
+            {
+                menuRevealAlpha = std::min(
+                    1.0f,
+                    static_cast<float>((now - titlePhaseStartTime) / kMenuFadeInSec));
+                bootFadeAlpha = 1.0f - menuRevealAlpha;
+            }
+            else
+            {
+                menuRevealAlpha = 1.0f;
+                bootFadeAlpha = 0.0f;
+            }
+            break;
+        }
+    }
+
+    void GameSession::drawBootTitleSequence() const
+    {
+        ClearBackground(BLACK);
+
+        if (titleBootPhase == TitleBootPhase::IntroVideo
+            || titleBootPhase == TitleBootPhase::FadeToBlack)
+        {
+            if (introVideo.isOpen())
+                introVideo.draw(screenWidth, screenHeight);
+            if (bootFadeAlpha > 0.001f)
+            {
+                DrawRectangle(
+                    0,
+                    0,
+                    screenWidth,
+                    screenHeight,
+                    Fade(BLACK, bootFadeAlpha));
+            }
+            return;
+        }
+
+        if (titleBootPhase == TitleBootPhase::HoldBlack)
+        {
+            ClearBackground(BLACK);
+            return;
+        }
+
+        // Title backdrop (dimmed plate + snow), gated by reveal alpha.
+        if (titleBackdropAlpha > 0.001f)
+        {
+            mainMenuBackdrop.draw(screenWidth, screenHeight, 0.45f);
+            if (titleBackdropAlpha < 0.999f)
+            {
+                DrawRectangle(
+                    0,
+                    0,
+                    screenWidth,
+                    screenHeight,
+                    Fade(BLACK, 1.0f - titleBackdropAlpha));
+            }
+        }
+        else if (bootFadeAlpha > 0.001f)
+        {
+            DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, bootFadeAlpha));
+        }
+
+        if ((titleBootPhase == TitleBootPhase::TitlePrompt
+                || titleBootPhase == TitleBootPhase::MenuFadeOut)
+            && pressKeyAlpha > 0.001f)
+        {
+            const char* prompt = "Press any key to continue";
+            const float fontSize = 20.0f;
+            const Font& font = descriptionFont;
+            const Vector2 size = MeasureTextEx(font, prompt, fontSize, 1.0f);
+            const float x = (static_cast<float>(screenWidth) - size.x) * 0.5f;
+            const float y = static_cast<float>(screenHeight) * 0.82f;
+            DrawTextEx(
+                font,
+                prompt,
+                {x, y},
+                fontSize,
+                1.0f,
+                Fade(RAYWHITE, pressKeyAlpha));
+        }
+
+        if (titleBootPhase == TitleBootPhase::MenuFadeOut && bootFadeAlpha > 0.001f)
+        {
+            DrawRectangle(
+                0,
+                0,
+                screenWidth,
+                screenHeight,
+                Fade(BLACK, bootFadeAlpha));
+        }
+
+        if (titleBootPhase == TitleBootPhase::TitleMenu)
+        {
+            pauseMenu.draw();
+            saveLoadMenu.draw();
+            if (bootFadeAlpha > 0.001f)
+            {
+                DrawRectangle(
+                    0,
+                    0,
+                    screenWidth,
+                    screenHeight,
+                    Fade(BLACK, bootFadeAlpha));
+            }
+        }
+
+        drawTransientMessage();
     }
 
     bool GameSession::continueMostRecentSave()
@@ -4755,17 +5121,20 @@ namespace
 
         if (titleScreenActive)
         {
-            mainMenuBackdrop.update(dt);
             trackDisplayConfigChanges();
             updateTransientMessage(dt);
-            // Handle New Game / Load before pumping audio: applySaveState can stall
-            // the main thread for hundreds of ms. Updating streams afterward (and
-            // pumps inside applySaveState) avoids a title-bed underrun blip (#58).
-            handlePauseMenuInput();
-            if (saveLoadMenu.isOpen())
+            updateBootTitleSequence(dt);
+            if (titleBootPhase == TitleBootPhase::TitleMenu)
             {
-                saveLoadMenu.update();
-                handleSaveLoadMenuInput();
+                // Handle New Game / Load before pumping audio: applySaveState can stall
+                // the main thread for hundreds of ms. Updating streams afterward (and
+                // pumps inside applySaveState) avoids a title-bed underrun blip (#58).
+                handlePauseMenuInput();
+                if (saveLoadMenu.isOpen())
+                {
+                    saveLoadMenu.update();
+                    handleSaveLoadMenuInput();
+                }
             }
             audioManager.update(dt);
             return;
@@ -5049,10 +5418,7 @@ namespace
 
         if (titleScreenActive)
         {
-            mainMenuBackdrop.draw(screenWidth, screenHeight, 0.45f);
-            pauseMenu.draw();
-            saveLoadMenu.draw();
-            drawTransientMessage();
+            drawBootTitleSequence();
             return;
         }
 

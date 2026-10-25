@@ -32,6 +32,7 @@
 #include <DropConfirmMgr.h>
 #include <SaveLoadMenuMgr.h>
 #include <MainMenuBackdrop.h>
+#include <IntroVideoPlayer.h>
 #include <PauseMenuMgr.h>
 #include <SaveGame.h>
 #include <TakeMgr.h>
@@ -112,6 +113,15 @@ class GameSession
     void refreshContinueAvailability();
     void enterTitleScreen();
     void leaveTitleScreen();
+    /** Cold-boot intro video → title reveal (once per process). */
+    void beginBootTitleSequence();
+    void beginTitleBedIfNeeded();
+    void showTitleMenu();
+    void skipIntroToTitleMenu();
+    void advanceBootTitleFromVideo();
+    bool pollBootSkipInput() const;
+    void updateBootTitleSequence(float dt);
+    void drawBootTitleSequence() const;
     bool startNewGame();
     bool continueMostRecentSave();
     bool isTitleScreenActive() const { return titleScreenActive; }
@@ -304,6 +314,32 @@ class GameSession
     bool quitRequested = false;
     bool titleScreenActive = false;
     bool openingHypoxiaArmed = false;
+
+    enum class TitleBootPhase
+    {
+        IntroVideo,
+        FadeToBlack,
+        HoldBlack,
+        TitleFadeIn,
+        TitleIdle,
+        TitlePrompt,
+        /** Fade title plate to black, then open the menu. */
+        MenuFadeOut,
+        TitleMenu
+    };
+    TitleBootPhase titleBootPhase = TitleBootPhase::TitleMenu;
+    IntroVideoPlayer introVideo;
+    bool titleBedStarted = false;
+    bool bootIntroAttempted = false;
+    double titlePhaseStartTime = 0.0;
+    double titleRevealStartTime = 0.0;
+    float bootFadeAlpha = 1.0f;
+    float titleBackdropAlpha = 0.0f;
+    float pressKeyAlpha = 0.0f;
+    float menuRevealAlpha = 1.0f;
+
+    /** From title idle/prompt: fade out, then show menu. */
+    void requestTitleMenuWithFade();
 
     Texture2D locationImage{};
     bool ownsLocationImage = false;

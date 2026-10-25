@@ -70,6 +70,16 @@ set(SOURCES
     src/ItemCombinationDatabase.cpp
 )
 
+if(APPLE)
+    list(APPEND SOURCES src/IntroVideoPlayer.mm)
+    # ARC required: otherwise AVPlayer/item/output die when open()'s autorelease
+    # pool drains and the first update() hits dangling ObjC pointers (segfault).
+    set_source_files_properties(src/IntroVideoPlayer.mm PROPERTIES
+        COMPILE_FLAGS "-fobjc-arc")
+else()
+    list(APPEND SOURCES src/IntroVideoPlayer_stub.cpp)
+endif()
+
 include(FetchContent)
 
 # Bundle raylib 5.5 for reliable miniaudio/CoreAudio output.
@@ -332,6 +342,9 @@ if (APPLE)
         "-framework CoreAudio"
         "-framework AudioToolbox"
         "-framework CoreFoundation"
+        "-framework AVFoundation"
+        "-framework CoreMedia"
+        "-framework QuartzCore"
     )
 endif()
 

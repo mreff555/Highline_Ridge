@@ -159,8 +159,9 @@ std::string cellKey(int col, int row) const;
 void autoLayoutLevel(int level);
 
 /**
- * Straighten wires on one floor without reshuffling: align mid-edge ports of
- * linked F/B/L/R pairs (shared X or Y), then gently separate overlaps.
+ * Crossing-aware Clean up for one floor: snap to a roomy grid, local search /
+ * swaps that penalize orthogonal wire crossings and stacked runs, then
+ * port-align F/B/L/R pairs. Footprint may grow (full layout gaps).
  */
 void cleanupLayoutLevel(int level);
 

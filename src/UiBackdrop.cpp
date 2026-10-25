@@ -165,20 +165,29 @@ void UiBackdrop::drawDarkOverlay(
         DrawRectangleRec(bounds, overlay);
 }
 
-void UiBackdrop::drawPanel(Rectangle bounds, float roundness, int segments) const
+void UiBackdrop::drawPanel(Rectangle bounds, float roundness, int segments, float opacity) const
 {
+    const float o = opacity < 0.0f ? 0.0f : (opacity > 1.0f ? 1.0f : opacity);
+    const unsigned char a = static_cast<unsigned char>(o * 255.0f + 0.5f);
+
     if (!isActive())
     {
+        Color fill = kPanelBase;
+        fill.a = a;
         if (roundness > 0.0f)
-            DrawRectangleRounded(bounds, roundness, segments, kPanelBase);
+            DrawRectangleRounded(bounds, roundness, segments, fill);
         else
-            DrawRectangleRec(bounds, kPanelBase);
+            DrawRectangleRec(bounds, fill);
         return;
     }
 
-    DrawRectangleRec(bounds, {14, 12, 18, 255});
-    drawTiledWallpaper(bounds, 0.55f);
-    drawDarkOverlay(bounds, roundness, segments, 198);
+    DrawRectangleRec(bounds, Color{14, 12, 18, a});
+    drawTiledWallpaper(bounds, 0.55f * o);
+    drawDarkOverlay(
+        bounds,
+        roundness,
+        segments,
+        static_cast<unsigned char>(198.0f * o + 0.5f));
 }
 
 void UiBackdrop::drawAccentBar(Rectangle bar) const

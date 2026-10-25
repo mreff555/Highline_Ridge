@@ -2039,12 +2039,12 @@ void SceneMapCanvas::drawLevelChrome(Rectangle canvasBounds)
         const Vector2 mouse = GetMousePosition();
         if (canClean && CheckCollisionPointRec(mouse, cleanBtn))
         {
-            // Port-align linked cards (keep neighborhood; straighten mid-runs).
+            // Crossing-aware reorder + roomy gaps, then port-align.
             graph->cleanupLayoutLevel(level);
             cancelLinkDrag();
             cancelPortDrag();
             cachedLinkRoutes.clear();
-            exitLinkFeedback = "Map cleaned up";
+            exitLinkFeedback = "Map cleaned up (fewer crossings)";
             exitLinkFeedbackUntil = GetTime() + 2.0;
         }
         if (canGoDown && CheckCollisionPointRec(mouse, levelDownBtn))

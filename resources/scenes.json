@@ -170,8 +170,8 @@
       ],
       "layout": {
         "level": 0,
-        "x": 616.0,
-        "y": 293.0
+        "x": 730.289306640625,
+        "y": 173.0
       },
       "movement": {
         "backward": true,
@@ -272,8 +272,8 @@
       "image": "resources/images/cabin_kitchen.png",
       "layout": {
         "level": 0,
-        "x": 616.0,
-        "y": 533.0
+        "x": 713.078857421875,
+        "y": 385.0
       },
       "movement": {
         "backward": true,
@@ -1358,7 +1358,7 @@
       "layout": {
         "level": 0,
         "x": 1480.0,
-        "y": 533.0
+        "y": 558.234375
       },
       "movement": {
         "backward": false,
@@ -1406,8 +1406,8 @@
       ],
       "layout": {
         "level": 0,
-        "x": 616.0,
-        "y": 48.0
+        "x": 561.5531005859375,
+        "y": 168.0
       },
       "movement": {
         "backward": false,
@@ -1533,8 +1533,8 @@
       "image": "resources/images/ridge_cabin_exterior.png",
       "layout": {
         "level": 0,
-        "x": 904.0,
-        "y": 528.0
+        "x": 730.0787963867188,
+        "y": 553.53125
       },
       "movement": {
         "backward": false,
@@ -2753,7 +2753,7 @@
       "layout": {
         "level": 0,
         "x": 1192.0,
-        "y": 528.0
+        "y": 553.234375
       },
       "movement": {
         "backward": true,
@@ -2838,7 +2838,7 @@
       "image": "resources/images/white_baptist_church.png",
       "layout": {
         "level": 0,
-        "x": 904.0,
+        "x": 775.2000122070313,
         "y": 768.0
       },
       "movement": {
@@ -2937,8 +2937,8 @@
       "image": "resources/images/white_baptist_church_interior.png",
       "layout": {
         "level": 0,
-        "x": 616.0,
-        "y": 768.0
+        "x": 775.2000122070313,
+        "y": 888.0
       },
       "movement": {
         "backward": true,
@@ -2989,8 +2989,8 @@
       "image": "resources/images/white_baptist_church_vestry.png",
       "layout": {
         "level": 0,
-        "x": 616.0,
-        "y": 1008.0
+        "x": 585.5999755859375,
+        "y": 888.0
       },
       "movement": {
         "backward": false,
