@@ -16,7 +16,9 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iterator>
 #include <map>
 #include <sstream>
@@ -226,6 +228,76 @@ void normalizeSceneAuthoringPaths(SceneAuthoringPayload& payload)
         payload.ambientPath = "resources/audio/ambient/" + id + ".mp3";
     if (payload.musicPath.empty())
         payload.musicPath = "resources/audio/music/" + id + "_theme.mp3";
+}
+
+std::string defaultSceneTtsAudioRelPath(
+    const SceneAuthoringPayload& payload,
+    const char* bagKey)
+{
+    if (bagKey == nullptr)
+        return {};
+    const std::string bag = bagKey;
+    if (payload.alternateMode)
+    {
+        const std::string parent = sanitizeSceneId(payload.parentSceneId);
+        const std::string sub = sanitizeSceneId(payload.subSceneId);
+        if (parent.empty() || sub.empty())
+            return {};
+        const char* leaf = nullptr;
+        if (bag == "descriptionTts")
+            leaf = "_description";
+        else if (bag == "examineTts")
+            leaf = "_examine";
+        else
+            return {};
+        return "resources/audio/tts/" + parent + "/" + sub + leaf + ".mp3";
+    }
+
+    const std::string id = sanitizeSceneId(payload.id);
+    if (id.empty())
+        return {};
+    if (bag != "descriptionTts" && bag != "examineTts")
+        return {};
+    return "resources/audio/tts/" + id + "/" + bag + ".mp3";
+}
+
+void remapAutoScenePathsForIdChange(
+    SceneAuthoringPayload& payload,
+    const std::string& oldIdRaw,
+    const std::string& newIdRaw)
+{
+    const std::string oldId = sanitizeSceneId(oldIdRaw);
+    const std::string newId = sanitizeSceneId(newIdRaw);
+    if (oldId.empty() || newId.empty() || oldId == newId)
+        return;
+
+    auto remapIfAuto = [&](std::string& field, const std::string& oldAuto, const std::string& newAuto) {
+        if (field.empty() || field == oldAuto || isSharedSceneImagePlaceholder(field))
+            field = newAuto;
+    };
+
+    remapIfAuto(
+        payload.imagePath,
+        "resources/images/" + oldId + ".png",
+        "resources/images/" + newId + ".png");
+    remapIfAuto(
+        payload.ambientPath,
+        "resources/audio/ambient/" + oldId + ".mp3",
+        "resources/audio/ambient/" + newId + ".mp3");
+    remapIfAuto(
+        payload.musicPath,
+        "resources/audio/music/" + oldId + "_theme.mp3",
+        "resources/audio/music/" + newId + "_theme.mp3");
+    remapIfAuto(
+        payload.enterSfxPath,
+        "resources/audio/sfx/" + oldId + "_enter.mp3",
+        "resources/audio/sfx/" + newId + "_enter.mp3");
+    remapIfAuto(
+        payload.exitSfxPath,
+        "resources/audio/sfx/" + oldId + "_exit.mp3",
+        "resources/audio/sfx/" + newId + "_exit.mp3");
+
+    payload.id = newId;
 }
 
 std::string sanitizeSceneId(const std::string& raw)
@@ -1563,7 +1635,7 @@ std::string rewritePathStemId(const std::string& relPath, const std::string& old
     return out;
 }
 
-bool renameAssetFilePair(
+bool renameOneAssetPair(
     const std::string& assetRoot,
     const std::string& oldRel,
     const std::string& newRel)
@@ -1593,6 +1665,27 @@ bool renameAssetFilePair(
             ok = false;
     }
     return ok;
+}
+
+/** Live file + rotate backups name_1 / name_2 (+ .xz). */
+bool renameAssetFilePair(
+    const std::string& assetRoot,
+    const std::string& oldRel,
+    const std::string& newRel)
+{
+    if (!renameOneAssetPair(assetRoot, oldRel, newRel))
+        return false;
+    auto withBackupSuffix = [](const std::string& rel, int n) -> std::string {
+        const size_t dot = rel.find_last_of('.');
+        if (dot == std::string::npos || dot == 0)
+            return rel + "_" + std::to_string(n);
+        return rel.substr(0, dot) + "_" + std::to_string(n) + rel.substr(dot);
+    };
+    renameOneAssetPair(
+        assetRoot, withBackupSuffix(oldRel, 1), withBackupSuffix(newRel, 1));
+    renameOneAssetPair(
+        assetRoot, withBackupSuffix(oldRel, 2), withBackupSuffix(newRel, 2));
+    return true;
 }
 
 } // namespace
@@ -1645,6 +1738,11 @@ bool renameSceneAuthoring(
     }
 
     const std::string root = docs.assetRoot.empty() ? "." : docs.assetRoot;
+    auto stripXzSuffix = [](std::string p) {
+        if (p.size() > 3 && p.substr(p.size() - 3) == ".xz")
+            p = p.substr(0, p.size() - 3);
+        return p;
+    };
     auto rewriteAndMaybeRenameFile = [&](std::string& pathField) {
         if (pathField.empty())
             return;
@@ -1652,16 +1750,11 @@ bool renameSceneAuthoring(
         if (rewritten == pathField)
             return;
         // Only rename on disk when this path was unique to the scene.
-        auto stripXz = [](std::string p) {
-            if (p.size() > 3 && p.substr(p.size() - 3) == ".xz")
-                p = p.substr(0, p.size() - 3);
-            return p;
-        };
-        const std::string fieldKey = stripXz(pathField);
+        const std::string fieldKey = stripXzSuffix(pathField);
         bool wasUnique = false;
         for (const std::string& u : uniquePaths)
         {
-            if (stripXz(u) == fieldKey)
+            if (stripXzSuffix(u) == fieldKey)
             {
                 wasUnique = true;
                 break;
@@ -1672,46 +1765,6 @@ bool renameSceneAuthoring(
         pathField = rewritten;
     };
 
-    // Update common path fields on the scene JSON.
-    if (scene->contains("image") && (*scene)["image"].is_string())
-    {
-        std::string img = (*scene)["image"].get<std::string>();
-        rewriteAndMaybeRenameFile(img);
-        (*scene)["image"] = img;
-    }
-    if (scene->contains("audio") && (*scene)["audio"].is_object())
-    {
-        nlohmann::json& audio = (*scene)["audio"];
-        if (audio.contains("music") && audio["music"].is_object()
-            && audio["music"].contains("path") && audio["music"]["path"].is_string())
-        {
-            std::string p = audio["music"]["path"].get<std::string>();
-            rewriteAndMaybeRenameFile(p);
-            audio["music"]["path"] = p;
-        }
-        if (audio.contains("ambient") && audio["ambient"].is_array())
-        {
-            for (auto& row : audio["ambient"])
-            {
-                if (!row.is_object() || !row.contains("path") || !row["path"].is_string())
-                    continue;
-                std::string p = row["path"].get<std::string>();
-                rewriteAndMaybeRenameFile(p);
-                row["path"] = p;
-            }
-        }
-        if (audio.contains("sfx") && audio["sfx"].is_array())
-        {
-            for (auto& row : audio["sfx"])
-            {
-                if (!row.is_object() || !row.contains("path") || !row["path"].is_string())
-                    continue;
-                std::string p = row["path"].get<std::string>();
-                rewriteAndMaybeRenameFile(p);
-                row["path"] = p;
-            }
-        }
-    }
     // TTS lives under resources/audio/tts/<sceneId>/… — move the folder first,
     // then rewrite JSON paths (filename stems often omit the scene id).
     {
@@ -1733,27 +1786,73 @@ bool renameSceneAuthoring(
         }
     }
 
-    auto rewriteTtsBagPaths = [&](const char* key) {
-        if (!scene->contains(key) || !(*scene)[key].is_object())
-            return;
-        nlohmann::json& bag = (*scene)[key];
-        if (bag.contains("ttsAudio") && bag["ttsAudio"].is_string())
+    // Walk nested scene JSON (image / audio / TTS bags / interactions /
+    // exitRequirements / subScenes / overlays / alternateImages) and rewrite
+    // any resources/… path that embeds the old id; rename unique files on disk.
+    std::function<void(nlohmann::json&)> rewriteJsonResourcePaths;
+    rewriteJsonResourcePaths = [&](nlohmann::json& node) {
+        if (node.is_string())
         {
-            // Path rewrite only — files already moved with the TTS directory.
-            bag["ttsAudio"] = rewritePathStemId(
-                bag["ttsAudio"].get<std::string>(), oldId, newId);
-        }
-        if (bag.contains("ttsAudioSegments") && bag["ttsAudioSegments"].is_array())
-        {
-            for (auto& seg : bag["ttsAudioSegments"])
+            std::string p = node.get<std::string>();
+            if (isPlausibleResourcePath(p) && p.find(oldId) != std::string::npos)
             {
-                if (seg.is_string())
-                    seg = rewritePathStemId(seg.get<std::string>(), oldId, newId);
+                rewriteAndMaybeRenameFile(p);
+                node = p;
             }
+            return;
+        }
+        if (node.is_array())
+        {
+            for (auto& el : node)
+                rewriteJsonResourcePaths(el);
+            return;
+        }
+        if (node.is_object())
+        {
+            for (auto it = node.begin(); it != node.end(); ++it)
+                rewriteJsonResourcePaths(it.value());
         }
     };
-    rewriteTtsBagPaths("descriptionTts");
-    rewriteTtsBagPaths("examineTts");
+    rewriteJsonResourcePaths(*scene);
+
+    // Authoring scratch: resources/.authoring/<oldId>_… and preview_<oldId>_…
+    {
+        namespace fs = std::filesystem;
+        const fs::path authoringDir = fs::path(root) / "resources" / ".authoring";
+        std::error_code ec;
+        if (fs::is_directory(authoringDir, ec))
+        {
+            const std::string idPrefix = oldId + "_";
+            const std::string previewPrefix = "preview_" + oldId + "_";
+            for (const fs::directory_entry& entry :
+                 fs::directory_iterator(authoringDir, ec))
+            {
+                if (ec || !entry.is_regular_file(ec))
+                    continue;
+                const std::string name = entry.path().filename().string();
+                std::string newName;
+                if (name.rfind(idPrefix, 0) == 0)
+                    newName = newId + "_" + name.substr(idPrefix.size());
+                else if (name.rfind(previewPrefix, 0) == 0)
+                    newName = "preview_" + newId + "_" + name.substr(previewPrefix.size());
+                else
+                    continue;
+                const fs::path dest = entry.path().parent_path() / newName;
+                if (fs::exists(dest, ec))
+                    fs::remove(dest, ec);
+                fs::rename(entry.path(), dest, ec);
+                if (ec)
+                {
+                    TraceLog(
+                        LOG_WARNING,
+                        "Scene rename: failed to move authoring scratch %s -> %s",
+                        entry.path().string().c_str(),
+                        dest.string().c_str());
+                    ec.clear();
+                }
+            }
+        }
+    }
 
     if (payloadToSync != nullptr)
     {
@@ -1761,6 +1860,8 @@ bool renameSceneAuthoring(
         rewriteAndMaybeRenameFile(payloadToSync->imagePath);
         rewriteAndMaybeRenameFile(payloadToSync->ambientPath);
         rewriteAndMaybeRenameFile(payloadToSync->musicPath);
+        rewriteAndMaybeRenameFile(payloadToSync->enterSfxPath);
+        rewriteAndMaybeRenameFile(payloadToSync->exitSfxPath);
         // Prefer JSON paths after rewrite.
         if (scene->contains("image") && (*scene)["image"].is_string())
             payloadToSync->imagePath = (*scene)["image"].get<std::string>();
@@ -1770,6 +1871,22 @@ bool renameSceneAuthoring(
             payloadToSync->ambientPath = "resources/audio/ambient/" + newId + ".mp3";
         if (payloadToSync->musicPath.empty())
             payloadToSync->musicPath = "resources/audio/music/" + newId + "_theme.mp3";
+        // Re-read enter/exit SFX from rewritten JSON when present.
+        if (scene->contains("audio") && (*scene)["audio"].is_object()
+            && (*scene)["audio"].contains("sfx") && (*scene)["audio"]["sfx"].is_array())
+        {
+            for (const auto& row : (*scene)["audio"]["sfx"])
+            {
+                if (!row.is_object() || !row.contains("path") || !row["path"].is_string())
+                    continue;
+                const std::string trigger = row.value("trigger", std::string{});
+                const std::string path = row["path"].get<std::string>();
+                if (trigger == "on_enter")
+                    payloadToSync->enterSfxPath = path;
+                else if (trigger == "on_exit")
+                    payloadToSync->exitSfxPath = path;
+            }
+        }
     }
 
     docs.markDirty();
@@ -1833,6 +1950,56 @@ void collectPathsFromTtsBag(const nlohmann::json& scene, const char* key, std::v
     }
 }
 
+void collectPathsFromInteraction(const nlohmann::json& interaction, std::vector<std::string>& out)
+{
+    if (!interaction.is_object())
+        return;
+    if (interaction.contains("ttsAudio") && interaction["ttsAudio"].is_string())
+        addSceneAssetPath(out, interaction["ttsAudio"].get<std::string>());
+    if (interaction.contains("ttsAfterAudio") && interaction["ttsAfterAudio"].is_string())
+        addSceneAssetPath(out, interaction["ttsAfterAudio"].get<std::string>());
+    if (interaction.contains("ttsVariantAudio") && interaction["ttsVariantAudio"].is_string())
+        addSceneAssetPath(out, interaction["ttsVariantAudio"].get<std::string>());
+    if (interaction.contains("ttsAudioSegments") && interaction["ttsAudioSegments"].is_array())
+    {
+        for (const nlohmann::json& seg : interaction["ttsAudioSegments"])
+        {
+            if (seg.is_string())
+                addSceneAssetPath(out, seg.get<std::string>());
+        }
+    }
+}
+
+void collectPathsFromExitRequirements(const nlohmann::json& scene, std::vector<std::string>& out)
+{
+    if (!scene.contains("exitRequirements") || !scene["exitRequirements"].is_object())
+        return;
+    for (auto it = scene["exitRequirements"].begin();
+         it != scene["exitRequirements"].end();
+         ++it)
+    {
+        if (!it.value().is_object())
+            continue;
+        const nlohmann::json& req = it.value();
+        if (req.contains("blockedTts") && req["blockedTts"].is_object())
+            collectPathsFromTtsBag(req, "blockedTts", out);
+        if (req.contains("ttsAudio") && req["ttsAudio"].is_string())
+            addSceneAssetPath(out, req["ttsAudio"].get<std::string>());
+        if (req.contains("blockedVariants") && req["blockedVariants"].is_array())
+        {
+            for (const nlohmann::json& variant : req["blockedVariants"])
+            {
+                if (!variant.is_object())
+                    continue;
+                if (variant.contains("blockedTts") && variant["blockedTts"].is_object())
+                    collectPathsFromTtsBag(variant, "blockedTts", out);
+                if (variant.contains("ttsAudio") && variant["ttsAudio"].is_string())
+                    addSceneAssetPath(out, variant["ttsAudio"].get<std::string>());
+            }
+        }
+    }
+}
+
 void collectPathsFromSceneJson(const nlohmann::json& scene, std::vector<std::string>& out)
 {
     if (!scene.is_object())
@@ -1840,6 +2007,25 @@ void collectPathsFromSceneJson(const nlohmann::json& scene, std::vector<std::str
 
     if (scene.contains("image") && scene["image"].is_string())
         addSceneAssetPath(out, scene["image"].get<std::string>());
+
+    if (scene.contains("alternateImages") && scene["alternateImages"].is_array())
+    {
+        for (const nlohmann::json& entry : scene["alternateImages"])
+        {
+            if (entry.is_string())
+                addSceneAssetPath(out, entry.get<std::string>());
+            else if (entry.is_object() && entry.contains("image") && entry["image"].is_string())
+                addSceneAssetPath(out, entry["image"].get<std::string>());
+        }
+    }
+    if (scene.contains("overlays") && scene["overlays"].is_array())
+    {
+        for (const nlohmann::json& entry : scene["overlays"])
+        {
+            if (entry.is_object() && entry.contains("image") && entry["image"].is_string())
+                addSceneAssetPath(out, entry["image"].get<std::string>());
+        }
+    }
 
     const nlohmann::json audio = scene.value("audio", nlohmann::json::object());
     if (audio.is_object())
@@ -1885,6 +2071,32 @@ void collectPathsFromSceneJson(const nlohmann::json& scene, std::vector<std::str
 
     collectPathsFromTtsBag(scene, "descriptionTts", out);
     collectPathsFromTtsBag(scene, "examineTts", out);
+    collectPathsFromExitRequirements(scene, out);
+
+    if (scene.contains("interactions") && scene["interactions"].is_array())
+    {
+        for (const nlohmann::json& interaction : scene["interactions"])
+            collectPathsFromInteraction(interaction, out);
+    }
+
+    if (scene.contains("subScenes") && scene["subScenes"].is_object())
+    {
+        for (auto it = scene["subScenes"].begin(); it != scene["subScenes"].end(); ++it)
+        {
+            if (!it.value().is_object())
+                continue;
+            const nlohmann::json& sub = it.value();
+            if (sub.contains("image") && sub["image"].is_string())
+                addSceneAssetPath(out, sub["image"].get<std::string>());
+            collectPathsFromTtsBag(sub, "descriptionTts", out);
+            collectPathsFromTtsBag(sub, "examineTts", out);
+            if (sub.contains("interactions") && sub["interactions"].is_array())
+            {
+                for (const nlohmann::json& interaction : sub["interactions"])
+                    collectPathsFromInteraction(interaction, out);
+            }
+        }
+    }
 }
 
 } // namespace

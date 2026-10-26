@@ -295,32 +295,39 @@ void SceneAuthoringDialog::closeDialog()
 
 std::string SceneAuthoringDialog::resolveTtsBagAudioPath(const char* bagKey) const
 {
-    if (docs == nullptr || bagKey == nullptr)
+    if (bagKey == nullptr)
         return {};
-    const nlohmann::json* bagOwner = nullptr;
-    if (payload.alternateMode)
+    // Prefer persisted bag path when the scene (or sub-scene) already exists.
+    if (docs != nullptr)
     {
-        const nlohmann::json* parent = docs->scenes.sceneJson(payload.parentSceneId);
-        if (parent == nullptr || !parent->is_object())
-            return {};
-        if (!parent->contains("subScenes") || !(*parent)["subScenes"].is_object())
-            return {};
-        if (!(*parent)["subScenes"].contains(payload.subSceneId))
-            return {};
-        bagOwner = &(*parent)["subScenes"][payload.subSceneId];
+        const nlohmann::json* bagOwner = nullptr;
+        if (payload.alternateMode)
+        {
+            const nlohmann::json* parent = docs->scenes.sceneJson(payload.parentSceneId);
+            if (parent != nullptr && parent->is_object()
+                && parent->contains("subScenes") && (*parent)["subScenes"].is_object()
+                && (*parent)["subScenes"].contains(payload.subSceneId))
+            {
+                bagOwner = &(*parent)["subScenes"][payload.subSceneId];
+            }
+        }
+        else
+        {
+            const std::string id = sanitizeSceneId(payload.id);
+            if (!id.empty())
+                bagOwner = docs->scenes.sceneJson(id);
+        }
+        if (bagOwner != nullptr && bagOwner->is_object()
+            && bagOwner->contains(bagKey) && (*bagOwner)[bagKey].is_object())
+        {
+            const std::string fromBag =
+                (*bagOwner)[bagKey].value("ttsAudio", std::string{});
+            if (!fromBag.empty())
+                return fromBag;
+        }
     }
-    else
-    {
-        const std::string id = sanitizeSceneId(payload.id);
-        if (id.empty())
-            return {};
-        bagOwner = docs->scenes.sceneJson(id);
-    }
-    if (bagOwner == nullptr || !bagOwner->is_object())
-        return {};
-    if (!bagOwner->contains(bagKey) || !(*bagOwner)[bagKey].is_object())
-        return {};
-    return (*bagOwner)[bagKey].value("ttsAudio", std::string{});
+    // New scene / parchment bake / not yet upserted: conventional path (#68).
+    return defaultSceneTtsAudioRelPath(payload, bagKey);
 }
 
 bool SceneAuthoringDialog::ttsBagAudioExists(const char* bagKey) const
@@ -1464,9 +1471,16 @@ void SceneAuthoringDialog::typeIntoFocusedField()
     else if (single != nullptr)
         single->cursor = cursor;
 
-    // New Scene: keep payload.id aligned with the draft for path defaults / generate.
-    if (!editingExisting && !payload.alternateMode && focusField == 0)
-        payload.id = idDraft;
+    // New Scene: keep payload.id + auto asset paths aligned with the draft (#67).
+    if (!editingExisting && !payload.alternateMode)
+    {
+        const std::string nextId = sanitizeSceneId(idDraft);
+        const std::string prevId = sanitizeSceneId(payload.id);
+        if (!nextId.empty() && nextId != prevId)
+            remapAutoScenePathsForIdChange(payload, prevId, nextId);
+        else if (!nextId.empty())
+            payload.id = nextId;
+    }
     if (!editingExisting && payload.alternateMode
         && (focusField == 9 || focusField == 10))
     {
@@ -1477,13 +1491,8 @@ void SceneAuthoringDialog::typeIntoFocusedField()
         if (!parent.empty() && !sub.empty())
         {
             const std::string nextId = parent + "_" + sub;
-            const std::string autoImg = "resources/images/" + nextId + ".png";
-            const std::string prevAuto =
-                payload.id.empty() ? std::string{}
-                                   : ("resources/images/" + payload.id + ".png");
-            if (payload.imagePath.empty() || payload.imagePath == prevAuto)
-                payload.imagePath = autoImg;
-            payload.id = nextId;
+            const std::string prevId = sanitizeSceneId(payload.id);
+            remapAutoScenePathsForIdChange(payload, prevId, nextId);
         }
     }
     (void)bufSize;
@@ -1618,6 +1627,12 @@ void SceneAuthoringDialog::startGenerate(int aiTarget)
     if (docs == nullptr || generateBusy.load())
         return;
 
+    if (!editingExisting && !payload.alternateMode)
+    {
+        const std::string nextId = sanitizeSceneId(idDraft);
+        remapAutoScenePathsForIdChange(
+            payload, sanitizeSceneId(payload.id), nextId);
+    }
     payload.id = sanitizeSceneId(payload.id);
     if (!isValidSceneId(payload.id))
     {
@@ -1731,6 +1746,12 @@ void SceneAuthoringDialog::startVoiceRefresh()
     if (docs == nullptr || generateBusy.load())
         return;
 
+    if (!editingExisting && !payload.alternateMode)
+    {
+        const std::string nextId = sanitizeSceneId(idDraft);
+        remapAutoScenePathsForIdChange(
+            payload, sanitizeSceneId(payload.id), nextId);
+    }
     payload.id = sanitizeSceneId(payload.id);
     if (!isValidSceneId(payload.id))
     {
@@ -2084,19 +2105,23 @@ void SceneAuthoringDialog::handleInput(int screenW, int screenH)
                 std::string companion;
                 std::string bakeVoice;
                 std::string bakeAudio;
+                if (!editingExisting && !payload.alternateMode)
+                {
+                    const std::string nextId = sanitizeSceneId(idDraft);
+                    remapAutoScenePathsForIdChange(
+                        payload, sanitizeSceneId(payload.id), nextId);
+                }
                 if (fieldContextTarget == 7)
                 {
                     companion = payload.description;
                     bakeVoice = payload.ttsDefaultVoice;
-                    bakeAudio =
-                        "resources/audio/tts/" + payload.id + "/descriptionTts.mp3";
+                    bakeAudio = defaultSceneTtsAudioRelPath(payload, "descriptionTts");
                 }
                 else if (fieldContextTarget == 8)
                 {
                     companion = payload.examineDetails;
                     bakeVoice = payload.ttsDefaultVoice;
-                    bakeAudio =
-                        "resources/audio/tts/" + payload.id + "/examineTts.mp3";
+                    bakeAudio = defaultSceneTtsAudioRelPath(payload, "examineTts");
                 }
                 parchment->openEditor(
                     target,

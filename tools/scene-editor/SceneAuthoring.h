@@ -229,9 +229,31 @@ bool fillPayloadFromScene(
     SceneAuthoringPayload& out);
 
 /**
- * Rename scene id in scenes.json (+ inbound exits). When a resource path's
- * filename contains oldId, rename that unique file (and .xz) to use newId and
- * update the path on the scene. Shared paths are left alone.
+ * Conventional TTS audio path for a scene bag ("descriptionTts" / "examineTts").
+ * Alternate/sub-scene uses parent/sub leaf names; main scene uses
+ * resources/audio/tts/<id>/<bag>.mp3.
+ */
+std::string defaultSceneTtsAudioRelPath(
+    const SceneAuthoringPayload& payload,
+    const char* bagKey);
+
+/**
+ * When the scene id changes (New Scene draft or post-rename generate), rewrite
+ * payload image/ambient/music/enter/exit paths that still match the previous
+ * auto defaults so subsequent Generate writes under the new id (#67).
+ */
+void remapAutoScenePathsForIdChange(
+    SceneAuthoringPayload& payload,
+    const std::string& oldId,
+    const std::string& newId);
+
+/**
+ * Rename scene id in scenes.json (+ inbound exits). Rewrites nested
+ * resources/… paths (image, audio, TTS bags, interactions, exitRequirements,
+ * subScenes, overlays, alternateImages), renames unique on-disk assets (+
+ * rotate backups), moves resources/audio/tts/<oldId>/, and renames matching
+ * resources/.authoring/<oldId>_* / preview_<oldId>_* scratch files. Shared
+ * paths are left alone.
  */
 bool renameSceneAuthoring(
     DocumentWorkspace& docs,
@@ -247,9 +269,11 @@ bool sceneImageReferenceExists(
 
 /**
  * Asset paths referenced only by sceneId (count == 1 across all scenes).
- * Scans image, audio.music/ambient/sfx paths, and descriptionTts/examineTts
- * ttsAudio (+ ttsAudioSegments). Paths are normalized (trailing .xz stripped).
- * Shared defaults ending in /door_open.mp3 or /door_close.mp3 are skipped.
+ * Scans image, alternateImages, overlays, audio.music/ambient/sfx,
+ * descriptionTts/examineTts (+ segments), exitRequirements blockedTts,
+ * interactions TTS, and nested subScenes. Paths are normalized (trailing
+ * .xz stripped). Shared defaults ending in /door_open.mp3 or /door_close.mp3
+ * are skipped.
  */
 std::vector<std::string> collectUniqueSceneAssetPaths(
     const DocumentWorkspace& docs,
