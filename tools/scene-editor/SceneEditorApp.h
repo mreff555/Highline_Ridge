@@ -38,6 +38,7 @@
 #include "ItemEditor.h"
 #include "SceneGraphModel.h"
 #include "SceneMapCanvas.h"
+#include "SpeakConversationCreateDialog.h"
 #include "ThumbnailCache.h"
 #include "VariableEditor.h"
 
@@ -71,9 +72,16 @@ struct SceneEditorApp
     FightAuthoringDialog fightAuthoring;
     ActorDialogAuthoringDialog actorDialogAuthoring;
     EventAuthoringDialog eventAuthoring;
+    SpeakConversationCreateDialog speakCreateDialog;
 
     std::string selectedSceneId;
     float variablesScroll = 0.0f;
+    /** Status line for Conversations Create/Delete Speak CTA. */
+    std::string speakCreateStatus;
+    /** Delete Speak confirm overlay (Conversations CTA / map menu). */
+    bool speakDeleteConfirmOpen = false;
+    std::string speakDeletePendingSceneId;
+    bool speakDeleteWaitMouseRelease = false;
 
     Font uiFont{};
     Font uiFontBold{};
@@ -90,11 +98,26 @@ struct SceneEditorApp
     void syncModuleFonts();
 
     bool loadActiveDocument();
+    /**
+     * Switch scenes/conversations/items tabs without discarding dirty buffers.
+     * First-loads conversations from disk only when still unloaded (K12/K15).
+     */
+    bool switchJsonTabInMemory(int tabIndex);
     void selectSceneForEditor(const std::string& id);
     bool deleteSelectedScene();
     bool saveDocument();
     void markDirty();
     void unloadThumbnails();
+
+    /** Open Create Speak modal for sceneId (loads conversations first if needed). */
+    void openCreateSpeakConversation(const std::string& sceneId);
+    /** Open existing Speak on Conversations (in-memory tab switch + migrate). */
+    void openExistingSpeakConversation(const std::string& sceneId);
+    /** After successful scaffold: rebuild, remigrate, optional Edit Actor Dialog. */
+    void finishSpeakConversationCreate(const SpeakConversationCreatePayload& payload);
+    /** Delete Speak entry for selected/parent scene (Conversations CTA / map). */
+    void deleteSpeakConversationForScene(const std::string& sceneId);
+    void drawSpeakConversationCta(Rectangle listBounds);
 
     // Path aliases used by main / tooling.
     std::string& resourceDir() { return document.resourceDir; }

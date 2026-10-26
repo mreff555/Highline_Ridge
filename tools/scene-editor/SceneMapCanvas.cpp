@@ -23,6 +23,7 @@
 
 #include "ConversationHelpers.h"
 #include "DocumentWorkspace.h"
+#include "SpeakConversationCreate.h"
 #include "EditorButton.h"
 #include "EditorPaths.h"
 #include "EditorPrefs.h"
@@ -2537,7 +2538,8 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         || (preferences && preferences->blocksInput())
         || (variableEditor && variableEditor->open)
         || (itemEditor && itemEditor->blocksInput())
-        || confirmMode != ConfirmMode::None;
+        || confirmMode != ConfirmMode::None
+        || externalModalBlocksInput;
     if ((modalOpen || contextMenuSource != ContextMenuSource::None)
         && dragSource != DragSource::None)
     {
@@ -3305,7 +3307,8 @@ void SceneMapCanvas::drawCanvas(Rectangle canvasBounds)
         || (variableEditor && variableEditor->open)
         || (itemEditor && itemEditor->blocksInput())
         || confirmMode != ConfirmMode::None
-        || contextMenuSource != ContextMenuSource::None;
+        || contextMenuSource != ContextMenuSource::None
+        || externalModalBlocksInput;
 
     if (!modalBlocksMapScroll &&
         !draggingHScroll &&
@@ -3357,7 +3360,8 @@ bool SceneMapCanvas::anyAuthoringModalOpen() const
         || (preferences != nullptr && preferences->blocksInput())
         || (variableEditor && variableEditor->open)
         || (itemEditor && itemEditor->blocksInput())
-        || (graph && graph->stackDialogOpen);
+        || (graph && graph->stackDialogOpen)
+        || externalModalBlocksInput;
 }
 
 bool SceneMapCanvas::blocksInput() const
@@ -3785,27 +3789,28 @@ bool SceneMapCanvas::handleContextMenuClick(Vector2 mouse)
         }
     }
 
-    if (i == 0)
+    const std::vector<SceneContextAction> actions =
+        buildSceneContextActions(source, parentId, subId, unplacedSubs);
+    if (i < 0 || i >= static_cast<int>(actions.size()))
     {
         closeContextMenu();
-        // Edit the map node (parent#sub for alternate views).
-        sceneAuthoring.openEditDialog(sceneId.empty() ? parentId : sceneId);
         return true;
     }
-    if (i == 1)
+
+    const SceneContextAction action = actions[static_cast<size_t>(i)];
+    closeContextMenu();
+    switch (action)
     {
+    case SceneContextAction::Edit:
+        sceneAuthoring.openEditDialog(sceneId.empty() ? parentId : sceneId);
+        break;
+    case SceneContextAction::RemoveOrDelete:
         if (source == ContextMenuSource::Map)
             beginRemoveFromMapConfirm(sceneId);
         else
             beginDeleteSceneConfirm(parentId);
-        return true;
-    }
-
-    // Map parent card menu: Edit, Remove, Connect to floor, [Place alternates].
-    // Map alternate card: Edit, Remove, [Place alternates] (rare).
-    if (i == 2 && source == ContextMenuSource::Map && subId.empty())
-    {
-        closeContextMenu();
+        break;
+    case SceneContextAction::ConnectToFloor:
         sceneFloorConnect.docs = docs;
         sceneFloorConnect.graph = graph;
         sceneFloorConnect.uiFont = uiFont;
@@ -3816,23 +3821,61 @@ bool SceneMapCanvas::handleContextMenuClick(Vector2 mouse)
                 thumbnails->clear();
         };
         sceneFloorConnect.openForScene(sceneId.empty() ? parentId : sceneId);
-        return true;
-    }
-    if (i == 3 && source == ContextMenuSource::Map && subId.empty() && unplacedSubs > 0)
-    {
-        closeContextMenu();
+        break;
+    case SceneContextAction::PlaceAlternates:
         placeUnplacedSubViewsOnMap(parentId);
-        return true;
+        break;
+    case SceneContextAction::CreateSpeak:
+        if (onCreateSpeakConversation)
+            onCreateSpeakConversation(parentId);
+        break;
+    case SceneContextAction::OpenSpeak:
+        if (onOpenSpeakConversation)
+            onOpenSpeakConversation(parentId);
+        break;
+    case SceneContextAction::DeleteSpeak:
+        if (onDeleteSpeakConversation)
+            onDeleteSpeakConversation(parentId);
+        break;
     }
-    if (i == 2 && source == ContextMenuSource::Map && !subId.empty() && unplacedSubs > 0)
-    {
-        closeContextMenu();
-        placeUnplacedSubViewsOnMap(parentId);
-        return true;
-    }
-
-    closeContextMenu();
     return true;
+}
+
+std::vector<SceneMapCanvas::SceneContextAction> SceneMapCanvas::buildSceneContextActions(
+    ContextMenuSource source,
+    const std::string& parentId,
+    const std::string& subId,
+    int unplacedSubs) const
+{
+    std::vector<SceneContextAction> actions;
+    actions.push_back(SceneContextAction::Edit);
+    actions.push_back(SceneContextAction::RemoveOrDelete);
+
+    const bool mapParent = source == ContextMenuSource::Map && subId.empty();
+    const bool mapAlternate = source == ContextMenuSource::Map && !subId.empty();
+    if (mapParent)
+        actions.push_back(SceneContextAction::ConnectToFloor);
+    if ((mapParent || mapAlternate) && unplacedSubs > 0)
+        actions.push_back(SceneContextAction::PlaceAlternates);
+
+    // Speak items: parent scene id only (omit on alternate cards).
+    if (subId.empty() && docs != nullptr && !parentId.empty()
+        && docs->scenes.hasScene(parentId))
+    {
+        // Conversations may be unloaded on Scenes tab — Open/Create still offered;
+        // handlers load-from-disk before mutate (K15). Prefer Open when phases known.
+        bool hasPhases = false;
+        if (docs->conversationsLoaded)
+            hasPhases = sceneHasSpeakPhases(*docs, parentId);
+        if (hasPhases)
+        {
+            actions.push_back(SceneContextAction::OpenSpeak);
+            actions.push_back(SceneContextAction::DeleteSpeak);
+        }
+        else
+            actions.push_back(SceneContextAction::CreateSpeak);
+    }
+    return actions;
 }
 
 void SceneMapCanvas::placeUnplacedSubViewsOnMap(const std::string& parentId)
@@ -3902,55 +3945,73 @@ void SceneMapCanvas::drawContextMenu()
         }
     }
 
-    // ASCII "..." — UI fonts often lack U+2026 and draw it as '?'.
-    const bool sceneMenu = !isLinkMenu;
-    const bool mapParentMenu =
-        sceneMenu && contextMenuSource == ContextMenuSource::Map && subId.empty();
-    const char* item0 = isLinkMenu ? "Delete" : "Edit...";
-    const char* item1 = isUseLinkMenu
-        ? "Manage..."
-        : (isExitLinkMenu
-               ? "Edit Transition Audio..."
-               : ((contextMenuSource == ContextMenuSource::Map)
-                      ? "Remove from map"
-                      : "Delete scene..."));
-    // Map parent card: Connect to floor, then optional Place alternate views.
-    // Exit link: Exit Requirements… after transition-audio (SFX) edit.
-    // Use link: Edit Transition Audio… after Manage (narrative / destination).
-    const char* item2 = nullptr;
-    const char* item3 = nullptr;
-    if (isExitLinkMenu)
+    // Link menus keep fixed Delete / Manage / Transition / Requirements labels.
+    std::vector<std::string> labels;
+    if (isLinkMenu)
     {
-        item2 = "Exit Requirements...";
+        labels.push_back("Delete");
+        labels.push_back(
+            isUseLinkMenu ? "Manage..." : "Edit Transition Audio...");
+        if (isExitLinkMenu)
+            labels.push_back("Exit Requirements...");
+        else if (isUseLinkMenu)
+            labels.push_back("Edit Transition Audio...");
     }
-    else if (isUseLinkMenu)
+    else
     {
-        item2 = "Edit Transition Audio...";
+        // K15: load conversations once so Create vs Open Speak labels are accurate.
+        if (docs != nullptr && !docs->conversationsLoaded)
+            docs->loadConversationsDocument();
+
+        const std::vector<SceneContextAction> actions =
+            buildSceneContextActions(contextMenuSource, parentId, subId, unplacedSubs);
+        labels.reserve(actions.size());
+        for (SceneContextAction action : actions)
+        {
+            switch (action)
+            {
+            case SceneContextAction::Edit:
+                labels.push_back("Edit...");
+                break;
+            case SceneContextAction::RemoveOrDelete:
+                labels.push_back(
+                    contextMenuSource == ContextMenuSource::Map
+                        ? "Remove from map"
+                        : "Delete scene...");
+                break;
+            case SceneContextAction::ConnectToFloor:
+                labels.push_back("Connect to floor...");
+                break;
+            case SceneContextAction::PlaceAlternates:
+                labels.push_back("Place alternate views");
+                break;
+            case SceneContextAction::CreateSpeak:
+                labels.push_back("Create Speak conversation...");
+                break;
+            case SceneContextAction::OpenSpeak:
+                labels.push_back("Open Speak conversation...");
+                break;
+            case SceneContextAction::DeleteSpeak:
+                labels.push_back("Delete Speak conversation...");
+                break;
+            }
+        }
     }
-    else if (mapParentMenu)
+
+    const int itemCount = static_cast<int>(labels.size());
+    if (itemCount <= 0)
     {
-        item2 = "Connect to floor...";
-        if (unplacedSubs > 0)
-            item3 = "Place alternate views";
+        contextMenuBounds = {0.0f, 0.0f, 0.0f, 0.0f};
+        return;
     }
-    else if (
-        !isLinkMenu && contextMenuSource == ContextMenuSource::Map && unplacedSubs > 0)
-    {
-        item2 = "Place alternate views";
-    }
-    const int itemCount = item3 != nullptr ? 4 : (item2 != nullptr ? 3 : 2);
 
     const float rowH = 22.0f;
     const float pad = 10.0f;
     float menuW = 180.0f;
-    const char* itemsPreview[4] = {item0, item1, item2, item3};
-    for (int i = 0; i < itemCount; ++i)
+    for (const std::string& label : labels)
     {
-        const char* label = itemsPreview[i];
-        if (label == nullptr)
-            continue;
         menuW = std::max(
-            menuW, MeasureTextEx(font, label, kFontSmall, 1.0f).x + pad * 2.0f);
+            menuW, MeasureTextEx(font, label.c_str(), kFontSmall, 1.0f).x + pad * 2.0f);
     }
     const float menuH = rowH * static_cast<float>(itemCount) + 4.0f;
 
@@ -3975,9 +4036,6 @@ void SceneMapCanvas::drawContextMenu()
     float my = contextMenuBounds.y + 2.0f;
     for (int i = 0; i < itemCount; ++i)
     {
-        const char* label = itemsPreview[i];
-        if (label == nullptr)
-            continue;
         const Rectangle row = {
             contextMenuBounds.x + 2.0f,
             my,
@@ -3987,7 +4045,7 @@ void SceneMapCanvas::drawContextMenu()
             DrawRectangleRec(row, Color{60, 54, 72, 220});
         DrawTextEx(
             font,
-            label,
+            labels[static_cast<size_t>(i)].c_str(),
             {row.x + 8.0f, row.y + 3.0f},
             kFontSmall,
             1.0f,
@@ -4621,11 +4679,21 @@ void SceneMapCanvas::drawTabs(Rectangle leftBounds)
             1.0f,
             active ? kTextPrimary : kTextMuted);
 
-        if (CheckCollisionPointRec(GetMousePosition(), tab) && editorMousePressed(MOUSE_BUTTON_LEFT))
+        if (!externalModalBlocksInput
+            && CheckCollisionPointRec(GetMousePosition(), tab)
+            && editorMousePressed(MOUSE_BUTTON_LEFT))
         {
-            docs->activeTabIndex = static_cast<int>(i);
-            thumbnails->clear();
-            if (requestReload) requestReload();
+            // K12: in-memory switch preserves dirty buffers. Fall back to disk reload
+            // only when requestTabSwitch is unset (legacy).
+            if (requestTabSwitch)
+                requestTabSwitch(static_cast<int>(i));
+            else
+            {
+                docs->activeTabIndex = static_cast<int>(i);
+                thumbnails->clear();
+                if (requestReload)
+                    requestReload();
+            }
         }
 
         x += tabWidth;
@@ -5392,7 +5460,13 @@ void SceneMapCanvas::draw()
         left.width,
         left.height - kTabHeight - 8.0f};
     if (docs && docs->isConversationsTab() && conversation)
-        conversation->drawConversationTree(listBounds);
+    {
+        Rectangle treeBounds = listBounds;
+        treeBounds.height = std::max(40.0f, listBounds.height - 76.0f);
+        conversation->drawConversationTree(treeBounds);
+        if (drawSpeakConversationCta)
+            drawSpeakConversationCta(listBounds);
+    }
     else if (docs && docs->isItemsTab() && itemEditor)
         itemEditor->draw(listBounds);
     else
@@ -5483,6 +5557,10 @@ void SceneMapCanvas::draw()
     // EndDrawing and would never show (while still blocking input).
     if (parchment != nullptr && parchment->blocksInput())
         parchment->draw(screenWidth, screenHeight);
+
+    // Create Speak modal / Delete Speak confirm (owned by SceneEditorApp).
+    if (drawSpeakCreateOverlay)
+        drawSpeakCreateOverlay(screenWidth, screenHeight);
 
     EndDrawing();
 }

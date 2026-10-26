@@ -3053,7 +3053,13 @@ void DialogFlowCanvas::migrateFromTreeSelection(
         return;
     if (!docs->conversationsRoot.contains(sceneId)
         || !docs->conversationsRoot[sceneId].is_object())
+    {
+        // Missing-key parity with empty-phases (K14): clear stale graph + status.
+        clearGraph();
+        migratedScope = sceneId + "|empty";
+        status = "No conversation entry for " + sceneId;
         return;
+    }
 
     const nlohmann::json& sceneNode = docs->conversationsRoot[sceneId];
     if (!sceneNode.contains("speakPhases") || !sceneNode["speakPhases"].is_array()

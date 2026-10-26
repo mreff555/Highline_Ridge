@@ -149,6 +149,8 @@ set(EDITOR_SOURCES
     FightAuthoringDialog.cpp
     ActorDialogAuthoringDialog.cpp
     EventAuthoringDialog.cpp
+    SpeakConversationCreate.cpp
+    SpeakConversationCreateDialog.cpp
     SceneUseTransitionDialog.cpp
     SceneFloorConnectDialog.cpp
     EditorPreferencesDialog.cpp

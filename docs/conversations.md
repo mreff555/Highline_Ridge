@@ -14,6 +14,72 @@ For API keys / TTS refresh after editing spoken lines: [api-keys.md](api-keys.md
 
 Runtime prefers phases when present; otherwise `speakDetails`.
 
+## Create Speak conversation (Phase A)
+
+Phase A lets authors scaffold a runtime-valid Speak entry for a scene that has **no** non-empty `speakPhases`, then edit it with the existing Conversations / Actor Dialog tools. Flowchart **layout** still does not rewrite `conversations.json` (Phase 2); after create, **Actor Dialog** dual-write to intro/choices works as usual.
+
+### Entry points
+
+| Where | When | Action |
+|-------|------|--------|
+| **Conversations** tab CTA | Empty tree, missing `conversations.json` key, or empty `speakPhases` for the selected scene | **Create Speak conversation…** |
+| **Scenes** map context menu (parent scene card) | No phases yet | **Create Speak conversation…** |
+| **Scenes** map context menu | Phases already exist | **Open Speak conversation…** (in-memory tab switch → select → migrate) |
+
+Create loads `conversations.json` from disk **before** the first mutate if it was never loaded this session (so Save / quit-autosave cannot dump a fabricated one-key root over alpine/saloon/…).
+
+### Scaffold shape
+
+Confirm writes one scripted opener (no TTS bags, no `actorInventories` / `attackEncounters`):
+
+```json
+{
+  "speakPhases": [
+    {
+      "id": "npc",
+      "type": "scripted",
+      "actorId": "npc",
+      "actorName": "Npc",
+      "resetOnSceneEnter": true,
+      "intro": "(Opening line — edit me.)",
+      "choices": [
+        {
+          "id": "player_opener",
+          "label": "What brings you here?",
+          "response": "(Reply — edit me.)",
+          "closePhase": false
+        }
+      ]
+    }
+  ]
+}
+```
+
+Defaults: actor/phase id `npc` (editable; rename to e.g. `prospector`); starter choice always has a non-empty `response` and `closePhase: false` so migrate emits a reply Actor and Speak does not end on the first click. Also sets `scenes.json` → `actions.speak: true` without clearing other actions or `speakDetails`.
+
+### Dirty matrix
+
+| Action | Effect |
+|--------|--------|
+| **Confirm** (Create) | In-memory scaffold + `markDirty`; **does not** write disk |
+| **Cmd/Ctrl+S** / File → Save | `saveAll()` writes conversations (+ scenes if speak was flipped); clears dirty |
+| **Quit** | Autosaves dirty documents |
+| **Tab switch** (Scenes ↔ Conversations ↔ Items) | Preserves dirty in-memory docs (no reload discard) |
+| **Explicit Reload** / `loadActiveDocument` while dirty | Still discards without prompt today |
+
+### Delete Speak
+
+When phases (or a conversation entry) exist, **Delete Speak conversation…** is available from the Conversations CTA and the Scenes map menu. It removes the scene key from `conversations.json` and may clear `actions.speak` when there is no legacy `speakDetails`. Confirm is memory + dirty; Save / quit-autosave persist.
+
+### After create
+
+1. Tree lists the scene; flowchart auto-migrates the opener.
+2. Edit intro / choice labels / responses via Actor Dialog, parchment, or walkthrough fields.
+3. Save when ready. Generate TTS later from the dialogs if needed.
+4. Flowchart node positions / wiring topology remain editor-local until Phase 2 persist.
+
+Design notes: [design/phase-a-create-speak-conversation.md](design/phase-a-create-speak-conversation.md).
+
 ## Editor: Conversations tab (flowchart shell)
 
 The Conversations tab is being rebuilt as a **Scenes-like flowchart**. Phase 1 ships the **layout shell** (graph is editor-local; it does not yet rewrite `conversations.json`).

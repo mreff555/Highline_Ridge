@@ -2719,6 +2719,32 @@
       }
     ]
   },
+  "stream_mine": {
+    "speakPhases": [
+      {
+        "id": "prospector",
+        "type": "scripted",
+        "actorId": "prospector",
+        "actorName": "Prospector",
+        "resetOnSceneEnter": true,
+        "intro": "The young man straightens in the snowmelt, pan dripping, and gives you a cautious once-over.\n\n\"Oh—hello. Are you looking for something?\"",
+        "choices": [
+          {
+            "id": "player_opener",
+            "label": "What are you doing out here?",
+            "response": "He glances at the pan, then back at you. \"Panning,\" he says, a little defensive. \"There's color in this melt if a man is patient. Not much—but enough to keep me at it.\"",
+            "closePhase": false
+          },
+          {
+            "id": "leave_politely",
+            "label": "I'll leave you to it.",
+            "response": "He nods once and turns back to the current. \"Suit yourself. Watch your footing on the rocks.\"",
+            "closePhase": true
+          }
+        ]
+      }
+    ]
+  },
   "white_baptist_church_vestry": {
     "speakPhases": [
       {

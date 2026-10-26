@@ -120,9 +120,18 @@ Used for ice-house badge glint, vestry greeting, cottonwood departure, etc.
 4. Lower right: **dialog media** preview (scene image / ambient / music fallback; play/pause).  
 5. Graph layout is **editor-local** in this shell — runtime still reads `conversations.json` speak phases until Phase 2 persist.
 
+### Create Speak for a scene with no conversation
+
+1. On **Scenes**, select the scene (or right-click its map card → **Create Speak conversation…**).  
+2. Or switch to **Conversations** and use the **Create Speak** CTA when the tree is empty / the scene key is missing.  
+3. Confirm the scaffold (scripted opener + starter choice). Edit the opener / reply in Actor Dialog or parchment.  
+4. **Save** (Cmd/Ctrl+S). Quit also autosaves dirty work; tab switches keep unsaved edits in memory.
+
+When a Speak tree already exists, use **Open Speak** from the map or **Delete Speak** from the Conversations CTA / map to remove the entry.
+
 **Delete** / **Backspace** removes a selected flowchart stub (not Start). It does **not** delete the scene.
 
-Schema, node catalog, and leave rules: **[conversations.md](conversations.md)**. Map MOVE/Use wires: [scene-map-exits.md](scene-map-exits.md).
+Schema, Create Speak (Phase A), node catalog, and leave rules: **[conversations.md](conversations.md)**. Map MOVE/Use wires: [scene-map-exits.md](scene-map-exits.md).
 
 **Screenshot:** `docs/images/editor-conversations.png` — may still show the older walkthrough until refreshed.
 

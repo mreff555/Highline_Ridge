@@ -197,7 +197,19 @@ struct SceneMapCanvas
     std::function<void()> openPreferences;
     std::string* selectionSceneId = nullptr;
     float* variablesScroll = nullptr;
+    /** Disk reload (explicit). Prefer requestTabSwitch for JSON tab clicks (K12). */
     std::function<void()> requestReload;
+    /** In-memory tab switch — must not discard dirty buffers. */
+    std::function<void(int tabIndex)> requestTabSwitch;
+    std::function<void(const std::string& sceneId)> onCreateSpeakConversation;
+    std::function<void(const std::string& sceneId)> onOpenSpeakConversation;
+    std::function<void(const std::string& sceneId)> onDeleteSpeakConversation;
+    /** App-owned Create/Delete Speak CTA drawn over the Conversations list. */
+    std::function<void(Rectangle listBounds)> drawSpeakConversationCta;
+    /** Create Speak modal + Delete confirm (must paint inside BeginDrawing). */
+    std::function<void(int screenW, int screenH)> drawSpeakCreateOverlay;
+    /** Set by SceneEditorApp when Create/Delete Speak overlays block the map. */
+    bool externalModalBlocksInput = false;
     std::function<void(const std::string&)> selectSceneForEditor;
     std::function<bool()> saveDocument;
     Font uiFont{};
@@ -266,6 +278,23 @@ struct SceneMapCanvas
     void drawContextMenu();
     void drawConfirmDialogs(int screenWidth, int screenHeight);
     bool handleContextMenuClick(Vector2 mouse);
+
+    /** Shared scene/map card menu actions (draw + click must use the same list). */
+    enum class SceneContextAction
+    {
+        Edit,
+        RemoveOrDelete,
+        ConnectToFloor,
+        PlaceAlternates,
+        CreateSpeak,
+        OpenSpeak,
+        DeleteSpeak
+    };
+    std::vector<SceneContextAction> buildSceneContextActions(
+        ContextMenuSource source,
+        const std::string& parentId,
+        const std::string& subId,
+        int unplacedSubs) const;
 
 
 Vector2 sceneCardScreenPos(const SceneLayout& sceneLayout, Rectangle canvasBounds) const;

@@ -20,8 +20,9 @@
 #include "SceneEditorApp.h"
 #include "EditorInput.h"
 #include "EditorPaths.h"
-
 #include "EditorTheme.h"
+#include "EditorUiDraw.h"
+#include "SpeakConversationCreate.h"
 
 #if defined(__APPLE__)
 #include "macos/EditorNativeMenu.h"
@@ -29,6 +30,7 @@
 
 #include <raylib.h>
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -143,9 +145,28 @@ void SceneEditorApp::wireModules()
     mapCanvas.itemEditor = &itemEditor;
     mapCanvas.selectionSceneId = &selectedSceneId;
     mapCanvas.variablesScroll = &variablesScroll;
+    // Explicit Reload still hits disk; tab clicks use in-memory switch (K12).
     mapCanvas.requestReload = [this]() { loadActiveDocument(); };
+    mapCanvas.requestTabSwitch = [this](int tabIndex) { switchJsonTabInMemory(tabIndex); };
+    mapCanvas.onCreateSpeakConversation =
+        [this](const std::string& sceneId) { openCreateSpeakConversation(sceneId); };
+    mapCanvas.onOpenSpeakConversation =
+        [this](const std::string& sceneId) { openExistingSpeakConversation(sceneId); };
+    mapCanvas.onDeleteSpeakConversation =
+        [this](const std::string& sceneId) {
+            speakDeletePendingSceneId = speakParentSceneId(sceneId);
+            speakDeleteConfirmOpen = true;
+            speakDeleteWaitMouseRelease = true;
+        };
+    mapCanvas.drawSpeakConversationCta =
+        [this](Rectangle listBounds) { drawSpeakConversationCta(listBounds); };
     mapCanvas.selectSceneForEditor = [this](const std::string& id) { selectSceneForEditor(id); };
     mapCanvas.saveDocument = [this]() { return saveDocument(); };
+    speakCreateDialog.docs = &document;
+    speakCreateDialog.onCreated =
+        [this](const SpeakConversationCreatePayload& payload) {
+            finishSpeakConversationCreate(payload);
+        };
     mapCanvas.sceneAuthoring.docs = &document;
     mapCanvas.sceneAuthoring.onCreated = [this](const std::string& id)
     {
@@ -316,6 +337,8 @@ void SceneEditorApp::syncModuleFonts()
     mapCanvas.sceneFloorConnect.uiFontBold = uiFontBold;
     preferences.uiFont = uiFont;
     preferences.uiFontBold = uiFontBold;
+    speakCreateDialog.uiFont = uiFont;
+    speakCreateDialog.uiFontBold = uiFontBold;
 }
 
 Font SceneEditorApp::textFont() const
@@ -427,6 +450,345 @@ void SceneEditorApp::selectSceneForEditor(const std::string& id)
             conversation.expanded.insert("scene:" + selectedSceneId);
             dialogFlow.migrateFromTreeSelection(
                 "scene:" + selectedSceneId, selectedSceneId);
+        }
+    }
+}
+
+bool SceneEditorApp::switchJsonTabInMemory(int tabIndex)
+{
+    if (tabIndex < 0 || tabIndex >= static_cast<int>(document.jsonTabs.size()))
+        return false;
+
+    const bool sameTab = (tabIndex == document.activeTabIndex);
+    document.activeTabIndex = tabIndex;
+    thumbnails.clear();
+
+    const std::string filename = document.activeTabFilename();
+    if (filename == "conversations.json")
+    {
+        // K15: first-load from disk only while still unloaded — never invent empty root.
+        if (!document.conversationsLoaded)
+        {
+            if (!document.loadConversationsDocument())
+                return false;
+            // Preserve dirty from scenes/items mutations; do not clear dirty.
+        }
+        if (!sameTab)
+            mapCanvas.listScroll = 0.0f;
+        conversation.rebuildConversationTree();
+        dialogWalkthrough.ensureConversationSceneSelected();
+        dialogWalkthrough.rebuildSteps();
+        if (!selectedSceneId.empty())
+        {
+            conversation.expanded.insert("scene:" + selectedSceneId);
+            dialogFlow.migrateFromTreeSelection(
+                "scene:" + selectedSceneId, selectedSceneId);
+        }
+        return true;
+    }
+
+    if (filename == "items.json")
+    {
+        if (!document.itemsLoaded)
+        {
+            if (!document.loadItemsDocument())
+            {
+                itemEditor.roots.clear();
+                return false;
+            }
+        }
+        // Keep scenes loaded for coherent switch-back; do not reload from disk.
+        if (!document.scenes.isLoaded())
+            document.loadScenesFile();
+        itemEditor.listScroll = 0.0f;
+        itemEditor.rebuildTree();
+        for (const ConversationTreeNode& root : itemEditor.roots)
+            itemEditor.expanded.insert(root.key);
+        return true;
+    }
+
+    if (filename == "scenes.json")
+    {
+        if (!document.scenes.isLoaded())
+        {
+            if (!document.loadScenesFile())
+                return false;
+        }
+        sceneGraph.ensureDefaultLayouts();
+        return true;
+    }
+
+    // Unknown tab: keep buffers; status via loadError for explicit reload path.
+    return true;
+}
+
+void SceneEditorApp::openCreateSpeakConversation(const std::string& sceneId)
+{
+    const std::string parentId = speakParentSceneId(sceneId);
+    if (parentId.empty() || !document.scenes.hasScene(parentId))
+    {
+        speakCreateStatus = "Select a scene that exists in scenes.json.";
+        return;
+    }
+    // K15 before modal opens so refuse/AlreadyHasPhases uses real root.
+    if (!document.conversationsLoaded)
+    {
+        if (!document.loadConversationsDocument())
+        {
+            speakCreateStatus = document.loadError.empty()
+                ? "Failed to load conversations.json."
+                : document.loadError;
+            return;
+        }
+    }
+    if (sceneHasSpeakPhases(document, parentId))
+    {
+        speakCreateStatus =
+            "Scene already has speakPhases — use Open Speak conversation.";
+        openExistingSpeakConversation(parentId);
+        return;
+    }
+    selectedSceneId = parentId;
+    speakCreateDialog.openDialog(parentId);
+}
+
+void SceneEditorApp::openExistingSpeakConversation(const std::string& sceneId)
+{
+    const std::string parentId = speakParentSceneId(sceneId);
+    if (parentId.empty())
+        return;
+
+    if (!document.conversationsLoaded)
+    {
+        if (!document.loadConversationsDocument())
+        {
+            speakCreateStatus = document.loadError.empty()
+                ? "Failed to load conversations.json."
+                : document.loadError;
+            return;
+        }
+    }
+
+    int conversationsIndex = -1;
+    for (size_t i = 0; i < document.jsonTabs.size(); ++i)
+    {
+        if (document.jsonTabs[i] == "conversations.json")
+        {
+            conversationsIndex = static_cast<int>(i);
+            break;
+        }
+    }
+    if (conversationsIndex < 0)
+    {
+        speakCreateStatus = "conversations.json tab not found.";
+        return;
+    }
+
+    selectedSceneId = parentId;
+    switchJsonTabInMemory(conversationsIndex);
+    conversation.rebuildConversationTree();
+    conversation.selectedKey = "scene:" + parentId;
+    conversation.expanded.insert("scene:" + parentId);
+    dialogFlow.clearGraph();
+    dialogFlow.migrateFromTreeSelection("scene:" + parentId, parentId);
+    speakCreateStatus = "Opened Speak conversation for " + parentId;
+}
+
+void SceneEditorApp::finishSpeakConversationCreate(
+    const SpeakConversationCreatePayload& payload)
+{
+    const std::string sceneId = payload.sceneId;
+    selectedSceneId = sceneId;
+    speakCreateStatus =
+        "Created Speak conversation for " + sceneId + " (unsaved)";
+
+    int conversationsIndex = -1;
+    for (size_t i = 0; i < document.jsonTabs.size(); ++i)
+    {
+        if (document.jsonTabs[i] == "conversations.json")
+        {
+            conversationsIndex = static_cast<int>(i);
+            break;
+        }
+    }
+    if (conversationsIndex >= 0)
+        switchJsonTabInMemory(conversationsIndex);
+
+    conversation.rebuildConversationTree();
+    conversation.selectedKey = "scene:" + sceneId;
+    conversation.expanded.insert("scene:" + sceneId);
+    dialogFlow.clearGraph();
+    dialogFlow.migrateFromTreeSelection("scene:" + sceneId, sceneId);
+
+    if (payload.openActorDialogAfter)
+    {
+        DialogFlowNode* introNode = nullptr;
+        for (DialogFlowNode& node : dialogFlow.nodes)
+        {
+            if (node.kind == DialogNodeKind::ActorDialog
+                && node.jsonPointer.find("/intro") != std::string::npos)
+            {
+                introNode = &node;
+                break;
+            }
+        }
+        if (introNode != nullptr)
+            actorDialogAuthoring.openForActorDialog(sceneId, introNode);
+    }
+}
+
+void SceneEditorApp::deleteSpeakConversationForScene(const std::string& sceneId)
+{
+    const std::string parentId = speakParentSceneId(sceneId);
+    if (parentId.empty())
+        return;
+
+    if (!document.conversationsLoaded)
+    {
+        if (!document.loadConversationsDocument())
+        {
+            speakCreateStatus = document.loadError.empty()
+                ? "Failed to load conversations.json."
+                : document.loadError;
+            return;
+        }
+    }
+
+    std::string err;
+    const SpeakConversationDeleteStatus st =
+        deleteSpeakConversation(document, parentId, true, err);
+    if (st != SpeakConversationDeleteStatus::Ok)
+    {
+        speakCreateStatus =
+            err.empty() ? speakConversationDeleteStatusMessage(st) : err;
+        return;
+    }
+
+    speakCreateStatus =
+        "Deleted Speak conversation for " + parentId + " (unsaved)";
+    conversation.rebuildConversationTree();
+    if (conversation.selectedKey.rfind("scene:" + parentId, 0) == 0
+        || conversation.selectedKey.find(":" + parentId + ":") != std::string::npos
+        || conversation.selectedKey.find("/" + parentId + "/") != std::string::npos)
+    {
+        conversation.selectedKey.clear();
+    }
+    dialogFlow.clearGraph();
+    if (document.isConversationsTab() && !selectedSceneId.empty())
+    {
+        dialogFlow.migrateFromTreeSelection(
+            "scene:" + selectedSceneId, selectedSceneId);
+    }
+}
+
+void SceneEditorApp::drawSpeakConversationCta(Rectangle listBounds)
+{
+    if (!document.isConversationsTab() || !document.conversationsLoaded)
+        return;
+    if (speakCreateDialog.blocksInput() || speakDeleteConfirmOpen)
+        return;
+    if (preferences.blocksInput() || apiKeysDialog.blocksInput()
+        || variableEditor.open || parchmentEditor.blocksInput()
+        || fightAuthoring.blocksInput() || actorDialogAuthoring.blocksInput()
+        || eventAuthoring.blocksInput())
+        return;
+
+    const Font font = textFont();
+    const Font bold = boldFont();
+    const std::string sceneId = selectedSceneId;
+    const bool hasScene = !sceneId.empty() && document.scenes.hasScene(sceneId);
+    const bool hasPhases = hasScene && sceneHasSpeakPhases(document, sceneId);
+    const bool missingOrEmpty =
+        hasScene && !hasPhases; // covers missing key + empty speakPhases
+
+    // Banner near bottom of left list (above status chrome).
+    const float bannerH = 72.0f;
+    const Rectangle banner = {
+        listBounds.x + 6.0f,
+        listBounds.y + listBounds.height - bannerH - 4.0f,
+        listBounds.width - 12.0f,
+        bannerH};
+
+    std::string line;
+    if (!hasScene)
+        line = "Select a scene (Scenes tab) to create Speak.";
+    else if (hasPhases)
+        line = sceneId + " — Speak conversation exists.";
+    else if (conversation.roots.empty())
+        line = "No scenes with speakPhases. Selected: " + sceneId;
+    else
+        line = sceneId + " has no Speak conversation.";
+
+    DrawRectangleRec(banner, Color{28, 26, 36, 230});
+    DrawRectangleLinesEx(banner, 1.0f, kPanelBorder);
+    drawWrappedText(
+        font,
+        line,
+        {banner.x + 8.0f, banner.y + 6.0f},
+        banner.width - 16.0f,
+        kFontTiny,
+        2.0f,
+        kTextMuted);
+
+    const float btnH = 26.0f;
+    const float btnY = banner.y + banner.height - btnH - 8.0f;
+    Rectangle createBtn = {banner.x + 8.0f, btnY, 150.0f, btnH};
+    Rectangle deleteBtn = {
+        banner.x + 8.0f + 158.0f, btnY, 150.0f, btnH};
+
+    const bool canCreate = missingOrEmpty;
+    const bool canDelete = hasPhases || (hasScene && sceneHasConversationEntry(document, sceneId));
+
+    if (canCreate)
+    {
+        const bool hover = CheckCollisionPointRec(GetMousePosition(), createBtn);
+        DrawRectangleRec(createBtn, hover ? kPanelAccent : Color{48, 44, 58, 255});
+        DrawRectangleLinesEx(createBtn, 1.0f, kPanelBorder);
+        DrawTextEx(
+            bold,
+            "Create Speak...",
+            {createBtn.x + 12.0f, createBtn.y + 5.0f},
+            kFontTiny,
+            1.0f,
+            kTextPrimary);
+    }
+    if (canDelete)
+    {
+        if (!canCreate)
+            deleteBtn.x = banner.x + 8.0f;
+        const bool hover = CheckCollisionPointRec(GetMousePosition(), deleteBtn);
+        DrawRectangleRec(deleteBtn, hover ? Color{90, 40, 48, 255} : Color{48, 44, 58, 255});
+        DrawRectangleLinesEx(deleteBtn, 1.0f, kPanelBorder);
+        DrawTextEx(
+            bold,
+            "Delete Speak...",
+            {deleteBtn.x + 12.0f, deleteBtn.y + 5.0f},
+            kFontTiny,
+            1.0f,
+            kTextPrimary);
+    }
+
+    if (!speakCreateStatus.empty())
+    {
+        DrawTextEx(
+            font,
+            speakCreateStatus.c_str(),
+            {banner.x + 8.0f, banner.y + 28.0f},
+            kFontTiny,
+            1.0f,
+            kTextMuted);
+    }
+
+    if (editorMousePressed(MOUSE_BUTTON_LEFT))
+    {
+        const Vector2 mouse = GetMousePosition();
+        if (canCreate && CheckCollisionPointRec(mouse, createBtn))
+            openCreateSpeakConversation(sceneId);
+        else if (canDelete && CheckCollisionPointRec(mouse, deleteBtn))
+        {
+            speakDeletePendingSceneId = sceneId;
+            speakDeleteConfirmOpen = true;
+            speakDeleteWaitMouseRelease = true;
         }
     }
 }
@@ -568,6 +930,8 @@ void SceneEditorApp::handleShortcuts()
         || fightAuthoring.blocksInput()
         || actorDialogAuthoring.blocksInput()
         || eventAuthoring.blocksInput()
+        || speakCreateDialog.blocksInput()
+        || speakDeleteConfirmOpen
         || mapCanvas.sceneUseTransition.blocksInput()
         || mapCanvas.sceneFloorConnect.blocksInput()
         || mapCanvas.confirmMode != SceneMapCanvas::ConfirmMode::None
@@ -649,9 +1013,36 @@ void SceneEditorApp::update()
 
     handleShortcuts();
 
+    mapCanvas.externalModalBlocksInput =
+        speakCreateDialog.blocksInput() || speakDeleteConfirmOpen;
+
     if (apiKeysDialog.blocksInput())
     {
         apiKeysDialog.handleInput(screenWidth, screenHeight);
+        return;
+    }
+
+    if (speakDeleteConfirmOpen)
+    {
+        if (speakDeleteWaitMouseRelease)
+        {
+            if (!editorMouseDown(MOUSE_BUTTON_LEFT))
+                speakDeleteWaitMouseRelease = false;
+            return;
+        }
+        if (IsKeyPressed(KEY_ESCAPE))
+        {
+            speakDeleteConfirmOpen = false;
+            speakDeletePendingSceneId.clear();
+            return;
+        }
+        // Click handling happens in draw() confirm overlay (same pattern as map confirms).
+        return;
+    }
+
+    if (speakCreateDialog.blocksInput())
+    {
+        speakCreateDialog.handleInput(screenWidth, screenHeight);
         return;
     }
 
@@ -695,6 +1086,8 @@ void SceneEditorApp::update()
         && !fightAuthoring.blocksInput()
         && !actorDialogAuthoring.blocksInput()
         && !eventAuthoring.blocksInput()
+        && !speakCreateDialog.blocksInput()
+        && !speakDeleteConfirmOpen
         && !mapCanvas.sceneUseTransition.blocksInput()
         && !mapCanvas.sceneFloorConnect.blocksInput()
         && mapCanvas.confirmMode == SceneMapCanvas::ConfirmMode::None
@@ -707,7 +1100,12 @@ void SceneEditorApp::update()
             left.width,
             left.height - kTabHeight - 8.0f};
         if (document.isConversationsTab())
-            conversation.handleConversationTreeInput(listBounds);
+        {
+            // Reserve bottom strip for Create/Delete Speak CTA.
+            Rectangle treeBounds = listBounds;
+            treeBounds.height = std::max(40.0f, listBounds.height - 76.0f);
+            conversation.handleConversationTreeInput(treeBounds);
+        }
         else if (document.isItemsTab())
             itemEditor.handleInput(listBounds);
     }
@@ -832,7 +1230,72 @@ void SceneEditorApp::update()
 
 void SceneEditorApp::draw()
 {
-    // Parchment is drawn inside mapCanvas.draw() before EndDrawing().
+    mapCanvas.externalModalBlocksInput =
+        speakCreateDialog.blocksInput() || speakDeleteConfirmOpen;
+
+    // Modals that must paint inside mapCanvas BeginDrawing/EndDrawing are
+    // drawn via mapCanvas callbacks / late hooks below through mapCanvas.draw.
+    mapCanvas.drawSpeakCreateOverlay = [this](int screenW, int screenH) {
+        if (speakCreateDialog.blocksInput())
+            speakCreateDialog.draw(screenW, screenH);
+        if (!speakDeleteConfirmOpen)
+            return;
+
+        const Font font = textFont();
+        const Font bold = boldFont();
+        DrawRectangle(0, 0, screenW, screenH, kModalOverlay);
+        const float dlgW = 420.0f;
+        const float dlgH = 160.0f;
+        const Rectangle dlg = {
+            (static_cast<float>(screenW) - dlgW) * 0.5f,
+            (static_cast<float>(screenH) - dlgH) * 0.5f,
+            dlgW,
+            dlgH};
+        DrawRectangleRounded(dlg, 0.03f, 8, kModalFill);
+        DrawRectangleLinesEx(dlg, 2.0f, kPanelBorder);
+        DrawTextEx(
+            bold,
+            "Delete Speak conversation?",
+            {dlg.x + 20.0f, dlg.y + 18.0f},
+            kFontHeading,
+            1.0f,
+            kTextPrimary);
+        const std::string msg =
+            "Remove conversations.json entry for \"" + speakDeletePendingSceneId
+            + "\"? (unsaved until Save / quit)";
+        drawWrappedText(
+            font, msg, {dlg.x + 20.0f, dlg.y + 52.0f}, dlgW - 40.0f, kFontBody, 4.0f,
+            kTextMuted);
+
+        const Rectangle yesBtn = {dlg.x + dlgW - 240.0f, dlg.y + dlgH - 48.0f, 100.0f, 32.0f};
+        const Rectangle noBtn = {dlg.x + dlgW - 120.0f, dlg.y + dlgH - 48.0f, 100.0f, 32.0f};
+        DrawRectangleRec(yesBtn, Color{140, 50, 60, 255});
+        DrawRectangleLinesEx(yesBtn, 1.0f, kPanelBorder);
+        DrawTextEx(bold, "Delete", {yesBtn.x + 24.0f, yesBtn.y + 7.0f}, kFontBody, 1.0f, kTextPrimary);
+        DrawRectangleRec(noBtn, Color{36, 32, 44, 255});
+        DrawRectangleLinesEx(noBtn, 1.0f, kPanelBorder);
+        DrawTextEx(font, "Cancel", {noBtn.x + 24.0f, noBtn.y + 7.0f}, kFontBody, 1.0f, kTextPrimary);
+
+        if (speakDeleteWaitMouseRelease)
+            return;
+        if (editorMousePressed(MOUSE_BUTTON_LEFT))
+        {
+            const Vector2 mouse = GetMousePosition();
+            if (CheckCollisionPointRec(mouse, yesBtn))
+            {
+                const std::string id = speakDeletePendingSceneId;
+                speakDeleteConfirmOpen = false;
+                speakDeletePendingSceneId.clear();
+                deleteSpeakConversationForScene(id);
+            }
+            else if (CheckCollisionPointRec(mouse, noBtn)
+                     || !CheckCollisionPointRec(mouse, dlg))
+            {
+                speakDeleteConfirmOpen = false;
+                speakDeletePendingSceneId.clear();
+            }
+        }
+    };
     mapCanvas.draw();
 }
 
